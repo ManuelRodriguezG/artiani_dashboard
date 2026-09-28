@@ -27,6 +27,10 @@ $ok = empty($dashboard["error"])
   && isset($depurar["visitas_por_dia"])
   && isset($depurar["sesiones_recientes"])
   && isset($depurar["canales"])
+  && isset($depurar["fuentes_trafico"])
+  && isset($depurar["medios_trafico"])
+  && isset($depurar["campanias_trafico"])
+  && isset($depurar["click_ids_detectados"])
   && isset($depurar["conversiones_por_tipo"])
   && isset($depurar["facturacion_eventos"])
   && isset($depurar["abandono_por_etapa"])
@@ -52,6 +56,10 @@ echo json_encode(array(
   "vista_claves" => array(
     "sesiones_recientes" => is_array($depurar["sesiones_recientes"] ?? null),
     "canales" => is_array($depurar["canales"] ?? null),
+    "fuentes_trafico" => is_array($depurar["fuentes_trafico"] ?? null),
+    "medios_trafico" => is_array($depurar["medios_trafico"] ?? null),
+    "campanias_trafico" => is_array($depurar["campanias_trafico"] ?? null),
+    "click_ids_detectados" => is_array($depurar["click_ids_detectados"] ?? null),
     "conversiones_por_tipo" => is_array($depurar["conversiones_por_tipo"] ?? null),
     "facturacion_eventos" => is_array($depurar["facturacion_eventos"] ?? null),
     "abandono_por_etapa" => is_array($depurar["abandono_por_etapa"] ?? null),

@@ -604,6 +604,25 @@ class Catalogoerp extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-27
+   * Proposito: aplicar la configuracion visual del editor a todos los catalogos comerciales activos.
+   * Impacto: Catalogo ERP/Comercial; escritura masiva controlada en columnas de presentacion, sin tocar items ni precios.
+   * Contrato: POST protegido por `catalogo.editar`; requiere confirmacion en UI antes de llamar este endpoint.
+   */
+  public function catalogos_comerciales_configuracion_aplicar_todos() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->aplicarConfiguracionCatalogosComerciales($_POST, $this->usuarioActualId());
+    Sesionseguridad::registrarAuditoria("catalogo", "aplicar_configuracion_catalogos_comerciales", array(
+      "entidad" => "erp_catalogo_comercial_catalogos",
+      "entidad_id" => null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-09-08
    * Proposito: cargar imagenes visuales para portada/logo de catalogos comerciales sin pedir rutas manuales.
    * Impacto: Catalogo ERP/Comercial; guarda archivo publico y devuelve la ruta para persistirla en el catalogo.

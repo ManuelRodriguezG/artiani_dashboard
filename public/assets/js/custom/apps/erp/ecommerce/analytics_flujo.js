@@ -76,11 +76,14 @@
     }
     node.innerHTML = items.map(function (item) {
       var utm = [item.utm_source, item.utm_medium, item.utm_campaign].filter(Boolean).join(" / ");
+      var atribucion = item.atribucion || {};
+      var fuente = etiquetaFuenteTrafico(atribucion.fuente_detectada || "");
+      var medio = etiquetaMedioTrafico(atribucion.medio_detectado || "");
       var active = item.session_key === selectedKey ? " is-active" : "";
       return '<button class="ecom-flow-session' + active + '" type="button" data-session-key="' + escapeHtml(item.session_key || "") + '">' +
         '<div class="d-flex justify-content-between gap-3"><div><div class="fw-bold">' + escapeHtml(item.session_key || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.dispositivo_aproximado || item.canal || "-") + '</div></div><span class="badge badge-light-primary">' + escapeHtml(Number(item.eventos_rango || 0) + Number(item.busquedas_rango || 0)) + '</span></div>' +
         '<div class="ecom-flow-route fw-semibold mt-2">' + escapeHtml(item.ultimo_ruta || item.primer_ruta || "-") + '</div>' +
-        '<div class="text-muted fs-8 ecom-flow-route">' + escapeHtml(utm || item.referrer || "-") + '</div>' +
+        '<div class="text-muted fs-8 ecom-flow-route">' + escapeHtml([fuente, medio].filter(Boolean).join(" / ") || utm || item.referrer || "-") + '</div>' +
         '<div class="text-muted fs-8 mt-2">' + escapeHtml(item.fecha_ultima_actividad || item.fecha_inicio || "-") + '</div>' +
       '</button>';
     }).join("");
@@ -89,7 +92,10 @@
   function renderSesionSeleccionada(sesion, resumen, timeline) {
     setText("ecom_flow_session_titulo", sesion.session_key ? "Sesion " + sesion.session_key : "Sesion");
     var utm = [sesion.utm_source, sesion.utm_medium, sesion.utm_campaign].filter(Boolean).join(" / ");
-    setText("ecom_flow_session_subtitulo", [sesion.canal || "", sesion.dispositivo_aproximado || "", utm || sesion.referrer || ""].filter(Boolean).join(" | ") || "-");
+    var atribucion = sesion.atribucion || {};
+    var fuente = etiquetaFuenteTrafico(atribucion.fuente_detectada || "");
+    var medio = etiquetaMedioTrafico(atribucion.medio_detectado || "");
+    setText("ecom_flow_session_subtitulo", [sesion.canal || "", sesion.dispositivo_aproximado || "", [fuente, medio].filter(Boolean).join(" / ") || utm || sesion.referrer || ""].filter(Boolean).join(" | ") || "-");
     setText("ecom_flow_kpi_eventos", resumen.eventos_total || 0);
     setText("ecom_flow_kpi_busquedas", resumen.busquedas_total || 0);
     setText("ecom_flow_kpi_conversiones", resumen.conversiones_total || 0);
@@ -122,6 +128,10 @@
       return "Busqueda: " + (item.query || "-") + " | resultados: " + Number(item.resultados_total || 0) + (item.sin_resultados ? " | sin resultados" : "");
     }
     var datos = [];
+    var atribucion = item.atribucion || {};
+    var fuente = etiquetaFuenteTrafico(atribucion.fuente_detectada || "");
+    var medio = etiquetaMedioTrafico(atribucion.medio_detectado || "");
+    if (fuente && fuente !== "Directo") datos.push("fuente: " + fuente + (medio ? " / " + medio : ""));
     if (item.slug) datos.push("slug: " + item.slug);
     if (item.id_publicacion) datos.push("pub: " + item.id_publicacion);
     if (item.id_sku) datos.push("sku: " + item.id_sku);
@@ -143,6 +153,31 @@
       facturacion_view: "bi-receipt",
       facturacion_submit: "bi-send"
     }[item.tipo] || "bi-dot";
+  }
+
+  function etiquetaFuenteTrafico(fuente) {
+    return {
+      meta: "Meta / Facebook",
+      google_ads: "Google Ads",
+      google_organico: "Google organico",
+      bing_ads: "Bing Ads",
+      bing_organico: "Bing organico",
+      tiktok: "TikTok",
+      directo: "Directo"
+    }[fuente] || fuente || "";
+  }
+
+  function etiquetaMedioTrafico(medio) {
+    return {
+      paid_search: "Busqueda pagada",
+      organic_search: "Busqueda organica",
+      paid_social: "Social pagado",
+      social: "Social",
+      referral: "Referencia",
+      direct: "Directo",
+      directo: "Directo",
+      email: "Email"
+    }[medio] || medio || "";
   }
 
   function on(id, eventName, callback) {

@@ -120,6 +120,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/analytics_flujo.js?v=20260905-flow1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/analytics_flujo.js?v=20260927-flow-atribucion"></script>
 </body>
 </html>

@@ -299,6 +299,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-27
+   * Proposito: resolver una URL publica entrante contra su canonical SEO sin escribir BD.
+   * Impacto: Frontend ecommerce; permite aplicar 301 antes de renderizar variantes con tracking, mayusculas o segmentos extra.
+   * Contrato: GET publico read-only; no crea redirecciones persistentes ni toca catalogo.
+   */
+  public function seo_resolver_url() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoResolverUrlPublica($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: exponer filtros publicos disponibles para catalogo vivo.
    * Impacto: Ecommerce publico; permite UI por mascota/necesidad/marca/categoria.

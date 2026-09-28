@@ -209,6 +209,7 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                             <input class="form-control form-control-solid" type="file" id="cc_portada_imagen_archivo" accept="image/jpeg,image/png,image/webp,image/gif">
                                             <button class="btn btn-light-primary" type="button" id="cc_portada_imagen_subir"><i class="bi bi-cloud-arrow-up"></i> Cargar portada</button>
                                         </div>
+                                        <div class="form-text" id="cc_portada_medidas">Portada carta/exportacion: 2550 x 3300 px.</div>
                                     </div>
                                     <div class="w-250px">
                                         <input class="form-control form-control-solid form-control-sm" id="cc_logo_url" maxlength="255" placeholder="Ruta logo /uploads/...">
@@ -354,6 +355,7 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                     </div>
                                     <div class="cc-preview-toolbar d-flex align-items-center gap-3 flex-wrap">
                                         <select class="form-select form-select-sm form-select-solid w-170px" id="cc_plantilla">
+                                            <option value="letter" selected>Carta vertical</option>
                                             <option value="square">Cuadrada redes</option>
                                             <option value="story">Vertical redes</option>
                                             <option value="compact">Compacta</option>
@@ -402,6 +404,9 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                         </label>
                                         <button class="btn btn-light-primary" type="button" id="cc_previsualizar_paginas"><i class="bi bi-layout-three-columns"></i> Preview paginas</button>
                                         <button class="btn btn-light-success" type="button" id="cc_exportar_png"><i class="bi bi-file-earmark-image"></i> Exportar paginas PNG</button>
+                                        <?php if (!$ccSoloVista): ?>
+                                            <button class="btn btn-light-warning" type="button" id="cc_aplicar_config_todos"><i class="bi bi-brush"></i> Aplicar config. a todos</button>
+                                        <?php endif; ?>
                                         <button class="btn btn-light-primary" type="button" id="cc_modo_captura"><i class="bi bi-aspect-ratio"></i> Modo captura</button>
                                         <button class="btn btn-light-dark" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
                                     </div>
@@ -436,37 +441,45 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                     <div>
                                         <label class="form-label fw-semibold fs-8">Titulo</label>
                                         <select class="form-select form-select-sm form-select-solid" id="cc_tam_titulo">
-                                            <option value="21">21 px</option>
-                                            <option value="23" selected>23 px</option>
-                                            <option value="26">26 px</option>
+                                            <option value="23">23 px</option>
                                             <option value="30">30 px</option>
+                                            <option value="36" selected>36 px</option>
+                                            <option value="44">44 px</option>
+                                            <option value="52">52 px</option>
+                                            <option value="64">64 px</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label class="form-label fw-semibold fs-8">Producto</label>
                                         <select class="form-select form-select-sm form-select-solid" id="cc_tam_producto">
-                                            <option value="10">10 px</option>
-                                            <option value="11" selected>11 px</option>
                                             <option value="13">13 px</option>
-                                            <option value="15">15 px</option>
+                                            <option value="16">16 px</option>
+                                            <option value="18" selected>18 px</option>
+                                            <option value="22">22 px</option>
+                                            <option value="26">26 px</option>
+                                            <option value="30">30 px</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label class="form-label fw-semibold fs-8">Datos</label>
                                         <select class="form-select form-select-sm form-select-solid" id="cc_tam_meta">
-                                            <option value="8">8 px</option>
-                                            <option value="9" selected>9 px</option>
                                             <option value="10">10 px</option>
                                             <option value="12">12 px</option>
+                                            <option value="14" selected>14 px</option>
+                                            <option value="16">16 px</option>
+                                            <option value="18">18 px</option>
+                                            <option value="22">22 px</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label class="form-label fw-semibold fs-8">Precio</label>
                                         <select class="form-select form-select-sm form-select-solid" id="cc_tam_precio">
-                                            <option value="12">12 px</option>
-                                            <option value="13" selected>13 px</option>
                                             <option value="15">15 px</option>
                                             <option value="18">18 px</option>
+                                            <option value="22" selected>22 px</option>
+                                            <option value="26">26 px</option>
+                                            <option value="30">30 px</option>
+                                            <option value="36">36 px</option>
                                         </select>
                                     </div>
                                 </div>
@@ -489,6 +502,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260908-portada-upload-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260927-carta-portada-1"></script>
 </body>
 </html>

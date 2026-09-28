@@ -110,6 +110,10 @@
                             <div class="row g-5 mb-5">
                                 <div class="col-xl-8"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Sesiones recientes</h3><div id="ecom_an_sesiones"></div></div></div>
                                 <div class="col-xl-4"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Canales</h3><div id="ecom_an_canales"></div></div></div>
+                                <div class="col-lg-3"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Fuentes de trafico</h3><div id="ecom_an_fuentes"></div></div></div>
+                                <div class="col-lg-3"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Medios</h3><div id="ecom_an_medios"></div></div></div>
+                                <div class="col-lg-3"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Campanias</h3><div id="ecom_an_campanias"></div></div></div>
+                                <div class="col-lg-3"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Click IDs detectados</h3><div id="ecom_an_click_ids"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">URLs mas vistas</h3><div id="ecom_an_urls"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Productos mas vistos</h3><div id="ecom_an_productos_vistos"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Agregados a cotizacion</h3><div id="ecom_an_productos_cotizacion"></div></div></div>

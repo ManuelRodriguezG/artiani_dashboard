@@ -111,10 +111,10 @@
             colorProducto: valorColor("cc_color_producto", "#181c32"),
             colorMeta: valorColor("cc_color_meta", "#5e6278"),
             colorPrecio: valorColor("cc_color_precio", "#0f7a5f"),
-            tamTitulo: valorEntero("cc_tam_titulo", [21, 23, 26, 30], 23),
-            tamProducto: valorEntero("cc_tam_producto", [10, 11, 13, 15], 11),
-            tamMeta: valorEntero("cc_tam_meta", [8, 9, 10, 12], 9),
-            tamPrecio: valorEntero("cc_tam_precio", [12, 13, 15, 18], 13)
+            tamTitulo: valorEntero("cc_tam_titulo", [23, 30, 36, 44, 52, 64], 36),
+            tamProducto: valorEntero("cc_tam_producto", [13, 16, 18, 22, 26, 30], 18),
+            tamMeta: valorEntero("cc_tam_meta", [10, 12, 14, 16, 18, 22], 14),
+            tamPrecio: valorEntero("cc_tam_precio", [15, 18, 22, 26, 30, 36], 22)
         };
     }
 
@@ -137,12 +137,12 @@
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-24
      * Proposito: normalizar la plantilla visual elegida para la previsualizacion comercial.
-     * Impacto: UI Catalogos comerciales; permite alternar formatos de redes y catalogo compacto sin persistir configuracion.
-     * Contrato: solo acepta plantillas conocidas y usa `square` como formato seguro por defecto.
+     * Impacto: UI Catalogos comerciales; permite alternar carta, formatos de redes y catalogo compacto.
+     * Contrato: solo acepta plantillas conocidas y usa `letter` como formato formal por defecto.
      */
     function plantillaActual() {
-        const valor = $("cc_plantilla")?.value || "square";
-        return ["square", "story", "compact"].includes(valor) ? valor : "square";
+        const valor = $("cc_plantilla")?.value || "letter";
+        return ["letter", "square", "story", "compact"].includes(valor) ? valor : "letter";
     }
 
     /**
@@ -164,8 +164,8 @@
     }
 
     function plantillaBase(valor) {
-        const base = String(valor || "square").split("_")[0];
-        return ["square", "story", "compact"].includes(base) ? base : "square";
+        const base = String(valor || "letter").split("_")[0];
+        return ["letter", "square", "story", "compact"].includes(base) ? base : "letter";
     }
 
     function columnasDesdePlantilla(valor) {
@@ -186,6 +186,47 @@
         const columnas = columnasExportacionActual();
         const filas = filasExportacionActual();
         return filas > 0 ? `${base}_${columnas}x${filas}` : `${base}_${columnas}`;
+    }
+
+    function medidasFormatoActual() {
+        const plantilla = plantillaActual();
+        if (plantilla === "letter") {
+            return {
+                nombre: "Carta vertical",
+                lienzo: "2550 x 3300 px",
+                alta: "2550 x 3300 px",
+                nota: "proporcion 8.5 x 11"
+            };
+        }
+        if (plantilla === "story") {
+            return {
+                nombre: "Vertical redes",
+                lienzo: "1080 x 1600 px",
+                alta: "1080 x 1920 px si disenas historia completa",
+                nota: "formato vertical digital"
+            };
+        }
+        if (plantilla === "compact") {
+            return {
+                nombre: "Compacta",
+                lienzo: "1080 x 1600 px",
+                alta: "misma proporcion",
+                nota: "listado vertical"
+            };
+        }
+        return {
+            nombre: "Cuadrada redes",
+            lienzo: "1080 x 1600 px",
+            alta: "1080 x 1080 px solo si usaras portada cuadrada fuera del catalogo",
+            nota: "formato digital"
+        };
+    }
+
+    function actualizarAyudaFormatoPortada() {
+        const ayuda = $("cc_portada_medidas");
+        if (!ayuda) return;
+        const medidas = medidasFormatoActual();
+        ayuda.textContent = `${medidas.nombre}: portada ${medidas.lienzo}. Alta calidad: ${medidas.alta}; ${medidas.nota}.`;
     }
 
     function badgeAlerta(alerta) {
@@ -361,7 +402,7 @@
 
     function aplicarOpciones(datos) {
         const opciones = datos || {};
-        const plantillaPersistida = opciones.plantilla || opciones.plantillaPersistente || "square";
+        const plantillaPersistida = opciones.plantilla || opciones.plantillaPersistente || "letter";
         if ($("cc_plantilla")) $("cc_plantilla").value = plantillaBase(plantillaPersistida);
         if ($("cc_columnas_exportacion")) $("cc_columnas_exportacion").value = String(opciones.columnasExportacion || columnasDesdePlantilla(plantillaPersistida));
         const filasPersistidas = opciones.filasExportacion || filasDesdePlantilla(plantillaPersistida);
@@ -379,11 +420,12 @@
         if ($("cc_color_producto")) $("cc_color_producto").value = /^#[0-9a-f]{6}$/i.test(estilo.colorProducto || "") ? estilo.colorProducto : "#181c32";
         if ($("cc_color_meta")) $("cc_color_meta").value = /^#[0-9a-f]{6}$/i.test(estilo.colorMeta || "") ? estilo.colorMeta : "#5e6278";
         if ($("cc_color_precio")) $("cc_color_precio").value = /^#[0-9a-f]{6}$/i.test(estilo.colorPrecio || "") ? estilo.colorPrecio : "#0f7a5f";
-        if ($("cc_tam_titulo")) $("cc_tam_titulo").value = String(estilo.tamTitulo || 23);
-        if ($("cc_tam_producto")) $("cc_tam_producto").value = String(estilo.tamProducto || 11);
-        if ($("cc_tam_meta")) $("cc_tam_meta").value = String(estilo.tamMeta || 9);
-        if ($("cc_tam_precio")) $("cc_tam_precio").value = String(estilo.tamPrecio || 13);
+        if ($("cc_tam_titulo")) $("cc_tam_titulo").value = String(estilo.tamTitulo || 36);
+        if ($("cc_tam_producto")) $("cc_tam_producto").value = String(estilo.tamProducto || 18);
+        if ($("cc_tam_meta")) $("cc_tam_meta").value = String(estilo.tamMeta || 14);
+        if ($("cc_tam_precio")) $("cc_tam_precio").value = String(estilo.tamPrecio || 22);
         aplicarEstiloVisual();
+        actualizarAyudaFormatoPortada();
     }
 
     /**
@@ -1116,6 +1158,46 @@
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-27
+     * Proposito: aplicar la configuracion visual actual a todos los catalogos comerciales activos.
+     * Impacto: Catalogos comerciales; facilita estandarizar formato carta, fuentes, colores y densidad sin tocar contenido.
+     * Contrato: confirma antes de llamar endpoint masivo; no envia material, items, portada, logo ni contacto.
+     */
+    async function aplicarConfiguracionTodosCatalogos() {
+        const ejecutar = async () => {
+            setEstado("Aplicando configuracion", "warning");
+            guardarOpcionesLocal();
+            const json = await apiPost("/catalogoerp/catalogos_comerciales_configuracion_aplicar_todos", {
+                opciones: JSON.stringify(opcionesActuales())
+            });
+            if (json.error) throw new Error(json.mensaje || "No se pudo aplicar la configuracion");
+            await cargarCatalogosGuardados();
+            const total = json.depurar && json.depurar.catalogos_actualizados ? Number(json.depurar.catalogos_actualizados) : 0;
+            setEstado(`Configuracion aplicada (${total})`, "success");
+            if (window.Swal) {
+                await Swal.fire("Configuracion aplicada", `Se actualizaron ${total} catalogos activos.`, "success");
+            }
+        };
+        if (!window.Swal) {
+            if (confirm("Se aplicara solo la configuracion visual a todos los catalogos activos. No cambia productos, portada, logo ni textos. Continuar?")) {
+                await ejecutar();
+            }
+            return;
+        }
+        const resultado = await Swal.fire({
+            title: "Aplicar configuracion a todos",
+            text: "Se actualizaran formato, columnas/filas, colores, tamanos, campos visibles y agrupacion de variantes en todos los catalogos activos. No cambia productos, portada, logo, contacto ni titulos.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Aplicar a todos",
+            cancelButtonText: "Cancelar"
+        });
+        if (resultado.isConfirmed) {
+            await ejecutar();
+        }
+    }
+
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-09-08
      * Proposito: cargar portada/logo desde el editor y rellenar la ruta publica automaticamente.
      * Impacto: Catalogos comerciales; evita captura manual de URLs y mantiene los archivos fuera de imagenes de producto.
@@ -1710,23 +1792,25 @@
 
     /*
      * IA: Codex GPT-5 | Fecha: 2026-08-02
-     * Proposito: definir paginas PNG densas para catalogos comerciales compartibles por redes.
+     * Proposito: definir paginas PNG densas para catalogos comerciales compartibles por redes o carta digital.
      * Impacto: solo cambia distribucion visual de exportacion; no modifica datos, precios ni persistencia.
-     * Contrato: mantiene lienzo vertical 1080x1600; prueba visual con 5 columnas, 4 filas con portada y 5 filas despues.
+     * Contrato: `letter` dibuja en 1275x1650 logicos y exporta 2550x3300 px; redes conserva 1080x1600 px.
      */
     function layoutPaginaCatalogo(plantilla) {
-        const width = 1080;
-        const height = 1600;
+        const esCarta = plantilla === "letter";
+        const width = esCarta ? 1275 : 1080;
+        const height = esCarta ? 1650 : 1600;
+        const pixelRatio = esCarta ? 2 : 1;
         const margen = 36;
         const gap = 12;
         if (plantilla === "compact") {
-            return { width, height, margen, gap, columnas: 1, cardW: width - margen * 2, cardH: 155, headerH: 76, tituloH: 52, portadaH: 120 };
+            return { width, height, pixelRatio, margen, gap, columnas: 1, cardW: width - margen * 2, cardH: 155, headerH: 76, tituloH: 52, portadaH: 120 };
         }
         const columnas = columnasExportacionActual();
         const filasDeseadas = filasExportacionActual();
-        const altoPorColumnas = { 2: 470, 3: 360, 4: 305, 5: 270 };
+        const altoPorColumnas = esCarta ? { 2: 480, 3: 360, 4: 300, 5: 260 } : { 2: 470, 3: 360, 4: 305, 5: 270 };
         const cardW = Math.floor((width - margen * 2 - gap * (columnas - 1)) / columnas);
-        return { width, height, margen, gap, columnas, filasDeseadas, cardW, cardH: altoPorColumnas[columnas] || 360, headerH: 76, tituloH: 52, portadaH: 120 };
+        return { width, height, pixelRatio, margen, gap, columnas, filasDeseadas, cardW, cardH: altoPorColumnas[columnas] || 360, headerH: 76, tituloH: 52, portadaH: 120 };
     }
 
     function altoDisponibleItems(layout, incluirPortada) {
@@ -1872,9 +1956,13 @@
 
     async function dibujarPaginaCatalogoCanvas(paginaDatos, numeroPagina, totalPaginas, layout, material, opciones) {
         const canvas = document.createElement("canvas");
-        canvas.width = layout.width;
-        canvas.height = layout.height;
+        const pixelRatio = layout.pixelRatio || 1;
+        canvas.width = Math.round(layout.width * pixelRatio);
+        canvas.height = Math.round(layout.height * pixelRatio);
+        canvas.style.width = `${layout.width}px`;
+        canvas.style.height = `${layout.height}px`;
         const ctx = canvas.getContext("2d");
+        if (pixelRatio !== 1) ctx.scale(pixelRatio, pixelRatio);
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, layout.width, layout.height);
         let y = layout.margen;
@@ -2010,6 +2098,9 @@
         $("cc_exportar_png")?.addEventListener("click", () => {
             exportarPreviewPngCanvas().catch(mostrarError);
         });
+        $("cc_aplicar_config_todos")?.addEventListener("click", () => {
+            aplicarConfiguracionTodosCatalogos().catch(mostrarError);
+        });
         $("cc_modo_captura")?.addEventListener("click", alternarModoCaptura);
         $("cc_copiar_listado")?.addEventListener("click", () => {
             copiarListado()
@@ -2101,6 +2192,7 @@
         });
         ["cc_mostrar_precio", "cc_mostrar_marca", "cc_mostrar_categoria", "cc_mostrar_presentacion", "cc_mostrar_sku", "cc_mostrar_disponibilidad", "cc_agrupar_variantes", "cc_plantilla", "cc_columnas_exportacion", "cc_filas_exportacion", "cc_fuente_visual", "cc_tam_titulo", "cc_tam_producto", "cc_tam_meta", "cc_tam_precio", "cc_portada_tipo"].forEach((id) => {
             $(id)?.addEventListener("change", () => {
+                if (id === "cc_plantilla") actualizarAyudaFormatoPortada();
                 renderSeleccion();
                 guardarOpcionesLocal();
                 limpiarPreviewPaginasExportacion();

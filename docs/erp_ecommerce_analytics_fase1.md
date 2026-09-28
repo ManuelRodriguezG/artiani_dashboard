@@ -22,6 +22,7 @@ POST /ecommercePublico/analytics_conversion
 
 - No guardar datos personales en analytics.
 - No guardar nombre, telefono, correo, RFC, razon social, direccion ni datos fiscales.
+- No guardar valores crudos de click IDs publicitarios (`fbclid`, `gclid`, `gbraid`, `wbraid`, `msclkid`, `ttclid`); solo se guarda/deduce el tipo de senal.
 - Usar `session_id_hash` derivado de `session_id` anonimo.
 - No guardar ni mostrar stock exacto.
 - No crear checkout ni pagos.
@@ -141,6 +142,33 @@ http://panel.com.local/assets/js/custom/apps/ecommerce/analytics-tracker-publico
 ```
 
 El SDK genera `session_id` en `localStorage`, agrega canal/ruta/UTM/dispositivo, filtra claves prohibidas y envia a los endpoints publicos de analytics. La validacion definitiva sigue estando en backend.
+
+## Atribucion de trafico 2026-09-27
+
+El backend detecta fuente y medio de forma anonima a partir de:
+
+- parametros de URL: `fbclid`, `gclid`, `gbraid`, `wbraid`, `msclkid`, `ttclid`;
+- `utm_source`, `utm_medium`, `utm_campaign`;
+- host de `referrer`.
+
+Reglas iniciales:
+
+- `fbclid`, `facebook`, `fb`, `meta`, `instagram` o referrer de Facebook/Instagram => `fuente_detectada=meta`;
+- `gclid`, `gbraid`, `wbraid` => `fuente_detectada=google_ads`;
+- referrer de Google sin click ID ni medio pagado => `fuente_detectada=google_organico`;
+- `msclkid` => `bing_ads`;
+- `ttclid` => `tiktok`;
+- sin referrer ni UTM => `directo`;
+- UTM desconocido conserva `utm_source` como fuente para revisar campanias nuevas.
+
+El dashboard interno agrega:
+
+- fuentes de trafico;
+- medios;
+- campanias;
+- tipos de click ID detectados.
+
+Los valores crudos de click ID se redaccionan en `ruta`/`referrer` como `__redacted__` y se eliminan de `metadata`. El frontend externo no debe enviar esos valores como campos separados; basta con enviar `ruta`, `referrer` y `utm_*`.
 
 ## Persistencia publica activa
 

@@ -28,7 +28,7 @@ class EcommerceAnalyticsErp extends CRUD {
     $tablas = $this->tablasDisponibles($db);
     $persistenciaActiva = $this->trackingPublicoActivo($tablas);
     return $this->respuesta(false, "success", "Contrato Ecommerce / Analytics", array(
-      "version" => "fase2-analytics-ready-2026-08-30",
+      "version" => "fase2-analytics-atribucion-2026-09-27",
       "estado" => $persistenciaActiva ? "persistencia_publica_activa" : "preflight_listo_para_persistencia",
       "persistencia" => array(
         "activa" => $persistenciaActiva,
@@ -44,7 +44,8 @@ class EcommerceAnalyticsErp extends CRUD {
       ),
       "eventos_permitidos" => $this->eventosPermitidos,
       "datos_permitidos" => array("session_id", "tipo_evento", "canal", "ruta", "referrer", "utm_source", "utm_medium", "utm_campaign", "dispositivo", "mascota", "necesidad", "id_publicacion", "id_sku", "slug", "query", "resultados_total", "sin_resultados", "metadata"),
-      "datos_prohibidos" => array("nombre", "telefono", "correo", "email", "rfc", "razon_social", "direccion", "datos_fiscales", "stock_exacto"),
+      "datos_derivados" => array("fuente_detectada", "medio_detectado", "campania_detectada", "click_id_tipo", "referrer_host", "es_pago_probable"),
+      "datos_prohibidos" => array("nombre", "telefono", "correo", "email", "rfc", "razon_social", "direccion", "datos_fiscales", "stock_exacto", "valor_crudo_fbclid", "valor_crudo_gclid", "valor_crudo_gbraid", "valor_crudo_wbraid", "valor_crudo_msclkid", "valor_crudo_ttclid"),
       "regla_cliente" => "Frontend debe generar un session_id anonimo persistente en localStorage; no debe enviar datos personales en analytics. Cuando el usuario deje contacto/cotizacion, el backend podra enlazar esa sesion por flujo separado.",
       "guardrails" => $this->guardrails($persistenciaActiva)
     ));
@@ -86,14 +87,15 @@ class EcommerceAnalyticsErp extends CRUD {
     $sesion = array(
       "session_id_hash" => $this->hashAnonimo($sessionId),
       "canal" => $this->limpiarToken($this->valor($datos, "canal", "web_publica"), 50),
-      "primer_ruta" => $this->limpiarRuta($this->valor($datos, "ruta", "")),
-      "referrer" => $this->limpiarRuta($this->valor($datos, "referrer", "")),
+      "primer_ruta" => $this->limpiarRutaAnalytics($this->valor($datos, "ruta", "")),
+      "referrer" => $this->limpiarRutaAnalytics($this->valor($datos, "referrer", "")),
       "utm_source" => $this->limpiarToken($this->valor($datos, "utm_source", ""), 120),
       "utm_medium" => $this->limpiarToken($this->valor($datos, "utm_medium", ""), 120),
       "utm_campaign" => $this->limpiarTextoCorto($this->valor($datos, "utm_campaign", ""), 160),
       "dispositivo_aproximado" => $this->dispositivoAproximado($datos),
       "metadata" => $this->limpiarMetadata($metadata)
     );
+    $sesion["atribucion"] = $this->atribucionDesdeDatos($sesion);
 
     return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Sesion analytics validada sin guardar" : "Sesion analytics con bloqueos", array(
       "preflight" => true,
@@ -151,7 +153,11 @@ class EcommerceAnalyticsErp extends CRUD {
       "canal" => $this->limpiarToken($this->valor($datos, "canal", "web_publica"), 50),
       "query" => $query,
       "query_normalizada" => $this->normalizarTexto($query),
-      "ruta" => $this->limpiarRuta($this->valor($datos, "ruta", "")),
+      "ruta" => $this->limpiarRutaAnalytics($this->valor($datos, "ruta", "")),
+      "referrer" => $this->limpiarRutaAnalytics($this->valor($datos, "referrer", $this->valor($datos, "referer", ""))),
+      "utm_source" => $this->limpiarToken($this->valor($datos, "utm_source", ""), 120),
+      "utm_medium" => $this->limpiarToken($this->valor($datos, "utm_medium", ""), 120),
+      "utm_campaign" => $this->limpiarTextoCorto($this->valor($datos, "utm_campaign", ""), 160),
       "mascota" => $this->limpiarToken($this->valor($datos, "mascota", ""), 80),
       "necesidad" => $this->limpiarToken($this->valor($datos, "necesidad", ""), 80),
       "resultados_total" => $resultadosTotal,
@@ -159,6 +165,8 @@ class EcommerceAnalyticsErp extends CRUD {
       "filtros" => $this->limpiarMetadata($filtros),
       "metadata" => $this->limpiarMetadata($this->valor($datos, "metadata", array()))
     );
+    $busqueda["atribucion"] = $this->atribucionDesdeDatos(array_merge($datos, $busqueda));
+    $busqueda["metadata"] = $this->metadataConAtribucion($busqueda["metadata"], $busqueda["atribucion"]);
 
     return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Busqueda analytics validada sin guardar" : "Busqueda analytics con bloqueos", array(
       "preflight" => true,
@@ -248,6 +256,10 @@ class EcommerceAnalyticsErp extends CRUD {
       "conversiones_por_tipo" => array(),
       "facturacion_eventos" => array(),
       "canales" => array(),
+      "fuentes_trafico" => array(),
+      "medios_trafico" => array(),
+      "campanias_trafico" => array(),
+      "click_ids_detectados" => array(),
       "mascotas_consultadas" => array(),
       "necesidades_consultadas" => array(),
       "productos_interes_sin_conversion" => array(),
@@ -276,6 +288,7 @@ class EcommerceAnalyticsErp extends CRUD {
         $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
         $depurar["resumen"]["sesiones_total"] = intval($stmt->fetchColumn());
         $this->cargarDashboardSesiones($db, $depurar, $inicio, $fin, $limite);
+        $this->cargarDashboardAtribucion($db, $depurar, $inicio, $fin, $limite);
       }
       if ($tablas["conversiones"]) {
         $this->cargarDashboardConversiones($db, $depurar, $inicio, $fin, $limite);
@@ -734,7 +747,12 @@ class EcommerceAnalyticsErp extends CRUD {
   private function consultarSesionesFlujo($db, $inicio, $fin, $limite) {
     $stmt = $db->prepare("SELECT s.session_id_hash, s.canal, s.primer_ruta, s.ultimo_ruta, s.referrer, s.utm_source, s.utm_medium, s.utm_campaign, s.dispositivo_aproximado, s.fecha_inicio, s.fecha_ultima_actividad, s.eventos_total,
         (SELECT COUNT(*) FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_ev AND :fin_ev) eventos_rango,
-        (SELECT COUNT(*) FROM erp_ecommerce_analytics_busquedas b WHERE b.session_id_hash=s.session_id_hash AND b.fecha_registro BETWEEN :inicio_bus AND :fin_bus) busquedas_rango
+        (SELECT COUNT(*) FROM erp_ecommerce_analytics_busquedas b WHERE b.session_id_hash=s.session_id_hash AND b.fecha_registro BETWEEN :inicio_bus AND :fin_bus) busquedas_rango,
+        (SELECT e.ruta FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr AND :fin_attr AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_ruta,
+        (SELECT e.referrer FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr2 AND :fin_attr2 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_referrer,
+        (SELECT e.utm_source FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr3 AND :fin_attr3 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_utm_source,
+        (SELECT e.utm_medium FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr4 AND :fin_attr4 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_utm_medium,
+        (SELECT e.utm_campaign FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr5 AND :fin_attr5 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_utm_campaign
       FROM erp_ecommerce_analytics_sesiones s
       WHERE COALESCE(s.fecha_ultima_actividad, s.fecha_inicio) BETWEEN :inicio AND :fin
       ORDER BY COALESCE(s.fecha_ultima_actividad, s.fecha_inicio) DESC
@@ -745,10 +763,21 @@ class EcommerceAnalyticsErp extends CRUD {
       ":inicio_ev" => $inicio,
       ":fin_ev" => $fin,
       ":inicio_bus" => $inicio,
-      ":fin_bus" => $fin
+      ":fin_bus" => $fin,
+      ":inicio_attr" => $inicio,
+      ":fin_attr" => $fin,
+      ":inicio_attr2" => $inicio,
+      ":fin_attr2" => $fin,
+      ":inicio_attr3" => $inicio,
+      ":fin_attr3" => $fin,
+      ":inicio_attr4" => $inicio,
+      ":fin_attr4" => $fin,
+      ":inicio_attr5" => $inicio,
+      ":fin_attr5" => $fin
     ));
     $items = array();
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $atribucion = $this->atribucionFlujoDesdeFila($fila);
       $items[] = array(
         "session_key" => substr((string) $this->valor($fila, "session_id_hash", ""), 0, 12),
         "canal" => $this->valor($fila, "canal", ""),
@@ -763,22 +792,43 @@ class EcommerceAnalyticsErp extends CRUD {
         "fecha_ultima_actividad" => $this->valor($fila, "fecha_ultima_actividad", ""),
         "eventos_total" => intval($this->valor($fila, "eventos_total", 0)),
         "eventos_rango" => intval($this->valor($fila, "eventos_rango", 0)),
-        "busquedas_rango" => intval($this->valor($fila, "busquedas_rango", 0))
+        "busquedas_rango" => intval($this->valor($fila, "busquedas_rango", 0)),
+        "atribucion" => $atribucion
       );
     }
     return $items;
   }
 
   private function consultarSesionFlujo($db, $sessionKey, $inicio, $fin) {
-    $stmt = $db->prepare("SELECT LEFT(session_id_hash, 12) session_key, canal, primer_ruta, ultimo_ruta, referrer, utm_source, utm_medium, utm_campaign, dispositivo_aproximado, fecha_inicio, fecha_ultima_actividad, eventos_total
-      FROM erp_ecommerce_analytics_sesiones
-      WHERE session_id_hash LIKE :session_key
-        AND COALESCE(fecha_ultima_actividad, fecha_inicio) BETWEEN :inicio AND :fin
-      ORDER BY COALESCE(fecha_ultima_actividad, fecha_inicio) DESC
+    $stmt = $db->prepare("SELECT s.session_id_hash, LEFT(s.session_id_hash, 12) session_key, s.canal, s.primer_ruta, s.ultimo_ruta, s.referrer, s.utm_source, s.utm_medium, s.utm_campaign, s.dispositivo_aproximado, s.fecha_inicio, s.fecha_ultima_actividad, s.eventos_total,
+        (SELECT e.ruta FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr AND :fin_attr AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_ruta,
+        (SELECT e.referrer FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr2 AND :fin_attr2 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_referrer,
+        (SELECT e.utm_source FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr3 AND :fin_attr3 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_utm_source,
+        (SELECT e.utm_medium FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr4 AND :fin_attr4 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_utm_medium,
+        (SELECT e.utm_campaign FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr5 AND :fin_attr5 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_utm_campaign
+      FROM erp_ecommerce_analytics_sesiones s
+      WHERE s.session_id_hash LIKE :session_key
+        AND COALESCE(s.fecha_ultima_actividad, s.fecha_inicio) BETWEEN :inicio AND :fin
+      ORDER BY COALESCE(s.fecha_ultima_actividad, s.fecha_inicio) DESC
       LIMIT 1");
-    $stmt->execute(array(":session_key" => $sessionKey . "%", ":inicio" => $inicio, ":fin" => $fin));
+    $stmt->execute(array(
+      ":session_key" => $sessionKey . "%",
+      ":inicio" => $inicio,
+      ":fin" => $fin,
+      ":inicio_attr" => $inicio,
+      ":fin_attr" => $fin,
+      ":inicio_attr2" => $inicio,
+      ":fin_attr2" => $fin,
+      ":inicio_attr3" => $inicio,
+      ":fin_attr3" => $fin,
+      ":inicio_attr4" => $inicio,
+      ":fin_attr4" => $fin,
+      ":inicio_attr5" => $inicio,
+      ":fin_attr5" => $fin
+    ));
     $fila = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$fila) { return array(); }
+    $atribucion = $this->atribucionFlujoDesdeFila($fila);
     return array(
       "session_key" => $this->valor($fila, "session_key", ""),
       "canal" => $this->valor($fila, "canal", ""),
@@ -791,13 +841,14 @@ class EcommerceAnalyticsErp extends CRUD {
       "dispositivo_aproximado" => $this->valor($fila, "dispositivo_aproximado", ""),
       "fecha_inicio" => $this->valor($fila, "fecha_inicio", ""),
       "fecha_ultima_actividad" => $this->valor($fila, "fecha_ultima_actividad", ""),
-      "eventos_total" => intval($this->valor($fila, "eventos_total", 0))
+      "eventos_total" => intval($this->valor($fila, "eventos_total", 0)),
+      "atribucion" => $atribucion
     );
   }
 
   private function consultarTimelineSesion($db, $sessionKey, $inicio, $fin, $tablas, $limite) {
     $timeline = array();
-    $stmt = $db->prepare("SELECT id_analytics_evento id_registro, tipo_evento, canal, ruta, referrer, id_publicacion, id_sku, slug, mascota, necesidad, fecha_registro
+    $stmt = $db->prepare("SELECT id_analytics_evento id_registro, tipo_evento, canal, ruta, referrer, utm_source, utm_medium, utm_campaign, id_publicacion, id_sku, slug, mascota, necesidad, fecha_registro
       FROM erp_ecommerce_analytics_eventos
       WHERE session_id_hash LIKE :session_key
         AND fecha_registro BETWEEN :inicio AND :fin
@@ -806,12 +857,16 @@ class EcommerceAnalyticsErp extends CRUD {
     $stmt->execute(array(":session_key" => $sessionKey . "%", ":inicio" => $inicio, ":fin" => $fin));
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
       $tipo = $this->valor($fila, "tipo_evento", "");
+      $atribucion = $this->atribucionDesdeDatos($fila);
       $timeline[] = array(
         "origen" => "evento",
         "tipo" => $tipo,
         "etiqueta" => $this->etiquetaEventoFlujo($tipo),
         "ruta" => $this->valor($fila, "ruta", ""),
         "referrer" => $this->valor($fila, "referrer", ""),
+        "utm_source" => $this->valor($fila, "utm_source", ""),
+        "utm_medium" => $this->valor($fila, "utm_medium", ""),
+        "utm_campaign" => $this->valor($fila, "utm_campaign", ""),
         "canal" => $this->valor($fila, "canal", ""),
         "id_publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
         "id_sku" => intval($this->valor($fila, "id_sku", 0)),
@@ -819,7 +874,8 @@ class EcommerceAnalyticsErp extends CRUD {
         "mascota" => $this->valor($fila, "mascota", ""),
         "necesidad" => $this->valor($fila, "necesidad", ""),
         "fecha" => $this->valor($fila, "fecha_registro", ""),
-        "es_conversion" => in_array($tipo, array("add_to_quote", "remove_from_quote", "quote_dryrun", "quote_preflight", "open_whatsapp", "facturacion_submit"), true)
+        "es_conversion" => in_array($tipo, array("add_to_quote", "remove_from_quote", "quote_dryrun", "quote_preflight", "open_whatsapp", "facturacion_submit"), true),
+        "atribucion" => $atribucion
       );
     }
     if (!empty($tablas["busquedas"])) {
@@ -891,6 +947,7 @@ class EcommerceAnalyticsErp extends CRUD {
     $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
     $sesiones = array();
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $atribucion = $this->atribucionDesdeDatos($fila);
       $sesiones[] = array(
         "session_id_hash_corto" => substr((string) $this->valor($fila, "session_id_hash", ""), 0, 12),
         "canal" => $this->valor($fila, "canal", ""),
@@ -903,7 +960,8 @@ class EcommerceAnalyticsErp extends CRUD {
         "dispositivo_aproximado" => $this->valor($fila, "dispositivo_aproximado", ""),
         "fecha_inicio" => $this->valor($fila, "fecha_inicio", ""),
         "fecha_ultima_actividad" => $this->valor($fila, "fecha_ultima_actividad", ""),
-        "eventos_total" => intval($this->valor($fila, "eventos_total", 0))
+        "eventos_total" => intval($this->valor($fila, "eventos_total", 0)),
+        "atribucion" => $atribucion
       );
     }
     $depurar["sesiones_recientes"] = $sesiones;
@@ -916,6 +974,43 @@ class EcommerceAnalyticsErp extends CRUD {
       LIMIT " . intval($limite));
     $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
     $depurar["canales"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function cargarDashboardAtribucion($db, &$depurar, $inicio, $fin, $limite) {
+    $stmt = $db->prepare("SELECT primer_ruta, ultimo_ruta, referrer, utm_source, utm_medium, utm_campaign
+      FROM erp_ecommerce_analytics_sesiones
+      WHERE fecha_inicio BETWEEN :inicio AND :fin
+      ORDER BY COALESCE(fecha_ultima_actividad, fecha_inicio) DESC
+      LIMIT 5000");
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $fuentes = array();
+    $medios = array();
+    $campanias = array();
+    $clickIds = array();
+    $muestra = 0;
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $muestra++;
+      $atribucion = $this->atribucionDesdeDatos($fila);
+      $this->incrementarConteo($fuentes, $atribucion["fuente_detectada"]);
+      $this->incrementarConteo($medios, $atribucion["medio_detectado"]);
+      if ($atribucion["campania_detectada"] !== "") {
+        $this->incrementarConteo($campanias, $atribucion["campania_detectada"]);
+      }
+      if ($atribucion["click_id_tipo"] !== "") {
+        $this->incrementarConteo($clickIds, $atribucion["click_id_tipo"]);
+      }
+    }
+    $depurar["fuentes_trafico"] = $this->conteosTop($fuentes, $limite);
+    $depurar["medios_trafico"] = $this->conteosTop($medios, $limite);
+    $depurar["campanias_trafico"] = $this->conteosTop($campanias, $limite);
+    $depurar["click_ids_detectados"] = $this->conteosTop($clickIds, $limite);
+    $depurar["atribucion"] = array(
+      "read_only" => true,
+      "muestra_sesiones" => $muestra,
+      "muestra_maxima" => 5000,
+      "no_guarda_valor_click_id" => true,
+      "senales" => array("fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid", "utm_source", "utm_medium", "referrer")
+    );
   }
 
   private function cargarDashboardConversiones($db, &$depurar, $inicio, $fin, $limite) {
@@ -1189,10 +1284,10 @@ class EcommerceAnalyticsErp extends CRUD {
       "tipo_evento" => "search",
       "canal" => $busqueda["canal"],
       "ruta" => $busqueda["ruta"],
-      "referrer" => "",
-      "utm_source" => "",
-      "utm_medium" => "",
-      "utm_campaign" => "",
+      "referrer" => $this->valor($busqueda, "referrer", ""),
+      "utm_source" => $this->valor($busqueda, "utm_source", ""),
+      "utm_medium" => $this->valor($busqueda, "utm_medium", ""),
+      "utm_campaign" => $this->valor($busqueda, "utm_campaign", ""),
       "dispositivo_aproximado" => "",
       "mascota" => $busqueda["mascota"],
       "necesidad" => $busqueda["necesidad"],
@@ -1248,12 +1343,12 @@ class EcommerceAnalyticsErp extends CRUD {
   private function normalizarEvento($datos) {
     $sessionId = $this->sessionIdLimpio($this->valor($datos, "session_id", ""));
     $metadata = is_array($this->valor($datos, "metadata", array())) ? $this->valor($datos, "metadata", array()) : array();
-    return array(
+    $evento = array(
       "session_id_hash" => $this->hashAnonimo($sessionId),
       "tipo_evento" => $this->limpiarToken($this->valor($datos, "tipo_evento", ""), 60),
       "canal" => $this->limpiarToken($this->valor($datos, "canal", "web_publica"), 50),
-      "ruta" => $this->limpiarRuta($this->valor($datos, "ruta", "")),
-      "referrer" => $this->limpiarRuta($this->valor($datos, "referrer", $this->valor($datos, "referer", ""))),
+      "ruta" => $this->limpiarRutaAnalytics($this->valor($datos, "ruta", "")),
+      "referrer" => $this->limpiarRutaAnalytics($this->valor($datos, "referrer", $this->valor($datos, "referer", ""))),
       "utm_source" => $this->limpiarToken($this->valor($datos, "utm_source", ""), 120),
       "utm_medium" => $this->limpiarToken($this->valor($datos, "utm_medium", ""), 120),
       "utm_campaign" => $this->limpiarTextoCorto($this->valor($datos, "utm_campaign", ""), 160),
@@ -1265,6 +1360,9 @@ class EcommerceAnalyticsErp extends CRUD {
       "slug" => $this->limpiarSlug($this->valor($datos, "slug", "")),
       "metadata" => $this->limpiarMetadata($metadata)
     );
+    $evento["atribucion"] = $this->atribucionDesdeDatos($evento);
+    $evento["metadata"] = $this->metadataConAtribucion($evento["metadata"], $evento["atribucion"]);
+    return $evento;
   }
 
   private function bloqueosEvento($evento, $datos) {
@@ -1401,6 +1499,16 @@ class EcommerceAnalyticsErp extends CRUD {
     return substr($valor, 0, 255);
   }
 
+  private function limpiarRutaAnalytics($valor) {
+    return $this->redactarClickIds($this->limpiarRuta($valor));
+  }
+
+  private function redactarClickIds($valor) {
+    $valor = (string) $valor;
+    if ($valor === "") { return ""; }
+    return preg_replace('/([?&](?:fbclid|gclid|gbraid|wbraid|msclkid|ttclid)=)[^&#]*/i', '$1__redacted__', $valor);
+  }
+
   private function limpiarTextoCorto($valor, $limite) {
     $valor = trim((string) $valor);
     $valor = preg_replace('/[\x00-\x1F\x7F]/', '', $valor);
@@ -1428,9 +1536,186 @@ class EcommerceAnalyticsErp extends CRUD {
     $salida = array();
     foreach ($datos as $clave => $valor) {
       $claveLimpia = $this->limpiarToken($clave, 60);
-      if ($claveLimpia === "" || in_array($claveLimpia, array("nombre", "telefono", "celular", "correo", "email", "rfc", "razon_social", "direccion", "datos_fiscales", "stock", "stock_exacto", "existencia"), true)) { continue; }
+      if ($claveLimpia === "" || in_array($claveLimpia, array("nombre", "telefono", "celular", "correo", "email", "rfc", "razon_social", "direccion", "datos_fiscales", "stock", "stock_exacto", "existencia", "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid"), true)) { continue; }
       $salida[$claveLimpia] = is_array($valor) ? $this->limpiarMetadata($valor, $nivel + 1) : $this->limpiarTextoCorto($valor, 160);
       if (count($salida) >= 30) { break; }
+    }
+    return $salida;
+  }
+
+  private function atribucionFlujoDesdeFila($fila) {
+    $atribucion = $this->atribucionDesdeDatos($fila);
+    $rutaEvento = $this->valor($fila, "evento_atribucion_ruta", "");
+    $referrerEvento = $this->valor($fila, "evento_atribucion_referrer", "");
+    $utmSourceEvento = $this->valor($fila, "evento_atribucion_utm_source", "");
+    $utmMediumEvento = $this->valor($fila, "evento_atribucion_utm_medium", "");
+    $utmCampaignEvento = $this->valor($fila, "evento_atribucion_utm_campaign", "");
+    if ($atribucion["fuente_detectada"] !== "directo" || ($rutaEvento === "" && $referrerEvento === "" && $utmSourceEvento === "")) {
+      $atribucion["origen_deteccion"] = "sesion";
+      return $atribucion;
+    }
+    $fallback = $this->atribucionDesdeDatos(array(
+      "ruta" => $rutaEvento,
+      "referrer" => $referrerEvento,
+      "utm_source" => $utmSourceEvento,
+      "utm_medium" => $utmMediumEvento,
+      "utm_campaign" => $utmCampaignEvento
+    ));
+    $fallback["origen_deteccion"] = "evento";
+    return $fallback;
+  }
+
+  private function atribucionDesdeDatos($datos) {
+    $ruta = $this->limpiarRutaAnalytics($this->valor($datos, "ruta", $this->valor($datos, "primer_ruta", "")));
+    $ultimoRuta = $this->limpiarRutaAnalytics($this->valor($datos, "ultimo_ruta", ""));
+    $referrer = $this->limpiarRutaAnalytics($this->valor($datos, "referrer", $this->valor($datos, "referer", "")));
+    $utmSource = $this->limpiarToken($this->valor($datos, "utm_source", ""), 120);
+    $utmMedium = $this->limpiarToken($this->valor($datos, "utm_medium", ""), 120);
+    $utmCampaign = $this->limpiarTextoCorto($this->valor($datos, "utm_campaign", ""), 160);
+    $urls = array($ruta, $ultimoRuta, $referrer);
+    $params = array_merge($this->queryParamsDesdeUrl($ruta), $this->queryParamsDesdeUrl($ultimoRuta), $this->queryParamsDesdeUrl($referrer));
+    if ($utmSource === "") { $utmSource = $this->limpiarToken($this->queryValorDesdeUrls($urls, "utm_source"), 120); }
+    if ($utmMedium === "") { $utmMedium = $this->limpiarToken($this->queryValorDesdeUrls($urls, "utm_medium"), 120); }
+    if ($utmCampaign === "") { $utmCampaign = $this->limpiarTextoCorto($this->queryValorDesdeUrls($urls, "utm_campaign"), 160); }
+    $host = $this->hostDesdeUrl($referrer);
+    $clickIdTipo = $this->clickIdTipo($params);
+    $medioPagado = in_array($utmMedium, array("cpc", "ppc", "paid", "paidsearch", "paid_search", "sem", "display", "paid_social", "social_paid"), true);
+
+    $fuente = "directo";
+    $medio = "directo";
+    $regla = "sin_referrer_ni_utm";
+    $esPago = false;
+
+    if ($clickIdTipo === "fbclid" || in_array($utmSource, array("facebook", "fb", "meta", "instagram", "ig"), true) || $this->hostCoincide($host, array("facebook.com", "fb.com", "instagram.com"))) {
+      $fuente = "meta";
+      $medio = $medioPagado ? "paid_social" : "social";
+      $regla = $clickIdTipo === "fbclid" ? "click_id_fbclid" : ($utmSource !== "" ? "utm_source" : "referrer_host");
+      $esPago = $medioPagado || $clickIdTipo === "fbclid";
+    } elseif (in_array($clickIdTipo, array("gclid", "gbraid", "wbraid"), true) || $utmSource === "google" || $this->hostCoincide($host, array("google.com", "google.com.mx"))) {
+      $esPago = in_array($clickIdTipo, array("gclid", "gbraid", "wbraid"), true) || $medioPagado;
+      $fuente = $esPago ? "google_ads" : "google_organico";
+      $medio = $esPago ? "paid_search" : "organic_search";
+      $regla = $clickIdTipo !== "" ? "click_id_" . $clickIdTipo : ($utmSource !== "" ? "utm_source" : "referrer_host");
+    } elseif ($clickIdTipo === "msclkid" || $utmSource === "bing" || $this->hostCoincide($host, array("bing.com"))) {
+      $esPago = $clickIdTipo === "msclkid" || $medioPagado;
+      $fuente = $esPago ? "bing_ads" : "bing_organico";
+      $medio = $esPago ? "paid_search" : "organic_search";
+      $regla = $clickIdTipo === "msclkid" ? "click_id_msclkid" : ($utmSource !== "" ? "utm_source" : "referrer_host");
+    } elseif ($clickIdTipo === "ttclid" || $utmSource === "tiktok" || $this->hostCoincide($host, array("tiktok.com"))) {
+      $fuente = "tiktok";
+      $medio = $medioPagado ? "paid_social" : "social";
+      $regla = $clickIdTipo === "ttclid" ? "click_id_ttclid" : ($utmSource !== "" ? "utm_source" : "referrer_host");
+      $esPago = $medioPagado || $clickIdTipo === "ttclid";
+    } elseif ($utmMedium === "email" || in_array($utmSource, array("mail", "newsletter", "email"), true)) {
+      $fuente = $utmSource !== "" ? $utmSource : "email";
+      $medio = "email";
+      $regla = "utm_email";
+    } elseif ($utmSource !== "") {
+      $fuente = $utmSource;
+      $medio = $utmMedium !== "" ? $utmMedium : "campaign";
+      $regla = "utm_source";
+      $esPago = $medioPagado;
+    } elseif ($host !== "") {
+      $fuente = $host;
+      $medio = "referral";
+      $regla = "referrer_host";
+    }
+
+    return array(
+      "fuente_detectada" => $fuente,
+      "medio_detectado" => $medio,
+      "campania_detectada" => $utmCampaign,
+      "click_id_tipo" => $clickIdTipo,
+      "tiene_click_id" => $clickIdTipo !== "",
+      "referrer_host" => $host,
+      "es_pago_probable" => $esPago,
+      "regla_atribucion" => $regla
+    );
+  }
+
+  private function metadataConAtribucion($metadata, $atribucion) {
+    if (!is_array($metadata)) { $metadata = array(); }
+    $metadata["atribucion"] = $atribucion;
+    return $metadata;
+  }
+
+  private function queryParamsDesdeUrl($url) {
+    $url = trim((string) $url);
+    if ($url === "") { return array(); }
+    $query = parse_url($url, PHP_URL_QUERY);
+    if ($query === null && strpos($url, "?") !== false) {
+      $query = substr($url, strpos($url, "?") + 1);
+    }
+    if ($query === null || $query === false || $query === "") { return array(); }
+    $params = array();
+    parse_str($query, $params);
+    $salida = array();
+    foreach ($params as $clave => $valor) {
+      $claveLimpia = strtolower(trim((string) $clave));
+      if ($claveLimpia !== "") { $salida[$claveLimpia] = true; }
+    }
+    return $salida;
+  }
+
+  private function clickIdTipo($params) {
+    foreach (array("fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid") as $clave) {
+      if (array_key_exists($clave, $params)) { return $clave; }
+    }
+    return "";
+  }
+
+  private function queryValorDesdeUrls($urls, $claveBuscada) {
+    $claveBuscada = strtolower((string) $claveBuscada);
+    foreach ($urls as $url) {
+      $query = parse_url((string) $url, PHP_URL_QUERY);
+      if ($query === null && strpos((string) $url, "?") !== false) {
+        $query = substr((string) $url, strpos((string) $url, "?") + 1);
+      }
+      if ($query === null || $query === false || $query === "") { continue; }
+      $params = array();
+      parse_str($query, $params);
+      foreach ($params as $clave => $valor) {
+        if (strtolower((string) $clave) === $claveBuscada && is_scalar($valor)) {
+          return (string) $valor;
+        }
+      }
+    }
+    return "";
+  }
+
+  private function hostDesdeUrl($url) {
+    $url = trim((string) $url);
+    if ($url === "") { return ""; }
+    if (strpos($url, "//") === 0) { $url = "https:" . $url; }
+    $host = parse_url($url, PHP_URL_HOST);
+    if (!$host && preg_match('/^([a-z0-9.-]+\.[a-z]{2,})(?:[\/?#]|$)/i', $url, $m)) {
+      $host = $m[1];
+    }
+    $host = strtolower((string) $host);
+    $host = preg_replace('/^www\./', '', $host);
+    return substr($host, 0, 120);
+  }
+
+  private function hostCoincide($host, $dominios) {
+    foreach ($dominios as $dominio) {
+      if ($host === $dominio || substr($host, -strlen("." . $dominio)) === "." . $dominio) { return true; }
+    }
+    return false;
+  }
+
+  private function incrementarConteo(&$conteos, $clave) {
+    $clave = trim((string) $clave);
+    if ($clave === "") { return; }
+    if (!isset($conteos[$clave])) { $conteos[$clave] = 0; }
+    $conteos[$clave]++;
+  }
+
+  private function conteosTop($conteos, $limite) {
+    arsort($conteos);
+    $salida = array();
+    foreach ($conteos as $clave => $total) {
+      $salida[] = array("valor" => $clave, "total" => intval($total));
+      if (count($salida) >= $limite) { break; }
     }
     return $salida;
   }

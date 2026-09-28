@@ -4647,3 +4647,15 @@ Actualizacion 2026-09-03:
 - La vista ya no carga por defecto solo productos incompletos; ahora muestra productos maestros agrupados por codigo interno/catalogo y sus SKU relacionados.
 - Se separaron los filtros de faltantes: `Sin marca`, `Sin principal` y `Sin secundarias`, para revisar exactamente que campo falta sin ocultar lo que ya esta capturado.
 - Aclaracion operativa: marca y categorias viven en el producto maestro (`erp_catalogo_productos` y `erp_catalogo_producto_categorias`), por eso los SKU agrupados comparten esos datos salvo que mas adelante se defina una excepcion por SKU.
+
+## Avance 2026-09-27 - Captura rapida de medidas en Atributos
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Contexto: el operador necesita capturar dimensiones comparables para que clientes, ecommerce, busqueda, comparadores y agentes futuros sepan medidas reales sin depender de texto libre `Medidas`.
+- Decision: para medidas fisicas se usan atributos separados `Largo`, `Ancho` y `Alto` con unidad visible `cm`; no se crea un unico campo libre `Medidas` para captura nueva.
+- Correccion puente sin DDL: los atributos canonicos `ATR-LARGO`, `ATR-ANCHO` y `ATR-ALTO`, aunque hoy esten marcados como variante, tambien se permiten en la pestana `Atributos` para ficha tecnica. Esto evita duplicar atributos como `Largo tecnico`.
+- Cambios: `CatalogoErpDatos` permite consultar/guardar dimensiones canonicas desde atributos tecnicos; `productos.php` agrega bloque `Medidas`; `productos.js` renderiza y guarda largo/ancho/alto por SKU usando `/catalogoerp/guardar_atributos_tecnicos`.
+- Sin cambios de esquema, sin migraciones y sin escritura masiva de datos.
+- Documento especifico creado: `docs/erp_catalogo_atributos_plan.md`.
+- Limite conocido: el booleano `es_variante` ya no alcanza para expresar que una dimension puede servir tanto para variante como para ficha tecnica; el modelo robusto futuro debe agregar ambito/uso del atributo.
+- UAT recomendado: abrir un producto con SKUs, ir a `Atributos`, capturar Largo/Ancho/Alto en `Medidas`, guardar, reabrir y confirmar que se muestran en la tabla de atributos y no afectan precio, costo, inventario ni POS.

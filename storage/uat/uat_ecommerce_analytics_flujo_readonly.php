@@ -22,8 +22,10 @@ $depurar = $flujo["depurar"] ?? array();
 $timeline = $depurar["timeline"] ?? array();
 $sesiones = $depurar["sesiones"] ?? array();
 $sessionKeyOk = true;
+$atribucionOk = true;
 foreach ($sesiones as $sesion) {
   if (strlen((string) ($sesion["session_key"] ?? "")) > 12) { $sessionKeyOk = false; }
+  if (!isset($sesion["atribucion"]["fuente_detectada"]) || !isset($sesion["atribucion"]["medio_detectado"])) { $atribucionOk = false; }
 }
 
 $ok = empty($flujo["error"])
@@ -33,7 +35,9 @@ $ok = empty($flujo["error"])
   && isset($depurar["timeline"])
   && isset($depurar["resumen"])
   && isset($depurar["guardrails"]["no_escribe_bd"])
-  && $sessionKeyOk;
+  && $sessionKeyOk
+  && $atribucionOk
+  && (empty($depurar["sesion_seleccionada"]) || isset($depurar["sesion_seleccionada"]["atribucion"]["fuente_detectada"]));
 
 echo json_encode(array(
   "ok" => $ok,
@@ -43,6 +47,8 @@ echo json_encode(array(
   "sesiones_total" => count($sesiones),
   "session_key" => $depurar["session_key"] ?? "",
   "timeline_total" => count($timeline),
+  "atribucion_ok" => $atribucionOk,
+  "fuente_sesion" => $depurar["sesion_seleccionada"]["atribucion"] ?? array(),
   "primer_evento" => $timeline[0] ?? array(),
   "guardrails" => array(
     "no_escribe_bd" => true,

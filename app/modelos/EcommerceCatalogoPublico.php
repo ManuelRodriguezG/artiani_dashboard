@@ -4645,6 +4645,86 @@ class EcommerceCatalogoPublico extends CRUD {
     }
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-27
+   * Proposito: resolver URLs publicas con tracking/case/segmentos extra contra su canonical SEO.
+   * Impacto: Frontend puede hacer 301 antes de renderizar y evitar duplicados indexables por `srsltid`, UTM o slugs no canonicos.
+   * Contrato: read-only; no guarda reglas 301 ni modifica publicaciones.
+   */
+  public function seoResolverUrlPublica($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      $entrada = trim((string) $this->valor($opciones, "url", $this->valor($opciones, "path", $this->valor($opciones, "href", ""))));
+      if ($entrada === "" && isset($_SERVER["REQUEST_URI"])) {
+        $entrada = (string) $_SERVER["REQUEST_URI"];
+      }
+      $analisis = $this->seoAnalizarUrlPublicaEntrada($entrada);
+      $path = $this->valor($analisis, "path", "/");
+      $segmentos = $this->valor($analisis, "segmentos", array());
+      $motivos = $this->valor($analisis, "motivos", array());
+      $destino = "";
+      $tipo = "sin_regla";
+      $canonicalUrl = "";
+      $entidad = null;
+
+      if (!empty($segmentos) && strtolower((string) $segmentos[0]) === "producto" && isset($segmentos[1])) {
+        $slugEntrada = trim(rawurldecode((string) $segmentos[1]));
+        $slugNormalizado = $this->slugificar($slugEntrada);
+        if ($slugEntrada !== $slugNormalizado) { $motivos[] = "slug_producto_no_canonico"; }
+        if (count($segmentos) > 2) { $motivos[] = "producto_con_segmentos_extra"; }
+        $producto = $this->seoProductoCanonicalPorSlug($db, $slugNormalizado);
+        if ($producto) {
+          $destino = "/producto/" . $this->valor($producto, "slug", $slugNormalizado);
+          $canonicalUrl = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db)), $destino);
+          $tipo = "producto_canonical";
+          $entidad = array(
+            "tipo" => "producto",
+            "id_publicacion" => intval($this->valor($producto, "id_publicacion", 0)),
+            "id_sku" => intval($this->valor($producto, "id_sku", 0)),
+            "slug" => $this->valor($producto, "slug", "")
+          );
+        } else {
+          $redirect = $this->redireccionProductoPorSlugAnterior($db, $slugNormalizado);
+          if ($redirect) {
+            $destino = $this->valor($redirect, "to", "");
+            $canonicalUrl = $this->valor($redirect, "canonical_url", "");
+            $tipo = "producto_slug_anterior";
+            $motivos[] = "redireccion_existente_slug_anterior";
+          } else {
+            $tipo = "producto_no_encontrado";
+          }
+        }
+      }
+
+      $queryParams = $this->valor($analisis, "query_params", array());
+      $debeRedirigir = $destino !== "" && ($path !== $destino || !empty($queryParams) || !empty(array_intersect($motivos, array("slug_producto_no_canonico", "producto_con_segmentos_extra", "tracking_query_detectado"))));
+      return $this->respuesta(false, "success", "URL publica SEO resuelta", array(
+        "read_only" => true,
+        "entrada" => $entrada,
+        "path_entrada" => $path,
+        "tipo" => $tipo,
+        "debe_redirigir" => $debeRedirigir,
+        "status_sugerido" => $debeRedirigir ? 301 : 200,
+        "redirect_to" => $debeRedirigir ? $destino : "",
+        "canonical_path" => $destino,
+        "canonical_url" => $canonicalUrl,
+        "motivos" => array_values(array_unique($motivos)),
+        "query_params" => $queryParams,
+        "tracking_params_detectados" => $this->valor($analisis, "tracking_params_detectados", array()),
+        "entidad" => $entidad,
+        "guardrails" => array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "frontend_aplica_301_antes_de_render" => true,
+          "no_redirigir_a_home_por_defecto" => true,
+          "canonical_sin_tracking_query" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "no_escribe_bd" => true));
+    }
+  }
+
   private function seoRedireccionesPorOrigenMapa($db) {
     $mapa = array();
     if (!$db || !$this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
@@ -14370,6 +14450,62 @@ class EcommerceCatalogoPublico extends CRUD {
     $path = "/" . ltrim($path, "/");
     $path = preg_replace('/\/+/', '/', $path);
     return $path;
+  }
+
+  private function seoAnalizarUrlPublicaEntrada($entrada) {
+    $entrada = trim((string) $entrada);
+    $partes = preg_match('/^https?:\/\//i', $entrada) ? parse_url($entrada) : parse_url($entrada === "" ? "/" : $entrada);
+    $path = isset($partes["path"]) ? (string) $partes["path"] : "/";
+    $query = isset($partes["query"]) ? (string) $partes["query"] : "";
+    if ($path === "") { $path = "/"; }
+    $path = $this->normalizarSeoPathPublico($path);
+    $segmentos = array_values(array_filter(explode("/", trim($path, "/")), function ($segmento) {
+      return trim((string) $segmento) !== "";
+    }));
+    $queryParams = array();
+    if ($query !== "") {
+      parse_str($query, $queryParams);
+    }
+    $tracking = array();
+    foreach (array_keys($queryParams) as $clave) {
+      $claveLimpia = strtolower(trim((string) $clave));
+      if ($this->seoEsParametroTracking($claveLimpia)) {
+        $tracking[] = $claveLimpia;
+      }
+    }
+    $motivos = array();
+    if (!empty($tracking)) { $motivos[] = "tracking_query_detectado"; }
+    if ($query !== "" && empty($tracking)) { $motivos[] = "query_no_canonica_en_producto"; }
+    return array(
+      "path" => $path,
+      "query" => $query,
+      "segmentos" => $segmentos,
+      "query_params" => array_keys($queryParams),
+      "tracking_params_detectados" => array_values(array_unique($tracking)),
+      "motivos" => $motivos
+    );
+  }
+
+  private function seoEsParametroTracking($clave) {
+    if ($clave === "") { return false; }
+    if (strpos($clave, "utm_") === 0) { return true; }
+    return in_array($clave, array("srsltid", "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid", "mc_cid", "mc_eid"), true);
+  }
+
+  private function seoProductoCanonicalPorSlug($db, $slug) {
+    if (!$db || $slug === "" || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+      return null;
+    }
+    $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'", "pub.slug=:slug");
+    $stmt = $db->prepare($this->sqlPublicacionesBase($where) . " LIMIT 1");
+    $stmt->execute(array(":slug" => $slug));
+    $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$fila) { return null; }
+    return array(
+      "id_publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
+      "id_sku" => intval($this->valor($fila, "id_sku", 0)),
+      "slug" => $this->valor($fila, "slug", $slug)
+    );
   }
 
   private function urlSeoPublica($baseUrl, $path) {

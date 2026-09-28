@@ -61,6 +61,10 @@
     renderAbandono(get(depurar, ["abandono_por_etapa"], []));
     renderSesiones(get(depurar, ["sesiones_recientes"], []));
     renderList("ecom_an_canales", get(depurar, ["canales"], []));
+    renderList("ecom_an_fuentes", get(depurar, ["fuentes_trafico"], []), etiquetaFuenteTrafico);
+    renderList("ecom_an_medios", get(depurar, ["medios_trafico"], []), etiquetaMedioTrafico);
+    renderList("ecom_an_campanias", get(depurar, ["campanias_trafico"], []));
+    renderList("ecom_an_click_ids", get(depurar, ["click_ids_detectados"], []), etiquetaClickId);
     renderList("ecom_an_urls", get(depurar, ["urls_mas_vistas"], []));
     renderProductos("ecom_an_productos_vistos", get(depurar, ["productos_mas_vistos"], []));
     renderProductos("ecom_an_productos_cotizacion", get(depurar, ["productos_agregados_cotizacion"], []));
@@ -115,9 +119,12 @@
       node.innerHTML = '<div class="text-muted py-3">Sin datos en el rango.</div>';
       return;
     }
-    node.innerHTML = '<div class="table-responsive ecom-an-scroll"><table class="table table-row-dashed fs-7 gy-3 mb-0"><thead><tr class="text-muted fw-bold"><th>Sesion</th><th>Ruta</th><th>Canal</th><th class="text-end">Eventos</th><th>Actividad</th></tr></thead><tbody>' + items.map(function (item) {
+    node.innerHTML = '<div class="table-responsive ecom-an-scroll"><table class="table table-row-dashed fs-7 gy-3 mb-0"><thead><tr class="text-muted fw-bold"><th>Sesion</th><th>Ruta</th><th>Fuente</th><th>Canal</th><th class="text-end">Eventos</th><th>Actividad</th></tr></thead><tbody>' + items.map(function (item) {
       var utm = [item.utm_source, item.utm_medium, item.utm_campaign].filter(Boolean).join(" / ");
-      return '<tr><td><span class="fw-semibold">' + escapeHtml(item.session_id_hash_corto || "-") + '</span><div class="text-muted fs-8">' + escapeHtml(item.dispositivo_aproximado || "-") + '</div></td><td><span class="fw-semibold">' + escapeHtml(item.ultimo_ruta || item.primer_ruta || "-") + '</span><div class="text-muted fs-8">' + escapeHtml(utm || item.referrer || "-") + '</div></td><td>' + escapeHtml(item.canal || "-") + '</td><td class="text-end fw-bold">' + escapeHtml(item.eventos_total || 0) + '</td><td><span class="text-muted fs-8">' + escapeHtml(item.fecha_ultima_actividad || item.fecha_inicio || "-") + '</span></td></tr>';
+      var atribucion = item.atribucion || {};
+      var fuente = etiquetaFuenteTrafico(atribucion.fuente_detectada || "");
+      var medio = etiquetaMedioTrafico(atribucion.medio_detectado || "");
+      return '<tr><td><span class="fw-semibold">' + escapeHtml(item.session_id_hash_corto || "-") + '</span><div class="text-muted fs-8">' + escapeHtml(item.dispositivo_aproximado || "-") + '</div></td><td><span class="fw-semibold">' + escapeHtml(item.ultimo_ruta || item.primer_ruta || "-") + '</span><div class="text-muted fs-8">' + escapeHtml(utm || item.referrer || "-") + '</div></td><td><span class="fw-semibold">' + escapeHtml(fuente || "-") + '</span><div class="text-muted fs-8">' + escapeHtml(medio || "-") + '</div></td><td>' + escapeHtml(item.canal || "-") + '</td><td class="text-end fw-bold">' + escapeHtml(item.eventos_total || 0) + '</td><td><span class="text-muted fs-8">' + escapeHtml(item.fecha_ultima_actividad || item.fecha_inicio || "-") + '</span></td></tr>';
     }).join("") + '</tbody></table></div>';
   }
 
@@ -202,6 +209,42 @@
 
   function etiquetaFuente(fuente) {
     return fuente === "resumen_diario" ? "Resumen diario" : "Eventos crudos";
+  }
+
+  function etiquetaFuenteTrafico(fuente) {
+    return {
+      meta: "Meta / Facebook",
+      google_ads: "Google Ads",
+      google_organico: "Google organico",
+      bing_ads: "Bing Ads",
+      bing_organico: "Bing organico",
+      tiktok: "TikTok",
+      directo: "Directo"
+    }[fuente] || fuente || "";
+  }
+
+  function etiquetaMedioTrafico(medio) {
+    return {
+      paid_search: "Busqueda pagada",
+      organic_search: "Busqueda organica",
+      paid_social: "Social pagado",
+      social: "Social",
+      referral: "Referencia",
+      direct: "Directo",
+      directo: "Directo",
+      email: "Email"
+    }[medio] || medio || "";
+  }
+
+  function etiquetaClickId(tipo) {
+    return {
+      fbclid: "fbclid (Meta)",
+      gclid: "gclid (Google Ads)",
+      gbraid: "gbraid (Google Ads iOS)",
+      wbraid: "wbraid (Google Ads web/iOS)",
+      msclkid: "msclkid (Microsoft Ads)",
+      ttclid: "ttclid (TikTok)"
+    }[tipo] || tipo || "";
   }
 
   function resumenUltimoEvento(evento) {

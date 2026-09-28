@@ -492,6 +492,73 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-27
+   * Proposito: aplicar configuracion visual/exportable actual a todos los catalogos comerciales activos.
+   * Impacto: Catalogo ERP/Comercial; escritura masiva controlada solo en columnas de presentacion visual.
+   * Contrato: recibe opciones JSON, no modifica items, titulos, portada, logo, contacto, precios ni contenido comercial.
+   */
+  public function aplicarConfiguracionCatalogosComerciales($datos, $idUsuario = null) {
+    $opciones = $this->jsonCatalogoComercial($datos, "opciones", array());
+    $estiloVisual = $this->estiloVisualCatalogoComercial($opciones);
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExisteCatalogo($db, "erp_catalogo_comercial_catalogos")) {
+        return $this->respuesta(true, "warning", "Aplica primero el esquema de catalogos comerciales");
+      }
+      $db->beginTransaction();
+      $ids = $db->query("SELECT id_catalogo_comercial FROM erp_catalogo_comercial_catalogos WHERE estatus<>'archivado' ORDER BY id_catalogo_comercial")->fetchAll(PDO::FETCH_COLUMN);
+      if (!count($ids)) {
+        $db->rollBack();
+        return $this->respuesta(true, "info", "No hay catalogos comerciales activos para actualizar");
+      }
+      $stmt = $db->prepare("UPDATE erp_catalogo_comercial_catalogos SET
+          plantilla=:plantilla,
+          mostrar_precio=:precio, mostrar_marca=:marca, mostrar_categoria=:categoria,
+          mostrar_presentacion=:presentacion, mostrar_sku=:sku, mostrar_disponibilidad=:disponibilidad,
+          agrupar_variantes=:agrupar_variantes, fuente_visual=:fuente_visual,
+          color_titulo=:color_titulo, color_producto=:color_producto, color_meta=:color_meta, color_precio=:color_precio,
+          tam_titulo=:tam_titulo, tam_producto=:tam_producto, tam_meta=:tam_meta, tam_precio=:tam_precio,
+          id_usuario_actualizacion=:usuario, fecha_actualizacion=CURRENT_TIMESTAMP
+        WHERE estatus<>'archivado'");
+      $stmt->execute(array(
+        ":plantilla" => $this->normalizarPlantillaCatalogoComercial(isset($opciones["plantilla"]) ? $opciones["plantilla"] : "letter"),
+        ":precio" => !empty($opciones["mostrarPrecio"]) ? 1 : 0,
+        ":marca" => array_key_exists("mostrarMarca", $opciones) ? (!empty($opciones["mostrarMarca"]) ? 1 : 0) : 1,
+        ":categoria" => !empty($opciones["mostrarCategoria"]) ? 1 : 0,
+        ":presentacion" => array_key_exists("mostrarPresentacion", $opciones) ? (!empty($opciones["mostrarPresentacion"]) ? 1 : 0) : 1,
+        ":sku" => !empty($opciones["mostrarSku"]) ? 1 : 0,
+        ":disponibilidad" => !empty($opciones["mostrarDisponibilidad"]) ? 1 : 0,
+        ":agrupar_variantes" => !empty($opciones["agruparVariantes"]) ? 1 : 0,
+        ":fuente_visual" => $estiloVisual["fuente"],
+        ":color_titulo" => $estiloVisual["colorTitulo"],
+        ":color_producto" => $estiloVisual["colorProducto"],
+        ":color_meta" => $estiloVisual["colorMeta"],
+        ":color_precio" => $estiloVisual["colorPrecio"],
+        ":tam_titulo" => $estiloVisual["tamTitulo"],
+        ":tam_producto" => $estiloVisual["tamProducto"],
+        ":tam_meta" => $estiloVisual["tamMeta"],
+        ":tam_precio" => $estiloVisual["tamPrecio"],
+        ":usuario" => $idUsuario ? intval($idUsuario) : null
+      ));
+      foreach ($ids as $idCatalogo) {
+        $this->registrarEventoCatalogoComercial($db, intval($idCatalogo), "config_global", null, null, array(
+          "plantilla" => isset($opciones["plantilla"]) ? $opciones["plantilla"] : "letter",
+          "solo_configuracion_visual" => true
+        ), $idUsuario);
+      }
+      $db->commit();
+      return $this->respuesta(false, "success", "Configuracion aplicada a catalogos activos", array(
+        "catalogos_actualizados" => count($ids)
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
 
   public function listarIncidenciasMigracionEcommerce() {
     try {
@@ -4962,13 +5029,13 @@ class CatalogoErpDatos extends CRUD {
         }
       }
 
-      $stmt = $db->prepare("SELECT id_atributo_erp, tipo_dato, configuracion_json, es_variante FROM erp_catalogo_atributos WHERE id_atributo_erp=:atributo AND estatus='activo'");
+      $stmt = $db->prepare("SELECT id_atributo_erp, codigo, tipo_dato, configuracion_json, es_variante FROM erp_catalogo_atributos WHERE id_atributo_erp=:atributo AND estatus='activo'");
       $stmt->execute(array(":atributo" => $idAtributo));
       $definicionAtributo = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$definicionAtributo) {
         throw new Exception("El atributo seleccionado no existe o esta inactivo");
       }
-      if (intval($definicionAtributo["es_variante"]) === 1) {
+      if (intval($definicionAtributo["es_variante"]) === 1 && !$this->esAtributoDimensionTecnica($definicionAtributo)) {
         throw new Exception("Ese atributo esta marcado como variante; editalo en la pestana Variantes o crea un atributo tecnico separado");
       }
 
@@ -5382,11 +5449,12 @@ class CatalogoErpDatos extends CRUD {
    * Contrato: devuelve atributos no-variante y valores por SKU usando `erp_catalogo_sku_atributos`.
    */
   private function consultarAtributosTecnicosProducto($db, $idProducto, $skus) {
+    $codigosDimension = $this->codigosAtributosDimensionTecnicaSql();
     $stmt = $db->prepare("SELECT DISTINCT a.id_atributo_erp, a.codigo, a.nombre, a.tipo_dato, a.unidad, a.configuracion_json, a.es_variante
       FROM erp_catalogo_atributos a
       INNER JOIN erp_catalogo_sku_atributos sa ON sa.id_atributo_erp=a.id_atributo_erp
       INNER JOIN erp_catalogo_skus s ON s.id_sku=sa.id_sku
-      WHERE s.id_producto_erp=:producto AND a.es_variante=0 AND a.estatus='activo'
+      WHERE s.id_producto_erp=:producto AND (a.es_variante=0 OR UPPER(a.codigo) IN (" . $codigosDimension . ")) AND a.estatus='activo'
       ORDER BY a.nombre");
     $stmt->execute(array(":producto" => $idProducto));
     $atributos = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -5394,13 +5462,29 @@ class CatalogoErpDatos extends CRUD {
     if (!empty($skus)) {
       $ids = implode(",", array_map(function ($sku) { return intval($sku["id_sku"]); }, $skus));
       $stmt = $db->query("SELECT sa.id_sku, sa.id_atributo_erp, sa.valor FROM erp_catalogo_sku_atributos sa
-        INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp AND a.es_variante=0
+        INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp AND (a.es_variante=0 OR UPPER(a.codigo) IN (" . $codigosDimension . "))
         WHERE sa.id_sku IN (" . $ids . ")");
       foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
         $valores[$fila["id_sku"]][$fila["id_atributo_erp"]] = $fila["valor"];
       }
     }
     return array("atributos" => $atributos, "valores" => $valores);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-27
+   * Proposito: permite reutilizar dimensiones canonicas en ficha tecnica aunque tambien distingan variantes.
+   * Impacto: Catalogo ERP > Productos > Atributos; evita duplicar Largo/Ancho/Alto como atributos tecnicos paralelos.
+   * Contrato: solo aplica a atributos canonicos de dimension fisica definidos por codigo.
+   */
+  private function esAtributoDimensionTecnica($atributo) {
+    $codigo = strtoupper(trim((string) (isset($atributo["codigo"]) ? $atributo["codigo"] : "")));
+    return in_array($codigo, array("ATR-LARGO", "ATR-ANCHO", "ATR-ALTO", "ATR-DIAMETRO", "ATR-GROSOR", "ATR-GROSOR-VIDRIO"), true);
+  }
+
+  private function codigosAtributosDimensionTecnicaSql() {
+    return "'ATR-LARGO','ATR-ANCHO','ATR-ALTO','ATR-DIAMETRO','ATR-GROSOR','ATR-GROSOR-VIDRIO'";
   }
   private function consultarImagenesProducto($db, $idProducto) {
     $stmt = $db->prepare("SELECT i.id_imagen_erp, i.id_producto_erp, i.id_sku, i.tipo_imagen, i.url_imagen,
@@ -8067,10 +8151,10 @@ class CatalogoErpDatos extends CRUD {
         "colorProducto" => $this->normalizarColorCatalogoComercial(isset($catalogo["color_producto"]) ? $catalogo["color_producto"] : "", "#181c32"),
         "colorMeta" => $this->normalizarColorCatalogoComercial(isset($catalogo["color_meta"]) ? $catalogo["color_meta"] : "", "#5e6278"),
         "colorPrecio" => $this->normalizarColorCatalogoComercial(isset($catalogo["color_precio"]) ? $catalogo["color_precio"] : "", "#0f7a5f"),
-        "tamTitulo" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_titulo"]) ? $catalogo["tam_titulo"] : 23, array(21, 23, 26, 30), 23),
-        "tamProducto" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_producto"]) ? $catalogo["tam_producto"] : 11, array(10, 11, 13, 15), 11),
-        "tamMeta" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_meta"]) ? $catalogo["tam_meta"] : 9, array(8, 9, 10, 12), 9),
-        "tamPrecio" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_precio"]) ? $catalogo["tam_precio"] : 13, array(12, 13, 15, 18), 13)
+        "tamTitulo" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_titulo"]) ? $catalogo["tam_titulo"] : 36, array(23, 30, 36, 44, 52, 64), 36),
+        "tamProducto" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_producto"]) ? $catalogo["tam_producto"] : 18, array(13, 16, 18, 22, 26, 30), 18),
+        "tamMeta" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_meta"]) ? $catalogo["tam_meta"] : 14, array(10, 12, 14, 16, 18, 22), 14),
+        "tamPrecio" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_precio"]) ? $catalogo["tam_precio"] : 22, array(15, 18, 22, 26, 30, 36), 22)
       )
     );
   }
@@ -8123,18 +8207,24 @@ class CatalogoErpDatos extends CRUD {
     );
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-27
+   * Proposito: validar formatos de exportacion de Catalogos comerciales, incluyendo carta vertical.
+   * Impacto: Catalogo ERP/Comercial; persiste densidad visual sin DDL adicional ni tocar productos.
+   * Contrato: acepta compact o formatos base con columnas/filas; usa `letter_3` como default formal.
+   */
   private function normalizarPlantillaCatalogoComercial($valor) {
     $plantilla = trim((string)$valor);
     if ($plantilla === "compact") {
       return "compact";
     }
-    if (preg_match('/^(square|story)(?:_([2-5])(?:x([2-6]))?)?$/', $plantilla, $coincidencias)) {
+    if (preg_match('/^(letter|square|story)(?:_([2-5])(?:x([2-6]))?)?$/', $plantilla, $coincidencias)) {
       $base = $coincidencias[1];
       $columnas = isset($coincidencias[2]) && $coincidencias[2] !== "" ? $coincidencias[2] : "3";
       $filas = isset($coincidencias[3]) && $coincidencias[3] !== "" ? "x" . $coincidencias[3] : "";
       return $base . "_" . $columnas . $filas;
     }
-    return "square_3";
+    return "letter_3";
   }
 
   /**
@@ -8151,10 +8241,10 @@ class CatalogoErpDatos extends CRUD {
       "colorProducto" => $this->normalizarColorCatalogoComercial(isset($estilo["colorProducto"]) ? $estilo["colorProducto"] : "", "#181c32"),
       "colorMeta" => $this->normalizarColorCatalogoComercial(isset($estilo["colorMeta"]) ? $estilo["colorMeta"] : "", "#5e6278"),
       "colorPrecio" => $this->normalizarColorCatalogoComercial(isset($estilo["colorPrecio"]) ? $estilo["colorPrecio"] : "", "#0f7a5f"),
-      "tamTitulo" => $this->normalizarTamCatalogoComercial(isset($estilo["tamTitulo"]) ? $estilo["tamTitulo"] : 23, array(21, 23, 26, 30), 23),
-      "tamProducto" => $this->normalizarTamCatalogoComercial(isset($estilo["tamProducto"]) ? $estilo["tamProducto"] : 11, array(10, 11, 13, 15), 11),
-      "tamMeta" => $this->normalizarTamCatalogoComercial(isset($estilo["tamMeta"]) ? $estilo["tamMeta"] : 9, array(8, 9, 10, 12), 9),
-      "tamPrecio" => $this->normalizarTamCatalogoComercial(isset($estilo["tamPrecio"]) ? $estilo["tamPrecio"] : 13, array(12, 13, 15, 18), 13)
+      "tamTitulo" => $this->normalizarTamCatalogoComercial(isset($estilo["tamTitulo"]) ? $estilo["tamTitulo"] : 36, array(23, 30, 36, 44, 52, 64), 36),
+      "tamProducto" => $this->normalizarTamCatalogoComercial(isset($estilo["tamProducto"]) ? $estilo["tamProducto"] : 18, array(13, 16, 18, 22, 26, 30), 18),
+      "tamMeta" => $this->normalizarTamCatalogoComercial(isset($estilo["tamMeta"]) ? $estilo["tamMeta"] : 14, array(10, 12, 14, 16, 18, 22), 14),
+      "tamPrecio" => $this->normalizarTamCatalogoComercial(isset($estilo["tamPrecio"]) ? $estilo["tamPrecio"] : 22, array(15, 18, 22, 26, 30, 36), 22)
     );
   }
 

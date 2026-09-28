@@ -1723,3 +1723,83 @@ Regla:
 
 - La carga no escribe el catalogo por si sola; la ruta queda en pantalla y se persiste al usar `Guardar`.
 - No se guarda como imagen de producto ni se vincula a SKUs.
+
+## Ajuste 2026-09-27 - Formato carta para portada y catalogo
+
+Contexto:
+
+- Para empezar a organizar catalogos comerciales reales, la portada completa necesitaba medidas claras.
+- El formato anterior exportaba en 1080 x 1600 px, util para redes, pero no comunicaba una referencia tipo hoja/carta.
+
+Decision:
+
+- El formato recomendado y default para catalogos comerciales formales sera `Carta vertical`.
+- Medida operativa del lienzo exportado: `1275 x 1650 px`, proporcion carta `8.5 x 11`.
+- Para disenar la imagen de portada en mayor calidad, usar `2550 x 3300 px`; el sistema la ajusta al lienzo exportado.
+
+Cambios aplicados:
+
+- El selector de formato agrega `Carta vertical`.
+- La ayuda junto a `Cargar portada` muestra las medidas recomendadas segun el formato.
+- El exportador PNG usa `1275 x 1650 px` cuando el formato es carta.
+- El backend acepta `letter`, `letter_3`, `letter_3x4`, etc. en la columna existente `plantilla`.
+
+Regla:
+
+- No hubo DDL.
+- La medida solo afecta materiales visuales/exportacion; no toca SKUs, precios, costos, rentabilidad ni inventario.
+
+## Ajuste 2026-09-27 - Legibilidad de texto en carta
+
+Contexto:
+
+- En formato carta los textos se percibian pequenos y el preview podia verse borroso por estar reducido en pantalla.
+- Los limites anteriores de tamano (`producto` hasta 15 px, `precio` hasta 18 px) venian del formato inicial para redes y ya no eran suficientes para catalogos carta.
+
+Cambios aplicados:
+
+- La exportacion carta mantiene composicion logica carta, pero genera PNG real en `2550 x 3300 px` para mayor nitidez.
+- El preview de paginas sigue mostrandose como miniatura en navegador; la descarga PNG tiene la resolucion completa.
+- Se ampliaron rangos de texto:
+  - titulo: 23, 30, 36, 44, 52, 64 px;
+  - producto: 13, 16, 18, 22, 26, 30 px;
+  - datos: 10, 12, 14, 16, 18, 22 px;
+  - precio: 15, 18, 22, 26, 30, 36 px.
+- Los valores nuevos se aceptan en backend y se persisten en las columnas existentes.
+
+Regla:
+
+- No hubo DDL.
+- Si un catalogo se ve saturado al subir fuentes, reducir columnas/filas por pagina antes de sacrificar legibilidad.
+
+## Ajuste 2026-09-27 - Configuracion visual global
+
+Contexto:
+
+- El usuario necesita estandarizar la configuracion de catalogos comerciales existentes sin editar uno por uno.
+- La base actual es productiva, por lo que cualquier aplicacion masiva debe ser explicita y limitada.
+
+Decision:
+
+- La accion global aplica solo configuracion visual/exportable:
+  - formato y densidad (`plantilla`, columnas/filas);
+  - campos visibles;
+  - agrupacion visual de variantes;
+  - fuente, colores y tamanos.
+- No aplica contenido propio del catalogo:
+  - productos seleccionados;
+  - titulo/subtitulo/CTA;
+  - portada, imagen, logo o contacto;
+  - precios, costos, inventario o rentabilidad.
+
+Cambios aplicados:
+
+- Se agrega boton `Aplicar config. a todos` en el editor.
+- La UI pide confirmacion antes de escribir.
+- Backend `catalogos_comerciales_configuracion_aplicar_todos` actualiza solo catalogos activos (`estatus <> archivado`).
+- Cada catalogo actualizado recibe evento interno `config_global`.
+
+Regla:
+
+- No hubo DDL.
+- Es una escritura masiva controlada; debe usarse solo cuando el operador quiera homologar visualmente todos los catalogos activos.
