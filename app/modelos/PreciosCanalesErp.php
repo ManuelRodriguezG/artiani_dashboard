@@ -161,7 +161,10 @@ class PreciosCanalesErp extends CRUD {
   private function tipoPrecioContexto($contexto) {
     $permisos = $this->valor($contexto, "permisos", array());
     $permisos = is_array($permisos) ? $permisos : array();
-    if (in_array("distribucion.precio.ver_lista_asignada", $permisos, true) && intval($this->valor($contexto, "id_lista_precio", 0)) > 0) {
+    $tienePermisoPrecio = in_array("distribucion.precio.ver_publico", $permisos, true)
+      || in_array("distribucion.precio.ver_mayoreo", $permisos, true)
+      || in_array("distribucion.precio.ver_lista_asignada", $permisos, true);
+    if ($tienePermisoPrecio && intval($this->valor($contexto, "id_lista_precio", 0)) > 0) {
       return "lista_asignada";
     }
     if (in_array("distribucion.precio.ver_publico", $permisos, true)) {

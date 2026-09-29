@@ -4,16 +4,16 @@ class DistribucionClienteSurtidoApi extends CRUD {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
-   * Proposito: listar surtido habitual del cliente externo Distribucion.
+   * Proposito: listar Mi catalogo del cliente externo Distribucion.
    * Impacto: Frontend Distribucion; permite separar productos de interes sin tocar inventario ERP.
-   * Contrato: GET autenticado con `distribucion.surtido.gestionar`; solo devuelve SKUs publicados en canal Distribucion.
+   * Contrato: GET autenticado con `distribucion.mi_catalogo.gestionar`; solo devuelve SKUs publicados en canal Distribucion.
    */
   public function surtidoListar($filtros = array(), $contexto = array()) {
-    $permiso = $this->requierePermiso($contexto, "distribucion.surtido.gestionar", "No tienes permiso para gestionar tu surtido");
+    $permiso = $this->requiereAlgunPermiso($contexto, array("distribucion.mi_catalogo.gestionar", "distribucion.surtido.gestionar"), "No tienes permiso para gestionar Mi catalogo");
     if ($permiso) { return $permiso; }
     $db = $this->getConexion();
     if (!$this->esquemaSurtidoOperativo($db)) {
-      return $this->respuesta(false, "warning", "Surtido Distribucion pendiente de esquema", array("configurado" => false, "items" => array()));
+      return $this->respuesta(false, "warning", "Mi catalogo Distribucion pendiente de esquema", array("configurado" => false, "items" => array()));
     }
     try {
       $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
@@ -36,28 +36,28 @@ class DistribucionClienteSurtidoApi extends CRUD {
         ORDER BY cp.prioridad DESC, p.nombre ASC, s.sku ASC
         LIMIT " . intval($limite));
       $stmt->execute($params);
-      return $this->respuesta(false, "success", "Surtido Distribucion consultado", array(
+      return $this->respuesta(false, "success", "Mi catalogo Distribucion consultado", array(
         "configurado" => true,
         "items" => $stmt->fetchAll(PDO::FETCH_ASSOC),
         "sesion" => $this->sesionSalida($contexto)
       ));
     } catch (Exception $e) {
-      return $this->respuesta(true, "danger", "No se pudo consultar surtido Distribucion", array("detalle" => "error_controlado"));
+      return $this->respuesta(true, "danger", "No se pudo consultar Mi catalogo Distribucion", array("detalle" => "error_controlado"));
     }
   }
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
-   * Proposito: agregar, actualizar o quitar productos del surtido habitual del cliente externo.
+   * Proposito: agregar, actualizar o quitar productos de Mi catalogo del cliente externo.
    * Impacto: Frontend Distribucion; guarda interes comercial sin crear pedido ni apartar inventario.
-   * Contrato: POST JSON autenticado con `distribucion.surtido.gestionar`; valida canal Distribucion.
+   * Contrato: POST JSON autenticado con `distribucion.mi_catalogo.gestionar`; valida canal Distribucion.
    */
   public function surtidoGuardar($datos = array(), $contexto = array()) {
-    $permiso = $this->requierePermiso($contexto, "distribucion.surtido.gestionar", "No tienes permiso para gestionar tu surtido");
+    $permiso = $this->requiereAlgunPermiso($contexto, array("distribucion.mi_catalogo.gestionar", "distribucion.surtido.gestionar"), "No tienes permiso para gestionar Mi catalogo");
     if ($permiso) { return $permiso; }
     $db = $this->getConexion();
     if (!$this->esquemaSurtidoOperativo($db)) {
-      return $this->respuesta(true, "warning", "Surtido Distribucion pendiente de esquema", array("configurado" => false));
+      return $this->respuesta(true, "warning", "Mi catalogo Distribucion pendiente de esquema", array("configurado" => false));
     }
     $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
     $idSku = intval($this->valor($datos, "id_sku", 0));
@@ -85,12 +85,12 @@ class DistribucionClienteSurtidoApi extends CRUD {
         ":estatus" => $estatus,
         ":notas" => $this->textoNullable($this->valor($datos, "notas", null), 2000)
       ));
-      $this->registrarAuditoria($db, "cliente_surtido", $idSku, $estatus === "activo" ? "guardar" : "desactivar", "ok", "Surtido cliente actualizado", array(
+      $this->registrarAuditoria($db, "cliente_mi_catalogo", $idSku, $estatus === "activo" ? "guardar" : "desactivar", "ok", "Mi catalogo cliente actualizado", array(
         "id_sku" => $idSku,
         "estatus" => $estatus
       ), null, $idCliente);
       $db->commit();
-      return $this->respuesta(false, "success", $estatus === "activo" ? "Producto guardado en tu surtido" : "Producto quitado de tu surtido", array(
+      return $this->respuesta(false, "success", $estatus === "activo" ? "Producto guardado en Mi catalogo" : "Producto quitado de Mi catalogo", array(
         "configurado" => true,
         "ejecutado" => true,
         "id_sku" => $idSku,
@@ -98,8 +98,16 @@ class DistribucionClienteSurtidoApi extends CRUD {
       ));
     } catch (Exception $e) {
       if ($db && $db->inTransaction()) { $db->rollBack(); }
-      return $this->respuesta(true, "danger", "No se pudo guardar surtido Distribucion", array("detalle" => "error_controlado"));
+      return $this->respuesta(true, "danger", "No se pudo guardar Mi catalogo Distribucion", array("detalle" => "error_controlado"));
     }
+  }
+
+  public function miCatalogoListar($filtros = array(), $contexto = array()) {
+    return $this->surtidoListar($filtros, $contexto);
+  }
+
+  public function miCatalogoGuardar($datos = array(), $contexto = array()) {
+    return $this->surtidoGuardar($datos, $contexto);
   }
 
   /**
@@ -228,7 +236,7 @@ class DistribucionClienteSurtidoApi extends CRUD {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
-   * Proposito: consultar surtidos de clientes desde ERP interno.
+   * Proposito: consultar Mi catalogo de clientes desde ERP interno.
    * Impacto: Admin Distribucion; permite observar productos seleccionados por cliente.
    * Contrato: GET interno protegido por controlador; read-only.
    */
@@ -312,6 +320,9 @@ class DistribucionClienteSurtidoApi extends CRUD {
       $limite = max(1, min(300, intval($this->valor($filtros, "limite", 150))));
       $idCliente = intval($this->valor($filtros, "id_cliente_distribucion", 0));
       $q = trim((string) $this->valor($filtros, "q", ""));
+      $idMarca = intval($this->valor($filtros, "id_marca_erp", $this->valor($filtros, "marca", 0)));
+      $idCategoria = intval($this->valor($filtros, "id_categoria_erp", $this->valor($filtros, "categoria", 0)));
+      $idProveedor = intval($this->valor($filtros, "id_proveedor", $this->valor($filtros, "proveedor", 0)));
       $where = array();
       $params = array();
       if ($idCliente > 0) {
@@ -322,15 +333,34 @@ class DistribucionClienteSurtidoApi extends CRUD {
         $where[] = "(c.nombre LIKE :q OR c.empresa LIKE :q OR c.correo LIKE :q OR s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q)";
         $params[":q"] = "%" . $q . "%";
       }
+      if ($idMarca > 0) {
+        $where[] = "p.id_marca_erp=:marca";
+        $params[":marca"] = $idMarca;
+      }
+      if ($idCategoria > 0 && $this->tablaExiste($db, "erp_catalogo_producto_categorias")) {
+        $where[] = "EXISTS (SELECT 1 FROM erp_catalogo_producto_categorias pcf WHERE pcf.id_producto_erp=p.id_producto_erp AND pcf.id_categoria_erp=:categoria)";
+        $params[":categoria"] = $idCategoria;
+      }
+      if ($idProveedor > 0 && $this->tablaExiste($db, "erp_catalogo_sku_proveedores")) {
+        $where[] = "EXISTS (SELECT 1 FROM erp_catalogo_sku_proveedores spf WHERE spf.id_sku=s.id_sku AND spf.id_proveedor=:proveedor AND spf.estatus='activo')";
+        $params[":proveedor"] = $idProveedor;
+      }
       $whereSql = empty($where) ? "1=1" : implode(" AND ", $where);
+      $joinMarca = $this->tablaExiste($db, "erp_catalogo_marcas") ? "LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp" : "LEFT JOIN (SELECT NULL nombre) m ON 1=0";
+      $joinCategoria = $this->tablaExiste($db, "erp_catalogo_producto_categorias") && $this->tablaExiste($db, "erp_catalogo_categorias") ? "LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1 LEFT JOIN erp_catalogo_categorias cat ON cat.id_categoria_erp=pc.id_categoria_erp" : "LEFT JOIN (SELECT NULL ruta, NULL nombre) cat ON 1=0";
+      $joinProveedor = $this->tablaExiste($db, "erp_catalogo_sku_proveedores") && $this->tablaExiste($db, "erp_proveedores") ? "LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku=s.id_sku AND sp.estatus='activo' AND sp.es_preferido=1 LEFT JOIN erp_proveedores pr ON pr.id_proveedor=sp.id_proveedor" : "LEFT JOIN (SELECT NULL proveedor) pr ON 1=0";
       if ($modo === "surtido") {
         $sql = "SELECT cp.id_cliente_producto, cp.id_cliente_distribucion, c.nombre cliente, c.empresa, c.correo, cp.id_sku,
             s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) nombre_sku, p.nombre producto, cp.alias_cliente,
-            cp.ubicacion_cliente, cp.prioridad, cp.estatus, cp.fecha_actualizacion
+            cp.ubicacion_cliente, cp.prioridad, cp.estatus, cp.fecha_registro, cp.fecha_actualizacion,
+            m.nombre marca, COALESCE(cat.ruta, cat.nombre) categoria, pr.proveedor proveedor_principal
           FROM erp_distribucion_cliente_productos cp
           INNER JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=cp.id_cliente_distribucion
           LEFT JOIN erp_catalogo_skus s ON s.id_sku=cp.id_sku
           LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+          " . $joinMarca . "
+          " . $joinCategoria . "
+          " . $joinProveedor . "
           WHERE " . $whereSql . "
           ORDER BY cp.fecha_actualizacion DESC, cp.id_cliente_producto DESC
           LIMIT " . intval($limite);
@@ -339,11 +369,15 @@ class DistribucionClienteSurtidoApi extends CRUD {
         $sql = "SELECT ci.id_cliente_inventario, ci.id_cliente_distribucion, c.nombre cliente, c.empresa, c.correo, ci.id_sku,
             s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) nombre_sku, p.nombre producto, ci.existencia_cliente,
             ci.minimo, ci.maximo, (CASE WHEN ci.minimo > 0 AND ci.maximo > ci.existencia_cliente AND ci.existencia_cliente <= ci.minimo THEN ci.maximo - ci.existencia_cliente ELSE 0 END) cantidad_sugerida,
-            ci.unidad_cliente, ci.fecha_conteo, ci.fecha_actualizacion
+            ci.unidad_cliente, ci.fecha_conteo, ci.fecha_actualizacion, ci.notas,
+            m.nombre marca, COALESCE(cat.ruta, cat.nombre) categoria, pr.proveedor proveedor_principal
           FROM erp_distribucion_cliente_inventario ci
           INNER JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=ci.id_cliente_distribucion
           LEFT JOIN erp_catalogo_skus s ON s.id_sku=ci.id_sku
           LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+          " . $joinMarca . "
+          " . $joinCategoria . "
+          " . $joinProveedor . "
           WHERE " . $whereSql . $extra . "
           ORDER BY cantidad_sugerida DESC, ci.fecha_actualizacion DESC
           LIMIT " . intval($limite);
@@ -382,6 +416,20 @@ class DistribucionClienteSurtidoApi extends CRUD {
       return null;
     }
     return $this->respuesta(true, "warning", $mensaje, array("requiere_permiso" => $permiso, "sesion" => $this->sesionSalida($contexto)));
+  }
+
+  private function requiereAlgunPermiso($contexto, $permisosRequeridos, $mensaje) {
+    if (empty($contexto["autenticado"])) {
+      return $this->respuesta(true, "warning", "Sesion Distribucion requerida", array("requiere_autenticacion" => true, "requiere_permiso" => $permisosRequeridos));
+    }
+    $permisos = $this->valor($contexto, "permisos", array());
+    $permisos = is_array($permisos) ? $permisos : array();
+    foreach ($permisosRequeridos as $permiso) {
+      if (in_array($permiso, $permisos, true)) {
+        return null;
+      }
+    }
+    return $this->respuesta(true, "warning", $mensaje, array("requiere_permiso" => $permisosRequeridos, "sesion" => $this->sesionSalida($contexto)));
   }
 
   private function skuVisibleCanal($db, $idSku) {

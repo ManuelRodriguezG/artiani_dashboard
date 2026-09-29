@@ -371,7 +371,7 @@ class DistribucionApiEsquema extends DBSchema {
       "erp_distribucion_solicitudes" => "Solicitudes de acceso comercial antes de aprobacion.",
       "erp_distribucion_cliente_permisos" => "Permisos granulares externos por cliente.",
       "erp_distribucion_cliente_listas" => "Historial/asignacion de listas de precio por cliente externo.",
-      "erp_distribucion_cliente_productos" => "Surtido habitual/productos seleccionados por cliente externo.",
+      "erp_distribucion_cliente_productos" => "Mi catalogo/productos seleccionados por cliente externo.",
       "erp_distribucion_cliente_inventario" => "Conteo, minimos y maximos declarados por cliente para sugerido de resurtido.",
       "erp_distribucion_cliente_inventario_movimientos" => "Bitacora de conteos y cambios de minimos/maximos del inventario del cliente.",
       "erp_distribucion_cotizaciones" => "Encabezado de solicitudes de cotizacion Distribucion.",

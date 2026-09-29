@@ -212,6 +212,24 @@ TMS Delivery POS real:
 C:\xampp\panel_db_backups\artianilocal_panel_20260729_204819_antes_tms_pos_real.sql
 ```
 
+Listas de precios - MAYOREO_PRUBA productivo:
+
+```text
+C:\xampp\panel_db_backups\artianicom_sys_panel_20260929_081211_antes_listas_precios_mayoreo_pruba.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=52247610
+sha256=d04294bd2b650e6ae2f44efb059c4a3eadb14ea68904b4d230694d40253513af
+base=productivo_artianicom_sys
+accion=crear lista MAYOREO_PRUBA en borrador con margen bruto 20%
+id_usuario=1 soporte_sistema
+```
+
 Validacion:
 
 ```text

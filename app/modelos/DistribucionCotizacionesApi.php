@@ -300,11 +300,28 @@ class DistribucionCotizacionesApi extends CRUD {
     }
     try {
       $limite = max(1, min(200, intval($this->valor($filtros, "limite", 50))));
-      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, folio, id_cliente_distribucion, estatus, moneda, subtotal, total_estimado, fecha_registro
-        FROM erp_distribucion_cotizaciones
-        ORDER BY id_cotizacion_distribucion DESC
+      $estatus = trim((string) $this->valor($filtros, "estatus", ""));
+      $q = trim((string) $this->valor($filtros, "q", ""));
+      $where = array("1=1");
+      $params = array();
+      if ($estatus !== "") {
+        $where[] = "co.estatus=:estatus";
+        $params[":estatus"] = $estatus;
+      }
+      if ($q !== "") {
+        $where[] = "(co.folio LIKE :q OR c.nombre LIKE :q OR c.empresa LIKE :q OR c.correo LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+      $joinCliente = $this->tablaExiste($db, "erp_distribucion_clientes") ? "LEFT JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=co.id_cliente_distribucion" : "LEFT JOIN (SELECT NULL id_cliente_distribucion, NULL nombre, NULL empresa, NULL correo) c ON 1=0";
+      $itemsSelect = $this->tablaExiste($db, "erp_distribucion_cotizacion_items") ? "(SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion)" : "0";
+      $stmt = $db->prepare("SELECT co.id_cotizacion_distribucion, co.folio, co.id_cliente_distribucion, co.estatus, co.moneda, co.subtotal, co.total_estimado, co.fecha_registro,
+          c.nombre cliente, c.empresa, c.correo, " . $itemsSelect . " partidas
+        FROM erp_distribucion_cotizaciones co
+        " . $joinCliente . "
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY co.id_cotizacion_distribucion DESC
         LIMIT " . intval($limite));
-      $stmt->execute();
+      $stmt->execute($params);
       return $this->respuesta(false, "success", "Cotizaciones Distribucion consultadas", array("configurado" => true, "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudieron consultar cotizaciones", array("detalle" => "error_controlado"));
@@ -327,14 +344,94 @@ class DistribucionCotizacionesApi extends CRUD {
       return $this->respuesta(false, "warning", "Detalle de cotizacion pendiente de esquema", array("configurado" => false, "cotizacion" => null, "items" => array()));
     }
     try {
-      $stmt = $db->prepare("SELECT * FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id LIMIT 1");
+      $joinCliente = $this->tablaExiste($db, "erp_distribucion_clientes") ? "LEFT JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=co.id_cliente_distribucion" : "LEFT JOIN (SELECT NULL nombre, NULL empresa, NULL correo, NULL telefono) c ON 1=0";
+      $stmt = $db->prepare("SELECT co.*, c.nombre cliente, c.empresa, c.correo, c.telefono
+        FROM erp_distribucion_cotizaciones co
+        " . $joinCliente . "
+        WHERE co.id_cotizacion_distribucion=:id LIMIT 1");
       $stmt->execute(array(":id" => $id));
       $cotizacion = $stmt->fetch(PDO::FETCH_ASSOC);
-      $stmtItems = $db->prepare("SELECT * FROM erp_distribucion_cotizacion_items WHERE id_cotizacion_distribucion=:id ORDER BY id_cotizacion_item ASC");
+      $stmtItems = $db->prepare("SELECT i.*, s.sku sku_actual, COALESCE(NULLIF(s.nombre,''), p.nombre, i.nombre_snapshot) producto_actual
+        FROM erp_distribucion_cotizacion_items i
+        LEFT JOIN erp_catalogo_skus s ON s.id_sku=i.id_sku
+        LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE i.id_cotizacion_distribucion=:id
+        ORDER BY i.id_cotizacion_item ASC");
       $stmtItems->execute(array(":id" => $id));
       return $this->respuesta(false, "success", "Cotizacion Distribucion consultada", array("configurado" => true, "cotizacion" => $cotizacion ?: null, "items" => $stmtItems->fetchAll(PDO::FETCH_ASSOC)));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudo consultar cotizacion", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-29
+   * Proposito: registrar revision interna por partida de una solicitud Distribucion.
+   * Impacto: Pedidos/cotizaciones Distribucion; permite confirmar, parcializar o marcar proveedor sin apartar inventario.
+   * Contrato: requiere columnas cantidad_confirmada, estatus_revision, comentario_revision, fecha_revision e id_usuario_revision.
+   */
+  public function revisionPartidaInterna($datos = array(), $idUsuario = null) {
+    $idItem = intval($this->valor($datos, "id_cotizacion_item", $this->valor($datos, "id", 0)));
+    if ($idItem <= 0) {
+      return $this->respuesta(true, "warning", "Partida requerida");
+    }
+    $estatus = trim((string) $this->valor($datos, "estatus_revision", ""));
+    if (!in_array($estatus, array("por_confirmar", "confirmado", "parcial", "no_disponible", "pendiente_proveedor", "requiere_revision"), true)) {
+      return $this->respuesta(true, "warning", "Estatus de revision no valido");
+    }
+    $cantidadConfirmada = max(0, min(999999, floatval($this->valor($datos, "cantidad_confirmada", 0))));
+    $comentario = substr(trim((string) $this->valor($datos, "comentario_revision", "")), 0, 2000);
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->columnasRevisionDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Revision por partida pendiente de esquema", array(
+        "configurado" => false,
+        "requiere_plan_esquema" => true,
+        "columnas" => array("cantidad_confirmada", "estatus_revision", "comentario_revision", "fecha_revision", "id_usuario_revision")
+      ));
+    }
+    try {
+      $stmt = $db->prepare("SELECT i.id_cotizacion_item, i.id_cotizacion_distribucion, c.id_cliente_distribucion, c.estatus
+        FROM erp_distribucion_cotizacion_items i
+        INNER JOIN erp_distribucion_cotizaciones c ON c.id_cotizacion_distribucion=i.id_cotizacion_distribucion
+        WHERE i.id_cotizacion_item=:id
+        LIMIT 1");
+      $stmt->execute(array(":id" => $idItem));
+      $item = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$item) {
+        return $this->respuesta(true, "warning", "Partida no encontrada");
+      }
+      $db->beginTransaction();
+      $db->prepare("UPDATE erp_distribucion_cotizacion_items
+        SET cantidad_confirmada=:cantidad, estatus_revision=:estatus, comentario_revision=:comentario,
+            fecha_revision=NOW(), id_usuario_revision=:usuario
+        WHERE id_cotizacion_item=:id")
+        ->execute(array(
+          ":cantidad" => $cantidadConfirmada,
+          ":estatus" => $estatus,
+          ":comentario" => $comentario,
+          ":usuario" => $idUsuario,
+          ":id" => $idItem
+        ));
+      if (in_array((string) $item["estatus"], array("pedido_solicitado", "recibida", "recibida_revision"), true)) {
+        $db->prepare("UPDATE erp_distribucion_cotizaciones SET estatus='en_revision', fecha_actualizacion=NOW() WHERE id_cotizacion_distribucion=:id")
+          ->execute(array(":id" => intval($item["id_cotizacion_distribucion"])));
+      }
+      $this->registrarAuditoria($db, "cotizacion_item", $idItem, "revision_partida", "ok", "Partida Distribucion revisada", array(
+        "cantidad_confirmada" => $cantidadConfirmada,
+        "estatus_revision" => $estatus,
+        "comentario_revision" => $comentario
+      ), $idUsuario, intval($item["id_cliente_distribucion"]));
+      $db->commit();
+      return $this->respuesta(false, "success", "Revision de partida guardada", array(
+        "ejecutado" => true,
+        "id_cotizacion_item" => $idItem,
+        "estatus_revision" => $estatus,
+        "guardrails" => array("no_aparta_inventario" => true, "no_crea_venta" => true, "no_crea_pedido_erp" => true)
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo guardar revision de partida", array("detalle" => "error_controlado"));
     }
   }
 
@@ -562,6 +659,25 @@ class DistribucionCotizacionesApi extends CRUD {
     } catch (Exception $e) {
       return false;
     }
+  }
+
+  private function columnaExiste($db, $tabla, $columna) {
+    try {
+      $stmt = $db->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla AND COLUMN_NAME=:columna LIMIT 1");
+      $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla, ":columna" => $columna));
+      return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+      return false;
+    }
+  }
+
+  private function columnasRevisionDisponibles($db) {
+    foreach (array("cantidad_confirmada", "estatus_revision", "comentario_revision", "fecha_revision", "id_usuario_revision") as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_cotizacion_items", $columna)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private function respuesta($error, $tipo, $mensaje, $depurar = array()) {

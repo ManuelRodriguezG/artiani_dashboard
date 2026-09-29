@@ -105,7 +105,7 @@
 
     function cargarTodo() {
         setEstado("Cargando...", "badge-light-info");
-        Promise.all([cargarReadiness(), cargarAuditoria(), cargarSchema()]).then(function () {
+        Promise.all([cargarReadiness(), cargarListasPrecio(), cargarAuditoria(), cargarSchema()]).then(function () {
             setEstado("Read-only", "badge-light-success");
         }).catch(function (error) {
             setEstado("Error", "badge-light-danger");
@@ -117,6 +117,82 @@
         return getJson("/ecommercePublico/publicaciones_readiness_erp", {base_url: "http://panel.com.local"}).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No se pudo cargar readiness"); }
             renderReadiness(response.depurar || {}, response.mensaje || "");
+        });
+    }
+
+    function cargarListasPrecio() {
+        var estado = $("ecom_lista_precio_estado");
+        if (estado) {
+            estado.className = "badge badge-light-info";
+            estado.textContent = "Cargando listas...";
+        }
+        return getJson("/ecommercePublico/publicaciones_listas_precio_erp", {}).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudieron cargar listas de precios"); }
+            renderListasPrecio(response.depurar || {});
+        });
+    }
+
+    function renderListasPrecio(data) {
+        var select = $("ecom_lista_precio_select");
+        var resumen = $("ecom_lista_precio_resumen");
+        var estado = $("ecom_lista_precio_estado");
+        if (!select || !resumen || !estado) { return; }
+        var actual = data.actual || {};
+        var items = data.items || [];
+        var seleccionado = String(actual.id_lista_precio || "0");
+        select.innerHTML = "<option value=\"0\">Modo automatico seguro</option>" + items.map(function (item) {
+            var label = "#" + item.id_lista_precio + " - " + (item.codigo || item.nombre || "Lista sin nombre") +
+                " | " + (item.canal || "sin canal") +
+                " | " + item.estatus +
+                " | " + Number(item.detalles_activos || 0) + " SKUs";
+            var disabled = item.elegible_ecommerce ? "" : " disabled";
+            return "<option value=\"" + escapeHtml(item.id_lista_precio) + "\"" + disabled + ">" + escapeHtml(label) + "</option>";
+        }).join("");
+        select.value = seleccionado;
+        if (select.value !== seleccionado) { select.value = "0"; }
+
+        var listaActual = items.filter(function (item) { return String(item.id_lista_precio || "") === seleccionado; })[0] || null;
+        estado.className = "badge " + (listaActual ? "badge-light-success" : "badge-light-warning");
+        estado.textContent = listaActual
+            ? "Usando " + (listaActual.codigo || listaActual.nombre || ("lista #" + listaActual.id_lista_precio))
+            : "Modo automatico seguro";
+
+        resumen.innerHTML = items.length ? (
+            "<div class=\"table-responsive\"><table class=\"table table-sm align-middle mb-0\">" +
+            "<thead><tr class=\"text-muted fs-8 text-uppercase\"><th>Lista</th><th>Canal</th><th>Estatus</th><th>SKUs</th><th>Uso ecommerce</th></tr></thead><tbody>" +
+            items.map(function (item) {
+                var bloqueos = item.bloqueos || [];
+                return "<tr>" +
+                    "<td><div class=\"fw-semibold\">" + escapeHtml(item.codigo || item.nombre || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.nombre || "") + "</div></td>" +
+                    "<td>" + escapeHtml(item.canal || "sin canal") + "</td>" +
+                    "<td><span class=\"badge " + (item.estatus === "activa" ? "badge-light-success" : "badge-light-warning") + "\">" + escapeHtml(item.estatus || "") + "</span></td>" +
+                    "<td>" + Number(item.detalles_activos || 0) + "</td>" +
+                    "<td>" + (item.seleccionada ? "<span class=\"badge badge-light-primary me-1\">Seleccionada</span>" : "") +
+                    (item.elegible_ecommerce ? "<span class=\"badge badge-light-success\">Elegible</span>" : "<span class=\"badge badge-light-danger\">" + escapeHtml(bloqueos.join(", ") || "No elegible") + "</span>") +
+                    "</td>" +
+                "</tr>";
+            }).join("") +
+            "</tbody></table></div>"
+        ) : "<div class=\"text-muted fs-7\">No hay listas de precios para mostrar.</div>";
+    }
+
+    function guardarListaPrecioEcommerce() {
+        var select = $("ecom_lista_precio_select");
+        if (!select) { return; }
+        if (!window.confirm("Guardar esta lista como fuente de precios del ecommerce publico? No modifica precios ni productos, pero cambia lo que lee la API.")) {
+            return;
+        }
+        setEstado("Guardando lista ecommerce...", "badge-light-info");
+        postForm("/ecommercePublico/publicaciones_lista_precio_guardar_erp", {
+            id_lista_precio: select.value || "0"
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo guardar la lista ecommerce"); }
+            setEstado("Lista ecommerce guardada", "badge-light-success");
+            return Promise.all([cargarListasPrecio(), cargarAuditoria()]);
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            window.alert(error.message || "No se pudo guardar la lista ecommerce.");
+            cargarListasPrecio();
         });
     }
 
@@ -1232,6 +1308,8 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         $("ecom_recargar").addEventListener("click", cargarTodo);
+        $("ecom_lista_precio_guardar").addEventListener("click", guardarListaPrecioEcommerce);
+        $("ecom_lista_precio_recargar").addEventListener("click", cargarListasPrecio);
         var filtroBusqueda = $("ecom_filtro_busqueda");
         if (filtroBusqueda) {
             var timerBusqueda = null;

@@ -807,6 +807,9 @@ class EcommercePublico extends Controlador {
       header("Content-Type: application/json; charset=utf-8");
       header("X-ERP-Ecommerce-API-Version: fase1-2026-07-12");
       header("X-ERP-Ecommerce-Mode: catalogo-vivo-readonly");
+      header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+      header("Pragma: no-cache");
+      header("Expires: 0");
       header("Vary: Origin");
       if ($origen !== "" && $modelo->origenCorsPermitido($origen)) {
         header("Access-Control-Allow-Origin: " . $origen);
@@ -1276,6 +1279,28 @@ class EcommercePublico extends Controlador {
   public function publicaciones_readiness_erp() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommerceCatalogoPublico")->readinessFrontendInterna($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: listar listas de precios disponibles para fijar la fuente del canal ecommerce.
+   * Impacto: Publicaciones ecommerce; evita que una lista de mayoreo/prueba gane por prioridad.
+   * Contrato: GET protegido read-only; no modifica precios, publicaciones ni cache externo.
+   */
+  public function publicaciones_listas_precio_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->listasPrecioEcommerceInterna());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: guardar la lista de precios autorizada para el ecommerce publico.
+   * Impacto: Catalogo publico y dry-run; cambia la fuente de precio sin tocar montos, inventario ni publicaciones.
+   * Contrato: POST protegido por catalogo.editar y CSRF; escribe solo `erp_ecommerce_configuracion`.
+   */
+  public function publicaciones_lista_precio_guardar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->guardarListaPrecioEcommerceInterna($_POST, Sesionseguridad::usuarioId()));
   }
 
   /**

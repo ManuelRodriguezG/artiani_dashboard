@@ -5,9 +5,12 @@
     var clientes = [];
     var cotizaciones = [];
     var productos = [];
-    var surtidos = [];
+    var miCatalogoClientes = [];
     var inventarios = [];
     var sugeridos = [];
+    var resumen = {};
+    var demanda = {};
+    var catalogosFiltros = {marcas: [], categorias: [], proveedores: []};
     var listas = [];
     var permisosComerciales = [];
     var permisosUi = window.DISTRIBUCION_ADMIN_PERMISOS || {};
@@ -67,6 +70,44 @@
         return "$" + Number(value).toLocaleString("es-MX", {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
 
+    function numero(value) {
+        return Number(value || 0).toLocaleString("es-MX", {minimumFractionDigits: 0, maximumFractionDigits: 2});
+    }
+
+    function selectValue(id) {
+        var el = document.getElementById(id);
+        return el ? (el.value || "") : "";
+    }
+
+    function query(params) {
+        return Object.keys(params).filter(function (key) {
+            return params[key] !== null && params[key] !== undefined && params[key] !== "";
+        }).map(function (key) {
+            return encodeURIComponent(key) + "=" + encodeURIComponent(params[key]);
+        }).join("&");
+    }
+
+    function renderListaCompacta(id, items, tituloFn, metaFn, vacio) {
+        var contenedor = document.getElementById(id);
+        if (!contenedor) { return; }
+        contenedor.innerHTML = (items || []).map(function (item) {
+            return "<div class=\"d-flex justify-content-between align-items-start border-bottom py-3\">" +
+                "<div class=\"pe-3\"><div class=\"fw-semibold\">" + escapeHtml(tituloFn(item)) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(metaFn(item)) + "</div></div>" +
+                "<span class=\"badge badge-light-primary\">" + escapeHtml(item.total || item.clientes || item.solicitudes || item.cantidad_solicitada || item.productos || 0) + "</span>" +
+            "</div>";
+        }).join("") || "<div class=\"text-muted text-center py-6\">" + escapeHtml(vacio || "Sin datos") + "</div>";
+    }
+
+    function llenarSelect(selector, items, label) {
+        document.querySelectorAll(selector).forEach(function (select) {
+            var actual = select.value || "";
+            select.innerHTML = "<option value=\"\">" + escapeHtml(label) + "</option>" + (items || []).map(function (item) {
+                return "<option value=\"" + escapeHtml(item.id) + "\">" + escapeHtml(item.nombre) + "</option>";
+            }).join("");
+            select.value = actual;
+        });
+    }
+
     function labelTipoNegocio(tipo) {
         var mapa = {
             venta_internet: "Venta por internet",
@@ -93,6 +134,7 @@
             "distribucion.inventario.ver_disponibilidad": "Ver disponibilidad confirmada",
             "distribucion.cotizacion.solicitar": "Solicitar cotizacion",
             "distribucion.pedido.preliminar": "Enviar solicitud de pedido",
+            "distribucion.mi_catalogo.gestionar": "Gestionar Mi catalogo",
             "distribucion.surtido.gestionar": "Gestionar surtido habitual",
             "distribucion.inventario_cliente.gestionar": "Gestionar inventario propio",
             "distribucion.resurtido.sugerido": "Ver sugerido de resurtido",
@@ -253,6 +295,64 @@
         return html;
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-29
+     * Proposito: renderizar resumen operativo interno de Distribucion.
+     * Impacto: UI ERP Distribucion; muestra alertas de operacion sin consultar el frontend externo.
+     */
+    function renderResumen() {
+        var metricas = resumen.metricas || {};
+        var kpis = [
+            ["Solicitudes pendientes", "solicitudes_pendientes", "badge-light-warning"],
+            ["Clientes activos", "clientes_aprobados_activos", "badge-light-success"],
+            ["Sin lista", "clientes_sin_lista", "badge-light-danger"],
+            ["Sin permisos", "clientes_sin_permisos_completos", "badge-light-danger"],
+            ["Productos publicados", "productos_publicados", "badge-light-primary"],
+            ["Candidatos", "productos_candidatos", "badge-light-info"],
+            ["En Mi catalogo", "productos_mi_catalogo", "badge-light-primary"],
+            ["Sugeridos pendientes", "sugeridos_pendientes", "badge-light-warning"],
+            ["Pedidos por revisar", "pedidos_pendientes", "badge-light-warning"],
+            ["Demanda sin precio", "productos_demandados_sin_precio", "badge-light-danger"]
+        ];
+        var contenedor = document.getElementById("dist_resumen_kpis");
+        if (contenedor) {
+            contenedor.innerHTML = kpis.map(function (kpi) {
+                return "<div class=\"dist-kpi\"><div class=\"text-muted fs-8 text-uppercase mb-3\">" + escapeHtml(kpi[0]) + "</div>" +
+                    "<div class=\"dist-kpi-value\">" + escapeHtml(numero(metricas[kpi[1]] || 0)) + "</div>" +
+                    "<span class=\"badge " + kpi[2] + " mt-3\">" + escapeHtml(kpi[1]) + "</span></div>";
+            }).join("");
+        }
+        renderListaCompacta("dist_resumen_recientes", resumen.recientes_mi_catalogo || [], function (item) {
+            return (item.producto || item.sku || "Producto") + " - " + (item.cliente || "Cliente");
+        }, function (item) {
+            return [item.empresa, item.alias_cliente, item.fecha_actualizacion].filter(Boolean).join(" / ");
+        }, "Sin actividad reciente");
+        renderListaCompacta("dist_resumen_top_catalogo", resumen.top_mi_catalogo || [], function (item) {
+            return item.producto || item.sku || "Producto";
+        }, function (item) {
+            return (item.clientes || 0) + " clientes";
+        }, "Sin productos agregados");
+        renderListaCompacta("dist_resumen_top_pedidos", resumen.top_pedidos || [], function (item) {
+            return item.producto || item.sku || "Producto";
+        }, function (item) {
+            return numero(item.cantidad_solicitada) + " solicitados";
+        }, "Sin pedidos");
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-29
+     * Proposito: renderizar actividad comercial agregada.
+     * Impacto: UI ERP Distribucion; compara interes, pedidos e inventario cliente.
+     */
+    function renderDemanda() {
+        renderListaCompacta("dist_demanda_catalogo", demanda.productos_mi_catalogo || [], function (item) { return item.producto || item.sku || "Producto"; }, function (item) { return (item.clientes || 0) + " clientes"; }, "Sin datos");
+        renderListaCompacta("dist_demanda_pedidos", demanda.productos_pedidos || [], function (item) { return item.producto || item.sku || "Producto"; }, function (item) { return numero(item.cantidad_solicitada) + " piezas solicitadas"; }, "Sin datos");
+        renderListaCompacta("dist_demanda_clientes", demanda.clientes_activos || [], function (item) { return item.cliente || item.empresa || "Cliente"; }, function (item) { return (item.productos_mi_catalogo || 0) + " en Mi catalogo / " + (item.solicitudes || 0) + " solicitudes"; }, "Sin datos");
+        renderListaCompacta("dist_demanda_marcas", demanda.marcas || [], function (item) { return item.nombre || "Sin marca"; }, function (item) { return (item.clientes || 0) + " clientes"; }, "Sin datos");
+        renderListaCompacta("dist_demanda_categorias", demanda.categorias || [], function (item) { return item.nombre || "Sin categoria"; }, function (item) { return (item.clientes || 0) + " clientes"; }, "Sin datos");
+        renderListaCompacta("dist_demanda_proveedores", demanda.proveedores || [], function (item) { return item.nombre || item.proveedor || "Sin proveedor"; }, function (item) { return (item.clientes || item.productos || 0) + " referencias"; }, "Sin datos");
+    }
+
     function renderSolicitudes() {
         var q = (document.getElementById("dist_solicitudes_buscar").value || "").toLowerCase();
         var visibles = solicitudes.filter(function (item) {
@@ -279,10 +379,18 @@
 
     function renderClientes() {
         var q = (document.getElementById("dist_clientes_buscar").value || "").toLowerCase();
+        var incompleto = selectValue("dist_clientes_incompletos");
         var visibles = clientes.filter(function (item) {
-            return [item.nombre, item.empresa, item.correo, item.telefono].join(" ").toLowerCase().indexOf(q) !== -1;
+            if ([item.nombre, item.empresa, item.correo, item.telefono].join(" ").toLowerCase().indexOf(q) === -1) { return false; }
+            if (incompleto === "sin_lista") { return !Number(item.id_lista_precio || 0); }
+            if (incompleto === "sin_permisos") { return !Number(item.permisos_activos || 0); }
+            return true;
         });
         document.getElementById("dist_clientes_lista").innerHTML = visibles.map(function (item) {
+            var totalCatalogo = miCatalogoClientes.filter(function (fila) { return String(fila.id_cliente_distribucion) === String(item.id_cliente_distribucion); }).length;
+            var totalInventario = inventarios.filter(function (fila) { return String(fila.id_cliente_distribucion) === String(item.id_cliente_distribucion); }).length;
+            var totalSugeridos = sugeridos.filter(function (fila) { return String(fila.id_cliente_distribucion) === String(item.id_cliente_distribucion); }).length;
+            var totalPedidos = cotizaciones.filter(function (fila) { return String(fila.id_cliente_distribucion) === String(item.id_cliente_distribucion); }).length;
             var tipo = permisosUi.editar
                 ? "<select class=\"form-select form-select-sm\" data-cliente-tipo=\"" + escapeHtml(item.id_cliente_distribucion) + "\">" +
                   ["registrado", "revendedor", "mayorista", "distribuidor_autorizado"].map(function (tipoCliente) {
@@ -306,28 +414,34 @@
             if (permisosUi.aprobar && item.estatus !== "suspendido") {
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Suspender\" data-cliente-suspender=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-pause-circle\"></i></button>";
             }
+            var indicadores = "<span class=\"badge badge-light-primary me-1\">Mi catalogo " + escapeHtml(totalCatalogo) + "</span>" +
+                "<span class=\"badge badge-light-info me-1\">Pedidos " + escapeHtml(totalPedidos) + "</span>" +
+                "<span class=\"badge badge-light me-1\">Inv. " + escapeHtml(totalInventario) + "</span>" +
+                (totalSugeridos > 0 ? "<span class=\"badge badge-light-warning\">Sugerido " + escapeHtml(totalSugeridos) + "</span>" : "") +
+                "<div class=\"text-muted fs-8 mt-1\">Permisos " + escapeHtml(item.permisos_activos || 0) + " / Ultimo acceso " + escapeHtml(item.fecha_ultimo_login || "sin acceso") + "</div>";
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.nombre) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.correo) + "</div></td>" +
-                "<td>" + tipo + "</td><td>" + lista + "</td><td><span class=\"badge badge-light-primary\">" + escapeHtml(item.permisos_activos || 0) + "</span></td>" +
+                "<td>" + tipo + "</td><td>" + lista + "</td><td>" + indicadores + "</td>" +
                 "<td>" + badge(item.estatus) + "</td><td class=\"text-end\">" + acciones + "</td></tr>";
         }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">Sin clientes</td></tr>";
     }
 
     function renderCotizaciones() {
-        document.getElementById("dist_cotizaciones_total").textContent = cotizaciones.length;
-        document.getElementById("dist_cotizaciones_lista").innerHTML = cotizaciones.map(function (item) {
+        var q = (selectValue("dist_cotizaciones_buscar") || "").toLowerCase();
+        var visibles = cotizaciones.filter(function (item) {
+            return [item.folio, item.cliente, item.empresa, item.correo, item.estatus].join(" ").toLowerCase().indexOf(q) !== -1;
+        });
+        document.getElementById("dist_cotizaciones_total").textContent = visibles.length;
+        document.getElementById("dist_cotizaciones_lista").innerHTML = visibles.map(function (item) {
             var acciones = permisosUi.cotizaciones_gestionar
                 ? "<button class=\"btn btn-sm btn-icon btn-light-info\" title=\"Tomar\" data-cotizacion-accion=\"tomar\" data-cotizacion=\"" + escapeHtml(item.id_cotizacion_distribucion) + "\"><i class=\"bi bi-person-check\"></i></button> " +
                   "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"Responder\" data-cotizacion-accion=\"responder\" data-cotizacion=\"" + escapeHtml(item.id_cotizacion_distribucion) + "\"><i class=\"bi bi-send-check\"></i></button> " +
                   "<button class=\"btn btn-sm btn-icon btn-light-dark\" title=\"Cerrar\" data-cotizacion-accion=\"cerrar\" data-cotizacion=\"" + escapeHtml(item.id_cotizacion_distribucion) + "\"><i class=\"bi bi-check2-circle\"></i></button>"
                 : "";
+            acciones = "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Detalle\" data-cotizacion-detalle=\"" + escapeHtml(item.id_cotizacion_distribucion) + "\"><i class=\"bi bi-card-list\"></i></button> " + acciones;
             var total = item.estatus === "pedido_solicitado" ? "<span class=\"text-muted\">Por confirmar</span>" : money(item.total_estimado);
-            return "<tr><td class=\"fw-bold\">" + escapeHtml(item.folio) + "</td><td>ID " + escapeHtml(item.id_cliente_distribucion) + "</td><td>" + total + "</td>" +
+            return "<tr><td class=\"fw-bold\">" + escapeHtml(item.folio) + "</td><td><div class=\"fw-semibold\">" + escapeHtml(item.cliente || ("ID " + item.id_cliente_distribucion)) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.empresa || item.correo || "") + "</div></td><td><span class=\"badge badge-light\">" + escapeHtml(item.partidas || 0) + "</span></td><td>" + total + "</td>" +
                 "<td>" + badge(item.estatus) + "</td><td class=\"text-muted fs-7\">" + escapeHtml(item.fecha_registro || "") + "</td><td class=\"text-end\">" + acciones + "</td></tr>";
-        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">Sin cotizaciones</td></tr>";
-    }
-
-    function numero(value) {
-        return Number(value || 0).toLocaleString("es-MX", {minimumFractionDigits: 0, maximumFractionDigits: 2});
+        }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\">Sin cotizaciones</td></tr>";
     }
 
     function filtroTexto(item) {
@@ -344,17 +458,18 @@
     }
 
     function renderSurtidos() {
-        var lista = document.getElementById("dist_surtidos_lista");
+        var lista = document.getElementById("dist_mi_catalogo_lista");
         if (!lista) { return; }
-        var q = (document.getElementById("dist_surtidos_buscar").value || "").toLowerCase();
-        var visibles = surtidos.filter(function (item) { return filtroTexto(item).indexOf(q) !== -1; });
-        document.getElementById("dist_surtidos_total").textContent = visibles.length;
+        var q = (document.getElementById("dist_mi_catalogo_buscar").value || "").toLowerCase();
+        var visibles = miCatalogoClientes.filter(function (item) { return filtroTexto(item).indexOf(q) !== -1; });
+        document.getElementById("dist_mi_catalogo_total").textContent = visibles.length;
         lista.innerHTML = visibles.map(function (item) {
             var alias = [item.alias_cliente, item.ubicacion_cliente].filter(Boolean).join(" / ");
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.cliente || ("Cliente " + item.id_cliente_distribucion)) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.empresa || item.correo || "") + "</div></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_sku || item.producto || "") + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.sku || ("SKU " + item.id_sku)) + "</div></td>" +
-                "<td>" + escapeHtml(alias || "Sin alias") + "</td><td>" + escapeHtml(item.prioridad || 0) + "</td><td>" + badge(item.estatus || "activo") + "</td></tr>";
-        }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-10\">Sin productos seleccionados</td></tr>";
+                "<td>" + escapeHtml(item.marca || "Sin marca") + "</td><td>" + escapeHtml(item.categoria || "Sin categoria") + "</td><td>" + escapeHtml(item.proveedor_principal || "Sin proveedor") + "</td>" +
+                "<td>" + escapeHtml(alias || "Sin alias") + "</td><td>" + escapeHtml(item.prioridad || 0) + "</td><td class=\"text-muted fs-8\">" + escapeHtml(item.fecha_actualizacion || item.fecha_registro || "") + "</td></tr>";
+        }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\">Sin productos en Mi catalogo</td></tr>";
     }
 
     function renderInventarioTabla(items, listaId, totalId, vacio) {
@@ -364,16 +479,24 @@
         lista.innerHTML = items.map(function (item) {
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.cliente || ("Cliente " + item.id_cliente_distribucion)) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.empresa || item.correo || "") + "</div></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_sku || item.producto || "") + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.sku || ("SKU " + item.id_sku)) + "</div></td>" +
+                "<td><div class=\"fw-semibold\">" + escapeHtml(item.marca || "Sin marca") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.categoria || "Sin categoria") + "</div></td>" +
+                "<td>" + escapeHtml(item.proveedor_principal || "Sin proveedor") + "</td>" +
                 "<td class=\"text-end\">" + numero(item.existencia_cliente) + "</td>" +
                 "<td class=\"text-end\">" + numero(item.minimo) + " / " + numero(item.maximo) + "</td>" +
                 "<td class=\"text-end fw-bold\">" + numero(item.cantidad_sugerida) + "</td>" +
                 "<td class=\"text-muted fs-7\">" + escapeHtml(item.fecha_conteo || item.fecha_actualizacion || "") + "</td></tr>";
-        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">" + escapeHtml(vacio) + "</td></tr>";
+        }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\">" + escapeHtml(vacio) + "</td></tr>";
     }
 
     function renderInventarios() {
         var q = (document.getElementById("dist_inventarios_buscar").value || "").toLowerCase();
-        var visibles = inventarios.filter(function (item) { return filtroTexto(item).indexOf(q) !== -1; });
+        var estado = selectValue("dist_inventarios_estado");
+        var visibles = inventarios.filter(function (item) {
+            if (filtroTexto(item).indexOf(q) === -1) { return false; }
+            if (estado === "debajo_minimo") { return Number(item.cantidad_sugerida || 0) > 0; }
+            if (estado === "sin_min_max") { return Number(item.minimo || 0) <= 0 || Number(item.maximo || 0) <= 0; }
+            return true;
+        });
         renderInventarioTabla(visibles, "dist_inventarios_lista", "dist_inventarios_total", "Sin inventarios de clientes");
     }
 
@@ -386,6 +509,8 @@
     function renderProductos() {
         var lista = document.getElementById("dist_productos_lista");
         if (!lista) { return; }
+        var selectAll = document.getElementById("dist_productos_select_all");
+        if (selectAll) { selectAll.checked = false; }
         lista.innerHTML = productos.map(function (item) {
             var activo = ["activo", "publicado", "aprobado"].indexOf(item.canal_estatus) !== -1 && Number(item.sincronizar_catalogo || 0) === 1;
             var acciones = permisosUi.editar
@@ -393,11 +518,16 @@
                     ? "<button class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Desactivar\" data-sku-desactivar=\"" + escapeHtml(item.id_sku) + "\" data-vinculo=\"" + escapeHtml(item.id_canal_vinculo || "") + "\"><i class=\"bi bi-eye-slash\"></i></button>"
                     : "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"Publicar\" data-sku-publicar=\"" + escapeHtml(item.id_sku) + "\"><i class=\"bi bi-cloud-upload\"></i></button>")
                 : "";
-            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.sku) + "</div><div class=\"text-muted fs-7\">ID " + escapeHtml(item.id_sku) + "</div></td>" +
+            return "<tr><td><input class=\"form-check-input\" type=\"checkbox\" data-producto-seleccion=\"" + escapeHtml(item.id_sku) + "\"></td><td><div class=\"fw-bold\">" + escapeHtml(item.sku) + "</div><div class=\"text-muted fs-7\">ID " + escapeHtml(item.id_sku) + "</div></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_nombre || item.producto) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.producto || "") + "</div></td>" +
+                "<td><div class=\"fw-semibold\">" + escapeHtml(item.marca || "Sin marca") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.categoria || "Sin categoria") + "</div></td>" +
+                "<td>" + escapeHtml(item.proveedor_principal || "Sin proveedor") + "</td>" +
+                "<td>" + (Number(item.tiene_precio || 0) === 1 ? "<span class=\"badge badge-light-success\">Precio</span> " : "<span class=\"badge badge-light-danger\">Sin precio</span> ") +
+                    (Number(item.tiene_imagen || 0) === 1 ? "<span class=\"badge badge-light-success\">Imagen</span> " : "<span class=\"badge badge-light-warning\">Sin imagen</span> ") +
+                    (Number(item.tiene_descripcion || 0) === 1 ? "<span class=\"badge badge-light-success\">Ficha</span>" : "<span class=\"badge badge-light-warning\">Sin ficha</span>") + "</td>" +
                 "<td class=\"text-muted fs-7\">" + escapeHtml(item.id_externo || "Sin publicar") + "</td><td>" + badge(item.canal_estatus || "sin_vinculo") + "</td>" +
                 "<td class=\"text-end\">" + acciones + "</td></tr>";
-        }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-10\">Sin SKUs publicables</td></tr>";
+        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin SKUs publicables</td></tr>";
     }
 
     function cargarSolicitudes() {
@@ -417,28 +547,46 @@
     }
 
     function cargarCotizaciones() {
-        return request("/DistribucionAdmin/cotizaciones?limite=100").then(function (response) {
+        return request("/DistribucionAdmin/cotizaciones?" + query({limite: 100, estatus: selectValue("dist_cotizaciones_estatus"), q: selectValue("dist_cotizaciones_buscar")})).then(function (response) {
             cotizaciones = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderCotizaciones();
         });
     }
 
     function cargarSurtidos() {
-        return request("/DistribucionAdmin/cliente_surtidos?limite=200").then(function (response) {
-            surtidos = response.depurar && response.depurar.items ? response.depurar.items : [];
+        return request("/DistribucionAdmin/cliente_mi_catalogo?" + query({
+            limite: 200,
+            q: selectValue("dist_mi_catalogo_buscar"),
+            id_marca_erp: selectValue("dist_mi_catalogo_marca"),
+            id_categoria_erp: selectValue("dist_mi_catalogo_categoria"),
+            id_proveedor: selectValue("dist_mi_catalogo_proveedor")
+        })).then(function (response) {
+            miCatalogoClientes = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderSurtidos();
         });
     }
 
     function cargarInventarios() {
-        return request("/DistribucionAdmin/cliente_inventarios?limite=200").then(function (response) {
+        return request("/DistribucionAdmin/cliente_inventarios?" + query({
+            limite: 200,
+            q: selectValue("dist_inventarios_buscar"),
+            id_marca_erp: selectValue("dist_inventarios_marca"),
+            id_categoria_erp: selectValue("dist_inventarios_categoria"),
+            id_proveedor: selectValue("dist_inventarios_proveedor")
+        })).then(function (response) {
             inventarios = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderInventarios();
         });
     }
 
     function cargarSugeridos() {
-        return request("/DistribucionAdmin/cliente_sugeridos?limite=200").then(function (response) {
+        return request("/DistribucionAdmin/cliente_sugeridos?" + query({
+            limite: 200,
+            q: selectValue("dist_sugeridos_buscar"),
+            id_marca_erp: selectValue("dist_sugeridos_marca"),
+            id_categoria_erp: selectValue("dist_sugeridos_categoria"),
+            id_proveedor: selectValue("dist_sugeridos_proveedor")
+        })).then(function (response) {
             sugeridos = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderSugeridos();
         });
@@ -448,9 +596,42 @@
         var q = "";
         var input = document.getElementById("dist_productos_buscar");
         if (input) { q = input.value || ""; }
-        return request("/DistribucionAdmin/skus_publicables?limite=80&q=" + encodeURIComponent(q)).then(function (response) {
+        return request("/DistribucionAdmin/skus_publicables?" + query({
+            limite: 120,
+            q: q,
+            id_marca_erp: selectValue("dist_productos_marca"),
+            id_categoria_erp: selectValue("dist_productos_categoria"),
+            id_proveedor: selectValue("dist_productos_proveedor"),
+            canal_estatus: selectValue("dist_productos_canal"),
+            precio: selectValue("dist_productos_precio"),
+            imagen: selectValue("dist_productos_imagen"),
+            ficha: selectValue("dist_productos_ficha")
+        })).then(function (response) {
             productos = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderProductos();
+        });
+    }
+
+    function cargarResumen() {
+        return request("/DistribucionAdmin/resumen").then(function (response) {
+            resumen = response.depurar || {};
+            renderResumen();
+        });
+    }
+
+    function cargarDemanda() {
+        return request("/DistribucionAdmin/demanda").then(function (response) {
+            demanda = response.depurar || {};
+            renderDemanda();
+        });
+    }
+
+    function cargarCatalogosFiltros() {
+        return request("/DistribucionAdmin/catalogos_filtros").then(function (response) {
+            catalogosFiltros = response.depurar || {marcas: [], categorias: [], proveedores: []};
+            llenarSelect(".dist-filtro-marca", catalogosFiltros.marcas || [], "Marca");
+            llenarSelect(".dist-filtro-categoria", catalogosFiltros.categorias || [], "Categoria");
+            llenarSelect(".dist-filtro-proveedor", catalogosFiltros.proveedores || [], "Proveedor");
         });
     }
 
@@ -466,12 +647,18 @@
                 permisosComerciales = response.depurar && response.depurar.items ? response.depurar.items : [];
             }));
         }
+        promesas.push(cargarCatalogosFiltros());
         return Promise.all(promesas);
     }
 
     function cargarTodo() {
+        document.querySelectorAll("#dist_productos_publicar_lote, #dist_productos_desactivar_lote").forEach(function (button) {
+            button.classList.toggle("d-none", !permisosUi.editar);
+        });
         return cargarAuxiliares().then(function () {
-            return Promise.all([cargarSolicitudes(), cargarClientes(), cargarCotizaciones(), cargarSurtidos(), cargarInventarios(), cargarSugeridos(), cargarProductos()]);
+            return Promise.all([cargarResumen(), cargarDemanda(), cargarSolicitudes(), cargarClientes(), cargarCotizaciones(), cargarSurtidos(), cargarInventarios(), cargarSugeridos(), cargarProductos()]).then(function () {
+                renderClientes();
+            });
         }).catch(showError);
     }
 
@@ -601,6 +788,175 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-29
+     * Proposito: mostrar partidas de pedido/cotizacion y permitir revision interna controlada.
+     * Impacto: UI ERP Distribucion; no aparta inventario ni crea venta/pedido ERP.
+     */
+    function verCotizacionDetalle(idCotizacion) {
+        request("/DistribucionAdmin/cotizacion_detalle?id_cotizacion_distribucion=" + encodeURIComponent(idCotizacion)).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var cotizacion = response.depurar && response.depurar.cotizacion ? response.depurar.cotizacion : {};
+            var items = response.depurar && response.depurar.items ? response.depurar.items : [];
+            var filas = items.map(function (item) {
+                var revision = item.estatus_revision ? badge(item.estatus_revision) : "<span class=\"text-muted\">Por confirmar</span>";
+                var boton = permisosUi.cotizaciones_gestionar
+                    ? "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Revisar partida\" data-cotizacion-item-revisar=\"" + escapeHtml(item.id_cotizacion_item) + "\"><i class=\"bi bi-pencil-square\"></i></button>"
+                    : "";
+                return "<tr><td><div class=\"fw-semibold\">" + escapeHtml(item.producto_actual || item.nombre_snapshot || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_actual || item.sku_snapshot || ("SKU " + item.id_sku)) + "</div></td>" +
+                    "<td class=\"text-end\">" + numero(item.cantidad) + "</td><td class=\"text-end\">" + numero(item.cantidad_confirmada) + "</td><td>" + revision + "</td><td>" + escapeHtml(item.comentario_revision || "") + "</td><td class=\"text-end\">" + boton + "</td></tr>";
+            }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin partidas</td></tr>";
+            Swal.fire({
+                title: cotizacion.folio || "Solicitud Distribucion",
+                html: "<div class=\"text-start mb-4\"><div class=\"fw-bold\">" + escapeHtml(cotizacion.cliente || ("Cliente " + (cotizacion.id_cliente_distribucion || ""))) + "</div><div class=\"text-muted fs-8\">" + escapeHtml([cotizacion.empresa, cotizacion.correo, cotizacion.estatus].filter(Boolean).join(" / ")) + "</div></div>" +
+                    "<div class=\"table-responsive text-start\"><table class=\"table table-row-dashed fs-7 gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold\"><th>Producto</th><th class=\"text-end\">Solicitado</th><th class=\"text-end\">Confirmado</th><th>Revision</th><th>Comentario</th><th></th></tr></thead><tbody>" + filas + "</tbody></table></div>",
+                width: 980,
+                confirmButtonText: "Cerrar",
+                didOpen: function () {
+                    document.querySelectorAll(".swal2-container [data-cotizacion-item-revisar]").forEach(function (button) {
+                        button.addEventListener("click", function () {
+                            var idItem = button.getAttribute("data-cotizacion-item-revisar");
+                            var item = items.find(function (fila) { return String(fila.id_cotizacion_item) === String(idItem); });
+                            revisarPartidaCotizacion(item, idCotizacion);
+                        });
+                    });
+                }
+            });
+        }).catch(showError);
+    }
+
+    function revisarPartidaCotizacion(item, idCotizacion) {
+        if (!item) { return; }
+        Swal.fire({
+            title: "Revisar partida",
+            html: "<div class=\"text-start\">" +
+                "<div class=\"mb-4\"><div class=\"fw-semibold\">" + escapeHtml(item.producto_actual || item.nombre_snapshot || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_actual || item.sku_snapshot || "") + "</div></div>" +
+                "<label class=\"form-label fw-semibold\">Cantidad confirmada</label><input id=\"dist_revision_cantidad\" class=\"form-control form-control-solid mb-4\" inputmode=\"decimal\" value=\"" + escapeHtml(item.cantidad_confirmada || item.cantidad || 0) + "\">" +
+                "<label class=\"form-label fw-semibold\">Estatus</label><select id=\"dist_revision_estatus\" class=\"form-select form-select-solid mb-4\">" +
+                ["por_confirmar", "confirmado", "parcial", "no_disponible", "pendiente_proveedor", "requiere_revision"].map(function (estatus) {
+                    return "<option value=\"" + estatus + "\"" + (item.estatus_revision === estatus ? " selected" : "") + ">" + estatus + "</option>";
+                }).join("") + "</select>" +
+                "<label class=\"form-label fw-semibold\">Comentario</label><textarea id=\"dist_revision_comentario\" class=\"form-control form-control-solid\" rows=\"3\">" + escapeHtml(item.comentario_revision || "") + "</textarea>" +
+                "</div>",
+            width: 620,
+            showCancelButton: true,
+            confirmButtonText: "Guardar revision",
+            preConfirm: function () {
+                return {
+                    cantidad_confirmada: (document.getElementById("dist_revision_cantidad") || {}).value || "0",
+                    estatus_revision: (document.getElementById("dist_revision_estatus") || {}).value || "por_confirmar",
+                    comentario_revision: (document.getElementById("dist_revision_comentario") || {}).value || ""
+                };
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            request("/DistribucionAdmin/cotizacion_item_revision", {
+                id_cotizacion_item: item.id_cotizacion_item,
+                cantidad_confirmada: result.value.cantidad_confirmada,
+                estatus_revision: result.value.estatus_revision,
+                comentario_revision: result.value.comentario_revision
+            }).then(function (response) {
+                if (response.error) { throw new Error(response.mensaje); }
+                showOk(response.mensaje);
+                cargarCotizaciones().then(function () { verCotizacionDetalle(idCotizacion); });
+            }).catch(showError);
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-29
+     * Proposito: ejecutar acciones por lote sobre productos Distribucion con confirmacion previa.
+     * Impacto: UI ERP Distribucion; reutiliza endpoints existentes y respeta bloqueo backend de precio activo.
+     */
+    function productosSeleccionados() {
+        var seleccionados = [];
+        document.querySelectorAll("[data-producto-seleccion]:checked").forEach(function (input) {
+            var id = input.getAttribute("data-producto-seleccion");
+            var item = productos.find(function (producto) { return String(producto.id_sku) === String(id); });
+            if (item) { seleccionados.push(item); }
+        });
+        return seleccionados;
+    }
+
+    function productosObjetivoLote() {
+        var seleccionados = productosSeleccionados();
+        return seleccionados.length > 0 ? seleccionados : productos.slice();
+    }
+
+    function resumenCalidadProductos(items) {
+        return {
+            total: items.length,
+            sin_precio: items.filter(function (item) { return Number(item.tiene_precio || 0) !== 1; }).length,
+            sin_imagen: items.filter(function (item) { return Number(item.tiene_imagen || 0) !== 1; }).length,
+            sin_ficha: items.filter(function (item) { return Number(item.tiene_descripcion || 0) !== 1; }).length,
+            publicados: items.filter(function (item) { return ["activo", "publicado", "aprobado"].indexOf(item.canal_estatus) !== -1 && Number(item.sincronizar_catalogo || 0) === 1; }).length
+        };
+    }
+
+    function confirmarProductosLote(accion) {
+        if (!permisosUi.editar) { return; }
+        var items = productosObjetivoLote();
+        if (!items.length) {
+            Swal.fire({text: "No hay productos en la lista actual.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        var resumenLote = resumenCalidadProductos(items);
+        var verbo = accion === "publicar" ? "publicar" : "desactivar";
+        Swal.fire({
+            title: accion === "publicar" ? "Publicar lote" : "Desactivar lote",
+            html: "<div class=\"text-start\">" +
+                "<div class=\"mb-3\">Se van a " + escapeHtml(verbo) + " <strong>" + escapeHtml(resumenLote.total) + "</strong> productos de la lista actual o seleccionados.</div>" +
+                "<div class=\"d-flex flex-wrap gap-2\">" +
+                "<span class=\"badge badge-light-danger\">Sin precio " + escapeHtml(resumenLote.sin_precio) + "</span>" +
+                "<span class=\"badge badge-light-warning\">Sin imagen " + escapeHtml(resumenLote.sin_imagen) + "</span>" +
+                "<span class=\"badge badge-light-warning\">Sin ficha " + escapeHtml(resumenLote.sin_ficha) + "</span>" +
+                "<span class=\"badge badge-light-primary\">Ya publicados " + escapeHtml(resumenLote.publicados) + "</span>" +
+                "</div></div>",
+            icon: "warning",
+            width: 680,
+            showCancelButton: true,
+            confirmButtonText: accion === "publicar" ? "Publicar" : "Desactivar",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            ejecutarProductosLote(accion, items);
+        });
+    }
+
+    function ejecutarProductosLote(accion, items) {
+        var url = accion === "publicar" ? "/DistribucionAdmin/publicar_sku" : "/DistribucionAdmin/desactivar_sku";
+        var total = items.length;
+        var ok = 0;
+        var errores = [];
+        var secuencia = Promise.resolve();
+        items.forEach(function (item) {
+            secuencia = secuencia.then(function () {
+                return request(url, {
+                    id_sku: item.id_sku,
+                    id_canal_vinculo: item.id_canal_vinculo || ""
+                }).then(function (response) {
+                    if (response.error) {
+                        errores.push((item.sku || item.id_sku) + ": " + response.mensaje);
+                    } else {
+                        ok++;
+                    }
+                }).catch(function (error) {
+                    errores.push((item.sku || item.id_sku) + ": " + (error.message || String(error)));
+                });
+            });
+        });
+        secuencia.then(function () {
+            Swal.fire({
+                title: "Lote procesado",
+                html: "<div class=\"text-start\"><div class=\"mb-2\">Correctos: <strong>" + escapeHtml(ok) + "</strong> de " + escapeHtml(total) + "</div>" +
+                    (errores.length ? "<div class=\"text-muted fs-8\">" + escapeHtml(errores.slice(0, 8).join("\n")) + "</div>" : "") + "</div>",
+                icon: errores.length ? "warning" : "success",
+                confirmButtonText: "Aceptar"
+            });
+            return cargarTodo();
+        });
+    }
+
     document.addEventListener("click", function (event) {
         var button = event.target.closest("button");
         if (!button) { return; }
@@ -608,6 +964,10 @@
             cargarTodo();
         } else if (button.id === "dist_productos_buscar_btn") {
             cargarProductos().catch(showError);
+        } else if (button.id === "dist_productos_publicar_lote") {
+            confirmarProductosLote("publicar");
+        } else if (button.id === "dist_productos_desactivar_lote") {
+            confirmarProductosLote("desactivar");
         } else if (button.hasAttribute("data-solicitud-aprobar")) {
             aprobarSolicitud(button.getAttribute("data-solicitud-aprobar"));
         } else if (button.hasAttribute("data-solicitud-detalle")) {
@@ -644,6 +1004,8 @@
                 id_cliente_distribucion: clienteAcceso ? clienteAcceso.id_cliente_distribucion : button.getAttribute("data-cliente-acceso"),
                 telefono: clienteAcceso ? clienteAcceso.telefono : ""
             });
+        } else if (button.hasAttribute("data-cotizacion-detalle")) {
+            verCotizacionDetalle(button.getAttribute("data-cotizacion-detalle"));
         } else if (button.hasAttribute("data-cotizacion")) {
             accionSimple("/DistribucionAdmin/cotizacion_accion_plan", {
                 id_cotizacion_distribucion: button.getAttribute("data-cotizacion"),
@@ -664,6 +1026,26 @@
             cargarSolicitudes().catch(showError);
         } else if (event.target.id === "dist_clientes_estatus") {
             cargarClientes().catch(showError);
+        } else if (event.target.id === "dist_clientes_incompletos") {
+            renderClientes();
+        } else if (event.target.id === "dist_cotizaciones_estatus") {
+            cargarCotizaciones().catch(showError);
+        } else if (event.target.id === "dist_productos_select_all") {
+            document.querySelectorAll("[data-producto-seleccion]").forEach(function (input) {
+                input.checked = event.target.checked;
+            });
+        } else if (event.target.id === "dist_mi_catalogo_marca" || event.target.id === "dist_mi_catalogo_categoria" || event.target.id === "dist_mi_catalogo_proveedor") {
+            cargarSurtidos().catch(showError);
+        } else if (event.target.id === "dist_inventarios_estado" || event.target.id === "dist_inventarios_marca" || event.target.id === "dist_inventarios_categoria" || event.target.id === "dist_inventarios_proveedor") {
+            if (event.target.id === "dist_inventarios_estado") {
+                renderInventarios();
+            } else {
+                cargarInventarios().catch(showError);
+            }
+        } else if (event.target.id === "dist_sugeridos_marca" || event.target.id === "dist_sugeridos_categoria" || event.target.id === "dist_sugeridos_proveedor") {
+            cargarSugeridos().catch(showError);
+        } else if (event.target.id === "dist_productos_marca" || event.target.id === "dist_productos_categoria" || event.target.id === "dist_productos_proveedor" || event.target.id === "dist_productos_canal" || event.target.id === "dist_productos_precio" || event.target.id === "dist_productos_imagen" || event.target.id === "dist_productos_ficha") {
+            cargarProductos().catch(showError);
         } else if (event.target.hasAttribute("data-cliente-tipo")) {
             accionSimple("/DistribucionAdmin/asignar_tipo_cliente", {
                 id_cliente_distribucion: event.target.getAttribute("data-cliente-tipo"),
@@ -682,12 +1064,14 @@
             renderSolicitudes();
         } else if (event.target.id === "dist_clientes_buscar") {
             renderClientes();
-        } else if (event.target.id === "dist_surtidos_buscar") {
+        } else if (event.target.id === "dist_mi_catalogo_buscar") {
             renderSurtidos();
         } else if (event.target.id === "dist_inventarios_buscar") {
             renderInventarios();
         } else if (event.target.id === "dist_sugeridos_buscar") {
             renderSugeridos();
+        } else if (event.target.id === "dist_cotizaciones_buscar") {
+            renderCotizaciones();
         } else if (event.target.id === "dist_productos_buscar" && event.target.value.length === 0) {
             cargarProductos().catch(showError);
         }

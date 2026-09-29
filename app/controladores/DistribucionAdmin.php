@@ -38,6 +38,42 @@ class DistribucionAdmin extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-29
+   * Proposito: consultar resumen operativo interno de Distribucion.
+   * Impacto: Dashboard ERP Distribucion; consolida alertas sin exponer datos al frontend externo.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function resumen() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionAnaliticaInterna")->resumenInterno($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-29
+   * Proposito: consultar analitica interna de demanda Distribucion.
+   * Impacto: ERP Distribucion; ayuda a anticipar compras, publicaciones y seguimiento comercial.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function demanda() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionAnaliticaInterna")->demandaInterna($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-29
+   * Proposito: entregar catalogos internos para filtros de Distribucion.
+   * Impacto: UI ERP Distribucion; evita hardcodear marcas, categorias y proveedores.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function catalogos_filtros() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionAnaliticaInterna")->catalogosInternos());
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: consultar detalle interno de una solicitud Distribucion.
    * Impacto: Admin ERP Distribucion; prepara aprobacion/rechazo con contexto seguro.
@@ -248,6 +284,18 @@ class DistribucionAdmin extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-29
+   * Proposito: registrar revision interna de una partida de pedido/cotizacion Distribucion.
+   * Impacto: Seguimiento Distribucion; confirma cantidades sin apartar inventario ni crear venta/pedido ERP.
+   * Contrato: POST protegido por `distribucion.cotizaciones.gestionar`; requiere columnas de revision planificadas.
+   */
+  public function cotizacion_item_revision() {
+    $this->requerirPermiso("distribucion.cotizaciones.gestionar");
+    return json_encode($this->modelo("DistribucionCotizacionesApi")->revisionPartidaInterna($_POST, $this->usuarioActualId()));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: reservar plan de conversion futura de cotizacion a documento ERP.
    * Impacto: Admin ERP Distribucion; bloquea conversion automatica en MVP.
@@ -260,11 +308,22 @@ class DistribucionAdmin extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
-   * Proposito: consultar surtidos habituales seleccionados por clientes Distribucion.
-   * Impacto: Admin ERP Distribucion; permite prevenir interes comercial sin entrar al portal externo.
+   * Proposito: consultar Mi catalogo de clientes Distribucion.
+   * Impacto: Admin ERP Distribucion; permite revisar productos de interes sin entrar al portal externo.
    * Contrato: GET protegido por `distribucion.ver`; read-only.
    */
   public function cliente_surtidos() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionClienteSurtidoApi")->surtidosInternos($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: alias interno para consultar Mi catalogo de clientes Distribucion.
+   * Impacto: Admin ERP Distribucion; usa nomenclatura comercial vigente sin romper ruta anterior.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function cliente_mi_catalogo() {
     $this->requerirPermiso("distribucion.ver");
     return json_encode($this->modelo("DistribucionClienteSurtidoApi")->surtidosInternos($_GET));
   }

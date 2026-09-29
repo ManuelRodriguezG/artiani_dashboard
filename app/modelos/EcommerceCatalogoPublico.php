@@ -8019,6 +8019,155 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: listar listas de precios para elegir la fuente autorizada del ecommerce publico.
+   * Impacto: pantalla interna de publicaciones; diagnostica cache/precios sin modificar montos ni productos.
+   * Contrato: read-only; marca elegibilidad operativa y configuracion actual.
+   */
+  public function listasPrecioEcommerceInterna() {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_listas_precios") || !$this->tablaExiste($db, "erp_listas_precios_detalle")) {
+        return $this->respuesta(false, "warning", "Listas de precios pendientes de esquema", array(
+          "configurado" => false,
+          "items" => array(),
+          "actual" => array("id_lista_precio" => 0, "modo" => "automatico_seguro")
+        ));
+      }
+      $idActual = $this->idListaPrecioEcommerceConfigurada($db);
+      $stmt = $db->query("SELECT l.id_lista_precio, l.codigo, l.nombre, l.canal, l.estatus, l.prioridad, l.fecha_inicio, l.fecha_fin,
+          COUNT(d.id_lista_precio_detalle) detalles_activos
+        FROM erp_listas_precios l
+        LEFT JOIN erp_listas_precios_detalle d ON d.id_lista_precio=l.id_lista_precio
+          AND d.estatus='activo'
+          AND d.precio>0
+          AND COALESCE(NULLIF(d.moneda, ''), 'MXN')='MXN'
+        GROUP BY l.id_lista_precio, l.codigo, l.nombre, l.canal, l.estatus, l.prioridad, l.fecha_inicio, l.fecha_fin
+        ORDER BY CASE WHEN l.id_lista_precio=" . intval($idActual) . " THEN 0 ELSE 1 END, l.estatus ASC, l.prioridad ASC, l.id_lista_precio DESC");
+      $items = array();
+      $actual = array("id_lista_precio" => $idActual, "modo" => $idActual > 0 ? "lista_fija" : "automatico_seguro");
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $item = $this->formatearListaPrecioEcommerce($fila, $idActual);
+        if (!empty($item["seleccionada"])) { $actual = $item; }
+        $items[] = $item;
+      }
+      return $this->respuesta(false, "success", "Listas de precios ecommerce consultadas", array(
+        "configurado" => true,
+        "actual" => $actual,
+        "items" => $items,
+        "modo_automatico_seguro" => array(
+          "acepta_canales" => array("ecommerce", "publico", "web", "online"),
+          "acepta_nombres" => array("general", "publico", "menudeo"),
+          "excluye" => array("mayoreo")
+        ),
+        "cache" => array(
+          "api_publica_no_store" => true,
+          "si_frontend_sigue_mostrando_precio_anterior" => "limpiar cache del hosting/frontend o revalidar la llamada /ecommercePublico/catalogo"
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: persistir la lista de precios fija para ecommerce publico.
+   * Impacto: cambia fuente de lectura del precio publico sin modificar listas, precios, inventario ni publicaciones.
+   * Contrato: escribe solo `erp_ecommerce_configuracion.ecommerce_id_lista_precio`.
+   */
+  public function guardarListaPrecioEcommerceInterna($datos = array(), $idUsuario = null) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_configuracion")) {
+        return $this->respuesta(true, "warning", "No se guardo la lista porque falta configuracion ecommerce", array(
+          "escribe_bd" => false,
+          "bloqueos" => array("tabla_erp_ecommerce_configuracion_pendiente")
+        ));
+      }
+      $idLista = max(0, intval($this->valor($datos, "id_lista_precio", 0)));
+      if ($idLista > 0) {
+        $stmtLista = $db->prepare("SELECT id_lista_precio, codigo, nombre, canal, estatus, prioridad, fecha_inicio, fecha_fin
+          FROM erp_listas_precios WHERE id_lista_precio=:id LIMIT 1");
+        $stmtLista->execute(array(":id" => $idLista));
+        $lista = $stmtLista->fetch(PDO::FETCH_ASSOC);
+        if (!$lista) {
+          return $this->respuesta(true, "warning", "No se guardo la lista porque no existe", array("bloqueos" => array("lista_precio_no_existe")));
+        }
+        $formateada = $this->formatearListaPrecioEcommerce($lista, $idLista);
+        if (empty($formateada["elegible_ecommerce"])) {
+          return $this->respuesta(true, "warning", "No se guardo la lista porque no es elegible para ecommerce publico", array(
+            "bloqueos" => $formateada["bloqueos"],
+            "lista" => $formateada,
+            "sugerencia" => "Usa una lista activa de canal ecommerce/publico/web/online o una lista publica/menudeo/general. No uses mayoreo para el sitio publico."
+          ));
+        }
+      }
+
+      $valor = $idLista > 0 ? (string) $idLista : "";
+      $descripcion = "Lista de precios fija para ecommerce publico";
+      $tieneActualizadoPor = $this->columnaExiste($db, "erp_ecommerce_configuracion", "actualizado_por");
+      if ($tieneActualizadoPor) {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_configuracion
+            (clave, valor, descripcion, estatus, fecha_registro, fecha_actualizacion, actualizado_por)
+          VALUES ('ecommerce_id_lista_precio', :valor, :descripcion, 'activo', NOW(), NOW(), :usuario)
+          ON DUPLICATE KEY UPDATE valor=VALUES(valor), descripcion=VALUES(descripcion), estatus='activo', fecha_actualizacion=NOW(), actualizado_por=VALUES(actualizado_por)");
+        $stmt->execute(array(":valor" => $valor, ":descripcion" => $descripcion, ":usuario" => intval($idUsuario) ?: null));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_configuracion
+            (clave, valor, descripcion, estatus, fecha_registro, fecha_actualizacion)
+          VALUES ('ecommerce_id_lista_precio', :valor, :descripcion, 'activo', NOW(), NOW())
+          ON DUPLICATE KEY UPDATE valor=VALUES(valor), descripcion=VALUES(descripcion), estatus='activo', fecha_actualizacion=NOW()");
+        $stmt->execute(array(":valor" => $valor, ":descripcion" => $descripcion));
+      }
+      return $this->respuesta(false, "success", $idLista > 0 ? "Lista ecommerce guardada" : "Lista ecommerce en modo automatico seguro", array(
+        "escribe_bd" => true,
+        "id_lista_precio" => $idLista,
+        "clave" => "ecommerce_id_lista_precio",
+        "guardrails" => array(
+          "no_modifica_precios" => true,
+          "no_modifica_productos" => true,
+          "no_modifica_inventario" => true,
+          "api_publica_no_store" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
+    }
+  }
+
+  private function formatearListaPrecioEcommerce($fila, $idActual) {
+    $id = intval($this->valor($fila, "id_lista_precio", 0));
+    $codigo = (string) $this->valor($fila, "codigo", "");
+    $nombre = (string) $this->valor($fila, "nombre", "");
+    $canal = strtolower(trim((string) $this->valor($fila, "canal", "")));
+    $estatus = strtolower(trim((string) $this->valor($fila, "estatus", "")));
+    $texto = strtolower($codigo . " " . $nombre);
+    $bloqueos = array();
+    if ($estatus !== "activa") { $bloqueos[] = "lista_no_activa"; }
+    if (strpos($texto, "mayoreo") !== false || $canal === "mayoreo") { $bloqueos[] = "lista_mayoreo_no_permitida_en_ecommerce_publico"; }
+    $canalPermitido = in_array($canal, array("", "ecommerce", "publico", "web", "online", "menudeo"), true);
+    $nombrePermitido = preg_match('/(general|publico|público|menudeo|ecommerce|web|online)/i', $texto) === 1;
+    if (!$canalPermitido || (!$nombrePermitido && !in_array($canal, array("ecommerce", "publico", "web", "online"), true))) {
+      $bloqueos[] = "lista_no_identificada_como_publica_ecommerce";
+    }
+    return array(
+      "id_lista_precio" => $id,
+      "codigo" => $codigo,
+      "nombre" => $nombre,
+      "canal" => (string) $this->valor($fila, "canal", ""),
+      "estatus" => (string) $this->valor($fila, "estatus", ""),
+      "prioridad" => intval($this->valor($fila, "prioridad", 0)),
+      "fecha_inicio" => $this->valor($fila, "fecha_inicio", null),
+      "fecha_fin" => $this->valor($fila, "fecha_fin", null),
+      "detalles_activos" => intval($this->valor($fila, "detalles_activos", 0)),
+      "seleccionada" => $id > 0 && $id === intval($idActual),
+      "elegible_ecommerce" => empty($bloqueos),
+      "bloqueos" => array_values(array_unique($bloqueos))
+    );
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-12
    * Proposito: generar una propuesta de publicacion ecommerce para un SKU sin escribir BD.
    * Impacto: Ecommerce publico; aterriza curaduria de mascota/necesidad/slug antes de crear registros.
@@ -13293,11 +13442,15 @@ class EcommerceCatalogoPublico extends CRUD {
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-21
    * Proposito: resolver el precio ecommerce desde listas comerciales activas, no desde precios legacy de Catalogo.
    * Impacto: catalogo publico, publicabilidad, marcas y categorias; un producto sin lista activa vigente no queda completo ni visible.
-   * Contrato: devuelve un JOIN con alias `pr`, priorizando `erp_listas_precios.prioridad` y el detalle mas reciente.
+   * Contrato: devuelve un JOIN con alias `pr`; si existe lista ecommerce configurada, usa solo esa lista.
+   * Ecommerce solo puede consumir listas generales/menudeo/ecommerce o la lista autorizada en configuracion.
    */
   private function sqlJoinPrecioListaVigente($aliasSku = "s", $tipoJoin = "LEFT") {
     $aliasSku = preg_replace('/[^A-Za-z0-9_]/', '', (string) $aliasSku);
     $tipoJoin = strtoupper(trim((string) $tipoJoin)) === "INNER" ? "INNER" : "LEFT";
+    $idListaEcommerce = $this->idListaPrecioEcommerceConfigurada($this->getConexion());
+    $condicionLista = $this->sqlCondicionListaPrecioEcommerce("l", $idListaEcommerce);
+    $condicionListaSub = $this->sqlCondicionListaPrecioEcommerce("l2", $idListaEcommerce);
     return $tipoJoin . " JOIN (
         SELECT d.id_lista_precio_detalle, d.id_sku, d.precio, COALESCE(NULLIF(d.moneda, ''), 'MXN') moneda,
           l.id_lista_precio, l.codigo lista_codigo, l.nombre lista_nombre, l.prioridad lista_prioridad
@@ -13307,6 +13460,7 @@ class EcommerceCatalogoPublico extends CRUD {
           AND d.precio>0
           AND COALESCE(NULLIF(d.moneda, ''), 'MXN')='MXN'
           AND l.estatus='activa'
+          AND " . $condicionLista . "
           AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW())
           AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW())
           AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW())
@@ -13320,6 +13474,7 @@ class EcommerceCatalogoPublico extends CRUD {
               AND d2.precio>0
               AND COALESCE(NULLIF(d2.moneda, ''), 'MXN')='MXN'
               AND l2.estatus='activa'
+              AND " . $condicionListaSub . "
               AND (d2.fecha_inicio IS NULL OR d2.fecha_inicio<=NOW())
               AND (d2.fecha_fin IS NULL OR d2.fecha_fin>=NOW())
               AND (l2.fecha_inicio IS NULL OR l2.fecha_inicio<=NOW())
@@ -13328,6 +13483,43 @@ class EcommerceCatalogoPublico extends CRUD {
             LIMIT 1
           )
       ) pr ON pr.id_sku=" . $aliasSku . ".id_sku";
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: leer la lista de precios fijada para el canal ecommerce publico.
+   * Impacto: catalogo, detalle, publicabilidad y dry-run; evita que listas de mayoreo/prueba entren por prioridad.
+   * Contrato: solo lectura sobre `erp_ecommerce_configuracion`; devuelve 0 para modo automatico seguro.
+   */
+  private function idListaPrecioEcommerceConfigurada($db) {
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_configuracion")) {
+      return 0;
+    }
+    try {
+      $stmt = $db->prepare("SELECT valor FROM erp_ecommerce_configuracion WHERE clave='ecommerce_id_lista_precio' AND estatus='activo' LIMIT 1");
+      $stmt->execute();
+      return max(0, intval($stmt->fetchColumn()));
+    } catch (Exception $e) {
+      return 0;
+    }
+  }
+
+  private function sqlCondicionListaPrecioEcommerce($alias, $idLista) {
+    $alias = preg_replace('/[^A-Za-z0-9_]/', '', (string) $alias);
+    $idLista = intval($idLista);
+    if ($idLista > 0) {
+      return $alias . ".id_lista_precio=" . $idLista;
+    }
+    $codigo = "LOWER(COALESCE(" . $alias . ".codigo, ''))";
+    $nombre = "LOWER(COALESCE(" . $alias . ".nombre, ''))";
+    $canal = "LOWER(COALESCE(" . $alias . ".canal, ''))";
+    return "((" . $canal . " IN ('ecommerce','publico','web','online'))
+      OR (" . $canal . "='' AND (" . $codigo . " IN ('general','publico','menudeo','lp-menudeo-01')
+        OR " . $nombre . " LIKE '%general%'
+        OR " . $nombre . " LIKE '%publico%'
+        OR " . $nombre . " LIKE '%menudeo%')))
+      AND " . $codigo . " NOT LIKE '%mayoreo%'
+      AND " . $nombre . " NOT LIKE '%mayoreo%'";
   }
 
   private function sqlPublicacionesBase($where) {

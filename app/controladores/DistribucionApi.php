@@ -233,6 +233,27 @@ class DistribucionApi extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: enrutar Mi catalogo del cliente externo Distribucion.
+   * Impacto: Distribucion; permite guardar productos de interes como subcatalogo personal sin crear pedido.
+   * Contrato: GET /mi_catalogo/listar y POST /mi_catalogo/guardar autenticados con permisos externos.
+   */
+  public function mi_catalogo($accion = "") {
+    if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    $catalogoCliente = $this->modelo("DistribucionClienteSurtidoApi");
+    if ($accion === "" || $accion === "listar") {
+      return $this->responderApiDistribucion($catalogoCliente->miCatalogoListar($_GET, $this->contextoCliente()));
+    }
+    if ($accion === "guardar") {
+      if (!$this->esPostDistribucion()) {
+        return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("mi_catalogo/guardar"));
+      }
+      return $this->responderApiDistribucion($catalogoCliente->miCatalogoGuardar($this->entradaJsonDistribucion(), $this->contextoCliente()));
+    }
+    return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("mi_catalogo/" . $accion));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
    * Proposito: enrutar inventario declarado y sugerido de resurtido del cliente Distribucion.
    * Impacto: Distribucion; soporta conteo/minimos/maximos sin exponer existencia ERP en catalogo.
    * Contrato: GET listar/sugerido, POST guardar_conteo/pedido_sugerido con permisos externos.

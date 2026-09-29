@@ -22,22 +22,33 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - `DistribucionCatalogoApi::producto()` usa `distribucion.catalogo.ver` como permiso de entrada a la ficha publicada.
 - `DistribucionCatalogoApi` normaliza acciones por item con el contexto del cliente, evitando que el catalogo base exponga acciones de precio, disponibilidad o cotizacion no autorizadas.
 
-## Decision 2026-09-29 - surtido e inventario del cliente
+## Decision 2026-09-29 - Mi catalogo e inventario del cliente
 
-- El cliente mayorista necesita separar productos de interes sin crear pedido inmediato. El nombre operativo sera surtido habitual o productos seleccionados.
+- El cliente mayorista necesita separar productos de interes sin crear pedido inmediato. El nombre operativo sera Mi catalogo.
+- "Surtido" no debe usarse como etiqueta principal porque puede sugerir producto ya comprado o ya surtido.
 - El inventario declarado por el cliente vive separado del inventario ERP. El cliente captura existencia propia, minimo y maximo por SKU.
 - El sugerido de resurtido se calcula con la formula: si `existencia_cliente <= minimo`, sugerido = `maximo - existencia_cliente`; en otro caso sugerido = 0.
 - El catalogo Distribucion sigue sin mostrar existencia ERP exacta. Los pedidos preliminares siguen entrando como solicitud para revision interna de surtido.
 - La revision interna por partida queda preparada en el esquema de `erp_distribucion_cotizacion_items` con cantidad confirmada, estatus y comentario de revision.
-- Nuevos permisos externos reconocidos: `distribucion.surtido.gestionar`, `distribucion.inventario_cliente.gestionar`, `distribucion.resurtido.sugerido` y `distribucion.pedido.ver`.
+- Nuevos permisos externos reconocidos: `distribucion.mi_catalogo.gestionar`, `distribucion.inventario_cliente.gestionar`, `distribucion.resurtido.sugerido` y `distribucion.pedido.ver`.
+- `distribucion.surtido.gestionar` queda como alias de compatibilidad temporal.
 
 ## Cambios 2026-09-29
 
-- Se agrego `DistribucionClienteSurtidoApi` para contratos externos de surtido, inventario cliente y sugerido de resurtido.
-- `DistribucionApi` expone `/surtido/listar`, `/surtido/guardar`, `/inventario_cliente/listar`, `/inventario_cliente/guardar_conteo`, `/inventario_cliente/sugerido` y `/inventario_cliente/pedido_sugerido`.
-- `DistribucionAdmin` expone bandejas internas read-only para surtidos, inventarios y sugeridos.
-- La vista `DistribucionAdmin/administracion` agrega tabs internas de Surtidos, Inventarios y Sugeridos.
-- El plan de esquema agrega tablas para surtido habitual, inventario cliente y movimientos de inventario cliente; no se ejecuto DDL en esta etapa.
+- Se agrego `DistribucionClienteSurtidoApi` para contratos externos de Mi catalogo, inventario cliente y sugerido de resurtido.
+- `DistribucionApi` expone `/mi_catalogo/listar`, `/mi_catalogo/guardar`, `/inventario_cliente/listar`, `/inventario_cliente/guardar_conteo`, `/inventario_cliente/sugerido` y `/inventario_cliente/pedido_sugerido`.
+- `DistribucionAdmin` expone bandejas internas read-only para Mi catalogo, inventarios y sugeridos.
+- La vista `DistribucionAdmin/administracion` agrega tabs internas de Mi catalogo, Inventarios y Sugeridos.
+- El plan de esquema agrega tablas para Mi catalogo, inventario cliente y movimientos de inventario cliente; no se ejecuto DDL en esta etapa.
+
+## Cambios 2026-09-29 - consola interna ERP
+
+- `DistribucionAdmin/administracion` se consolida como consola operativa interna con tabs de Resumen, Solicitudes, Clientes, Mi catalogo, Inventario cliente, Sugerido, Pedidos, Productos y Demanda.
+- Se agrega `DistribucionAnaliticaInterna` para lecturas agregadas de dashboard, demanda y catalogos de filtros internos. Es read-only y no expone costos, margenes ni stock exacto al frontend externo.
+- `DistribucionAdmin` agrega endpoints internos read-only: `/resumen`, `/demanda` y `/catalogos_filtros`.
+- Productos publicables soporta filtros internos por marca, categoria, proveedor, estado de canal, precio, imagen y ficha, reutilizando tablas de Catalogo ERP.
+- Pedidos/cotizaciones muestran detalle de partidas y preparan revision por partida con `cantidad_confirmada`, `estatus_revision`, `comentario_revision`, `fecha_revision` e `id_usuario_revision` solo si las columnas ya existen.
+- No se ejecuto DDL ni migracion. Si faltan columnas de revision por partida, deben aplicarse desde el plan de `DistribucionApiEsquema` con respaldo y autorizacion explicita.
 
 ## Pendientes
 

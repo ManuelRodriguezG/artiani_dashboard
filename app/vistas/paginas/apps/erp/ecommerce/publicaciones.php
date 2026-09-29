@@ -107,6 +107,42 @@
                                 </div>
                             </div>
 
+                            <div class="card mb-5">
+                                <div class="card-header border-0 pt-6">
+                                    <div class="card-title d-block">
+                                        <h2 class="fs-5 fw-bold mb-1">Precio ecommerce</h2>
+                                        <div class="text-muted fs-7">Selecciona la lista de precios que debe usar el sitio publico. No modifica precios ni productos.</div>
+                                    </div>
+                                    <div class="card-toolbar">
+                                        <span class="badge badge-light-info" id="ecom_lista_precio_estado">Cargando listas...</span>
+                                    </div>
+                                </div>
+                                <div class="card-body pt-0">
+                                    <div class="row g-3 align-items-end">
+                                        <div class="col-lg-6">
+                                            <label class="form-label fs-8 text-uppercase fw-bold text-muted">Lista autorizada para ecommerce</label>
+                                            <select class="form-select form-select-solid" id="ecom_lista_precio_select">
+                                                <option value="0">Modo automatico seguro</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <button class="btn btn-primary w-100" type="button" id="ecom_lista_precio_guardar">
+                                                <i class="bi bi-check2-circle"></i> Guardar lista ecommerce
+                                            </button>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <button class="btn btn-light w-100" type="button" id="ecom_lista_precio_recargar">
+                                                <i class="bi bi-arrow-clockwise"></i> Revisar listas
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="alert alert-warning py-3 px-4 fs-8 mt-4 mb-0">
+                                        Si pausas una lista y el sitio sigue mostrando precios anteriores, recarga este panel y limpia cache del frontend/hosting. La API publica ya debe responder sin cache.
+                                    </div>
+                                    <div class="mt-4" id="ecom_lista_precio_resumen"></div>
+                                </div>
+                            </div>
+
                             <div class="row g-4 mb-5">
                                 <div class="col-md-3"><div class="ecom-kpi"><div class="ecom-kpi__label">Publicables Fase 1</div><div class="ecom-kpi__value" id="ecom_kpi_publicables">0</div><div class="text-muted fs-7 mt-2">SKUs con precio e imagen, sin granel.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-kpi"><div class="ecom-kpi__label">Con imagen</div><div class="ecom-kpi__value" id="ecom_kpi_imagen">0</div><div class="text-muted fs-7 mt-2">Listos visualmente para vitrina.</div></div></div>

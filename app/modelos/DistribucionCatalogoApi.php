@@ -63,8 +63,8 @@ class DistribucionCatalogoApi extends CRUD {
         "cotizacion_dryrun" => "/DistribucionApi/cotizacion/dryrun",
         "cotizacion_registrar" => "/DistribucionApi/cotizacion/registrar",
         "pedido_registrar" => "/DistribucionApi/pedido/registrar",
-        "surtido_listar" => "/DistribucionApi/surtido/listar",
-        "surtido_guardar" => "/DistribucionApi/surtido/guardar",
+        "mi_catalogo_listar" => "/DistribucionApi/mi_catalogo/listar",
+        "mi_catalogo_guardar" => "/DistribucionApi/mi_catalogo/guardar",
         "inventario_cliente_listar" => "/DistribucionApi/inventario_cliente/listar",
         "inventario_cliente_guardar_conteo" => "/DistribucionApi/inventario_cliente/guardar_conteo",
         "inventario_cliente_sugerido" => "/DistribucionApi/inventario_cliente/sugerido",
@@ -85,6 +85,7 @@ class DistribucionCatalogoApi extends CRUD {
     if ($permiso) { return $permiso; }
     require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
     $respuesta = (new CatalogoCanalesErp())->catalogoCanal("distribucion", $filtros, $contexto);
+    $respuesta = $this->anexarPreciosCatalogo($respuesta, $contexto);
     return $this->conSesionYGuardrails($respuesta, $contexto);
   }
 
@@ -103,6 +104,7 @@ class DistribucionCatalogoApi extends CRUD {
     }
     require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
     $respuesta = (new CatalogoCanalesErp())->productoCanal("distribucion", $slug);
+    $respuesta = $this->anexarPreciosCatalogo($respuesta, $contexto);
     return $this->conSesionYGuardrails($respuesta, $contexto);
   }
 
@@ -199,17 +201,49 @@ class DistribucionCatalogoApi extends CRUD {
       if (!$db || !$this->tablaExiste($db, "erp_catalogo_skus") || !$this->tablaExiste($db, "erp_catalogo_productos") || !$this->tablaExiste($db, "erp_catalogo_canales_vinculos")) {
         return $this->respuesta(false, "warning", "Catalogo ERP no disponible", array("configurado" => false, "items" => array()));
       }
-      $limite = max(1, min(100, intval($this->valor($filtros, "limite", 30))));
+      $limite = max(1, min(300, intval($this->valor($filtros, "limite", 30))));
       $q = trim((string) $this->valor($filtros, "q", ""));
-      $soloConPrecio = intval($this->valor($filtros, "solo_con_precio", 1)) === 1;
+      $idMarca = intval($this->valor($filtros, "id_marca_erp", $this->valor($filtros, "marca", 0)));
+      $idCategoria = intval($this->valor($filtros, "id_categoria_erp", $this->valor($filtros, "categoria", 0)));
+      $idProveedor = intval($this->valor($filtros, "id_proveedor", $this->valor($filtros, "proveedor", 0)));
+      $canal = trim((string) $this->valor($filtros, "canal_estatus", ""));
+      $precioFiltro = trim((string) $this->valor($filtros, "precio", ""));
+      $imagenFiltro = trim((string) $this->valor($filtros, "imagen", ""));
+      $descripcionFiltro = trim((string) $this->valor($filtros, "descripcion", ""));
+      $fichaFiltro = trim((string) $this->valor($filtros, "ficha", ""));
+      $estadoProducto = trim((string) $this->valor($filtros, "estatus_producto", ""));
+      $soloConPrecio = intval($this->valor($filtros, "solo_con_precio", 0)) === 1;
       $where = array("p.estatus='activo'", "s.estatus='activo'");
       $params = array();
       if ($q !== "") {
         $where[] = "(p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q)";
         $params[":q"] = "%" . $q . "%";
       }
-      if ($soloConPrecio && $this->tablaExiste($db, "erp_listas_precios") && $this->tablaExiste($db, "erp_listas_precios_detalle")) {
-        $where[] = "EXISTS (
+      if ($estadoProducto !== "") {
+        $where[] = "p.estatus=:estatus_producto";
+        $params[":estatus_producto"] = $estadoProducto;
+      }
+      if ($idMarca > 0) {
+        $where[] = "p.id_marca_erp=:marca";
+        $params[":marca"] = $idMarca;
+      }
+      if ($idCategoria > 0 && $this->tablaExiste($db, "erp_catalogo_producto_categorias")) {
+        $where[] = "EXISTS (SELECT 1 FROM erp_catalogo_producto_categorias pcf WHERE pcf.id_producto_erp=p.id_producto_erp AND pcf.id_categoria_erp=:categoria)";
+        $params[":categoria"] = $idCategoria;
+      }
+      if ($idProveedor > 0 && $this->tablaExiste($db, "erp_catalogo_sku_proveedores")) {
+        $where[] = "EXISTS (SELECT 1 FROM erp_catalogo_sku_proveedores spf WHERE spf.id_sku=s.id_sku AND spf.id_proveedor=:proveedor AND spf.estatus='activo')";
+        $params[":proveedor"] = $idProveedor;
+      }
+      if ($canal === "publicado") {
+        $where[] = "cv.id_canal_vinculo IS NOT NULL AND cv.estatus='activo' AND cv.sincronizar_catalogo=1";
+      } elseif ($canal === "no_publicado") {
+        $where[] = "(cv.id_canal_vinculo IS NULL OR cv.estatus<>'activo' OR cv.sincronizar_catalogo<>1)";
+      } elseif ($canal !== "") {
+        $where[] = "cv.estatus=:canal_estatus";
+        $params[":canal_estatus"] = $canal;
+      }
+      $precioSql = "EXISTS (
           SELECT 1
           FROM erp_listas_precios_detalle d
           INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
@@ -222,12 +256,44 @@ class DistribucionCatalogoApi extends CRUD {
             AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW())
             AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW())
         )";
+      if (($soloConPrecio || $precioFiltro === "con_precio") && $this->tablaExiste($db, "erp_listas_precios") && $this->tablaExiste($db, "erp_listas_precios_detalle")) {
+        $where[] = $precioSql;
+      } elseif ($precioFiltro === "sin_precio" && $this->tablaExiste($db, "erp_listas_precios") && $this->tablaExiste($db, "erp_listas_precios_detalle")) {
+        $where[] = "NOT " . $precioSql;
       }
-      $stmt = $db->prepare("SELECT p.id_producto_erp, p.nombre producto, s.id_sku, s.sku, s.nombre sku_nombre,
+      $imagenSql = "EXISTS (SELECT 1 FROM erp_catalogo_imagenes imgx WHERE (imgx.id_sku=s.id_sku OR imgx.id_producto_erp=p.id_producto_erp) AND imgx.estatus='activo' AND TRIM(COALESCE(imgx.url_imagen,''))<>'')";
+      if ($imagenFiltro === "con_imagen" && $this->tablaExiste($db, "erp_catalogo_imagenes")) {
+        $where[] = $imagenSql;
+      } elseif ($imagenFiltro === "sin_imagen" && $this->tablaExiste($db, "erp_catalogo_imagenes")) {
+        $where[] = "NOT " . $imagenSql;
+      }
+      if ($descripcionFiltro === "con_descripcion") {
+        $where[] = "TRIM(COALESCE(p.descripcion,''))<>''";
+      } elseif ($descripcionFiltro === "sin_descripcion") {
+        $where[] = "TRIM(COALESCE(p.descripcion,''))=''";
+      }
+      $puedeEvaluarFicha = $this->tablaExiste($db, "erp_catalogo_imagenes") && $this->tablaExiste($db, "erp_listas_precios") && $this->tablaExiste($db, "erp_listas_precios_detalle");
+      if ($fichaFiltro === "completa" && $puedeEvaluarFicha) {
+        $where[] = "TRIM(COALESCE(p.descripcion,''))<>'' AND " . $precioSql . " AND " . $imagenSql;
+      } elseif ($fichaFiltro === "incompleta" && $puedeEvaluarFicha) {
+        $where[] = "(TRIM(COALESCE(p.descripcion,''))='' OR NOT " . $precioSql . " OR NOT " . $imagenSql . ")";
+      }
+      $joinMarca = $this->tablaExiste($db, "erp_catalogo_marcas") ? "LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp" : "LEFT JOIN (SELECT NULL nombre) m ON 1=0";
+      $joinCategoria = $this->tablaExiste($db, "erp_catalogo_producto_categorias") && $this->tablaExiste($db, "erp_catalogo_categorias") ? "LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1 LEFT JOIN erp_catalogo_categorias cat ON cat.id_categoria_erp=pc.id_categoria_erp" : "LEFT JOIN (SELECT NULL ruta, NULL nombre) cat ON 1=0";
+      $joinProveedor = $this->tablaExiste($db, "erp_catalogo_sku_proveedores") && $this->tablaExiste($db, "erp_proveedores") ? "LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku=s.id_sku AND sp.estatus='activo' AND sp.es_preferido=1 LEFT JOIN erp_proveedores pr ON pr.id_proveedor=sp.id_proveedor" : "LEFT JOIN (SELECT NULL proveedor) pr ON 1=0";
+      $selectPrecio = $this->tablaExiste($db, "erp_listas_precios") && $this->tablaExiste($db, "erp_listas_precios_detalle") ? "CASE WHEN " . $precioSql . " THEN 1 ELSE 0 END" : "0";
+      $selectImagen = $this->tablaExiste($db, "erp_catalogo_imagenes") ? "CASE WHEN " . $imagenSql . " THEN 1 ELSE 0 END" : "0";
+      $stmt = $db->prepare("SELECT p.id_producto_erp, p.nombre producto, p.descripcion, s.id_sku, s.sku, s.nombre sku_nombre,
+          m.nombre marca, COALESCE(cat.ruta, cat.nombre) categoria, pr.proveedor proveedor_principal,
+          " . $selectPrecio . " tiene_precio, " . $selectImagen . " tiene_imagen,
+          CASE WHEN TRIM(COALESCE(p.descripcion,''))<>'' THEN 1 ELSE 0 END tiene_descripcion,
           cv.id_canal_vinculo, cv.id_externo, cv.estatus canal_estatus, cv.sincronizar_catalogo, cv.sincronizar_precio, cv.sincronizar_existencia
         FROM erp_catalogo_skus s
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
         LEFT JOIN erp_catalogo_canales_vinculos cv ON cv.id_sku=s.id_sku AND cv.canal='distribucion'
+        " . $joinMarca . "
+        " . $joinCategoria . "
+        " . $joinProveedor . "
         WHERE " . implode(" AND ", $where) . "
         ORDER BY CASE WHEN cv.id_canal_vinculo IS NULL THEN 1 ELSE 0 END, p.nombre ASC, s.sku ASC
         LIMIT " . intval($limite));
@@ -374,8 +440,8 @@ class DistribucionCatalogoApi extends CRUD {
       array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/dryrun"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/registrar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/pedido/registrar"),
-      array("metodo" => "GET", "ruta" => "/DistribucionApi/surtido/listar"),
-      array("metodo" => "POST", "ruta" => "/DistribucionApi/surtido/guardar"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/mi_catalogo/listar"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/mi_catalogo/guardar"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/listar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/guardar_conteo"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/sugerido"),
@@ -425,6 +491,75 @@ class DistribucionCatalogoApi extends CRUD {
     }
     $respuesta["depurar"]["sesion"] = $this->sesionSalida($contexto);
     $respuesta["depurar"]["guardrails"] = $this->guardrails();
+    return $respuesta;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-29
+   * Proposito: completar catalogo y detalle con precios resueltos desde listas ERP autorizadas.
+   * Impacto: API Distribucion; evita que el catalogo muestre siempre "Solicitar precio" cuando el cliente ya tiene permiso/lista.
+   * Contrato: read-only; reutiliza PreciosCanalesErp y no expone costos, margenes, proveedores ni stock.
+   */
+  private function anexarPreciosCatalogo($respuesta, $contexto) {
+    if (!isset($respuesta["depurar"]) || !is_array($respuesta["depurar"])) {
+      return $respuesta;
+    }
+    if ($this->requiereAlgunPermiso($contexto, array("distribucion.precio.ver_publico", "distribucion.precio.ver_mayoreo", "distribucion.precio.ver_lista_asignada"), "No tienes permiso para ver precios Distribucion")) {
+      return $respuesta;
+    }
+
+    $itemsCatalogo = array();
+    if (isset($respuesta["depurar"]["items"]) && is_array($respuesta["depurar"]["items"])) {
+      foreach ($respuesta["depurar"]["items"] as $item) {
+        if (is_array($item) && intval($this->valor($item, "id_sku", 0)) > 0) {
+          $itemsCatalogo[] = array("id_sku" => intval($item["id_sku"]), "cantidad" => 1);
+        }
+      }
+    }
+    if (isset($respuesta["depurar"]["item"]) && is_array($respuesta["depurar"]["item"]) && intval($this->valor($respuesta["depurar"]["item"], "id_sku", 0)) > 0) {
+      $itemsCatalogo[] = array("id_sku" => intval($respuesta["depurar"]["item"]["id_sku"]), "cantidad" => 1);
+    }
+    if (empty($itemsCatalogo)) {
+      return $respuesta;
+    }
+
+    require_once RUTA_APP . "/modelos/PreciosCanalesErp.php";
+    $precios = (new PreciosCanalesErp())->resolverPreciosCanal("distribucion", $itemsCatalogo, $contexto);
+    $depurarPrecios = $this->valor($precios, "depurar", array());
+    $itemsPrecios = $this->valor($depurarPrecios, "items", array());
+    if (!is_array($itemsPrecios) || empty($itemsPrecios)) {
+      return $respuesta;
+    }
+
+    $mapaPrecios = array();
+    foreach ($itemsPrecios as $itemPrecio) {
+      if (!is_array($itemPrecio)) { continue; }
+      $idSku = intval($this->valor($itemPrecio, "id_sku", 0));
+      $precio = $this->valor($itemPrecio, "precio", array());
+      if ($idSku > 0 && is_array($precio)) {
+        $mapaPrecios[$idSku] = $precio;
+      }
+    }
+    if (empty($mapaPrecios)) {
+      return $respuesta;
+    }
+
+    if (isset($respuesta["depurar"]["items"]) && is_array($respuesta["depurar"]["items"])) {
+      foreach ($respuesta["depurar"]["items"] as $indice => $item) {
+        $idSku = is_array($item) ? intval($this->valor($item, "id_sku", 0)) : 0;
+        if ($idSku > 0 && isset($mapaPrecios[$idSku])) {
+          $respuesta["depurar"]["items"][$indice]["precio"] = $mapaPrecios[$idSku];
+        }
+      }
+    }
+    if (isset($respuesta["depurar"]["item"]) && is_array($respuesta["depurar"]["item"])) {
+      $idSku = intval($this->valor($respuesta["depurar"]["item"], "id_sku", 0));
+      if ($idSku > 0 && isset($mapaPrecios[$idSku])) {
+        $respuesta["depurar"]["item"]["precio"] = $mapaPrecios[$idSku];
+      }
+    }
+
     return $respuesta;
   }
 
