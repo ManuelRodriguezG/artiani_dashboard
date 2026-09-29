@@ -233,6 +233,12 @@
                                             </div>
                                         </div>
                                         <div class="card-toolbar d-flex gap-2">
+                                            <select class="form-select form-select-sm form-select-solid w-auto" id="catalogo_incidencias_estatus">
+                                                <option value="abiertas">Abiertas</option>
+                                                <option value="resuelta">Resueltas</option>
+                                                <option value="descartada">Descartadas</option>
+                                                <option value="todas">Todas</option>
+                                            </select>
                                             <span class="badge badge-light-primary" id="catalogo_incidencias_total">0 incidencias</span>
                                             <button class="btn btn-sm btn-light-primary" type="button" id="catalogo_incidencias_recargar">
                                                 <i class="bi bi-arrow-clockwise"></i> Recargar

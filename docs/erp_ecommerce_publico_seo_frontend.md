@@ -63,6 +63,48 @@ Reglas:
 - Actualizacion IA Codex GPT-6, 2026-09-25: `item.descripcion_publica` contiene solo contenido editorial saneado. Un campo vacio es intencional y no usa fallback del Catalogo ERP; `item.descripcion_publica_fuente=publicacion_ecommerce`. Los metadatos SEO se mantienen planos y cortos. Ver `docs/erp_ecommerce_descripciones_agrupacion.md` para contrato y despliegue pendiente.
 - Para producto agrupado o variantes, el frontend debe usar `depurar.grupo_producto`, `depurar.variantes` y `depurar.fase_2.resumen_ui.mostrar_variantes`; no debe deducir agrupaciones leyendo tablas internas.
 
+## Actualizacion 2026-09-28 - Incidencias SEO detectadas desde Analytics
+
+`srsltid` es una senal de Google/Shopping/Search auto-tagging. Si Analytics detecta URLs como `/producto/Pez-cebra-verde-neon/PEZC-02?srsltid=...`, el ERP no debe convertirlas automaticamente en 301.
+
+Flujo correcto:
+
+- Analytics registra la visita con el identificador de tracking oculto como `__redacted__`.
+- La mesa `Ecommerce > SEO migracion > Fuente: Analytics` muestra la URL como incidencia/candidato.
+- El operador decide manualmente si corresponde a una redireccion 301, 308 o 410.
+- El frontend publico solo debe aplicar reglas aprobadas desde `GET /ecommercePublico/seo_redirecciones`.
+
+Endpoint interno read-only:
+
+```http
+GET /ecommercePublico/seo_urls_viejas_revision_erp?fuente=analytics
+```
+
+Respuesta esperada para ese caso:
+
+```json
+{
+  "fuente": "analytics",
+  "items": [
+    {
+      "path_original": "/producto/pez-cebra-verde-neon/PEZC-02?srsltid=__redacted__",
+      "origen": "analytics",
+      "accion_sugerida": "revisar_manual",
+      "url_destino_sugerida": "",
+      "tracking_params_detectados": ["srsltid"]
+    }
+  ]
+}
+```
+
+Regla operativa:
+
+- no crear `redirect_to` automatico desde Analytics;
+- no guardar valores completos de `srsltid`, `fbclid`, `gclid`, `gbraid`, `wbraid`, `msclkid` o `ttclid`;
+- tratar segmentos extra despues del slug de producto, por ejemplo `/producto/slug/SKU`, como incidencia SEO;
+- no redirigir a home por defecto;
+- el frontend externo no consulta docs ni archivos internos del ERP: consume `seo_redirecciones` para reglas aprobadas.
+
 ## Actualizacion 2026-09-03 - Migracion URLs y contratos SEO separados
 
 Se agrega una capa explicita para migracion SEO del ecommerce publico. El ERP administra y entrega la informacion; el frontend externo la aplica en runtime/build/hosting.

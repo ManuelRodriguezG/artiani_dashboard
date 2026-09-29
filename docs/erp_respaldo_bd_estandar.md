@@ -220,6 +220,22 @@ archivo_legible=true
 tamano_bytes=33532718
 ```
 
+Rentabilidad - Estudios:
+
+```text
+C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260928_214208_antes_rentabilidad_estudios_schema.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=50791193
+base=artianicom_sys
+uso=antes de aplicar esquema erp_rentabilidad_estudios y erp_rentabilidad_estudio_skus
+```
+
 Panel Proyectos - permisos base:
 
 ```text

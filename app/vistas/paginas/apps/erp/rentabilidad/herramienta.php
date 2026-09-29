@@ -148,6 +148,7 @@
                                                 <th class="text-end">Costo</th>
                                                 <th class="text-end">Margen</th>
                                                 <th class="text-end">Utilidad</th>
+                                                <th class="text-end">Gasto</th>
                                                 <th class="text-end">Minimo</th>
                                                 <th>Estado</th>
                                                 <th>Siguiente paso</th>
@@ -173,6 +174,6 @@ window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
     "snapshot" => Sesionseguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260829-herramienta-atencion-2"></script>
+<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260929-gasto-importe-1"></script>
 </body>
 </html>

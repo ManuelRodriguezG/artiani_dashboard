@@ -302,10 +302,7 @@ class EcommerceBlogPublico extends CRUD {
     if (!$this->imagenTieneAlt($portada)) {
       return $this->respuesta(true, "warning", "La imagen de portada requiere texto ALT", array("ok" => false, "campo" => "imagen_portada.alt"));
     }
-    $contenidoHtml = (string) $this->valor($datos, "contenido_html", "");
-    if (stripos($contenidoHtml, "<script") !== false || stripos($contenidoHtml, "onerror=") !== false || stripos($contenidoHtml, "javascript:") !== false) {
-      return $this->respuesta(true, "warning", "Contenido HTML no seguro para blog", array("ok" => false));
-    }
+    $contenidoHtml = $this->sanitizarContenidoHtmlBlog((string) $this->valor($datos, "contenido_html", ""));
     $seo = $this->jsonDesdeEntrada($this->valor($datos, "seo", array()));
     $params = array(
       ":tipo" => $tipo,
@@ -316,7 +313,7 @@ class EcommerceBlogPublico extends CRUD {
       ":autor" => substr(trim((string) $this->valor($datos, "autor", "Artiani")), 0, 120),
       ":extracto" => trim((string) $this->valor($datos, "extracto", "")),
       ":contenido_html" => $contenidoHtml,
-      ":contenido_texto" => trim(strip_tags($contenidoHtml)),
+      ":contenido_texto" => trim(html_entity_decode(strip_tags($contenidoHtml), ENT_QUOTES | ENT_HTML5, "UTF-8")),
       ":imagen_portada_json" => json_encode($portada, JSON_UNESCAPED_UNICODE),
       ":seo_json" => json_encode($seo, JSON_UNESCAPED_UNICODE),
       ":orden" => intval($this->valor($datos, "orden", 0)),
@@ -483,6 +480,8 @@ class EcommerceBlogPublico extends CRUD {
       );
     }
     $item["contenido_html"] = (string) $fila["contenido_html"];
+    $item["orden"] = intval($this->valor($fila, "orden", 0));
+    $item["destacado"] = intval($this->valor($fila, "destacado", 0));
     $item["seo"] = $seo;
     return $item;
   }
@@ -499,10 +498,16 @@ class EcommerceBlogPublico extends CRUD {
   }
 
   private function videosPublicacion($id) {
-    if (!$this->tablaExiste("erp_ecommerce_blog_videos")) { return array(); }
-    $stmt = $this->getConexion()->prepare("SELECT tipo, titulo, descripcion, thumbnail, embed_url, url_original, posicion, orden FROM erp_ecommerce_blog_videos WHERE id_blog_publicacion=:id AND estatus='activo' ORDER BY orden ASC, id_blog_video ASC");
-    $stmt->execute(array(":id" => $id));
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if ($this->tablaExiste("erp_ecommerce_blog_video_relaciones") && $this->tablaExiste("erp_ecommerce_videos")) {
+      $stmt = $this->getConexion()->prepare("SELECT v.id_video, v.id_video id_video_cms, v.provider tipo, v.titulo, v.descripcion_corta descripcion, v.thumbnail_url thumbnail, v.embed_url, v.video_url url_original, r.posicion, r.orden
+        FROM erp_ecommerce_blog_video_relaciones r
+        INNER JOIN erp_ecommerce_videos v ON v.id_video=r.id_video AND v.estado='publicado'
+        WHERE r.id_blog_publicacion=:id AND r.estatus='activo'
+        ORDER BY r.orden ASC, r.id_blog_video_relacion ASC");
+      $stmt->execute(array(":id" => $id));
+      return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    return array();
   }
 
   private function productosRelacionados($id, $limite) {
@@ -599,14 +604,18 @@ class EcommerceBlogPublico extends CRUD {
   }
 
   private function sincronizarVideosAdmin($id, $items, &$resumen) {
-    if ($items === null || !$this->tablaExiste("erp_ecommerce_blog_videos")) { return; }
-    $db = $this->getConexion();
-    $db->prepare("UPDATE erp_ecommerce_blog_videos SET estatus='pausado' WHERE id_blog_publicacion=:id")->execute(array(":id" => $id));
-    $stmt = $db->prepare("INSERT INTO erp_ecommerce_blog_videos (id_blog_publicacion, tipo, titulo, descripcion, thumbnail, embed_url, url_original, posicion, orden, estatus) VALUES (:id, :tipo, :titulo, :descripcion, :thumbnail, :embed, :original, :posicion, :orden, 'activo')");
-    foreach ($items as $i => $item) {
-      if (trim((string) $this->valor($item, "thumbnail", "")) === "" || trim((string) $this->valor($item, "embed_url", "")) === "") { continue; }
-      $stmt->execute(array(":id" => $id, ":tipo" => substr($this->slugSimple($this->valor($item, "tipo", "tiktok")), 0, 40), ":titulo" => substr(trim((string) $this->valor($item, "titulo", "Video")), 0, 180), ":descripcion" => substr(trim((string) $this->valor($item, "descripcion", "")), 0, 255), ":thumbnail" => trim((string) $this->valor($item, "thumbnail", "")), ":embed" => trim((string) $this->valor($item, "embed_url", "")), ":original" => trim((string) $this->valor($item, "url_original", "")), ":posicion" => substr(trim((string) $this->valor($item, "posicion", "contenido")), 0, 40), ":orden" => intval($this->valor($item, "orden", $i + 1))));
-      $resumen["videos"]++;
+    if ($items === null) { return; }
+    if ($this->tablaExiste("erp_ecommerce_blog_video_relaciones") && $this->tablaExiste("erp_ecommerce_videos")) {
+      $db = $this->getConexion();
+      $db->prepare("UPDATE erp_ecommerce_blog_video_relaciones SET estatus='pausado' WHERE id_blog_publicacion=:id")->execute(array(":id" => $id));
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_blog_video_relaciones (id_blog_publicacion, id_video, posicion, orden, estatus) VALUES (:id, :video, :posicion, :orden, 'activo')");
+      foreach ($items as $i => $item) {
+        $idVideo = intval($this->valor($item, "id_video", $this->valor($item, "id_video_cms", $this->valor($item, "id", $item))));
+        if ($idVideo <= 0) { continue; }
+        $stmt->execute(array(":id" => $id, ":video" => $idVideo, ":posicion" => substr(trim((string) $this->valor($item, "posicion", "contenido")), 0, 40), ":orden" => intval($this->valor($item, "orden", $i + 1))));
+        $resumen["videos"]++;
+      }
+      return;
     }
   }
 
@@ -708,6 +717,67 @@ class EcommerceBlogPublico extends CRUD {
   private function jsonDecode($valor) {
     $decode = json_decode((string) $valor, true);
     return is_array($decode) ? $decode : array();
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-28
+   * Proposito: normalizar HTML editorial de Blog con lista blanca antes de persistirlo.
+   * Impacto: CMS Blog; reduce scripts, eventos inline, estilos libres y atributos no esperados.
+   * Contrato: conserva etiquetas editoriales basicas; no permite iframes ni JS embebido.
+   */
+  private function sanitizarContenidoHtmlBlog($html) {
+    $permitidas = "<p><br><strong><b><em><i><u><ul><ol><li><h2><h3><h4><blockquote><a><img><figure><figcaption><hr><table><thead><tbody><tr><th><td>";
+    $html = (string) $html;
+    $html = preg_replace('/<!--.*?-->/s', '', $html);
+    $html = preg_replace('/<script[\s\S]*?>[\s\S]*?<\/script>/i', '', $html);
+    $html = preg_replace('/<style[\s\S]*?>[\s\S]*?<\/style>/i', '', $html);
+    $html = strip_tags($html, $permitidas);
+    $html = preg_replace('/\s+on[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $html);
+    $html = preg_replace('/\s+style\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $html);
+    $html = preg_replace_callback('/<([a-z0-9]+)(\s[^>]*)?>/i', function ($match) {
+      $tag = strtolower($match[1]);
+      $atributos = isset($match[2]) ? $match[2] : "";
+      $permitidos = array(
+        "a" => array("href", "title", "target", "rel"),
+        "img" => array("src", "alt", "title", "width", "height", "loading"),
+        "th" => array("colspan", "rowspan"),
+        "td" => array("colspan", "rowspan")
+      );
+      if (!isset($permitidos[$tag])) {
+        return "<" . $tag . ">";
+      }
+      $limpios = array();
+      if (preg_match_all('/([a-zA-Z0-9:-]+)\s*=\s*("[^"]*"|\'[^\']*\'|[^\s"\'>]+)/', $atributos, $attrs, PREG_SET_ORDER)) {
+        foreach ($attrs as $attr) {
+          $nombre = strtolower($attr[1]);
+          if (!in_array($nombre, $permitidos[$tag], true)) { continue; }
+          $valor = trim($attr[2], "\"'");
+          if (($nombre === "href" || $nombre === "src") && !$this->urlContenidoPermitida($valor)) { continue; }
+          if (($nombre === "width" || $nombre === "height" || $nombre === "colspan" || $nombre === "rowspan") && !preg_match('/^[0-9]{1,4}$/', $valor)) { continue; }
+          if ($nombre === "target" && !in_array($valor, array("_blank", "_self"), true)) { continue; }
+          if ($nombre === "loading" && !in_array($valor, array("lazy", "eager"), true)) { continue; }
+          $limpios[$nombre] = htmlspecialchars($valor, ENT_QUOTES, "UTF-8");
+        }
+      }
+      if ($tag === "a" && isset($limpios["target"]) && $limpios["target"] === "_blank") {
+        $limpios["rel"] = "noopener noreferrer";
+      }
+      $salida = "<" . $tag;
+      foreach ($limpios as $nombre => $valor) {
+        $salida .= " " . $nombre . "=\"" . $valor . "\"";
+      }
+      return $salida . ">";
+    }, $html);
+    return trim($html);
+  }
+
+  private function urlContenidoPermitida($url) {
+    $url = trim(html_entity_decode((string) $url, ENT_QUOTES | ENT_HTML5, "UTF-8"));
+    if ($url === "") { return false; }
+    if (strpos($url, "//") === 0) { return false; }
+    if ($url[0] === "/" || $url[0] === "#") { return true; }
+    return preg_match('/^https?:\/\/[^\s]+$/i', $url) === 1;
   }
 
   private function imagenTieneAlt($imagen) {

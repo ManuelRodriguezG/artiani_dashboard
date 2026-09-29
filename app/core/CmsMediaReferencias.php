@@ -173,7 +173,7 @@ class CmsMediaReferencias {
       "erp_ecommerce_blog_publicaciones" => array("origen" => "Publicacion de Blog", "id" => "id_blog_publicacion", "estado" => "estado", "etiqueta" => "titulo", "campos" => array("imagen_portada_json", "seo_json", "contenido_html")),
       "erp_ecommerce_blog_media" => array("origen" => "Imagen de Blog", "id" => "id_blog_media", "estado" => "estatus", "etiqueta" => "id_blog_publicacion", "campos" => array("url", "url_desktop", "url_tablet", "url_mobile", "url_thumbnail", "metadata_json")),
       "erp_ecommerce_blog_bloques_interactivos" => array("origen" => "Bloque interactivo de Blog", "id" => "id_blog_bloque_interactivo", "estado" => "estatus", "etiqueta" => "titulo", "campos" => array("imagen_json", "puntos_json")),
-      "erp_ecommerce_blog_videos" => array("origen" => "Miniatura de video de Blog", "id" => "id_blog_video", "estado" => "estatus", "etiqueta" => "titulo", "campos" => array("thumbnail"))
+      "erp_ecommerce_videos" => array("origen" => "Miniatura de video CMS", "id" => "id_video", "estado" => "estado", "etiqueta" => "titulo", "campos" => array("thumbnail_url", "og_image", "metadata_json"))
     );
   }
 

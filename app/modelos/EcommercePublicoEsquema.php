@@ -144,7 +144,7 @@ class EcommercePublicoEsquema extends DBSchema {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
    * Proposito: generar el plan DDL del Blog/CMS comercial sin ejecutarlo por defecto.
-   * Impacto: CMS Blog y ecommerce publico; prepara articulos, relaciones, slugs, videos, bloques interactivos y analytics.
+   * Impacto: CMS Blog y ecommerce publico; prepara articulos, relaciones, slugs, enlaces a videos, bloques interactivos y analytics.
    * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no crea tablas ni modifica catalogo, precios o inventario.
    */
   public function planActualizarCmsBlog($ejecutar = false) {
@@ -200,21 +200,17 @@ class EcommercePublicoEsquema extends DBSchema {
       "KEY `idx_blog_media_publicacion` (`id_blog_publicacion`, `estatus`, `orden`)"
     ), $opciones, $ejecutar);
 
-    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_videos", array(
-      "`id_blog_video` BIGINT NOT NULL AUTO_INCREMENT",
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_video_relaciones", array(
+      "`id_blog_video_relacion` BIGINT NOT NULL AUTO_INCREMENT",
       "`id_blog_publicacion` BIGINT NOT NULL",
-      "`tipo` VARCHAR(40) NOT NULL DEFAULT 'tiktok'",
-      "`titulo` VARCHAR(180) NOT NULL",
-      "`descripcion` VARCHAR(255) NULL",
-      "`thumbnail` VARCHAR(500) NOT NULL",
-      "`embed_url` VARCHAR(500) NOT NULL",
-      "`url_original` VARCHAR(500) NOT NULL",
+      "`id_video` INT UNSIGNED NOT NULL",
       "`posicion` VARCHAR(40) NOT NULL DEFAULT 'contenido'",
       "`orden` INT NOT NULL DEFAULT 0",
       "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
       "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
-      "PRIMARY KEY (`id_blog_video`)",
-      "KEY `idx_blog_video_publicacion` (`id_blog_publicacion`, `estatus`, `orden`)"
+      "PRIMARY KEY (`id_blog_video_relacion`)",
+      "KEY `idx_blog_video_publicacion` (`id_blog_publicacion`, `estatus`, `orden`)",
+      "KEY `idx_blog_video_video` (`id_video`, `estatus`)"
     ), $opciones, $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_productos", array(
@@ -1241,7 +1237,7 @@ class EcommercePublicoEsquema extends DBSchema {
     return array(
       "erp_ecommerce_blog_publicaciones",
       "erp_ecommerce_blog_media",
-      "erp_ecommerce_blog_videos",
+      "erp_ecommerce_blog_video_relaciones",
       "erp_ecommerce_blog_productos",
       "erp_ecommerce_blog_categorias",
       "erp_ecommerce_blog_bloques_interactivos",

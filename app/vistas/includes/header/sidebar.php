@@ -56,6 +56,16 @@ $gruposMenu = array(
     ),
     array(
         'seccion' => 'ERP',
+        'titulo' => 'Artiani',
+        'icono' => 'bi-heart-pulse',
+        'permiso' => array('artiani.conocimiento.ver', 'catalogo.ver', 'crm.ver', 'ventas.ver'),
+        'items' => array(
+            array('titulo' => 'Enciclopedia de especies', 'ruta' => '/artiani/enciclopedia', 'permiso' => array('artiani.conocimiento.ver', 'catalogo.ver', 'crm.ver', 'ventas.ver')),
+            array('titulo' => 'Crear nueva ficha', 'ruta' => '/artiani/especie_nueva', 'permiso' => array('artiani.conocimiento.editar', 'catalogo.editar'))
+        )
+    ),
+    array(
+        'seccion' => 'ERP',
         'titulo' => 'Catalogo',
         'icono' => 'bi-box-seam',
         'permiso' => 'catalogo.ver',
@@ -95,6 +105,8 @@ $gruposMenu = array(
         'permiso' => 'rentabilidad.ver',
         'items' => array(
             array('titulo' => 'Herramienta por lista', 'ruta' => '/rentabilidad/herramienta', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'Estudios', 'ruta' => '/rentabilidad/estudios', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'Envios nacionales', 'ruta' => '/rentabilidad/envios_nacionales', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Consulta por SKU', 'ruta' => '/rentabilidad/skus', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Resumen ejecutivo', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Cierre comercial', 'ruta' => '/rentabilidad/cierre', 'permiso' => 'rentabilidad.ver'),
@@ -160,6 +172,16 @@ $gruposMenu = array(
         'permiso' => 'finanzas.ver',
         'items' => array(
             array('titulo' => 'Cierre mensual', 'ruta' => '/contabilidad/cierre_mensual', 'permiso' => 'finanzas.ver')
+        )
+    ),
+    array(
+        'seccion' => 'ERP',
+        'titulo' => 'Operacion',
+        'icono' => 'bi-clipboard-check',
+        'permiso' => array('compras.ver', 'catalogo.ver', 'almacen.ver', 'inventario.ver'),
+        'items' => array(
+            array('titulo' => 'Mini inventarios', 'ruta' => '/operacion/mini_inventarios', 'permiso' => array('compras.ver', 'catalogo.ver', 'almacen.ver', 'inventario.ver')),
+            array('titulo' => 'Editor mini inventario', 'ruta' => '/operacion/mini_inventario', 'permiso' => array('compras.ver', 'catalogo.ver', 'almacen.ver', 'inventario.ver'))
         )
     ),
     array(
@@ -259,6 +281,7 @@ $gruposMenu = array(
             array('titulo' => 'Home', 'ruta' => '/cms/frontend/home', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Catalogo', 'ruta' => '/cms/frontend/catalogo', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Busqueda', 'ruta' => '/cms/frontend/busqueda', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Blog / Guias', 'ruta' => '/cms/frontend/blog', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Categorias', 'ruta' => '/cms/frontend/categorias', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Producto', 'ruta' => '/cms/frontend/producto', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Carrito', 'ruta' => '/cms/frontend/carrito', 'permiso' => array('cms.ver', 'catalogo.ver')),

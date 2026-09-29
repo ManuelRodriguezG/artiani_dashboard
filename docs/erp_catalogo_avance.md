@@ -4648,6 +4648,16 @@ Actualizacion 2026-09-03:
 - Se separaron los filtros de faltantes: `Sin marca`, `Sin principal` y `Sin secundarias`, para revisar exactamente que campo falta sin ocultar lo que ya esta capturado.
 - Aclaracion operativa: marca y categorias viven en el producto maestro (`erp_catalogo_productos` y `erp_catalogo_producto_categorias`), por eso los SKU agrupados comparten esos datos salvo que mas adelante se defina una excepcion por SKU.
 
+## 2026-09-28 - Protección de incidencias Proveedores -> Catalogo
+
+- Problema detectado: un operador podia marcar como `resuelta` una incidencia `proveedor_sku_sin_match` antes de crear o vincular el SKU ERP. Al reenviar el renglon desde Proveedores, la huella encontraba la incidencia cerrada y no reaparecia en la bandeja abierta de Catalogo.
+- Correccion aplicada:
+  - Proveedores reabre automaticamente la incidencia cerrada por error cuando se vuelve a enviar el mismo renglon y la incidencia aun no tiene `id_sku`.
+  - Catalogo ya no muestra `Resolver` en incidencias de proveedor sin SKU; muestra la accion de `SKU temporal` y una indicacion de crear/vincular SKU antes de resolver.
+  - Backend de Catalogo y Proveedores bloquea marcar como `resuelta` una incidencia `proveedor_sku_sin_match` si no tiene SKU ERP relacionado.
+  - La bandeja de Catalogo permite filtrar `Abiertas`, `Resueltas`, `Descartadas` o `Todas`, y restaurar incidencias cerradas por error.
+- Regla operativa: una incidencia de proveedor sin match solo se resuelve cuando ya existe SKU ERP vinculado o cuando se descarta con motivo claro porque no aplica.
+
 ## Avance 2026-09-27 - Captura rapida de medidas en Atributos
 
 - Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.

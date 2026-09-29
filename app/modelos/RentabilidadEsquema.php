@@ -9,7 +9,9 @@ class RentabilidadEsquema extends DBSchema {
             "erp_rentabilidad_snapshot_detalle",
             "erp_rentabilidad_recomendaciones",
             "erp_rentabilidad_aprobaciones_comerciales",
-            "erp_rentabilidad_aprobaciones_bitacora"
+            "erp_rentabilidad_aprobaciones_bitacora",
+            "erp_rentabilidad_estudios",
+            "erp_rentabilidad_estudio_skus"
         );
     }
 
@@ -194,6 +196,76 @@ class RentabilidadEsquema extends DBSchema {
                     "Dry-run: no crea tablas ni modifica BD cuando ejecutar=false.",
                     "La aprobacion comercial es evidencia interna; no aplica precios a Catalogo, Ventas, ecommerce ni Pedidos.",
                     "Cualquier ejecucion real requiere respaldo externo y autorizacion explicita."
+                )
+            )
+        );
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: preparar persistencia de estudios de rentabilidad por grupos de SKUs.
+     * Impacto: habilita bandeja de estudios guardados y editor de seleccion sin mezclarlo con snapshots.
+     * Contrato: dry-run por defecto; ejecucion real requiere respaldo externo y autorizacion del dueno.
+     */
+    public function planEstudiosRentabilidad($ejecutar = false) {
+        $plan = array();
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_rentabilidad_estudios", array(
+            "`id_estudio` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT",
+            "`folio` VARCHAR(40) NOT NULL",
+            "`nombre` VARCHAR(160) NOT NULL",
+            "`objetivo` VARCHAR(60) NOT NULL DEFAULT 'revision_margen'",
+            "`id_lista_precio` INT UNSIGNED NOT NULL",
+            "`lista_codigo` VARCHAR(80) NULL",
+            "`lista_nombre` VARCHAR(160) NULL",
+            "`canal` VARCHAR(60) NOT NULL DEFAULT 'general'",
+            "`gasto_operativo_pct` DECIMAL(9,4) NOT NULL DEFAULT 0",
+            "`comision_pct` DECIMAL(9,4) NOT NULL DEFAULT 0",
+            "`margen_objetivo_pct` DECIMAL(9,4) NOT NULL DEFAULT 20",
+            "`ajuste_pct` DECIMAL(9,4) NOT NULL DEFAULT 0",
+            "`filtros_json` JSON NULL",
+            "`resumen_json` JSON NULL",
+            "`estatus` ENUM('borrador','activo','cerrado','cancelado') NOT NULL DEFAULT 'activo'",
+            "`comentario` TEXT NULL",
+            "`respaldo_externo_ref` VARCHAR(255) NULL",
+            "`creado_por` INT NULL",
+            "`actualizado_por` INT NULL",
+            "`fecha_registro` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_estudio`)",
+            "UNIQUE KEY `idx_erp_rentabilidad_estudios_folio` (`folio`)",
+            "KEY `idx_erp_rentabilidad_estudios_lista` (`id_lista_precio`, `estatus`)",
+            "KEY `idx_erp_rentabilidad_estudios_fecha` (`fecha_registro`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_rentabilidad_estudio_skus", array(
+            "`id_estudio_sku` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT",
+            "`id_estudio` BIGINT UNSIGNED NOT NULL",
+            "`id_sku` INT NOT NULL",
+            "`sku` VARCHAR(120) NOT NULL",
+            "`producto` VARCHAR(255) NOT NULL",
+            "`orden` INT NOT NULL DEFAULT 0",
+            "`fecha_registro` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_estudio_sku`)",
+            "UNIQUE KEY `idx_erp_rentabilidad_estudio_sku` (`id_estudio`, `id_sku`)",
+            "KEY `idx_erp_rentabilidad_estudio_skus_sku` (`id_sku`)",
+            "CONSTRAINT `fk_rentabilidad_estudio_skus_estudio` FOREIGN KEY (`id_estudio`) REFERENCES `erp_rentabilidad_estudios` (`id_estudio`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => $ejecutar ? "Plan de estudios de rentabilidad ejecutado" : "Plan de estudios de rentabilidad generado en dry-run",
+            "depurar" => array(
+                "ejecutar" => $ejecutar,
+                "tablas" => array("erp_rentabilidad_estudios", "erp_rentabilidad_estudio_skus"),
+                "plan" => $plan,
+                "resumen" => $this->resumenPlan($plan),
+                "reglas" => array(
+                    "Los estudios guardan la seleccion y parametros; el calculo se recalcula desde costo vigente.",
+                    "No actualizan precios ni costos.",
+                    "Aplicar este esquema requiere respaldo externo y autorizacion explicita."
                 )
             )
         );

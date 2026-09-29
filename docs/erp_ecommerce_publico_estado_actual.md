@@ -4,6 +4,58 @@ Documentacion IA: Codex GPT-5
 Fecha: 2026-07-15  
 Estado: verde con datos reales Fase 1; catalogo publico activado sin checkout.
 
+Actualizacion 2026-09-28:
+
+- Se definio el plan operativo inicial para un modulo publico de videos ecommerce centrado en producto, confianza y conversion.
+- Documento vivo nuevo: `docs/erp_ecommerce_videos_plan.md`.
+- Decision clave: las rutas canonicas del frontend seran `/videos` y `/videos/{slug}`, mientras que el ERP expondra contratos/API bajo `/ecommercePublico`.
+- El alcance inicial no incluye usuarios, mascotas registradas, comunidad ni personalizacion; los videos se relacionan con productos publicados y categorias.
+- Guardrail de rendimiento: listados, cards y secciones embebidas deben cargar solo thumbnails; el iframe/player se carga hasta clic del usuario.
+- Pendiente recomendado: comenzar por contrato/fixtures y endpoints read-only antes de construir CMS completo o aplicar DDL.
+- Implementado contrato fixture inicial sin DDL:
+  - `GET /ecommercePublico/videos`;
+  - `GET /ecommercePublico/videos/{slug}`;
+  - `GET /ecommercePublico/videos_manifest`;
+  - `GET /ecommercePublico/producto/{slug}/videos`;
+  - `GET /ecommercePublico/categoria/{path_slug}/videos`;
+  - `GET /ecommercePublico/esquema_auditar_videos`;
+  - `GET /ecommercePublico/esquema_plan_videos`.
+- Archivos agregados/modificados:
+  - `app/modelos/EcommerceVideosErp.php`;
+  - `app/controladores/EcommercePublico.php`.
+- UAT read-only agregado y ejecutado: `storage/uat/uat_ecommerce_videos_readonly.php`; resultado `senal_frontend_videos=verde_contrato_videos_fixture`.
+- Aclaracion operativa del dueno: el proveedor inicial de videos sera TikTok. El modulo guardara enlace/embed/copy/hashtags/texto de busqueda y miniatura propia; no alojara video ni cargara iframe hasta clic.
+- Se preparo la consola interna `CMS > Videos` (`/cms/videos`) con captura de TikTok, miniatura propia, copy, hashtags, texto de busqueda y relaciones comerciales en JSON. La persistencia queda pendiente de DDL autorizado.
+- Videos esquema: preparados `uat_ecommerce_videos_schema_postcheck_readonly.php` y `uat_ecommerce_videos_schema_apply_authorized.php`; el postcheck read-only reporta `esquema_videos_pendiente` con 3 tablas faltantes. El apply no se ejecuto y requiere respaldo externo + token `ECOMMERCE_VIDEOS_DDL`.
+- Se agrego kit frontend publico para videos:
+  - `public/assets/js/custom/apps/ecommerce/videos-publico.js`;
+  - `public/assets/css/custom/apps/ecommerce/videos-publico.css`.
+- El kit monta listados, detalle, videos por producto y videos por categoria desde contenedores `data-artiani-*`; mantiene iframe TikTok diferido hasta clic.
+- Se amplio `analytics-tracker-publico.js` con `rawPost` para que Videos comparta session/canal/filtros del SDK general.
+- `analytics_evento` acepta eventos `video_*` y responde sin persistir mientras no exista schema analytics autorizado.
+- UATs Videos adicionales:
+  - `storage/uat/uat_ecommerce_videos_cms_admin_readonly.php`: `verde_cms_videos_admin_readonly`;
+  - `storage/uat/uat_ecommerce_videos_frontend_assets_readonly.php`: `verde_videos_frontend_assets`;
+  - `storage/uat/uat_ecommerce_videos_analytics_bridge_readonly.php`: `verde_videos_analytics_bridge`.
+- Activacion Videos aplicada el 2026-09-28 sobre `artianicom_sys`:
+  - respaldo externo: `C:\xampp\panel_db_backups\artianicom_sys_panel_20260928_214345_antes_ecommerce_videos_schema.sql`;
+  - tamano: `50806604` bytes;
+  - DDL con token `ECOMMERCE_VIDEOS_DDL`;
+  - tablas creadas: `erp_ecommerce_videos`, `erp_ecommerce_video_producto`, `erp_ecommerce_video_categoria`;
+  - postcheck: `esquema_videos_completo`.
+- Primer seed real aplicado con token `ECOMMERCE_VIDEOS_SEED_PRUEBA`:
+  - `id_video=1`;
+  - slug `tiktok-articulos-para-animales-7526057146073566471`;
+  - estado `publicado`;
+  - API Videos ya responde `fuente=bd_videos` y `listado_items=1`.
+- Primer video real refinado como contenido editorial de categoria Tortugueros:
+  - tipo `consejo_rapido`;
+  - categoria `reptiles-anfibios-e-invertebrados/tortugas/tortugueros`;
+  - miniatura temporal local `/assets/media/cms/ecommerce/videos/tortugueros-tiktok-7526057146073566471.png`;
+  - sin producto especifico relacionado (`producto_items=0` esperado).
+- UAT especifico agregado: `storage/uat/uat_ecommerce_videos_tortugueros_readonly.php`; resultado `senal_video_tortugueros=verde_video_tortugueros_categoria`.
+- Pendiente: reemplazar la miniatura temporal por una miniatura comercial final cuando este disponible.
+
 Actualizacion 2026-08-30:
 
 - Se preparo el modulo `Ecommerce Leads / Carritos` para capturar intencion comercial sin crear pedidos, ventas ni movimientos de inventario.

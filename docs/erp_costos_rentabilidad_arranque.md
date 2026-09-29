@@ -181,7 +181,7 @@ Estado: esquema aplicado y primer snapshot persistente guardado.
 
 Fecha: 2026-08-28  
 IA: Codex GPT-5  
-Estado: Fase 1 read-only implementada.
+Estado: Fase 1 bandeja/editor implementada; persistencia requiere esquema autorizado.
 
 Decision operativa:
 
@@ -218,6 +218,116 @@ Fronteras:
 - No modifica ventas pasadas.
 - No escribe costos en Catalogo.
 - Propuestas persistentes hacia Listas quedan como siguiente fase y requieren respaldo/autorizacion.
+
+## Estudios de rentabilidad por grupo
+
+Fecha: 2026-09-28
+IA: Codex GPT-5
+Estado: Fase 1 read-only implementada.
+
+Decision operativa:
+
+- Los estudios pertenecen a Rentabilidad, pero se separan en una pantalla propia para no mezclar analisis de grupos con la herramienta completa por lista.
+- La pantalla principal es una bandeja de estudios guardados; desde ahi se crea o abre un estudio.
+- El editor permite elegir una lista base y seleccionar SKUs que tienen algo en comun: familia, marca, proveedor, categoria, presentacion, paquete, estrategia comercial, remate o lanzamiento.
+- La lista base aporta precios e impuestos; Rentabilidad resuelve costo vigente, margen, utilidad, minimo rentable y acciones sugeridas.
+- El buscador de productos no carga todo el catalogo; busca por texto y puede filtrar por categoria ERP.
+- Guardar estudios requiere las tablas `erp_rentabilidad_estudios` y `erp_rentabilidad_estudio_skus`, respaldo externo y frase de autorizacion.
+- Esta fase no envia alertas persistentes a Listas ni actualiza precios.
+
+Contratos agregados:
+
+- `Rentabilidad::estudios()`: vista separada con bandeja de estudios y editor.
+- `Rentabilidad::estudios_guardados_erp()`: lista estudios guardados; si falta esquema devuelve estado pendiente.
+- `Rentabilidad::estudio_consultar_erp()`: abre encabezado y SKUs de un estudio guardado.
+- `Rentabilidad::estudio_guardar_erp()`: guarda o actualiza estudios con permiso, CSRF, respaldo y frase exacta.
+- `Rentabilidad::estudios_categorias_erp()`: lista categorias ERP como filtro read-only.
+- `Rentabilidad::estudios_buscar_skus_erp()`: busca SKUs de la lista base para formar el grupo.
+- `Rentabilidad::estudios_analizar_erp()`: calcula rentabilidad del grupo seleccionado.
+- `Rentabilidad::esquema_estudios_auditar_erp()`: dry-run del esquema de estudios persistentes.
+- `RentabilidadEsquema::planEstudiosRentabilidad($ejecutar=false)`: plan de tablas de estudios.
+- `RentabilidadErp::buscarSkusEstudioRentabilidad($filtros)`: consulta productos disponibles en la lista base.
+- `RentabilidadErp::analizarEstudioTemporal($filtros)`: calcula el grupo seleccionado en modo read-only/dry-run.
+- `RentabilidadErp::listarEstudiosRentabilidad($filtros)`: alimenta bandeja.
+- `RentabilidadErp::guardarEstudioRentabilidad($datos, $idUsuario)`: persistencia protegida.
+- UAT read-only bandeja: `storage/uat/uat_rentabilidad_estudios_bandeja_readonly.php`.
+- UAT read-only autorizacion: `storage/uat/uat_rentabilidad_estudios_autorizacion_preflight_readonly.php`.
+- UAT read-only runbook: `storage/uat/uat_rentabilidad_estudios_runbook_readonly.php`.
+- Aplicador protegido: `storage/uat/uat_rentabilidad_estudios_schema_apply_authorized.php`.
+
+Salida esperada:
+
+- Tabla de estudios con folio, nombre, objetivo, lista base, SKUs, parametros y estatus.
+- Encabezado del estudio: nombre, objetivo, lista base y parametros de simulacion.
+- Resumen del grupo: SKUs, rentables, perdida, margen bajo, sin costo, utilidad estimada y ajuste sugerido.
+- Detalle por SKU con precio, costo, margen, utilidad, minimo rentable, riesgo y siguiente paso.
+- Faltantes cuando un SKU seleccionado ya no esta activo en la lista base.
+
+## Planeacion de envios nacionales
+
+Fecha: 2026-09-28
+IA: Codex GPT-5
+Estado: Fase 1 read-only implementada.
+
+Decision operativa:
+
+- La expansion a ventas fuera de ciudad pertenece a Rentabilidad mientras se este evaluando si conviene ofrecer envio cobrado, subsidiado o gratis.
+- El modulo no debe crear promociones, no debe cambiar precios de lista y no debe afectar Ventas/Ecommerce hasta que exista una politica comercial autorizada.
+- El gasto fijo operativo del local puede simularse como porcentaje editable de la venta; el valor inicial recomendado para la prueba es 23% porque refleja el dato operativo actual del dueno.
+- El costo de paqueteria y el cobro al cliente son parametros editables por corrida, ya que todavia no hay tarifas reales por zona, peso o convenio.
+- El umbral de envio gratis debe analizarse contra costo vigente, precio publico, impuestos, gasto fijo, comision y margen objetivo; no debe elegirse solo por intuicion comercial.
+
+Contratos agregados:
+
+- `Rentabilidad::envios_nacionales()`: pantalla de simulacion de ventas nacionales.
+- `Rentabilidad::envios_nacionales_simular_erp()`: endpoint read-only para evaluar lista de precios con parametros de envio.
+- `RentabilidadErp::simularEnviosNacionales($filtros)`: reutiliza rentabilidad por lista y calcula subsidio de envio, utilidad configurada y minimo rentable con envio gratis.
+
+Salida esperada:
+
+- Resumen de SKUs aptos para envio gratis, solo envio cobrado, no subsidiar y resolver datos.
+- Utilidad estimada bajo la politica configurada.
+- Subsidio total estimado de la muestra.
+- Politica sugerida usando percentiles de minimo rentable con envio gratis.
+- Detalle por SKU con precio publico, costo vigente, utilidad con envio gratis, minimo para envio gratis, decision y siguiente paso.
+
+Fronteras:
+
+- No guarda politicas de envio.
+- No modifica listas de precios.
+- No crea promociones ni reglas en Ecommerce.
+- No sustituye un modulo futuro de paqueterias, zonas, pesos volumetricos o costos por CP.
+- Antes de aplicar una politica real de envio gratis, se requiere revisar ticket promedio por pedido, costo real de paqueteria, devoluciones, embalaje y comisiones del canal.
+
+Fronteras:
+
+- No crea ni edita listas de precios.
+- No guarda reportes/estudios sin esquema aplicado, respaldo externo y autorizacion.
+- No actualiza precios.
+- No escribe costos en Catalogo.
+- No modifica Ventas ni historicos.
+- Compartir estudios como alertas o convertirlos en propuestas persistentes hacia Listas requiere autorizacion posterior.
+
+Autorizacion requerida para persistencia:
+
+- Respaldo externo obligatorio antes de DDL.
+- Frase exacta para esquema: `AUTORIZO APLICAR ESQUEMA ESTUDIOS RENTABILIDAD`.
+- Comando futuro autorizado:
+  `C:\xampp\php\php.exe storage\uat\uat_rentabilidad_estudios_schema_apply_authorized.php --execute --respaldo=RUTA_O_REFERENCIA --confirmar="AUTORIZO APLICAR ESQUEMA ESTUDIOS RENTABILIDAD"`
+- Frase exacta para guardar estudios desde UI: `AUTORIZO GUARDAR ESTUDIO RENTABILIDAD`.
+- Aplicar esquema solo crea tablas de estudios; no guarda estudios, no aplica precios y no toca Listas.
+
+Aplicacion de esquema:
+
+- Fecha: 2026-09-29
+- Autorizacion recibida: `AUTORIZO APLICAR ESQUEMA ESTUDIOS RENTABILIDAD`
+- Respaldo externo generado:
+  `C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260928_214208_antes_rentabilidad_estudios_schema.sql`
+- Tamano respaldo: `50791193` bytes.
+- Tablas aplicadas:
+  - `erp_rentabilidad_estudios`
+  - `erp_rentabilidad_estudio_skus`
+- Postcheck: `storage/uat/uat_rentabilidad_estudios_bandeja_readonly.php` devuelve `schema_pendiente=false`, `existentes=2`, `pendientes=0`.
 
 UAT:
 

@@ -124,6 +124,9 @@ class SeguridadEsquema extends DBSchema {
       array("modulo" => "seguridad", "accion" => "ver", "permiso" => "seguridad.ver", "descripcion" => "Consultar usuarios, roles y permisos"),
       array("modulo" => "seguridad", "accion" => "administrar", "permiso" => "seguridad.administrar", "descripcion" => "Crear y modificar usuarios, roles y permisos"),
       array("modulo" => "configuracion", "accion" => "administrar", "permiso" => "configuracion.administrar", "descripcion" => "Administrar configuracion general del ERP"),
+      array("modulo" => "artiani", "accion" => "conocimiento_ver", "permiso" => "artiani.conocimiento.ver", "descripcion" => "Consultar Enciclopedia Artiani de especies, cuidados y asesoria animal"),
+      array("modulo" => "artiani", "accion" => "conocimiento_editar", "permiso" => "artiani.conocimiento.editar", "descripcion" => "Crear y modificar fichas de conocimiento Artiani"),
+      array("modulo" => "artiani", "accion" => "productos_relacionar", "permiso" => "artiani.productos.relacionar", "descripcion" => "Relacionar especies Artiani con productos y SKUs del Catalogo ERP"),
       array("modulo" => "catalogo", "accion" => "ver", "permiso" => "catalogo.ver", "descripcion" => "Consultar catalogo de productos"),
       array("modulo" => "catalogo", "accion" => "editar", "permiso" => "catalogo.editar", "descripcion" => "Crear y modificar productos, SKUs y variantes"),
       array("modulo" => "catalogo", "accion" => "costos", "permiso" => "catalogo.costos", "descripcion" => "Consultar y modificar costos, margenes e impuestos"),
@@ -245,7 +248,7 @@ class SeguridadEsquema extends DBSchema {
   public function permisosPorRolBaseERP() {
     return array(
       "direccion" => array(
-        "seguridad.ver", "catalogo.ver", "catalogo.costos",
+        "seguridad.ver", "artiani.conocimiento.ver", "artiani.conocimiento.editar", "artiani.productos.relacionar", "catalogo.ver", "catalogo.costos",
         "compras.ver", "compras.aprobar", "almacen.ver", "inventario.ver", "crm.ver", "crm.auditoria",
         "crm.clientes.ver", "crm.seguimiento.ver", "crm.comercial.ver", "crm.recompensas.ver", "crm.reportes.ver", "ventas.ver",
         "ventas.listas.ver", "ventas.listas.crear", "ventas.listas.editar", "ventas.listas.activar", "ventas.listas.pausar",
@@ -265,7 +268,7 @@ class SeguridadEsquema extends DBSchema {
         "migraciones.ver", "migraciones.preparar", "migraciones.respaldos", "migraciones.aplicar"
       ),
       "administrador_erp" => array(
-        "seguridad.ver", "seguridad.administrar", "configuracion.administrar", "catalogo.ver",
+        "seguridad.ver", "seguridad.administrar", "configuracion.administrar", "artiani.conocimiento.ver", "artiani.conocimiento.editar", "artiani.productos.relacionar", "catalogo.ver",
         "catalogo.editar", "catalogo.costos", "compras.ver", "compras.crear", "compras.editar",
         "compras.aprobar", "compras.cancelar", "compras.adjuntos", "almacen.ver", "almacen.recibir",
         "almacen.ubicaciones", "inventario.ver",
@@ -312,7 +315,7 @@ class SeguridadEsquema extends DBSchema {
         "proveedores.ver", "garantias.ver", "proyectos.ver"
       ),
       "ventas" => array(
-        "inventario.ver", "crm.pos.buscar", "crm.pos.alta_express", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
+        "artiani.conocimiento.ver", "inventario.ver", "crm.pos.buscar", "crm.pos.alta_express", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
         "distribucion.ver", "distribucion.cotizaciones.ver",
         "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "proyectos.ver"
       ),
@@ -323,11 +326,11 @@ class SeguridadEsquema extends DBSchema {
         "ventas.ver", "ventas.listas.ver", "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "notificaciones.ver", "reportes.ver", "proyectos.ver"
       ),
       "ecommerce" => array(
-        "cms.ver", "cms.editar", "cms.publicar", "catalogo.ver", "catalogo.editar", "inventario.ver", "ventas.ver", "ventas.listas.ver", "ecommerce.ver",
+        "artiani.conocimiento.ver", "cms.ver", "cms.editar", "cms.publicar", "catalogo.ver", "catalogo.editar", "inventario.ver", "ventas.ver", "ventas.listas.ver", "ecommerce.ver",
         "ecommerce.sincronizar", "distribucion.ver", "distribucion.cotizaciones.ver", "notificaciones.ver", "reportes.ver", "proyectos.ver"
       ),
       "catalogo_productos" => array(
-        "cms.ver", "cms.editar", "catalogo.ver", "catalogo.editar", "catalogo.costos", "compras.ver", "inventario.ver", "ecommerce.ver",
+        "artiani.conocimiento.ver", "artiani.conocimiento.editar", "artiani.productos.relacionar", "cms.ver", "cms.editar", "catalogo.ver", "catalogo.editar", "catalogo.costos", "compras.ver", "inventario.ver", "ecommerce.ver",
         "proveedores.ver", "proveedores.listas", "proveedores.matching", "proveedores.costos",
         "proveedores.auditoria", "notificaciones.ver", "rentabilidad.ver", "rentabilidad.snapshot",
         "garantias.ver", "garantias.politicas", "proyectos.ver"
@@ -343,12 +346,12 @@ class SeguridadEsquema extends DBSchema {
         "tms.ver", "tms.costos", "tms.reportes", "proyectos.ver"
       ),
       "auditor" => array(
-        "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
+        "artiani.conocimiento.ver", "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
         "ventas.listas.ver", "ventas.listas.auditoria", "ventas.pos_config.ver", "cms.ver", "ecommerce.ver", "distribucion.ver", "distribucion.cotizaciones.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.auditoria", "rentabilidad.ver", "garantias.ver", "garantias.reportes", "tms.ver", "tms.reportes", "proyectos.ver", "proyectos.auditoria"
       ),
       "solo_lectura" => array(
-        "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
+        "artiani.conocimiento.ver", "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
         "ventas.listas.ver",
         "cms.ver", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "reportes.ver", "proveedores.ver", "rentabilidad.ver",
         "garantias.ver", "tms.ver", "proyectos.ver"

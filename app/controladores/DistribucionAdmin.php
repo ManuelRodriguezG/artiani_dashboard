@@ -259,6 +259,39 @@ class DistribucionAdmin extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: consultar surtidos habituales seleccionados por clientes Distribucion.
+   * Impacto: Admin ERP Distribucion; permite prevenir interes comercial sin entrar al portal externo.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function cliente_surtidos() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionClienteSurtidoApi")->surtidosInternos($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: consultar inventario declarado por clientes Distribucion.
+   * Impacto: Admin ERP Distribucion; muestra conteos, minimos y maximos para seguimiento comercial.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function cliente_inventarios() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionClienteSurtidoApi")->inventariosInternos($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: consultar sugeridos de resurtido por cliente Distribucion.
+   * Impacto: Admin ERP Distribucion; permite anticipar necesidades antes de recibir pedido formal.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function cliente_sugeridos() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionClienteSurtidoApi")->sugeridosInternos($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: auditar esquema Distribucion API desde ERP interno.
    * Impacto: Admin ERP Distribucion; muestra readiness antes de DDL.

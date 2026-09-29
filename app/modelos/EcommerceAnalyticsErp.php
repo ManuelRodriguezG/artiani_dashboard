@@ -438,7 +438,13 @@ class EcommerceAnalyticsErp extends CRUD {
         ":utm_campaign" => $sesion["utm_campaign"],
         ":dispositivo" => $sesion["dispositivo_aproximado"]
       ));
-      return $this->respuesta(false, "success", "Sesion analytics registrada", array("escribe_bd" => true, "session_id_hash" => $sesion["session_id_hash"], "guardrails" => $this->guardrails(true)));
+      $incidenciaSeo = $this->registrarIncidenciaSeoUrlSiAplica($db, $sesion["primer_ruta"], array("fuente" => "analytics_sesion"));
+      return $this->respuesta(false, "success", "Sesion analytics registrada", array(
+        "escribe_bd" => true,
+        "session_id_hash" => $sesion["session_id_hash"],
+        "incidencia_seo_url" => $incidenciaSeo,
+        "guardrails" => $this->guardrails(true)
+      ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
     }
@@ -472,8 +478,14 @@ class EcommerceAnalyticsErp extends CRUD {
       if (in_array($evento["tipo_evento"], array("add_to_quote", "remove_from_quote", "quote_dryrun", "quote_preflight", "open_whatsapp", "facturacion_submit"), true) && $this->tablaExisteDb($db, "erp_ecommerce_analytics_conversiones")) {
         $this->insertarConversionDesdeEvento($db, $evento);
       }
+      $incidenciaSeo = $this->registrarIncidenciaSeoUrlSiAplica($db, $evento["ruta"], array("fuente" => "analytics_evento", "tipo_evento" => $evento["tipo_evento"]));
       $db->commit();
-      return $this->respuesta(false, "success", "Evento analytics registrado", array("escribe_bd" => true, "id_analytics_evento" => $idEvento, "guardrails" => $this->guardrails(true)));
+      return $this->respuesta(false, "success", "Evento analytics registrado", array(
+        "escribe_bd" => true,
+        "id_analytics_evento" => $idEvento,
+        "incidencia_seo_url" => $incidenciaSeo,
+        "guardrails" => $this->guardrails(true)
+      ));
     } catch (Exception $e) {
       if (isset($db) && $db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
@@ -547,8 +559,15 @@ class EcommerceAnalyticsErp extends CRUD {
       $stmt->execute($this->paramsEvento($evento));
       $idEvento = intval($db->lastInsertId());
       $id = $this->insertarConversionDesdeEvento($db, $evento);
+      $incidenciaSeo = $this->registrarIncidenciaSeoUrlSiAplica($db, $evento["ruta"], array("fuente" => "analytics_conversion", "tipo_evento" => $evento["tipo_evento"]));
       $db->commit();
-      return $this->respuesta(false, "success", "Conversion analytics registrada", array("escribe_bd" => true, "id_analytics_evento" => $idEvento, "id_analytics_conversion" => $id, "guardrails" => $this->guardrails(true)));
+      return $this->respuesta(false, "success", "Conversion analytics registrada", array(
+        "escribe_bd" => true,
+        "id_analytics_evento" => $idEvento,
+        "id_analytics_conversion" => $id,
+        "incidencia_seo_url" => $incidenciaSeo,
+        "guardrails" => $this->guardrails(true)
+      ));
     } catch (Exception $e) {
       if (isset($db) && $db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
@@ -1506,7 +1525,148 @@ class EcommerceAnalyticsErp extends CRUD {
   private function redactarClickIds($valor) {
     $valor = (string) $valor;
     if ($valor === "") { return ""; }
-    return preg_replace('/([?&](?:fbclid|gclid|gbraid|wbraid|msclkid|ttclid)=)[^&#]*/i', '$1__redacted__', $valor);
+    return preg_replace('/([?&](?:srsltid|fbclid|gclid|gbraid|wbraid|msclkid|ttclid)=)[^&#]*/i', '$1__redacted__', $valor);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-28
+   * Proposito: crear una incidencia SEO pendiente cuando Analytics detecta una URL publica no canonica.
+   * Impacto: Ecommerce Analytics/SEO; alimenta `erp_ecommerce_seo_urls_viejas` sin crear redirecciones automaticas.
+   * Contrato: escritura acotada solo si Analytics ya esta autorizado y la tabla SEO existe; no guarda valores completos de click-id.
+   */
+  private function registrarIncidenciaSeoUrlSiAplica($db, $ruta, $contexto = array()) {
+    if (!$db || !$this->tablaExisteDb($db, "erp_ecommerce_seo_urls_viejas")) {
+      return array("aplica" => false, "motivo" => "tabla_seo_urls_viejas_no_disponible");
+    }
+    $incidencia = $this->incidenciaSeoAnalyticsDesdeRuta($ruta);
+    if (!$incidencia) {
+      return array("aplica" => false, "motivo" => "url_sin_incidencia_seo");
+    }
+    if ($this->seoUrlYaTieneRedireccion($db, $incidencia["path_original"], $incidencia["path_base"])) {
+      return array(
+        "aplica" => true,
+        "registrada" => false,
+        "motivo" => "redireccion_ya_existente",
+        "path_original" => $incidencia["path_original"]
+      );
+    }
+
+    $origen = "analytics";
+    $fuente = $this->limpiarToken($this->valor($contexto, "fuente", ""), 40);
+    if ($fuente !== "") { $origen .= "_" . $fuente; }
+    $stmt = $db->prepare("INSERT INTO erp_ecommerce_seo_urls_viejas
+        (url_original, path_original, tipo_detectado, titulo_detectado, origen, estatus_mapeo, url_destino_sugerida, fecha_registro)
+      VALUES
+        (:url_original, :path_original, :tipo_detectado, NULL, :origen, 'pendiente', NULL, NOW())
+      ON DUPLICATE KEY UPDATE
+        url_original=VALUES(url_original),
+        tipo_detectado=COALESCE(tipo_detectado, VALUES(tipo_detectado))");
+    $stmt->execute(array(
+      ":url_original" => $incidencia["path_original"],
+      ":path_original" => $incidencia["path_original"],
+      ":tipo_detectado" => $incidencia["tipo_detectado"],
+      ":origen" => substr($origen, 0, 80)
+    ));
+
+    return array(
+      "aplica" => true,
+      "registrada" => true,
+      "filas_afectadas" => $stmt->rowCount(),
+      "path_original" => $incidencia["path_original"],
+      "path_base" => $incidencia["path_base"],
+      "tipo_detectado" => $incidencia["tipo_detectado"],
+      "motivos" => $incidencia["motivos"],
+      "tracking_params_detectados" => $incidencia["tracking_params_detectados"],
+      "sin_redireccion_automatica" => true
+    );
+  }
+
+  private function incidenciaSeoAnalyticsDesdeRuta($ruta) {
+    $ruta = trim((string) $ruta);
+    if ($ruta === "") { return null; }
+    $partes = preg_match('/^https?:\/\//i', $ruta) ? parse_url($ruta) : parse_url($ruta);
+    $path = isset($partes["path"]) ? (string) $partes["path"] : "/";
+    $query = isset($partes["query"]) ? (string) $partes["query"] : "";
+    if ($path === "") { $path = "/"; }
+    $path = "/" . ltrim($path, "/");
+    $path = preg_replace('/\/+/', '/', $path);
+    if (stripos($path, "/ecommercePublico") === 0) { return null; }
+    $segmentos = array_values(array_filter(explode("/", trim($path, "/")), function ($segmento) {
+      return trim((string) $segmento) !== "";
+    }));
+    $queryParams = array();
+    if ($query !== "") { parse_str($query, $queryParams); }
+    $tracking = array();
+    foreach (array_keys($queryParams) as $clave) {
+      $claveLimpia = strtolower(trim((string) $clave));
+      if ($this->esParametroTrackingSeo($claveLimpia)) { $tracking[] = $claveLimpia; }
+    }
+
+    $tipo = $this->tipoSeoPathAnalytics($path);
+    $motivos = array();
+    if (!empty($tracking)) { $motivos[] = "tracking_query_detectado"; }
+    if (!empty($segmentos) && strtolower((string) $segmentos[0]) === "producto" && isset($segmentos[1])) {
+      $tipo = "producto";
+      $slugEntrada = trim(rawurldecode((string) $segmentos[1]));
+      if ($slugEntrada !== $this->slugBasicoSeo($slugEntrada)) { $motivos[] = "slug_producto_no_canonico"; }
+      if (count($segmentos) > 2) { $motivos[] = "producto_con_segmentos_extra"; }
+      if ($query !== "" && empty($tracking)) { $motivos[] = "query_no_canonica_en_producto"; }
+    }
+
+    if (empty($motivos)) { return null; }
+    return array(
+      "path_original" => $this->pathSeoAnalyticsRedactado($path, array_keys($queryParams), $tracking),
+      "path_base" => substr($path, 0, 500),
+      "tipo_detectado" => $tipo,
+      "motivos" => array_values(array_unique($motivos)),
+      "tracking_params_detectados" => array_values(array_unique($tracking))
+    );
+  }
+
+  private function seoUrlYaTieneRedireccion($db, $pathOriginal, $pathBase) {
+    if (!$db || !$this->tablaExisteDb($db, "erp_ecommerce_seo_redirecciones")) { return false; }
+    $stmt = $db->prepare("SELECT id_redireccion FROM erp_ecommerce_seo_redirecciones WHERE activo=1 AND url_origen IN (:path_original, :path_base) LIMIT 1");
+    $stmt->execute(array(":path_original" => $pathOriginal, ":path_base" => $pathBase));
+    return (bool) $stmt->fetchColumn();
+  }
+
+  private function pathSeoAnalyticsRedactado($path, $queryParams, $tracking) {
+    $path = substr((string) $path, 0, 500);
+    $queryParams = array_values(array_unique(array_filter(array_map(function ($clave) {
+      return strtolower(trim((string) $clave));
+    }, (array) $queryParams))));
+    if (empty($queryParams)) { return $path; }
+    sort($queryParams);
+    $tracking = array_values(array_unique(array_map("strtolower", (array) $tracking)));
+    $partes = array();
+    foreach ($queryParams as $clave) {
+      if ($clave === "") { continue; }
+      $partes[] = rawurlencode($clave) . "=" . (in_array($clave, $tracking, true) || $this->esParametroTrackingSeo($clave) ? "__redacted__" : "__value__");
+    }
+    return substr($path . "?" . implode("&", $partes), 0, 500);
+  }
+
+  private function tipoSeoPathAnalytics($path) {
+    $segmentos = array_values(array_filter(explode("/", trim((string) $path, "/"))));
+    $primero = isset($segmentos[0]) ? strtolower((string) $segmentos[0]) : "";
+    if (in_array($primero, array("producto", "categoria", "marca", "buscar", "busqueda"), true)) {
+      return $primero === "buscar" ? "busqueda" : $primero;
+    }
+    return "url";
+  }
+
+  private function esParametroTrackingSeo($clave) {
+    $clave = strtolower(trim((string) $clave));
+    if ($clave === "") { return false; }
+    if (strpos($clave, "utm_") === 0) { return true; }
+    return in_array($clave, array("srsltid", "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid", "mc_cid", "mc_eid"), true);
+  }
+
+  private function slugBasicoSeo($valor) {
+    $valor = strtolower(trim((string) $valor));
+    $valor = preg_replace('/[^a-z0-9]+/', '-', $valor);
+    $valor = trim($valor, "-");
+    return $valor;
   }
 
   private function limpiarTextoCorto($valor, $limite) {
@@ -1536,7 +1696,7 @@ class EcommerceAnalyticsErp extends CRUD {
     $salida = array();
     foreach ($datos as $clave => $valor) {
       $claveLimpia = $this->limpiarToken($clave, 60);
-      if ($claveLimpia === "" || in_array($claveLimpia, array("nombre", "telefono", "celular", "correo", "email", "rfc", "razon_social", "direccion", "datos_fiscales", "stock", "stock_exacto", "existencia", "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid"), true)) { continue; }
+      if ($claveLimpia === "" || in_array($claveLimpia, array("nombre", "telefono", "celular", "correo", "email", "rfc", "razon_social", "direccion", "datos_fiscales", "stock", "stock_exacto", "existencia", "srsltid", "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid"), true)) { continue; }
       $salida[$claveLimpia] = is_array($valor) ? $this->limpiarMetadata($valor, $nivel + 1) : $this->limpiarTextoCorto($valor, 160);
       if (count($salida) >= 30) { break; }
     }

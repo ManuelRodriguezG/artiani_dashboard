@@ -211,6 +211,57 @@ class DistribucionApi extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: enrutar surtido habitual del cliente externo Distribucion.
+   * Impacto: Distribucion; permite guardar productos de interes sin crear pedido ni tocar inventario ERP.
+   * Contrato: GET /surtido/listar y POST /surtido/guardar autenticados con permisos externos.
+   */
+  public function surtido($accion = "") {
+    if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    $surtido = $this->modelo("DistribucionClienteSurtidoApi");
+    if ($accion === "" || $accion === "listar") {
+      return $this->responderApiDistribucion($surtido->surtidoListar($_GET, $this->contextoCliente()));
+    }
+    if ($accion === "guardar") {
+      if (!$this->esPostDistribucion()) {
+        return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("surtido/guardar"));
+      }
+      return $this->responderApiDistribucion($surtido->surtidoGuardar($this->entradaJsonDistribucion(), $this->contextoCliente()));
+    }
+    return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("surtido/" . $accion));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: enrutar inventario declarado y sugerido de resurtido del cliente Distribucion.
+   * Impacto: Distribucion; soporta conteo/minimos/maximos sin exponer existencia ERP en catalogo.
+   * Contrato: GET listar/sugerido, POST guardar_conteo/pedido_sugerido con permisos externos.
+   */
+  public function inventario_cliente($accion = "") {
+    if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    $surtido = $this->modelo("DistribucionClienteSurtidoApi");
+    if ($accion === "" || $accion === "listar") {
+      return $this->responderApiDistribucion($surtido->inventarioListar($_GET, $this->contextoCliente()));
+    }
+    if ($accion === "sugerido") {
+      return $this->responderApiDistribucion($surtido->sugeridoResurtido($_GET, $this->contextoCliente()));
+    }
+    if ($accion === "guardar_conteo") {
+      if (!$this->esPostDistribucion()) {
+        return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("inventario_cliente/guardar_conteo"));
+      }
+      return $this->responderApiDistribucion($surtido->inventarioGuardarConteo($this->entradaJsonDistribucion(), $this->contextoCliente()));
+    }
+    if ($accion === "pedido_sugerido") {
+      if (!$this->esPostDistribucion()) {
+        return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("inventario_cliente/pedido_sugerido"));
+      }
+      return $this->responderApiDistribucion($surtido->pedidoDesdeSugerido($this->entradaJsonDistribucion(), $this->contextoCliente()));
+    }
+    return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("inventario_cliente/" . $accion));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: estandarizar headers de la API Distribucion y CORS restringido.
    * Impacto: Seguridad API; solo permite origenes autorizados sin abrir credenciales a cualquier dominio.

@@ -44,6 +44,10 @@ class Cms extends Controlador {
       $this->blog();
       return;
     }
+    if ($pagina === "videos") {
+      $this->videos();
+      return;
+    }
     if ($pagina === "categorias") {
       $this->frontend_categorias();
       return;
@@ -238,6 +242,17 @@ class Cms extends Controlador {
   public function blog() {
     $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
     $this->vista("apps/erp/cms/blog");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-28
+   * Proposito: abrir CMS > Videos como consola editorial para enlaces TikTok.
+   * Impacto: CMS Videos; permite capturar titulo, copy, thumbnail y relaciones sin alojar video.
+   * Contrato: vista protegida; la persistencia depende del esquema Videos autorizado.
+   */
+  public function videos() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/videos");
   }
 
   /**
@@ -1035,6 +1050,90 @@ class Cms extends Controlador {
       "datos_despues" => array(
         "id_blog_publicacion" => isset($depurar["id_blog_publicacion"]) ? $depurar["id_blog_publicacion"] : null,
         "estado" => isset($depurar["estado"]) ? $depurar["estado"] : "",
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-28
+   * Proposito: entregar estado interno del submodulo Videos/CMS.
+   * Impacto: CMS Videos; muestra auditoria de tablas, plan DDL y endpoints publicos.
+   * Contrato: GET protegido por cms.ver/catalogo.ver; no ejecuta DDL.
+   */
+  public function videos_admin_estado_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceVideosCms")->adminEstado(), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-28
+   * Proposito: listar videos TikTok desde administracion.
+   * Impacto: CMS Videos; permite revisar contenido audiovisual sin cargar iframes.
+   * Contrato: GET protegido read-only.
+   */
+  public function videos_admin_listar_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceVideosCms")->adminListar($_GET), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-28
+   * Proposito: consultar un video TikTok por ID desde administracion.
+   * Impacto: CMS Videos; alimenta edicion interna sin exponer borradores publicamente.
+   * Contrato: GET protegido read-only.
+   */
+  public function videos_admin_consultar_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceVideosCms")->adminConsultar(isset($_GET["id_video"]) ? $_GET["id_video"] : 0), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-28
+   * Proposito: guardar borrador/pausado de un video TikTok ecommerce.
+   * Impacto: CMS Videos; persiste enlace TikTok, miniatura, textos y relaciones.
+   * Contrato: POST protegido por cms.editar/catalogo.editar, CSRF global y auditoria explicita.
+   */
+  public function videos_guardar_erp() {
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceVideosCms")->adminGuardar($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    Sesionseguridad::registrarAuditoria("cms_videos", "videos_guardar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_video" => isset($depurar["id_video"]) ? $depurar["id_video"] : null,
+        "slug" => isset($depurar["slug"]) ? $depurar["slug"] : "",
+        "estado" => isset($depurar["estado"]) ? $depurar["estado"] : "",
+        "provider" => "tiktok",
+        "publicado_api" => false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-28
+   * Proposito: publicar, pausar o devolver a borrador un video ecommerce.
+   * Impacto: CMS Videos y API publica; solo `publicado` queda visible en /ecommercePublico/videos.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF global y auditoria explicita.
+   */
+  public function videos_estatus_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceVideosCms")->adminEstatus($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    Sesionseguridad::registrarAuditoria("cms_videos", "videos_estatus_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_video" => isset($depurar["id_video"]) ? $depurar["id_video"] : null,
+        "estatus_anterior" => isset($depurar["estatus_anterior"]) ? $depurar["estatus_anterior"] : null
+      ),
+      "datos_despues" => array(
+        "id_video" => isset($depurar["id_video"]) ? $depurar["id_video"] : null,
+        "estado" => isset($depurar["estado"]) ? $depurar["estado"] : "",
+        "provider" => "tiktok",
         "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
       )
     ));

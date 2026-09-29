@@ -23,6 +23,30 @@ class Rentabilidad extends Controlador {
         $this->vista("apps/erp/rentabilidad/herramienta");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: abrir estudios temporales de rentabilidad por grupos de SKUs.
+     * Impacto: permite analizar grupos especificos sin mezclarlo con la herramienta general por lista.
+     * Contrato: requiere rentabilidad.ver; fase read-only, no guarda estudios ni modifica precios.
+     */
+    public function estudios() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/estudios");
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: abrir simulador read-only de rentabilidad para ventas con envios nacionales.
+     * Impacto: permite planear umbrales de envio barato/gratis sin modificar precios, ventas ni listas.
+     * Contrato: requiere rentabilidad.ver; usa listas de precios y costos vigentes solo como consulta.
+     */
+    public function envios_nacionales() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/envios_nacionales");
+    }
+
     public function analisis() {
         $this->requerirPermiso("rentabilidad.ver");
         $this->vista("apps/erp/rentabilidad/analisis");
@@ -142,6 +166,18 @@ class Rentabilidad extends Controlador {
 
     /**
      * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: simular utilidad y umbrales para ventas nacionales con subsidio de envio.
+     * Impacto: Rentabilidad incorpora decisiones de expansion fuera de ciudad sin tocar Ventas ni Ecommerce.
+     * Contrato: requiere rentabilidad.ver; read-only, no guarda politicas ni promociones.
+     */
+    public function envios_nacionales_simular_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->simularEnviosNacionales($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
      * Fecha: 2026-08-29
      * Proposito: exponer diagnostico read-only de SKUs sin costo dentro de una lista de precios.
      * Impacto: Rentabilidad separa casos atendibles por variante/presentacion/apertura sin capturar costos en Catalogo.
@@ -150,6 +186,95 @@ class Rentabilidad extends Controlador {
     public function atencion_costos_lista_erp() {
         $this->requerirPermiso("rentabilidad.ver");
         return json_encode($this->modelo("RentabilidadErp")->atencionCostosListaPrecios($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: listar estudios guardados de rentabilidad para la bandeja principal.
+     * Impacto: separa administracion de estudios del editor de productos.
+     * Contrato: requiere rentabilidad.ver; read-only.
+     */
+    public function estudios_guardados_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->listarEstudiosRentabilidad($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: consultar encabezado y SKUs de un estudio guardado.
+     * Impacto: permite reabrir estudios sin cargar todo el catalogo.
+     * Contrato: requiere rentabilidad.ver; read-only.
+     */
+    public function estudio_consultar_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->consultarEstudioRentabilidad($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: guardar un estudio de rentabilidad y su seleccion de SKUs.
+     * Impacto: persistencia controlada de grupos de analisis; no actualiza precios.
+     * Contrato: requiere rentabilidad.snapshot, CSRF, respaldo externo y frase exacta.
+     */
+    public function estudio_guardar_erp() {
+        $this->requerirPermiso("rentabilidad.snapshot");
+        Sesionseguridad::registrarAuditoria("rentabilidad", "estudio_guardar_erp", array(
+            "id_estudio" => isset($_POST["id_estudio"]) ? intval($_POST["id_estudio"]) : 0,
+            "id_lista_precio" => isset($_POST["id_lista_precio"]) ? intval($_POST["id_lista_precio"]) : 0,
+            "ids_sku" => isset($_POST["ids_sku"]) ? $_POST["ids_sku"] : ""
+        ));
+        return json_encode($this->modelo("RentabilidadErp")->guardarEstudioRentabilidad($_POST, $_SESSION["id_usuario"] ?? null));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: exponer categorias de Catalogo como filtro read-only para estudios.
+     * Impacto: permite buscar por categoria sin cargar todo el catalogo.
+     * Contrato: requiere rentabilidad.ver; no modifica Catalogo.
+     */
+    public function estudios_categorias_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->categoriasEstudioRentabilidad($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: buscar SKUs de una lista para armar un estudio temporal de rentabilidad.
+     * Impacto: separa seleccion de grupos de la herramienta completa por lista.
+     * Contrato: requiere rentabilidad.ver; read-only, no crea estudios persistentes.
+     */
+    public function estudios_buscar_skus_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->buscarSkusEstudioRentabilidad($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: analizar un grupo temporal de SKUs seleccionado por el usuario.
+     * Impacto: entrega rentabilidad por grupo comun sin escribir en Listas, Catalogo ni Ventas.
+     * Contrato: requiere rentabilidad.ver; read-only/dry-run.
+     */
+    public function estudios_analizar_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->analizarEstudioTemporal($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: auditar esquema requerido para estudios persistentes de rentabilidad.
+     * Impacto: prepara autorizacion posterior sin ejecutar DDL.
+     * Contrato: requiere rentabilidad.configurar; dry-run, no escribe BD.
+     */
+    public function esquema_estudios_auditar_erp() {
+        $this->requerirPermiso("rentabilidad.configurar");
+        return json_encode($this->modelo("RentabilidadEsquema")->planEstudiosRentabilidad(false));
     }
 
     public function escenarios_auditar_erp() {

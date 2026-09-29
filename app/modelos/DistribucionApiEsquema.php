@@ -14,6 +14,9 @@ class DistribucionApiEsquema extends DBSchema {
       "erp_distribucion_solicitudes",
       "erp_distribucion_cliente_permisos",
       "erp_distribucion_cliente_listas",
+      "erp_distribucion_cliente_productos",
+      "erp_distribucion_cliente_inventario",
+      "erp_distribucion_cliente_inventario_movimientos",
       "erp_distribucion_cotizaciones",
       "erp_distribucion_cotizacion_items",
       "erp_distribucion_tokens",
@@ -170,6 +173,64 @@ class DistribucionApiEsquema extends DBSchema {
       "KEY `idx_dist_cliente_lista_lista` (`id_lista_precio`, `estatus`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
 
+    $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_productos", array(
+      "`id_cliente_producto` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`id_sku` BIGINT NOT NULL",
+      "`alias_cliente` VARCHAR(180) NULL",
+      "`ubicacion_cliente` VARCHAR(180) NULL",
+      "`prioridad` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`origen` VARCHAR(40) NOT NULL DEFAULT 'cliente'",
+      "`notas` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_cliente_producto`)",
+      "UNIQUE KEY `idx_dist_cliente_producto_sku` (`id_cliente_distribucion`, `id_sku`)",
+      "KEY `idx_dist_cliente_producto_cliente` (`id_cliente_distribucion`, `estatus`, `prioridad`)",
+      "KEY `idx_dist_cliente_producto_sku_ref` (`id_sku`, `estatus`)"
+    ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_inventario", array(
+      "`id_cliente_inventario` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`id_sku` BIGINT NOT NULL",
+      "`existencia_cliente` DECIMAL(18,6) NOT NULL DEFAULT 0",
+      "`minimo` DECIMAL(18,6) NOT NULL DEFAULT 0",
+      "`maximo` DECIMAL(18,6) NOT NULL DEFAULT 0",
+      "`unidad_cliente` VARCHAR(40) NULL",
+      "`fecha_conteo` DATETIME NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`notas` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_cliente_inventario`)",
+      "UNIQUE KEY `idx_dist_cliente_inv_sku` (`id_cliente_distribucion`, `id_sku`)",
+      "KEY `idx_dist_cliente_inv_cliente` (`id_cliente_distribucion`, `estatus`)",
+      "KEY `idx_dist_cliente_inv_sku_ref` (`id_sku`, `estatus`)",
+      "KEY `idx_dist_cliente_inv_resurtido` (`id_cliente_distribucion`, `estatus`, `minimo`, `existencia_cliente`)"
+    ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_inventario_movimientos", array(
+      "`id_movimiento_inventario_cliente` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`id_sku` BIGINT NOT NULL",
+      "`tipo_movimiento` VARCHAR(50) NOT NULL",
+      "`cantidad_anterior` DECIMAL(18,6) NULL",
+      "`cantidad_nueva` DECIMAL(18,6) NULL",
+      "`minimo_anterior` DECIMAL(18,6) NULL",
+      "`minimo_nuevo` DECIMAL(18,6) NULL",
+      "`maximo_anterior` DECIMAL(18,6) NULL",
+      "`maximo_nuevo` DECIMAL(18,6) NULL",
+      "`origen` VARCHAR(40) NOT NULL DEFAULT 'cliente'",
+      "`detalle_json` LONGTEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_movimiento_inventario_cliente`)",
+      "KEY `idx_dist_inv_mov_cliente` (`id_cliente_distribucion`, `fecha_registro`)",
+      "KEY `idx_dist_inv_mov_sku` (`id_sku`, `fecha_registro`)",
+      "KEY `idx_dist_inv_mov_tipo` (`tipo_movimiento`, `fecha_registro`)"
+    ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_tokens", array(
       "`id_token_distribucion` BIGINT NOT NULL AUTO_INCREMENT",
       "`id_cliente_distribucion` BIGINT NOT NULL",
@@ -217,12 +278,22 @@ class DistribucionApiEsquema extends DBSchema {
       "`precio_unitario_snapshot` DECIMAL(18,6) NULL",
       "`subtotal_snapshot` DECIMAL(18,6) NULL",
       "`disponibilidad_snapshot` VARCHAR(40) NULL",
+      "`cantidad_confirmada` DECIMAL(18,6) NULL",
+      "`estatus_revision` VARCHAR(40) NULL",
+      "`comentario_revision` TEXT NULL",
+      "`fecha_revision` DATETIME NULL",
+      "`id_usuario_revision` INT NULL",
       "`snapshot_json` LONGTEXT NULL",
       "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
       "PRIMARY KEY (`id_cotizacion_item`)",
       "KEY `idx_dist_cot_item_cotizacion` (`id_cotizacion_distribucion`)",
       "KEY `idx_dist_cot_item_sku` (`id_sku`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizacion_items", "cantidad_confirmada", "DECIMAL(18,6) NULL AFTER `disponibilidad_snapshot`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizacion_items", "estatus_revision", "VARCHAR(40) NULL AFTER `cantidad_confirmada`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizacion_items", "comentario_revision", "TEXT NULL AFTER `estatus_revision`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizacion_items", "fecha_revision", "DATETIME NULL AFTER `comentario_revision`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizacion_items", "id_usuario_revision", "INT NULL AFTER `fecha_revision`", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_auditoria", array(
       "`id_auditoria_distribucion` BIGINT NOT NULL AUTO_INCREMENT",
@@ -300,6 +371,9 @@ class DistribucionApiEsquema extends DBSchema {
       "erp_distribucion_solicitudes" => "Solicitudes de acceso comercial antes de aprobacion.",
       "erp_distribucion_cliente_permisos" => "Permisos granulares externos por cliente.",
       "erp_distribucion_cliente_listas" => "Historial/asignacion de listas de precio por cliente externo.",
+      "erp_distribucion_cliente_productos" => "Surtido habitual/productos seleccionados por cliente externo.",
+      "erp_distribucion_cliente_inventario" => "Conteo, minimos y maximos declarados por cliente para sugerido de resurtido.",
+      "erp_distribucion_cliente_inventario_movimientos" => "Bitacora de conteos y cambios de minimos/maximos del inventario del cliente.",
       "erp_distribucion_cotizaciones" => "Encabezado de solicitudes de cotizacion Distribucion.",
       "erp_distribucion_cotizacion_items" => "Snapshot comercial de partidas cotizadas.",
       "erp_distribucion_tokens" => "Tokens externos separados de sesion ERP interna.",

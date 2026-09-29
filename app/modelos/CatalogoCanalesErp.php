@@ -8,7 +8,7 @@ class CatalogoCanalesErp extends CRUD {
    * Impacto: Catalogo multi-canal; permite a Distribucion consumir datos ERP sin consultar tablas directas.
    * Contrato: read-only; filtra canal, productos/SKUs activos y no devuelve costos, margenes ni proveedores.
    */
-  public function catalogoCanal($canal, $filtros = array()) {
+  public function catalogoCanal($canal, $filtros = array(), $contexto = array()) {
     try {
       $db = $this->getConexion();
       $readiness = $this->readiness($db);
@@ -60,6 +60,45 @@ class CatalogoCanalesErp extends CRUD {
         $params[":categoria"] = $categoria;
       }
 
+      $precioMin = trim((string) $this->valor($filtros, "precio_min", ""));
+      $precioMax = trim((string) $this->valor($filtros, "precio_max", ""));
+      if (($precioMin !== "" || $precioMax !== "") && $this->tipoPrecioContexto($contexto) !== "sin_permiso") {
+        $condicionesPrecio = array(
+          "d.id_sku=s.id_sku",
+          "d.estatus='activo'",
+          "d.precio>0",
+          "COALESCE(NULLIF(d.moneda, ''), 'MXN')='MXN'",
+          "l.estatus='activa'",
+          "(d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW())",
+          "(d.fecha_fin IS NULL OR d.fecha_fin>=NOW())",
+          "(l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW())",
+          "(l.fecha_fin IS NULL OR l.fecha_fin>=NOW())"
+        );
+        $tipoPrecio = $this->tipoPrecioContexto($contexto);
+        $idLista = intval($this->valor($contexto, "id_lista_precio", 0));
+        if ($tipoPrecio === "lista_asignada" && $idLista > 0) {
+          $condicionesPrecio[] = "l.id_lista_precio=:precio_lista";
+          $params[":precio_lista"] = $idLista;
+        } else {
+          $condicionesPrecio[] = "(l.canal=:precio_canal OR l.canal IS NULL OR l.canal='')";
+          $params[":precio_canal"] = $canal;
+        }
+        if ($precioMin !== "") {
+          $condicionesPrecio[] = "d.precio>=:precio_min";
+          $params[":precio_min"] = max(0, floatval($precioMin));
+        }
+        if ($precioMax !== "") {
+          $condicionesPrecio[] = "d.precio<=:precio_max";
+          $params[":precio_max"] = max(0, floatval($precioMax));
+        }
+        $where[] = "EXISTS (
+          SELECT 1
+          FROM erp_listas_precios_detalle d
+          INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+          WHERE " . implode(" AND ", $condicionesPrecio) . "
+        )";
+      }
+
       $sqlBase = $this->sqlBase($where);
       $stmtTotal = $db->prepare("SELECT COUNT(*) FROM (" . $sqlBase . ") t");
       $stmtTotal->execute($params);
@@ -81,6 +120,8 @@ class CatalogoCanalesErp extends CRUD {
           "q" => $q,
           "categoria" => $categoria,
           "marca" => $marca,
+          "precio_min" => $precioMin,
+          "precio_max" => $precioMax,
           "orden" => $this->ordenNormalizado($this->valor($filtros, "orden", "relevancia"))
         ),
         "readiness" => $readiness
@@ -230,7 +271,7 @@ class CatalogoCanalesErp extends CRUD {
           INNER JOIN erp_catalogo_skus s ON s.id_sku=cv.id_sku
           INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
           INNER JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
-          WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND m.estatus='activo'
+          WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND m.estatus IN ('activo','activa')
           GROUP BY m.id_marca_erp, m.nombre
           ORDER BY m.nombre ASC";
       } else {
@@ -240,7 +281,7 @@ class CatalogoCanalesErp extends CRUD {
           INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
           INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp
           INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
-          WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND c.estatus='activo'
+          WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND c.estatus IN ('activo','activa')
           GROUP BY c.id_categoria_erp, c.nombre, c.ruta, c.id_categoria_padre
           ORDER BY COALESCE(c.ruta, c.nombre) ASC";
       }
@@ -388,6 +429,21 @@ class CatalogoCanalesErp extends CRUD {
   private function ordenNormalizado($orden) {
     $orden = trim((string) $orden);
     return in_array($orden, array("relevancia", "nombre", "marca"), true) ? $orden : "relevancia";
+  }
+
+  private function tipoPrecioContexto($contexto) {
+    $permisos = $this->valor($contexto, "permisos", array());
+    $permisos = is_array($permisos) ? $permisos : array();
+    if (in_array("distribucion.precio.ver_lista_asignada", $permisos, true) && intval($this->valor($contexto, "id_lista_precio", 0)) > 0) {
+      return "lista_asignada";
+    }
+    if (in_array("distribucion.precio.ver_publico", $permisos, true)) {
+      return "publico_autorizado";
+    }
+    if (in_array("distribucion.precio.ver_mayoreo", $permisos, true)) {
+      return "mayoreo_erp";
+    }
+    return "sin_permiso";
   }
 
   private function respuesta($error, $tipo, $mensaje, $depurar = array()) {

@@ -1545,6 +1545,12 @@ class CatalogoErpDatos extends CRUD {
       if (!$actual) {
         throw new Exception("Incidencia de calidad no encontrada");
       }
+      if ($estatus === "resuelta"
+        && $actual["origen"] === "proveedores"
+        && $actual["tipo_incidencia"] === "proveedor_sku_sin_match"
+        && intval($actual["id_sku"]) <= 0) {
+        return $this->respuesta(true, "warning", "Primero crea o vincula el SKU ERP. Esta incidencia de proveedor no se puede resolver mientras no tenga SKU relacionado.");
+      }
 
       $resolucionJson = array(
         "estatus_anterior" => $actual["estatus"],

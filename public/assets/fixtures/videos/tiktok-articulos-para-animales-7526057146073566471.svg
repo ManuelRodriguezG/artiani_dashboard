@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1600" viewBox="0 0 900 1600" role="img" aria-labelledby="title desc">
+  <title id="title">Miniatura temporal para video TikTok de prueba</title>
+  <desc id="desc">Miniatura temporal vertical para validar el modulo de videos Artiani.</desc>
+  <rect width="900" height="1600" fill="#0f172a"/>
+  <rect x="56" y="56" width="788" height="1488" rx="48" fill="#f8fafc"/>
+  <rect x="112" y="118" width="676" height="1010" rx="36" fill="#dbeafe"/>
+  <circle cx="450" cy="623" r="146" fill="#0f766e"/>
+  <path d="M414 534 L414 712 L568 623 Z" fill="#ffffff"/>
+  <text x="450" y="1226" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#111827">Video TikTok</text>
+  <text x="450" y="1302" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" fill="#374151">@articulos_para_animales</text>
+  <text x="450" y="1370" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#64748b">Miniatura temporal Artiani</text>
+  <text x="450" y="1440" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#94a3b8">Reemplazar por thumbnail real antes de publicar</text>
+</svg>

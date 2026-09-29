@@ -544,6 +544,9 @@
                  (item.origen === "ventas_pos" && item.tipo_incidencia === "venta_rapida_sku_sin_match")) &&
                 !item.id_sku &&
                 ["pendiente", "en_revision", "bloqueada"].indexOf(String(item.estatus || "")) >= 0;
+            var requiereSkuAntesResolver = item.origen === "proveedores" &&
+                item.tipo_incidencia === "proveedor_sku_sin_match" &&
+                !item.id_sku;
             var acciones = puedeTemporal
                 ? "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-sku-temporal=\"" + escapeAttr(item.id_incidencia_calidad) + "\"><i class=\"bi bi-plus-lg\"></i> SKU temporal</button>"
                 : "";
@@ -551,8 +554,15 @@
                 acciones = "<button class=\"btn btn-sm btn-light\" type=\"button\" data-producto=\"" + escapeAttr(item.id_producto_erp || "") + "\"><i class=\"bi bi-eye\"></i> Ver SKU</button>";
             }
             if (permisos.editar && ["pendiente", "en_revision", "bloqueada"].indexOf(String(item.estatus || "")) >= 0) {
-                acciones += " <button class=\"btn btn-sm btn-light-success\" type=\"button\" data-incidencia-estatus=\"" + escapeAttr(item.id_incidencia_calidad) + "\" data-estatus=\"resuelta\"><i class=\"bi bi-check2-circle\"></i> Resolver</button>" +
-                    " <button class=\"btn btn-sm btn-light-secondary\" type=\"button\" data-incidencia-estatus=\"" + escapeAttr(item.id_incidencia_calidad) + "\" data-estatus=\"descartada\"><i class=\"bi bi-x-circle\"></i> Descartar</button>";
+                if (!requiereSkuAntesResolver) {
+                    acciones += " <button class=\"btn btn-sm btn-light-success\" type=\"button\" data-incidencia-estatus=\"" + escapeAttr(item.id_incidencia_calidad) + "\" data-estatus=\"resuelta\"><i class=\"bi bi-check2-circle\"></i> Resolver</button>";
+                } else {
+                    acciones += " <span class=\"badge badge-light-warning\">Crear/vincular SKU antes de resolver</span>";
+                }
+                acciones += " <button class=\"btn btn-sm btn-light-secondary\" type=\"button\" data-incidencia-estatus=\"" + escapeAttr(item.id_incidencia_calidad) + "\" data-estatus=\"descartada\"><i class=\"bi bi-x-circle\"></i> Descartar</button>";
+            }
+            if (permisos.editar && ["resuelta", "descartada"].indexOf(String(item.estatus || "")) >= 0) {
+                acciones += " <button class=\"btn btn-sm btn-light-warning\" type=\"button\" data-incidencia-estatus=\"" + escapeAttr(item.id_incidencia_calidad) + "\" data-estatus=\"pendiente\"><i class=\"bi bi-arrow-counterclockwise\"></i> Restaurar</button>";
             }
             return "<tr>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.tipo_incidencia || "-") + "</div><span class=\"text-muted\">" + escapeHtml(item.titulo || "") + "</span></td>" +
@@ -611,7 +621,9 @@
     }
 
     function recargarIncidenciasCalidad() {
-        request("/catalogoerp/incidencias_calidad?estatus=abiertas&limite=50").then(function (response) {
+        var filtro = document.getElementById("catalogo_incidencias_estatus");
+        var estatus = filtro ? filtro.value : "abiertas";
+        request("/catalogoerp/incidencias_calidad?estatus=" + encodeURIComponent(estatus || "abiertas") + "&limite=50").then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje);
             }
@@ -833,7 +845,7 @@
      * IA: Codex GPT-5 | Fecha: 2026-07-30
      * Proposito: permite cerrar manualmente incidencias de calidad ya atendidas sin confundir estatus maestro con resolucion operativa.
      * Impacto: Catalogo ERP; limpia la cola de Incidencias calidad mediante el endpoint auditado existente.
-     * Contrato: `resuelta` y `descartada` requieren motivo/resolucion; despues recarga solo incidencias abiertas.
+     * Contrato: `resuelta` y `descartada` requieren motivo/resolucion; `pendiente` restaura incidencias cerradas por error.
      */
     function cambiarEstatusIncidenciaCalidad(idIncidencia, estatus) {
         var incidencia = incidenciasCalidad.find(function (item) {
@@ -842,15 +854,17 @@
         if (!incidencia) {
             return;
         }
-        var accion = estatus === "resuelta" ? "Resolver" : "Descartar";
+        var accion = estatus === "resuelta" ? "Resolver" : (estatus === "pendiente" ? "Restaurar" : "Descartar");
         Swal.fire({
             title: accion + " incidencia",
-            text: estatus === "resuelta"
+            text: estatus === "pendiente"
+                ? "Usa esta accion si se cerro por error y debe volver a aparecer como pendiente."
+                : estatus === "resuelta"
                 ? "Usa esta accion cuando ya atendiste el producto/SKU y la incidencia ya no debe aparecer como pendiente."
                 : "Usa esta accion si la incidencia no aplica, era duplicada o se atendera por otro flujo.",
             input: "textarea",
             inputLabel: "Motivo o resolucion",
-            inputPlaceholder: estatus === "resuelta" ? "Ej. Producto creado y SKU validado en Catalogo." : "Ej. Duplicada / no aplica / se relaciono desde Proveedores.",
+            inputPlaceholder: estatus === "pendiente" ? "Ej. Se cerro antes de crear el SKU; se restaura para atenderla." : estatus === "resuelta" ? "Ej. Producto creado y SKU validado en Catalogo." : "Ej. Duplicada / no aplica / se relaciono desde Proveedores.",
             inputAttributes: {maxlength: 1000},
             icon: estatus === "resuelta" ? "question" : "warning",
             showCancelButton: true,
@@ -3734,6 +3748,7 @@
         var tamanoPaginaSelect = document.getElementById("catalogo_tamano_pagina");
         var incidenciasBody = document.getElementById("catalogo_incidencias_body");
         var incidenciasRecargar = document.getElementById("catalogo_incidencias_recargar");
+        var incidenciasEstatus = document.getElementById("catalogo_incidencias_estatus");
         var auditoriaPreciosRecargar = document.getElementById("catalogo_auditoria_precios_recargar");
         var auditoriaCostosRecargar = document.getElementById("catalogo_auditoria_costos_recargar");
         var auditoriaPreciosBody = document.getElementById("catalogo_auditoria_precios_body");
@@ -3901,6 +3916,9 @@
         }
         if (incidenciasRecargar) {
             incidenciasRecargar.addEventListener("click", recargarIncidenciasCalidad);
+        }
+        if (incidenciasEstatus) {
+            incidenciasEstatus.addEventListener("change", recargarIncidenciasCalidad);
         }
         if (auditoriaPreciosRecargar) {
             auditoriaPreciosRecargar.addEventListener("click", function () {

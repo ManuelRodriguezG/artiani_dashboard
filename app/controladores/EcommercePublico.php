@@ -222,10 +222,41 @@ class EcommercePublico extends Controlador {
    */
   public function producto($slug = "", $subrecurso = "") {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if ($subrecurso === "videos") {
+      return $this->responderApiPublica($this->modelo("EcommerceVideosErp")->videosProductoPublico($slug, $_GET));
+    }
     if ($subrecurso === "contenido_relacionado") {
       return $this->responderApiPublica($this->modelo("EcommerceBlogPublico")->contenidoProductoPublico($slug));
     }
     return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->productoPublico($slug));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-28
+   * Proposito: exponer listado y detalle publico de videos ecommerce.
+   * Impacto: Frontend ecommerce; habilita /videos y /videos/{slug} sin cargar iframes en listados.
+   * Contrato: GET publico read-only; usa fixtures mientras no exista esquema real de videos.
+   */
+  public function videos($slug = "") {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    $videos = $this->modelo("EcommerceVideosErp");
+    if (trim((string) $slug) !== "") {
+      return $this->responderApiPublica($videos->videoDetallePublico($slug));
+    }
+    return $this->responderApiPublica($videos->videosPublicos($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-28
+   * Proposito: exponer manifest del modulo publico de videos.
+   * Impacto: Frontend ecommerce; documenta endpoints, eventos y reglas de carga diferida.
+   * Contrato: GET publico read-only; no escribe BD ni consulta datos sensibles.
+   */
+  public function videos_manifest() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceVideosErp")->videosManifestPublico($_GET));
   }
 
   /**
@@ -264,6 +295,9 @@ class EcommercePublico extends Controlador {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     $partes = array();
     foreach (array($p1, $p2, $p3, $p4, $p5) as $parte) {
+      if ($parte === "videos") {
+        return $this->responderApiPublica($this->modelo("EcommerceVideosErp")->videosCategoriaPublica(implode("/", $partes), $_GET));
+      }
       if ($parte === "contenido_relacionado") { break; }
       if (trim((string) $parte) !== "") { $partes[] = $parte; }
     }
@@ -281,7 +315,15 @@ class EcommercePublico extends Controlador {
     if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
       return $this->responderApiPublica(array("error" => true, "tipo" => "warning", "mensaje" => "Usa POST para registrar analytics", "depurar" => array("ok" => false)));
     }
-    return $this->responderApiPublica($this->modelo("EcommerceBlogPublico")->registrarAnalyticsEvento($this->entradaJsonPublica(), array(
+    $datos = $this->entradaJsonPublica();
+    $evento = isset($datos["evento"]) ? trim((string) $datos["evento"]) : "";
+    if (strpos($evento, "video_") === 0) {
+      return $this->responderApiPublica($this->modelo("EcommerceVideosErp")->registrarAnalyticsEvento($datos, array(
+        "ip" => $this->getRealIP(),
+        "user_agent" => isset($_SERVER["HTTP_USER_AGENT"]) ? $_SERVER["HTTP_USER_AGENT"] : ""
+      )));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceBlogPublico")->registrarAnalyticsEvento($datos, array(
       "ip" => $this->getRealIP(),
       "user_agent" => isset($_SERVER["HTTP_USER_AGENT"]) ? $_SERVER["HTTP_USER_AGENT"] : ""
     )));
@@ -296,17 +338,6 @@ class EcommercePublico extends Controlador {
   public function redirecciones() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoRedireccionesPublicas($_GET));
-  }
-
-  /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-27
-   * Proposito: resolver una URL publica entrante contra su canonical SEO sin escribir BD.
-   * Impacto: Frontend ecommerce; permite aplicar 301 antes de renderizar variantes con tracking, mayusculas o segmentos extra.
-   * Contrato: GET publico read-only; no crea redirecciones persistentes ni toca catalogo.
-   */
-  public function seo_resolver_url() {
-    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
-    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoResolverUrlPublica($_GET));
   }
 
   /**
@@ -829,6 +860,30 @@ class EcommercePublico extends Controlador {
   public function publicaciones() {
     $this->requerirPermiso("catalogo.ver");
     $this->vista("apps/erp/ecommerce/publicaciones");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-28
+   * Proposito: auditar esquema del modulo de videos ecommerce sin ejecutar DDL.
+   * Impacto: Ecommerce videos; permite revisar readiness antes de autorizacion operativa.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura sobre INFORMATION_SCHEMA.
+   */
+  public function esquema_auditar_videos() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceVideosErp")->esquemaAuditarVideos());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-28
+   * Proposito: exponer plan de esquema del modulo de videos sin aplicarlo.
+   * Impacto: Ecommerce videos; documenta DDL futuro y bloquea cambios sin respaldo/autorizacion.
+   * Contrato: GET protegido por `catalogo.ver`; no escribe BD ni aplica migraciones.
+   */
+  public function esquema_plan_videos() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceVideosErp")->esquemaPlanVideos());
   }
 
   /**

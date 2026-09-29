@@ -198,6 +198,7 @@ class DistribucionClientesApi extends CRUD {
       )), null, intval($cliente["id_cliente_distribucion"]));
 
       $permisos = $this->permisosCliente($db, intval($cliente["id_cliente_distribucion"]));
+      $acciones = $this->accionesPermitidasCliente($permisos);
       return $this->respuesta(false, "success", "Sesion Distribucion iniciada", array(
         "token" => $token,
         "perfil" => array(
@@ -207,8 +208,10 @@ class DistribucionClientesApi extends CRUD {
           "estatus" => $cliente["estatus"],
           "id_lista_precio" => intval($cliente["id_lista_precio"]),
           "permisos" => $permisos,
-          "acciones" => (new DistribucionPermisosApi())->accionesPermitidas($permisos)
+          "acciones" => $acciones
         ),
+        "permisos" => $permisos,
+        "acciones" => $acciones,
         "configurado" => true,
         "no_usa_sesion_erp" => true
       ));
@@ -250,7 +253,7 @@ class DistribucionClientesApi extends CRUD {
         "estatus" => $cliente["estatus"],
         "id_lista_precio" => intval($cliente["id_lista_precio"]),
         "permisos" => $permisos,
-        "acciones" => (new DistribucionPermisosApi())->accionesPermitidas($permisos)
+        "acciones" => $this->accionesPermitidasCliente($permisos)
       );
     } catch (Exception $e) {
       return null;
@@ -801,6 +804,13 @@ class DistribucionClientesApi extends CRUD {
       $permisos[] = $fila["permiso"];
     }
     return $permisos;
+  }
+
+  private function accionesPermitidasCliente($permisos) {
+    if (!class_exists("DistribucionPermisosApi")) {
+      require_once RUTA_APP . "/modelos/DistribucionPermisosApi.php";
+    }
+    return (new DistribucionPermisosApi())->accionesPermitidas($permisos);
   }
 
   private function crearTokenActivacionContrasenia($db, $idCliente) {

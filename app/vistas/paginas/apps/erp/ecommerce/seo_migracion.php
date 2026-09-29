@@ -252,6 +252,7 @@
                                         <label class="form-label">Fuente</label>
                                         <select class="form-select form-select-solid" id="ecom_seo_revision_fuente">
                                             <option value="indexadas" selected>Indexadas Google</option>
+                                            <option value="analytics">Analytics</option>
                                             <option value="relaciones">Crawl / relaciones</option>
                                         </select>
                                     </div>

@@ -1448,6 +1448,8 @@
       sin_redireccion_necesaria: "badge-light-info",
       validar_301_candidato: "badge-light-primary",
       revisar_manual: "badge-light-warning",
+      incidencia_existente: "badge-light-info",
+      relacionada_301: "badge-light-success",
       excluir_o_410: "badge-light-danger"
     };
     var textos = {
@@ -1455,6 +1457,8 @@
       sin_redireccion_necesaria: "Sin 301",
       validar_301_candidato: "Validar",
       revisar_manual: "Manual",
+      incidencia_existente: "Ya existe",
+      relacionada_301: "Resuelta",
       excluir_o_410: "Excluir/410"
     };
     return '<span class="badge ' + (clases[accion] || "badge-light") + '">' + escapeHtml(textos[accion] || accion || "Revision") + "</span>";

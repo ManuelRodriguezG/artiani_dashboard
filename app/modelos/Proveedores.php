@@ -8490,6 +8490,16 @@ class Proveedores extends CRUD {
             }
 
             $antes = $this->consultarIncidenciaCatalogoPorHuella($db, $propuesta["huella"]);
+            $reaperturaJson = array(
+                "accion" => "reabierta_desde_proveedores",
+                "motivo" => "El renglon fue enviado nuevamente a Catalogo y la incidencia cerrada aun no tenia SKU ERP relacionado.",
+                "estatus_anterior" => isset($antes["estatus"]) ? $antes["estatus"] : null,
+                "usuario_id" => intval($id_usuario) ?: null,
+                "fecha" => date("c"),
+                "id_proveedor" => $idProveedor,
+                "id_lista_proveedor_erp" => $idLista,
+                "id_lista_detalle_erp" => $idDetalle
+            );
             $stmt = $db->prepare("INSERT INTO erp_catalogo_incidencias_calidad
                 (huella, tipo_incidencia, entidad_tipo, id_producto_erp, id_sku, id_referencia, referencia_tipo,
                  origen, severidad, titulo, descripcion, detalle_json, evidencia_json, propuesta_json, estatus, creado_por)
@@ -8503,7 +8513,14 @@ class Proveedores extends CRUD {
                     detalle_json = VALUES(detalle_json),
                     evidencia_json = VALUES(evidencia_json),
                     propuesta_json = VALUES(propuesta_json),
-                    estatus = IF(estatus IN ('resuelta','descartada'), estatus, 'pendiente'),
+                    resolucion_json = IF(estatus IN ('resuelta','descartada') AND COALESCE(id_sku,0)=0, :reapertura_json, resolucion_json),
+                    resuelto_por = IF(estatus IN ('resuelta','descartada') AND COALESCE(id_sku,0)=0, NULL, resuelto_por),
+                    fecha_resolucion = IF(estatus IN ('resuelta','descartada') AND COALESCE(id_sku,0)=0, NULL, fecha_resolucion),
+                    estatus = CASE
+                        WHEN estatus IN ('resuelta','descartada') AND COALESCE(id_sku,0)=0 THEN 'pendiente'
+                        WHEN estatus='en_revision' AND COALESCE(id_sku,0)>0 THEN estatus
+                        ELSE 'pendiente'
+                    END,
                     fecha_actualizacion = CURRENT_TIMESTAMP");
             $stmt->execute(array(
                 ":huella" => $propuesta["huella"],
@@ -8519,7 +8536,8 @@ class Proveedores extends CRUD {
                 ":detalle_json" => json_encode($propuesta["detalle"], JSON_UNESCAPED_UNICODE),
                 ":evidencia_json" => json_encode($propuesta["evidencia"], JSON_UNESCAPED_UNICODE),
                 ":propuesta_json" => json_encode($propuesta["propuesta"], JSON_UNESCAPED_UNICODE),
-                ":creado_por" => intval($id_usuario) ?: null
+                ":creado_por" => intval($id_usuario) ?: null,
+                ":reapertura_json" => json_encode($reaperturaJson, JSON_UNESCAPED_UNICODE)
             ));
             $despues = $this->consultarIncidenciaCatalogoPorHuella($db, $propuesta["huella"]);
             if (!$despues || intval(isset($despues["id_incidencia_calidad"]) ? $despues["id_incidencia_calidad"] : 0) <= 0) {
@@ -8680,6 +8698,11 @@ class Proveedores extends CRUD {
             }
             if (!$this->incidenciaProveedorPerteneceAlContextoErp($actual, $idProveedor, $idLista)) {
                 throw new Exception("La incidencia no corresponde al proveedor o lista indicada");
+            }
+            if ($estatus === "resuelta"
+                && (string) $actual["tipo_incidencia"] === "proveedor_sku_sin_match"
+                && intval(isset($actual["id_sku"]) ? $actual["id_sku"] : 0) <= 0) {
+                throw new Exception("Primero crea o vincula el SKU ERP desde Catalogo. Esta incidencia no puede resolverse sin SKU relacionado.");
             }
 
             $resolucion = array(

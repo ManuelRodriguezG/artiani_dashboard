@@ -4645,86 +4645,6 @@ class EcommerceCatalogoPublico extends CRUD {
     }
   }
 
-  /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-27
-   * Proposito: resolver URLs publicas con tracking/case/segmentos extra contra su canonical SEO.
-   * Impacto: Frontend puede hacer 301 antes de renderizar y evitar duplicados indexables por `srsltid`, UTM o slugs no canonicos.
-   * Contrato: read-only; no guarda reglas 301 ni modifica publicaciones.
-   */
-  public function seoResolverUrlPublica($opciones = array()) {
-    try {
-      $db = $this->getConexion();
-      $entrada = trim((string) $this->valor($opciones, "url", $this->valor($opciones, "path", $this->valor($opciones, "href", ""))));
-      if ($entrada === "" && isset($_SERVER["REQUEST_URI"])) {
-        $entrada = (string) $_SERVER["REQUEST_URI"];
-      }
-      $analisis = $this->seoAnalizarUrlPublicaEntrada($entrada);
-      $path = $this->valor($analisis, "path", "/");
-      $segmentos = $this->valor($analisis, "segmentos", array());
-      $motivos = $this->valor($analisis, "motivos", array());
-      $destino = "";
-      $tipo = "sin_regla";
-      $canonicalUrl = "";
-      $entidad = null;
-
-      if (!empty($segmentos) && strtolower((string) $segmentos[0]) === "producto" && isset($segmentos[1])) {
-        $slugEntrada = trim(rawurldecode((string) $segmentos[1]));
-        $slugNormalizado = $this->slugificar($slugEntrada);
-        if ($slugEntrada !== $slugNormalizado) { $motivos[] = "slug_producto_no_canonico"; }
-        if (count($segmentos) > 2) { $motivos[] = "producto_con_segmentos_extra"; }
-        $producto = $this->seoProductoCanonicalPorSlug($db, $slugNormalizado);
-        if ($producto) {
-          $destino = "/producto/" . $this->valor($producto, "slug", $slugNormalizado);
-          $canonicalUrl = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db)), $destino);
-          $tipo = "producto_canonical";
-          $entidad = array(
-            "tipo" => "producto",
-            "id_publicacion" => intval($this->valor($producto, "id_publicacion", 0)),
-            "id_sku" => intval($this->valor($producto, "id_sku", 0)),
-            "slug" => $this->valor($producto, "slug", "")
-          );
-        } else {
-          $redirect = $this->redireccionProductoPorSlugAnterior($db, $slugNormalizado);
-          if ($redirect) {
-            $destino = $this->valor($redirect, "to", "");
-            $canonicalUrl = $this->valor($redirect, "canonical_url", "");
-            $tipo = "producto_slug_anterior";
-            $motivos[] = "redireccion_existente_slug_anterior";
-          } else {
-            $tipo = "producto_no_encontrado";
-          }
-        }
-      }
-
-      $queryParams = $this->valor($analisis, "query_params", array());
-      $debeRedirigir = $destino !== "" && ($path !== $destino || !empty($queryParams) || !empty(array_intersect($motivos, array("slug_producto_no_canonico", "producto_con_segmentos_extra", "tracking_query_detectado"))));
-      return $this->respuesta(false, "success", "URL publica SEO resuelta", array(
-        "read_only" => true,
-        "entrada" => $entrada,
-        "path_entrada" => $path,
-        "tipo" => $tipo,
-        "debe_redirigir" => $debeRedirigir,
-        "status_sugerido" => $debeRedirigir ? 301 : 200,
-        "redirect_to" => $debeRedirigir ? $destino : "",
-        "canonical_path" => $destino,
-        "canonical_url" => $canonicalUrl,
-        "motivos" => array_values(array_unique($motivos)),
-        "query_params" => $queryParams,
-        "tracking_params_detectados" => $this->valor($analisis, "tracking_params_detectados", array()),
-        "entidad" => $entidad,
-        "guardrails" => array(
-          "read_only" => true,
-          "no_escribe_bd" => true,
-          "frontend_aplica_301_antes_de_render" => true,
-          "no_redirigir_a_home_por_defecto" => true,
-          "canonical_sin_tracking_query" => true
-        )
-      ));
-    } catch (Exception $e) {
-      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "no_escribe_bd" => true));
-    }
-  }
-
   private function seoRedireccionesPorOrigenMapa($db) {
     $mapa = array();
     if (!$db || !$this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
@@ -4915,6 +4835,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "/ecommercePublico/esquema_plan_seo_migracion",
           "/ecommercePublico/seo_urls_sincronizar_plan_erp",
           "/ecommercePublico/seo_urls_viejas_revision_erp",
+          "/ecommercePublico/seo_urls_viejas_revision_erp?fuente=analytics",
           "/ecommercePublico/seo_productos_slugs_erp",
           "/ecommercePublico/seo_producto_slug_plan_erp",
           "/ecommercePublico/seo_urls_viejas_importar_plan_erp",
@@ -5368,6 +5289,89 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-28
+   * Proposito: detectar desde Analytics URLs publicas que ameritan incidencia SEO sin aprobar redirecciones.
+   * Impacto: Ecommerce SEO/Analytics; convierte visitas con tracking, queries o segmentos extra en candidatos de revision manual.
+   * Contrato: read-only; solo SELECT sobre analytics/SEO, no escribe BD y no propone destino automatico.
+   */
+  public function seoIncidenciasAnalyticsRevisionInterna($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("disponible" => false, "read_only" => true));
+      }
+      if (!$this->tablaExiste($db, "erp_ecommerce_analytics_eventos") && !$this->tablaExiste($db, "erp_ecommerce_analytics_sesiones")) {
+        return $this->respuesta(false, "info", "Analytics ecommerce aun no tiene tablas disponibles", array(
+          "disponible" => false,
+          "items" => array(),
+          "guardrails" => array("read_only" => true, "no_escribe_bd" => true, "no_crea_redirecciones" => true)
+        ));
+      }
+
+      $limite = max(1, min(500, intval($this->valor($opciones, "limite", 120))));
+      $offset = max(0, intval($this->valor($opciones, "offset", 0)));
+      $desde = trim((string) $this->valor($opciones, "desde", date("Y-m-d", strtotime("-30 days"))));
+      $hasta = trim((string) $this->valor($opciones, "hasta", date("Y-m-d")));
+      $inicio = preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde) ? $desde . " 00:00:00" : date("Y-m-d 00:00:00", strtotime("-30 days"));
+      $fin = preg_match('/^\d{4}-\d{2}-\d{2}$/', $hasta) ? $hasta . " 23:59:59" : date("Y-m-d 23:59:59");
+      $q = strtolower($this->normalizarTextoPlano(trim((string) $this->valor($opciones, "q", ""))));
+      $accion = trim((string) $this->valor($opciones, "accion", ""));
+      $prioridad = trim((string) $this->valor($opciones, "prioridad", ""));
+      $confianzaFiltro = trim((string) $this->valor($opciones, "confianza", ""));
+      if ($confianzaFiltro === "pendiente") { $confianzaFiltro = "pendientes"; }
+
+      $rutas = $this->seoAnalyticsRutasCandidatas($db, $inicio, $fin, max(500, min(4000, ($offset + $limite) * 6)));
+      $redirecciones = $this->seoRedireccionesPorOrigenMapa($db);
+      $urlsViejas = $this->seoUrlsViejasMapa($db);
+      $items = array();
+      $vistos = array();
+      foreach ($rutas as $fila) {
+        $item = $this->seoIncidenciaAnalyticsDesdeRuta($fila, $redirecciones, $urlsViejas);
+        if (!$item) { continue; }
+        $path = $this->valor($item, "path_original", "");
+        if ($path === "" || isset($vistos[$path])) { continue; }
+        $vistos[$path] = true;
+        if ($q !== "") {
+          $texto = strtolower($this->normalizarTextoPlano(implode(" ", array(
+            $this->valor($item, "url_original", ""),
+            $this->valor($item, "path_original", ""),
+            $this->valor($item, "tipo_detectado", ""),
+            $this->valor($item, "motivo", "")
+          ))));
+          if (strpos($texto, $q) === false && strpos($this->slugificar($texto), $this->slugificar($q)) === false) { continue; }
+        }
+        if ($accion !== "" && $this->valor($item, "accion_sugerida", "") !== $accion) { continue; }
+        if ($prioridad !== "" && $this->valor($item, "prioridad_revision", "") !== $prioridad) { continue; }
+        if ($confianzaFiltro !== "" && $confianzaFiltro !== "pendientes" && $this->valor($item, "confianza", "") !== $confianzaFiltro) { continue; }
+        $items[] = $item;
+      }
+
+      $total = count($items);
+      $itemsPagina = array_slice($items, $offset, $limite);
+      return $this->respuesta(false, "success", "Incidencias SEO detectadas desde Analytics", array(
+        "disponible" => true,
+        "fuente" => "analytics",
+        "read_only" => true,
+        "desde" => substr($inicio, 0, 10),
+        "hasta" => substr($fin, 0, 10),
+        "total_reporte" => $total,
+        "total_filtrado" => count($itemsPagina),
+        "items" => $itemsPagina,
+        "resumen" => $this->seoResumenIncidenciasAnalytics($items),
+        "siguientes_pasos" => array("revisar_manual", "elegir_destino_o_410", "guardar_regla_seo_aprobada"),
+        "guardrails" => array(
+          "no_escribe_bd" => true,
+          "no_crea_redirecciones" => true,
+          "no_destino_automatico" => true,
+          "frontend_solo_aplica_redirecciones_aprobadas" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "no_escribe_bd" => true));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-05
    * Proposito: mostrar el ultimo reporte local de URLs viejas con filtros de revision.
    * Impacto: Ecommerce SEO; habilita mesa operativa para decidir 301, revision manual o descarte.
@@ -5376,6 +5380,9 @@ class EcommerceCatalogoPublico extends CRUD {
   public function seoUrlsViejasRevisionInterna($opciones = array()) {
     try {
       $fuente = trim((string) $this->valor($opciones, "fuente", "indexadas"));
+      if ($fuente === "analytics") {
+        return $this->seoIncidenciasAnalyticsRevisionInterna($opciones);
+      }
       $archivo = "";
       if ($fuente === "indexadas" || $fuente === "google_indexadas") {
         $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_indexadas_google_*.json");
@@ -14452,6 +14459,181 @@ class EcommerceCatalogoPublico extends CRUD {
     return $path;
   }
 
+  private function seoAnalyticsRutasCandidatas($db, $inicio, $fin, $limite) {
+    $filas = array();
+    $limite = max(100, min(5000, intval($limite)));
+    if ($db && $this->tablaExiste($db, "erp_ecommerce_analytics_eventos")) {
+      $stmt = $db->prepare("SELECT ruta, referrer, tipo_evento fuente_evento, COUNT(*) total, MIN(fecha_registro) primera_fecha, MAX(fecha_registro) ultima_fecha
+        FROM erp_ecommerce_analytics_eventos
+        WHERE fecha_registro BETWEEN :inicio AND :fin
+          AND TRIM(COALESCE(ruta,''))<>''
+        GROUP BY ruta, referrer, tipo_evento
+        ORDER BY total DESC, ultima_fecha DESC
+        LIMIT " . intval($limite));
+      $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $fila["fuente_analytics"] = "eventos";
+        $filas[] = $fila;
+      }
+    }
+    if ($db && $this->tablaExiste($db, "erp_ecommerce_analytics_sesiones")) {
+      foreach (array("primer_ruta" => "sesion_inicio", "ultimo_ruta" => "sesion_ultima") as $columna => $evento) {
+        $stmt = $db->prepare("SELECT " . $columna . " ruta, referrer, '" . $evento . "' fuente_evento, COUNT(*) total, MIN(fecha_inicio) primera_fecha, MAX(COALESCE(fecha_ultima_actividad, fecha_inicio)) ultima_fecha
+          FROM erp_ecommerce_analytics_sesiones
+          WHERE fecha_inicio BETWEEN :inicio AND :fin
+            AND TRIM(COALESCE(" . $columna . ",''))<>''
+          GROUP BY " . $columna . ", referrer
+          ORDER BY total DESC, ultima_fecha DESC
+          LIMIT " . intval($limite));
+        $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $fila["fuente_analytics"] = "sesiones";
+          $filas[] = $fila;
+        }
+      }
+    }
+    return $filas;
+  }
+
+  private function seoIncidenciaAnalyticsDesdeRuta($fila, $redirecciones, $urlsViejas) {
+    $ruta = trim((string) $this->valor($fila, "ruta", ""));
+    if ($ruta === "" || stripos($ruta, "/ecommercePublico") === 0) { return null; }
+    $analisis = $this->seoAnalizarUrlPublicaEntrada($ruta);
+    $pathBase = $this->valor($analisis, "path", "/");
+    if (stripos($pathBase, "/ecommercePublico") === 0) { return null; }
+    $segmentos = (array) $this->valor($analisis, "segmentos", array());
+    $queryParams = (array) $this->valor($analisis, "query_params", array());
+    $tracking = (array) $this->valor($analisis, "tracking_params_detectados", array());
+    $motivos = (array) $this->valor($analisis, "motivos", array());
+    $tipo = $this->seoTipoDetectadoPath($pathBase);
+
+    if (!empty($segmentos) && strtolower((string) $segmentos[0]) === "producto" && isset($segmentos[1])) {
+      $slugEntrada = trim(rawurldecode((string) $segmentos[1]));
+      $slugNormalizado = $this->slugificar($slugEntrada);
+      if ($slugEntrada !== $slugNormalizado) { $motivos[] = "slug_producto_no_canonico"; }
+      if (count($segmentos) > 2) { $motivos[] = "producto_con_segmentos_extra"; }
+      $tipo = "producto";
+    }
+
+    $esSospechosa = !empty($tracking)
+      || (!empty($queryParams) && $tipo === "producto")
+      || in_array("slug_producto_no_canonico", $motivos, true)
+      || in_array("producto_con_segmentos_extra", $motivos, true);
+    if (!$esSospechosa) { return null; }
+
+    $pathOriginal = $this->seoPathAnalyticsRedactado($pathBase, $queryParams, $tracking);
+    $redireccion = isset($redirecciones[$pathOriginal]) ? $redirecciones[$pathOriginal] : (isset($redirecciones[$pathBase]) ? $redirecciones[$pathBase] : null);
+    $urlVieja = isset($urlsViejas[$pathOriginal]) ? $urlsViejas[$pathOriginal] : (isset($urlsViejas[$pathBase]) ? $urlsViejas[$pathBase] : null);
+    $accion = "revisar_manual";
+    $confianza = "baja";
+    $destino = "";
+    $nota = "Relacion manual requerida; Analytics solo detecto la URL.";
+    if ($redireccion) {
+      $accion = "relacionada_301";
+      $confianza = "aprobada";
+      $destino = $this->valor($redireccion, "to", "");
+      $nota = "Ya existe una regla SEO aprobada para esta URL o su path base.";
+    } elseif ($urlVieja) {
+      $accion = "incidencia_existente";
+      $confianza = "media";
+      $destino = $this->valor($urlVieja, "url_destino_sugerida", "");
+      $nota = "Ya existe como URL vieja/incidencia SEO pendiente.";
+    }
+
+    return array(
+      "url_original" => $pathOriginal,
+      "path_original" => $pathOriginal,
+      "path_base" => $pathBase,
+      "tipo_detectado" => $tipo,
+      "tipo_plan" => $tipo,
+      "titulo_detectado" => "",
+      "origen" => "analytics",
+      "fuente_analytics" => $this->valor($fila, "fuente_analytics", ""),
+      "evento_analytics" => $this->valor($fila, "fuente_evento", ""),
+      "estatus_mapeo" => $redireccion ? "resuelto" : ($urlVieja ? $this->valor($urlVieja, "estatus_mapeo", "revision") : "pendiente"),
+      "url_destino_sugerida" => $destino,
+      "url_destino_local" => $destino !== "" ? "http://artiani.com.local" . $destino : "",
+      "confianza" => $confianza,
+      "accion_sugerida" => $accion,
+      "prioridad_revision" => $this->seoPrioridadIncidenciaAnalytics($tipo, $motivos, intval($this->valor($fila, "total", 0))),
+      "motivo" => implode(", ", array_values(array_unique($motivos))),
+      "nota" => $nota,
+      "tracking_params_detectados" => array_values(array_unique($tracking)),
+      "query_params" => array_values(array_unique($queryParams)),
+      "total_visitas" => intval($this->valor($fila, "total", 0)),
+      "primera_fecha" => $this->valor($fila, "primera_fecha", ""),
+      "ultima_fecha" => $this->valor($fila, "ultima_fecha", ""),
+      "redireccion_existente" => $redireccion,
+      "sql_preview" => $redireccion || $urlVieja ? "" : "INSERT INTO erp_ecommerce_seo_urls_viejas (url_original, path_original, tipo_detectado, origen, estatus_mapeo, url_destino_sugerida, fecha_registro) VALUES (" .
+        $this->sqlQuote($pathOriginal) . ", " . $this->sqlQuote($pathOriginal) . ", " . $this->sqlQuote($tipo) . ", 'analytics', 'pendiente', NULL, NOW());"
+    );
+  }
+
+  private function seoPathAnalyticsRedactado($pathBase, $queryParams, $tracking) {
+    $path = $this->normalizarSeoPathPublico($pathBase);
+    $queryParams = array_values(array_unique(array_filter(array_map(function ($clave) {
+      return strtolower(trim((string) $clave));
+    }, (array) $queryParams))));
+    if (empty($queryParams)) { return $path; }
+    sort($queryParams);
+    $tracking = array_values(array_unique(array_map("strtolower", (array) $tracking)));
+    $partes = array();
+    foreach ($queryParams as $clave) {
+      if ($clave === "") { continue; }
+      $partes[] = rawurlencode($clave) . "=" . (in_array($clave, $tracking, true) || $this->seoEsParametroTracking($clave) ? "__redacted__" : "__value__");
+    }
+    return $path . (empty($partes) ? "" : "?" . implode("&", $partes));
+  }
+
+  private function seoPrioridadIncidenciaAnalytics($tipo, $motivos, $total) {
+    $motivos = (array) $motivos;
+    if ($tipo === "producto" && (in_array("producto_con_segmentos_extra", $motivos, true) || in_array("tracking_query_detectado", $motivos, true))) {
+      return "alta";
+    }
+    if ($total >= 5 || in_array("slug_producto_no_canonico", $motivos, true)) {
+      return "media";
+    }
+    return "baja";
+  }
+
+  private function seoUrlsViejasMapa($db) {
+    $mapa = array();
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_seo_urls_viejas")) {
+      return $mapa;
+    }
+    $stmt = $db->query("SELECT path_original, estatus_mapeo, url_destino_sugerida, origen FROM erp_ecommerce_seo_urls_viejas");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $path = $this->normalizarSeoPathPublico($this->valor($fila, "path_original", ""));
+      if ($path !== "") {
+        $mapa[$path] = $fila;
+      }
+    }
+    return $mapa;
+  }
+
+  private function seoResumenIncidenciasAnalytics($items) {
+    $resumen = array(
+      "total_resumen" => count((array) $items),
+      "total_coincidencias" => count((array) $items),
+      "accion" => array(),
+      "confianza" => array(),
+      "prioridad" => array(),
+      "pendientes_no_exactas" => 0
+    );
+    foreach ((array) $items as $item) {
+      foreach (array("accion" => "accion_sugerida", "confianza" => "confianza", "prioridad" => "prioridad_revision") as $grupo => $clave) {
+        $valor = trim((string) $this->valor($item, $clave, ""));
+        if ($valor === "") { $valor = "sin_valor"; }
+        if (!isset($resumen[$grupo][$valor])) { $resumen[$grupo][$valor] = 0; }
+        $resumen[$grupo][$valor]++;
+      }
+      if ($this->valor($item, "accion_sugerida", "") === "revisar_manual") {
+        $resumen["pendientes_no_exactas"]++;
+      }
+    }
+    return $resumen;
+  }
+
   private function seoAnalizarUrlPublicaEntrada($entrada) {
     $entrada = trim((string) $entrada);
     $partes = preg_match('/^https?:\/\//i', $entrada) ? parse_url($entrada) : parse_url($entrada === "" ? "/" : $entrada);
@@ -14490,22 +14672,6 @@ class EcommerceCatalogoPublico extends CRUD {
     if ($clave === "") { return false; }
     if (strpos($clave, "utm_") === 0) { return true; }
     return in_array($clave, array("srsltid", "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "ttclid", "mc_cid", "mc_eid"), true);
-  }
-
-  private function seoProductoCanonicalPorSlug($db, $slug) {
-    if (!$db || $slug === "" || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
-      return null;
-    }
-    $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'", "pub.slug=:slug");
-    $stmt = $db->prepare($this->sqlPublicacionesBase($where) . " LIMIT 1");
-    $stmt->execute(array(":slug" => $slug));
-    $fila = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$fila) { return null; }
-    return array(
-      "id_publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
-      "id_sku" => intval($this->valor($fila, "id_sku", 0)),
-      "slug" => $this->valor($fila, "slug", $slug)
-    );
   }
 
   private function urlSeoPublica($baseUrl, $path) {

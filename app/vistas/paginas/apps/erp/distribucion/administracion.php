@@ -50,6 +50,15 @@
                                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_cotizaciones" type="button" role="tab">Pedidos</button>
                                     </li>
                                     <li class="nav-item" role="presentation">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_surtidos" type="button" role="tab">Surtidos</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_inventarios" type="button" role="tab">Inventarios</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_sugeridos" type="button" role="tab">Sugeridos</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
                                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_productos" type="button" role="tab">Productos</button>
                                     </li>
                                 </ul>
@@ -157,6 +166,101 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="tab-pane fade" id="dist_tab_surtidos" role="tabpanel">
+                                        <div class="card">
+                                            <div class="card-header border-0 pt-6">
+                                                <div class="card-title">
+                                                    <div class="d-flex align-items-center position-relative my-1">
+                                                        <i class="bi bi-search fs-3 position-absolute ms-5"></i>
+                                                        <input type="text" id="dist_surtidos_buscar" class="form-control form-control-solid w-300px ps-12" placeholder="Buscar cliente o SKU">
+                                                    </div>
+                                                </div>
+                                                <div class="card-toolbar">
+                                                    <span id="dist_surtidos_total" class="badge badge-light-primary">0</span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body pt-0">
+                                                <div class="table-responsive">
+                                                    <table class="table align-middle table-row-dashed fs-6 gy-5">
+                                                        <thead>
+                                                            <tr class="text-start text-muted fw-bold fs-7 text-uppercase">
+                                                                <th>Cliente</th>
+                                                                <th>Producto</th>
+                                                                <th>Alias / ubicacion</th>
+                                                                <th>Prioridad</th>
+                                                                <th>Estado</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="dist_surtidos_lista"></tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="dist_tab_inventarios" role="tabpanel">
+                                        <div class="card">
+                                            <div class="card-header border-0 pt-6">
+                                                <div class="card-title">
+                                                    <div class="d-flex align-items-center position-relative my-1">
+                                                        <i class="bi bi-search fs-3 position-absolute ms-5"></i>
+                                                        <input type="text" id="dist_inventarios_buscar" class="form-control form-control-solid w-300px ps-12" placeholder="Buscar cliente o SKU">
+                                                    </div>
+                                                </div>
+                                                <div class="card-toolbar">
+                                                    <span id="dist_inventarios_total" class="badge badge-light-primary">0</span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body pt-0">
+                                                <div class="table-responsive">
+                                                    <table class="table align-middle table-row-dashed fs-6 gy-5">
+                                                        <thead>
+                                                            <tr class="text-start text-muted fw-bold fs-7 text-uppercase">
+                                                                <th>Cliente</th>
+                                                                <th>Producto</th>
+                                                                <th class="text-end">Existencia cliente</th>
+                                                                <th class="text-end">Min / Max</th>
+                                                                <th class="text-end">Sugerido</th>
+                                                                <th>Ultimo conteo</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="dist_inventarios_lista"></tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="dist_tab_sugeridos" role="tabpanel">
+                                        <div class="card">
+                                            <div class="card-header border-0 pt-6">
+                                                <div class="card-title">
+                                                    <div class="d-flex align-items-center position-relative my-1">
+                                                        <i class="bi bi-search fs-3 position-absolute ms-5"></i>
+                                                        <input type="text" id="dist_sugeridos_buscar" class="form-control form-control-solid w-300px ps-12" placeholder="Buscar cliente o SKU">
+                                                    </div>
+                                                </div>
+                                                <div class="card-toolbar">
+                                                    <span id="dist_sugeridos_total" class="badge badge-light-warning">0</span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body pt-0">
+                                                <div class="table-responsive">
+                                                    <table class="table align-middle table-row-dashed fs-6 gy-5">
+                                                        <thead>
+                                                            <tr class="text-start text-muted fw-bold fs-7 text-uppercase">
+                                                                <th>Cliente</th>
+                                                                <th>Producto</th>
+                                                                <th class="text-end">Existencia cliente</th>
+                                                                <th class="text-end">Min / Max</th>
+                                                                <th class="text-end">Comprar sugerido</th>
+                                                                <th>Ultimo conteo</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="dist_sugeridos_lista"></tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="tab-pane fade" id="dist_tab_productos" role="tabpanel">
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
@@ -201,6 +305,6 @@
     </div>
     <script src="assets/plugins/global/plugins.bundle.js"></script>
     <script src="assets/js/scripts.bundle.js"></script>
-    <script src="/assets/js/custom/apps/erp/distribucion/administracion.js?v=20260911-acceso-auditoria2"></script>
+    <script src="/assets/js/custom/apps/erp/distribucion/administracion.js?v=20260929-surtido-inventario"></script>
 </body>
 </html>

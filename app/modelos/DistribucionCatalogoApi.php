@@ -61,7 +61,14 @@ class DistribucionCatalogoApi extends CRUD {
         "catalogo" => "/DistribucionApi/catalogo",
         "producto" => "/DistribucionApi/producto/{slug}",
         "cotizacion_dryrun" => "/DistribucionApi/cotizacion/dryrun",
-        "cotizacion_registrar" => "/DistribucionApi/cotizacion/registrar"
+        "cotizacion_registrar" => "/DistribucionApi/cotizacion/registrar",
+        "pedido_registrar" => "/DistribucionApi/pedido/registrar",
+        "surtido_listar" => "/DistribucionApi/surtido/listar",
+        "surtido_guardar" => "/DistribucionApi/surtido/guardar",
+        "inventario_cliente_listar" => "/DistribucionApi/inventario_cliente/listar",
+        "inventario_cliente_guardar_conteo" => "/DistribucionApi/inventario_cliente/guardar_conteo",
+        "inventario_cliente_sugerido" => "/DistribucionApi/inventario_cliente/sugerido",
+        "inventario_cliente_pedido_sugerido" => "/DistribucionApi/inventario_cliente/pedido_sugerido"
       ),
       "guardrails" => $this->guardrails()
     ));
@@ -77,7 +84,7 @@ class DistribucionCatalogoApi extends CRUD {
     $permiso = $this->requierePermiso($contexto, "distribucion.catalogo.ver", "No tienes permiso para ver el catalogo Distribucion");
     if ($permiso) { return $permiso; }
     require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
-    $respuesta = (new CatalogoCanalesErp())->catalogoCanal("distribucion", $filtros);
+    $respuesta = (new CatalogoCanalesErp())->catalogoCanal("distribucion", $filtros, $contexto);
     return $this->conSesionYGuardrails($respuesta, $contexto);
   }
 
@@ -85,10 +92,10 @@ class DistribucionCatalogoApi extends CRUD {
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
    * Proposito: reservar ficha comercial Distribucion por slug con salida segura.
    * Impacto: Catalogo Distribucion; evita exponer detalle sin permiso comercial externo.
-   * Contrato: GET read-only; requiere `distribucion.catalogo.ver_detalle`.
+   * Contrato: GET read-only; requiere `distribucion.catalogo.ver` para navegar el catalogo publicado.
    */
   public function producto($slug, $contexto = array()) {
-    $permiso = $this->requierePermiso($contexto, "distribucion.catalogo.ver_detalle", "No tienes permiso para ver detalle de productos");
+    $permiso = $this->requierePermiso($contexto, "distribucion.catalogo.ver", "No tienes permiso para ver detalle de productos");
     if ($permiso) { return $permiso; }
     $slug = $this->limpiarSlug($slug);
     if ($slug === "") {
@@ -366,7 +373,13 @@ class DistribucionCatalogoApi extends CRUD {
       array("metodo" => "POST", "ruta" => "/DistribucionApi/disponibilidad/resolver"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/dryrun"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/registrar"),
-      array("metodo" => "POST", "ruta" => "/DistribucionApi/pedido/registrar")
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/pedido/registrar"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/surtido/listar"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/surtido/guardar"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/listar"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/guardar_conteo"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/sugerido"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/pedido_sugerido")
     );
   }
 
@@ -406,12 +419,77 @@ class DistribucionCatalogoApi extends CRUD {
   }
 
   private function conSesionYGuardrails($respuesta, $contexto) {
+    $respuesta = $this->aplicarContextoComercialSalida($respuesta, $contexto);
     if (!isset($respuesta["depurar"]) || !is_array($respuesta["depurar"])) {
       $respuesta["depurar"] = array();
     }
     $respuesta["depurar"]["sesion"] = $this->sesionSalida($contexto);
     $respuesta["depurar"]["guardrails"] = $this->guardrails();
     return $respuesta;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-28
+   * Proposito: reescribir acciones comerciales de items de catalogo con el perfil externo vigente.
+   * Impacto: API Distribucion; evita que el catalogo base exponga botones de precio/cotizacion/disponibilidad no autorizados.
+   * Contrato: no calcula precios ni inventario; solo normaliza banderas UI a partir de `contexto.acciones`.
+   */
+  private function aplicarContextoComercialSalida($respuesta, $contexto) {
+    if (!isset($respuesta["depurar"]) || !is_array($respuesta["depurar"])) {
+      return $respuesta;
+    }
+    if (isset($respuesta["depurar"]["items"]) && is_array($respuesta["depurar"]["items"])) {
+      foreach ($respuesta["depurar"]["items"] as $indice => $item) {
+        if (is_array($item)) {
+          $respuesta["depurar"]["items"][$indice] = $this->aplicarContextoComercialItem($item, $contexto);
+        }
+      }
+    }
+    if (isset($respuesta["depurar"]["item"]) && is_array($respuesta["depurar"]["item"])) {
+      $respuesta["depurar"]["item"] = $this->aplicarContextoComercialItem($respuesta["depurar"]["item"], $contexto);
+    }
+    return $respuesta;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-28
+   * Proposito: mantener navegacion de catalogo autorizada sin abrir precio, cotizacion o disponibilidad por accidente.
+   * Impacto: API Distribucion; clientes con solo `distribucion.catalogo.ver` pueden ver productos publicados, pero no precios ni cotizacion.
+   * Contrato: respeta `acciones` ya resueltas por DistribucionPermisosApi.
+   */
+  private function aplicarContextoComercialItem($item, $contexto) {
+    $acciones = $this->valor($contexto, "acciones", array());
+    $acciones = is_array($acciones) ? $acciones : array();
+    $verPrecio = !empty($acciones["ver_precio"]);
+    $verDisponibilidad = !empty($acciones["ver_disponibilidad"]);
+
+    $item["acciones"] = array(
+      "ver_detalle" => !empty($acciones["ver_detalle"]) || !empty($acciones["ver_catalogo"]),
+      "solicitar_precio" => !empty($contexto["autenticado"]) && !$verPrecio,
+      "agregar_cotizacion" => !empty($acciones["agregar_cotizacion"]),
+      "pedido_preliminar" => !empty($acciones["pedido_preliminar"]),
+      "descargar_catalogo" => !empty($acciones["descargar_catalogo"])
+    );
+
+    if (!$verPrecio) {
+      $item["precio"] = array(
+        "visible" => false,
+        "tipo" => "sin_permiso",
+        "moneda" => "MXN",
+        "monto" => null,
+        "mensaje" => "Solicitar precio"
+      );
+    }
+    if (!$verDisponibilidad) {
+      $item["disponibilidad"] = array(
+        "visible" => false,
+        "estado" => "consultar_disponibilidad",
+        "mensaje" => "Consultar disponibilidad"
+      );
+    }
+    return $item;
   }
 
   private function requierePermiso($contexto, $permiso, $mensaje) {

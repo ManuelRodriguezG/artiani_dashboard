@@ -409,12 +409,15 @@ El endpoint publico `/ecommercePublico/contenido_manifest` ya expone `plantillas
 
 Documentacion IA: Codex GPT-5  
 Fecha: 2026-09-11  
-Estado: backend inicial y contratos publicos preparados; DDL pendiente de autorizacion/aplicacion
+Estado: backend inicial, contratos publicos y editor CMS con selectores visuales base preparados; DDL pendiente de autorizacion/aplicacion
+
+Handoff corto para continuar sin releer todo este documento: `docs/erp_cms_blog_estado_actual.md`.
 
 Objetivo:
 
-- Administrar publicaciones editoriales/comerciales del ecommerce publico: articulos, guias, noticias, videos, inspiracion, casos de cliente y recomendaciones de producto.
-- Servir SEO, educacion al cliente, venta asistida, contenido relacionado en producto/categoria y videos embebidos con carga diferida.
+- Administrar publicaciones editoriales/comerciales del ecommerce publico: articulos, guias, noticias, inspiracion, casos de cliente y recomendaciones de producto.
+- Servir SEO, educacion al cliente, venta asistida, contenido relacionado en producto/categoria y videos embebidos con carga diferida cuando provengan del modulo Videos independiente.
+- Videos sera un modulo CMS propio en otro alcance; Blog solo debe quedar preparado para incorporar videos ya administrados por ese modulo mediante relaciones.
 - Mantener Blog/CMS como submodulo independiente de los slots de Home/Categorias y del catalogo ERP.
 
 Decision de arquitectura:
@@ -430,8 +433,9 @@ Backend preparado:
 - Vista inicial: `app/vistas/paginas/apps/erp/cms/blog.php`.
 - JS inicial: `public/assets/js/custom/apps/erp/cms/blog.js`.
 - Esquema read-only: `EcommercePublicoEsquema::planActualizarCmsBlog(false)` y `auditarCmsBlog()`.
-- La vista `/cms/blog` ya tiene editor inicial para titulo, slug, tipo, estado, autor, fecha, portada con ALT, extracto, contenido HTML seguro y SEO basico.
-- El editor permite capturar relaciones avanzadas como JSON controlado: videos, productos relacionados, categorias relacionadas, imagenes internas y bloques interactivos.
+- La vista `/cms/blog` ya tiene editor inicial para titulo, slug, tipo, estado, autor, fecha, orden, destacado, portada con ALT, extracto, contenido HTML seguro y SEO basico.
+- El editor permite capturar relaciones avanzadas con apoyo visual: portada, imagenes internas, productos relacionados, categorias relacionadas y bloque interactivo de imagen/productos. Tambien conserva el JSON tecnico sincronizado, incluye preview administrativo local en iframe aislado y sanitizacion HTML en backend con lista blanca. Videos queda como relacion futura administrada fuera de Blog.
+- UAT read-only disponible en `storage/uat/uat_cms_blog_readonly.php`; ultimo resultado `senal_cms_blog=verde_contrato_blog_readonly` con DDL pendiente esperado.
 - El backend guarda esas relaciones si el esquema existe; antes del DDL responde `requiere_ddl` sin escribir BD.
 
 Endpoints publicos:
@@ -457,7 +461,7 @@ Tablas propuestas:
 
 - `erp_ecommerce_blog_publicaciones`
 - `erp_ecommerce_blog_media`
-- `erp_ecommerce_blog_videos`
+- `erp_ecommerce_blog_video_relaciones`
 - `erp_ecommerce_blog_productos`
 - `erp_ecommerce_blog_categorias`
 - `erp_ecommerce_blog_bloques_interactivos`
@@ -477,10 +481,8 @@ Guardrails:
 Pendientes:
 
 - Autorizar respaldo externo y DDL antes de usar persistencia real.
-- Convertir los JSON avanzados en selectores visuales: Media CMS, productos publicados, categorias publicas, videos y puntos interactivos.
-- Conectar selector de Media CMS para portada e imagenes internas.
-- Agregar administracion de relaciones a productos publicados y categorias publicas.
-- Fortalecer sanitizacion HTML permitida por lista blanca antes de captura masiva.
+- Autorizar respaldo externo y DDL antes de usar persistencia real.
+- Despues del DDL autorizado, probar guardado/publicacion/pausa con transaccion o entorno controlado y pulir reordenamiento visual de relaciones.
 
 El contrato operativo para implementar el renderer del frontend queda documentado en `docs/erp_cms_frontend_renderer_contrato.md`. Ese documento define endpoints publicos permitidos, forma de usar `plantilla_vista.secciones`, compatibilidad componente/bloque/slot y guardrails para no consumir rutas internas `/cms/*`.
 

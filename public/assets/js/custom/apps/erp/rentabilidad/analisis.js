@@ -2,6 +2,7 @@
 (function () {
     var defaults = {};
     var rentabilidadFallbacks = {};
+    var rentabilidadEstudioSeleccion = {};
     var FRASE_RESOLVER_INCIDENCIA_COSTO = "AUTORIZO APLICAR RESOLUCION PERSISTENTE DE INCIDENCIAS DE COSTO DERIVADO";
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-04
@@ -105,6 +106,10 @@
         } else if (vista === "herramienta") {
             tareas = [function () {
                 return cargarListasRentabilidad().then(function () { return Promise.all([cargarAnalisisListaRentabilidad(), cargarAtencionCostosListaRentabilidad()]); });
+            }];
+        } else if (vista === "estudios") {
+            tareas = [function () {
+                return Promise.all([cargarEstudiosRentabilidad(), cargarListasRentabilidadEstudio(), cargarCategoriasEstudioRentabilidad()]);
             }];
         } else if (vista === "incidencias_costos") {
             tareas = [cargarIncidenciasCostosDerivados];
@@ -648,7 +653,7 @@
             "<div class=\"text-muted fs-8\">Gasto " + pct(escenario.gasto_pct || 0) + " / Comision " + pct(escenario.comision_pct || 0) + " / Margen objetivo " + pct(escenario.margen_objetivo_pct || 0) + " / Simulacion ajuste " + pct(escenario.ajuste_pct || 0) + "</div>";
         renderPropuestasListaRentabilidad(data.propuestas || {});
         $("rentabilidad_herramienta_items").innerHTML = (data.items || []).map(renderItemListaRentabilidad).join("") ||
-            "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\">Sin productos para la lista/filtro seleccionado</td></tr>";
+            "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin productos para la lista/filtro seleccionado</td></tr>";
     }
     function cargarAtencionCostosListaRentabilidad() {
         if (!$("rentabilidad_lista_precio").value) {
@@ -687,6 +692,397 @@
             "<td><div class=\"text-muted fs-8\">" + escapeHtml(item.siguiente_paso || "") + "</div></td>" +
             "</tr>";
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-28
+     * Proposito: operar el simulador read-only de envios nacionales.
+     * Impacto: permite evaluar gasto fijo, costo de paqueteria y umbrales sin modificar precios.
+     * Contrato: consulta endpoints read-only; no guarda politicas comerciales.
+     */
+    function cargarListasEnviosNacionales() {
+        return request("/rentabilidad/listas_precios_erp?estatus=&limite=200").then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var select = $("rentabilidad_envios_lista_precio");
+            var valorActual = select.value;
+            select.innerHTML = (((response.depurar || {}).items) || []).map(function (item) {
+                return "<option value=\"" + Number(item.id_lista_precio || 0) + "\">" + escapeHtml(item.codigo || "") + " - " + escapeHtml(item.nombre || "") + " (" + escapeHtml(item.canal || "general") + ")</option>";
+            }).join("");
+            if (valorActual && Array.prototype.some.call(select.options, function (opt) { return opt.value === valorActual; })) {
+                select.value = valorActual;
+            }
+            if (!select.value && select.options.length) {
+                select.value = select.options[0].value;
+            }
+        });
+    }
+    function filtrosEnviosNacionales() {
+        return new URLSearchParams({
+            id_lista_precio: $("rentabilidad_envios_lista_precio").value,
+            q: $("rentabilidad_envios_buscar").value.trim(),
+            gasto_pct: $("rentabilidad_envios_gasto").value,
+            comision_pct: $("rentabilidad_envios_comision").value,
+            margen_objetivo_pct: $("rentabilidad_envios_margen").value,
+            costo_envio: $("rentabilidad_envios_costo").value,
+            envio_cobrado: $("rentabilidad_envios_cobrado").value,
+            envio_gratis_desde: $("rentabilidad_envios_gratis_desde").value,
+            limite: "80"
+        }).toString();
+    }
+    function cargarEnviosNacionales() {
+        if (!$("rentabilidad_envios_lista_precio").value) {
+            $("rentabilidad_envios_resumen").innerHTML = "<div class=\"text-muted fs-8\">Sin listas de precios disponibles</div>";
+            $("rentabilidad_envios_recomendacion").innerHTML = "";
+            $("rentabilidad_envios_items").innerHTML = "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\">Sin lista seleccionada</td></tr>";
+            return Promise.resolve();
+        }
+        return request("/rentabilidad/envios_nacionales_simular_erp?" + filtrosEnviosNacionales()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderEnviosNacionales(response.depurar || {});
+        }).catch(function (error) {
+            $("rentabilidad_envios_resumen").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+            $("rentabilidad_envios_recomendacion").innerHTML = "";
+            $("rentabilidad_envios_items").innerHTML = "";
+        });
+    }
+    function renderEnviosNacionales(data) {
+        var resumen = data.resumen || {};
+        var escenario = data.escenario || {};
+        var lista = data.lista || {};
+        $("rentabilidad_envios_resumen").innerHTML =
+            "<div class=\"d-flex flex-wrap gap-2 mb-4\">" +
+            "<span class=\"badge badge-light-primary\">Lista " + escapeHtml(lista.codigo || "") + "</span>" +
+            "<span class=\"badge badge-light-secondary\">SKUs " + Number(resumen.skus || 0) + "</span>" +
+            "<span class=\"badge badge-light-success\">Aptos gratis " + Number(resumen.apto_envio_gratis || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Solo cobrado " + Number(resumen.solo_envio_cobrado || 0) + "</span>" +
+            "<span class=\"badge badge-light-danger\">No subsidiar " + Number(resumen.no_subsidiar || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Resolver datos " + Number(resumen.resolver_datos || 0) + "</span>" +
+            "<span class=\"badge badge-light-primary\">Utilidad politica " + dinero(resumen.utilidad_politica_configurada || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Subsidio " + dinero(resumen.subsidio_configurado || 0) + "</span>" +
+            "</div>" +
+            "<div class=\"text-muted fs-8\">Gasto fijo " + pct(escenario.gasto_pct || 0) + " / Costo envio " + dinero(escenario.costo_envio || 0) + " / Cobro al cliente " + dinero(escenario.envio_cobrado || 0) + " / Gratis desde " + dinero(escenario.envio_gratis_desde || 0) + "</div>";
+        renderRecomendacionEnviosNacionales(data.recomendacion || {});
+        $("rentabilidad_envios_items").innerHTML = (data.items || []).map(renderItemEnvioNacional).join("") ||
+            "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\">Sin productos para evaluar</td></tr>";
+    }
+    function renderRecomendacionEnviosNacionales(item) {
+        $("rentabilidad_envios_recomendacion").innerHTML =
+            "<div class=\"row g-4\">" +
+            "<div class=\"col-xl-3 col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"text-muted fs-8\">Umbral sugerido</div><div class=\"fw-bold fs-3\">" + dinero(item.umbral_sugerido || 0) + "</div></div></div>" +
+            "<div class=\"col-xl-3 col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"text-muted fs-8\">P50</div><div class=\"fw-bold fs-3\">" + dinero(item.umbral_p50 || 0) + "</div></div></div>" +
+            "<div class=\"col-xl-3 col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"text-muted fs-8\">P75</div><div class=\"fw-bold fs-3\">" + dinero(item.umbral_p75 || 0) + "</div></div></div>" +
+            "<div class=\"col-xl-3 col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"text-muted fs-8\">P90</div><div class=\"fw-bold fs-3\">" + dinero(item.umbral_p90 || 0) + "</div></div></div>" +
+            "</div>" +
+            "<div class=\"alert alert-primary mt-4 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(item.mensaje || "") + "</div><div class=\"fs-8\">" + escapeHtml(item.criterio || "") + "</div></div>";
+    }
+    function renderItemEnvioNacional(item) {
+        return "<tr>" +
+            "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div></td>" +
+            "<td class=\"text-end\">" + dinero(item.precio_publico || 0) + "</td>" +
+            "<td class=\"text-end\"><div>" + dinero(item.costo_real_sin_impuesto || 0) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.origen_costo || "") + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold " + (Number(item.utilidad_envio_gratis || 0) < 0 ? "text-danger" : "text-success") + "\">" + dinero(item.utilidad_envio_gratis || 0) + "</div><div class=\"text-muted fs-8\">" + pct(item.margen_neto_gratis_pct || 0) + "</div></td>" +
+            "<td class=\"text-end\"><div>" + dinero(item.minimo_envio_gratis_con_impuesto || 0) + "</div><div class=\"text-muted fs-8\">Brecha " + dinero(item.brecha_para_envio_gratis || 0) + "</div></td>" +
+            "<td><span class=\"badge badge-light-" + escapeHtml(item.decision_tipo || "secondary") + "\">" + escapeHtml(item.decision_texto || "") + "</span></td>" +
+            "<td><div class=\"text-muted fs-8\">" + escapeHtml(item.siguiente_paso || "") + "</div></td>" +
+            "</tr>";
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-28
+     * Proposito: operar estudios temporales de rentabilidad por grupos de SKUs.
+     * Impacto: separa analisis puntual de grupos de la herramienta completa por lista.
+     * Contrato: usa endpoints read-only; no guarda estudios ni modifica precios.
+     */
+    function cargarListasRentabilidadEstudio() {
+        return request("/rentabilidad/listas_precios_erp?estatus=&limite=200").then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var items = (response.depurar || {}).items || [];
+            var select = $("rentabilidad_estudio_lista_precio");
+            var valorActual = select.value;
+            select.innerHTML = items.map(function (item) {
+                return "<option value=\"" + Number(item.id_lista_precio || 0) + "\">" + escapeHtml(item.codigo || "") + " - " + escapeHtml(item.nombre || "") + " (" + escapeHtml(item.canal || "general") + ")</option>";
+            }).join("");
+            if (valorActual && Array.prototype.some.call(select.options, function (opt) { return opt.value === valorActual; })) {
+                select.value = valorActual;
+            }
+            if (!select.value && select.options.length) {
+                select.value = select.options[0].value;
+            }
+            renderSeleccionEstudioRentabilidad();
+        }).catch(function (error) {
+            $("rentabilidad_estudio_resultado").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+            throw error;
+        });
+    }
+    function cargarCategoriasEstudioRentabilidad() {
+        return request("/rentabilidad/estudios_categorias_erp?limite=400").then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var items = (response.depurar || {}).items || [];
+            var select = $("rentabilidad_estudio_categoria");
+            var valor = select.value;
+            select.innerHTML = "<option value=\"\">Todas las categorias</option>" + items.map(function (item) {
+                return "<option value=\"" + Number(item.id_categoria_erp || 0) + "\">" + escapeHtml(item.ruta || item.nombre || item.codigo || "") + "</option>";
+            }).join("");
+            if (valor && Array.prototype.some.call(select.options, function (opt) { return opt.value === valor; })) {
+                select.value = valor;
+            }
+        });
+    }
+    function filtrosEstudiosRentabilidad() {
+        return new URLSearchParams({
+            q: $("rentabilidad_estudios_buscar").value.trim(),
+            estatus: $("rentabilidad_estudios_estatus").value,
+            limite: "80"
+        }).toString();
+    }
+    function cargarEstudiosRentabilidad() {
+        return request("/rentabilidad/estudios_guardados_erp?" + filtrosEstudiosRentabilidad()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderEstudiosRentabilidad(response.depurar || {});
+        }).catch(function (error) {
+            $("rentabilidad_estudios_tabla").innerHTML = "<tr><td colspan=\"6\" class=\"text-center text-danger py-10\">" + escapeHtml(error.message) + "</td></tr>";
+        });
+    }
+    function renderEstudiosRentabilidad(data) {
+        var resumen = data.resumen || {};
+        $("rentabilidad_estudios_resumen").innerHTML =
+            "<div class=\"d-flex flex-wrap gap-2\">" +
+            "<span class=\"badge badge-light-primary\">Total " + Number(resumen.total || 0) + "</span>" +
+            "<span class=\"badge badge-light-success\">Activos " + Number(resumen.activos || 0) + "</span>" +
+            "<span class=\"badge badge-light-secondary\">Borrador " + Number(resumen.borrador || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Cerrados " + Number(resumen.cerrados || 0) + "</span>" +
+            "</div>";
+        if (data.schema_pendiente) {
+            $("rentabilidad_estudios_tabla").innerHTML =
+                "<tr><td colspan=\"6\" class=\"text-center py-10\"><div class=\"fw-bold mb-1\">Aun no hay esquema para guardar estudios</div><div class=\"text-muted fs-8\">" + escapeHtml(data.siguiente_paso || "Solicita aplicar esquema de estudios para guardar.") + "</div></td></tr>";
+            return;
+        }
+        $("rentabilidad_estudios_tabla").innerHTML = (data.items || []).map(function (item) {
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.folio || "") + " / " + escapeHtml(item.objetivo || "") + "</div></td>" +
+                "<td><div>" + escapeHtml(item.lista_codigo || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.lista_nombre || "") + "</div></td>" +
+                "<td class=\"text-end\"><span class=\"badge badge-light-primary\">" + Number(item.total_skus || 0) + "</span></td>" +
+                "<td><div class=\"text-muted fs-8\">Gasto " + pct(item.gasto_pct) + " / Com. " + pct(item.comision_pct) + "</div><div class=\"text-muted fs-8\">Margen " + pct(item.margen_objetivo_pct) + " / Ajuste " + pct(item.ajuste_pct) + "</div></td>" +
+                "<td><span class=\"badge badge-light-info\">" + escapeHtml(item.estatus || "") + "</span></td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-estudio-abrir=\"" + Number(item.id_estudio || 0) + "\"><i class=\"bi bi-folder2-open\"></i> Abrir</button></td>" +
+                "</tr>";
+        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">No hay estudios guardados con los filtros actuales</td></tr>";
+    }
+    function filtrosBusquedaEstudioRentabilidad() {
+        return new URLSearchParams({
+            id_lista_precio: $("rentabilidad_estudio_lista_precio").value,
+            q: $("rentabilidad_estudio_buscar").value.trim(),
+            id_categoria_erp: $("rentabilidad_estudio_categoria").value,
+            limite: "30"
+        }).toString();
+    }
+    function filtrosAnalisisEstudioRentabilidad() {
+        return new URLSearchParams({
+            id_lista_precio: $("rentabilidad_estudio_lista_precio").value,
+            nombre: $("rentabilidad_estudio_nombre").value.trim(),
+            objetivo: $("rentabilidad_estudio_objetivo").value,
+            ids_sku: Object.keys(rentabilidadEstudioSeleccion).join(","),
+            gasto_pct: $("rentabilidad_estudio_gasto").value,
+            comision_pct: $("rentabilidad_estudio_comision").value,
+            margen_objetivo_pct: $("rentabilidad_estudio_objetivo_margen").value,
+            ajuste_pct: $("rentabilidad_estudio_ajuste").value,
+            limite: "120"
+        }).toString();
+    }
+    function buscarSkusEstudioRentabilidad() {
+        if (!$("rentabilidad_estudio_lista_precio").value) {
+            $("rentabilidad_estudio_disponibles").innerHTML = "<tr><td colspan=\"4\" class=\"text-center text-muted py-10\">Sin lista base disponible</td></tr>";
+            return Promise.resolve();
+        }
+        return request("/rentabilidad/estudios_buscar_skus_erp?" + filtrosBusquedaEstudioRentabilidad()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderSkusDisponiblesEstudio(response.depurar || {});
+        }).catch(function (error) {
+            $("rentabilidad_estudio_disponibles").innerHTML = "<tr><td colspan=\"4\" class=\"text-center text-danger py-10\">" + escapeHtml(error.message) + "</td></tr>";
+        });
+    }
+    function renderSkusDisponiblesEstudio(data) {
+        $("rentabilidad_estudio_disponibles").innerHTML = (data.items || []).map(function (item) {
+            var deshabilitado = rentabilidadEstudioSeleccion[item.id_sku] ? " disabled" : "";
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div></td>" +
+                "<td><div class=\"text-muted fs-8\">" + escapeHtml(item.categoria || "Sin categoria") + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.precio_lista) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.moneda || "MXN") + "</div></td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-estudio-agregar=\"" + Number(item.id_sku || 0) + "\" data-sku=\"" + escapeHtml(item.sku || "") + "\" data-producto=\"" + escapeHtml(item.producto || "") + "\"" + deshabilitado + "><i class=\"bi bi-plus-lg\"></i></button></td>" +
+                "</tr>";
+        }).join("") || "<tr><td colspan=\"4\" class=\"text-center text-muted py-10\">Sin productos para la busqueda actual</td></tr>";
+    }
+    function mostrarEditorEstudioRentabilidad(mostrar) {
+        ["rentabilidad_estudio_editor_card", "rentabilidad_estudio_trabajo", "rentabilidad_estudio_resultado_card", "rentabilidad_estudio_detalle_card"].forEach(function (id) {
+            $(id).classList.toggle("d-none", !mostrar);
+        });
+        $("rentabilidad_estudios_bandeja_card").classList.toggle("d-none", mostrar);
+    }
+    function abrirNuevoEstudioRentabilidad() {
+        $("rentabilidad_estudio_id").value = "";
+        $("rentabilidad_estudio_nombre").value = "";
+        $("rentabilidad_estudio_objetivo").value = "revision_margen";
+        $("rentabilidad_estudio_gasto").value = "0";
+        $("rentabilidad_estudio_comision").value = "0";
+        $("rentabilidad_estudio_objetivo_margen").value = "20";
+        $("rentabilidad_estudio_ajuste").value = "0";
+        $("rentabilidad_estudio_categoria").value = "";
+        $("rentabilidad_estudio_buscar").value = "";
+        rentabilidadEstudioSeleccion = {};
+        $("rentabilidad_estudio_resultado").innerHTML = "";
+        $("rentabilidad_estudio_detalle").innerHTML = "";
+        mostrarEditorEstudioRentabilidad(true);
+        renderSeleccionEstudioRentabilidad();
+        buscarSkusEstudioRentabilidad();
+    }
+    function abrirEstudioGuardadoRentabilidad(idEstudio) {
+        return request("/rentabilidad/estudio_consultar_erp?id_estudio=" + encodeURIComponent(idEstudio)).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var data = response.depurar || {};
+            var estudio = data.estudio || {};
+            $("rentabilidad_estudio_id").value = estudio.id_estudio || "";
+            $("rentabilidad_estudio_nombre").value = estudio.nombre || "";
+            $("rentabilidad_estudio_objetivo").value = estudio.objetivo || "revision_margen";
+            $("rentabilidad_estudio_lista_precio").value = estudio.id_lista_precio || "";
+            $("rentabilidad_estudio_gasto").value = estudio.gasto_pct == null ? 0 : estudio.gasto_pct;
+            $("rentabilidad_estudio_comision").value = estudio.comision_pct == null ? 0 : estudio.comision_pct;
+            $("rentabilidad_estudio_objetivo_margen").value = estudio.margen_objetivo_pct == null ? 20 : estudio.margen_objetivo_pct;
+            $("rentabilidad_estudio_ajuste").value = estudio.ajuste_pct == null ? 0 : estudio.ajuste_pct;
+            rentabilidadEstudioSeleccion = {};
+            (data.items || []).forEach(function (item) {
+                rentabilidadEstudioSeleccion[String(Number(item.id_sku || 0))] = {id_sku: Number(item.id_sku || 0), sku: item.sku || "", producto: item.producto || ""};
+            });
+            mostrarEditorEstudioRentabilidad(true);
+            renderSeleccionEstudioRentabilidad();
+            buscarSkusEstudioRentabilidad();
+            analizarEstudioRentabilidad();
+        }).catch(function (error) {
+            Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
+        });
+    }
+    function agregarSkuEstudioRentabilidad(idSku, sku, producto) {
+        idSku = String(Number(idSku || 0));
+        if (idSku === "0") { return; }
+        rentabilidadEstudioSeleccion[idSku] = {id_sku: Number(idSku), sku: sku || "", producto: producto || ""};
+        renderSeleccionEstudioRentabilidad();
+        buscarSkusEstudioRentabilidad();
+    }
+    function quitarSkuEstudioRentabilidad(idSku) {
+        delete rentabilidadEstudioSeleccion[String(Number(idSku || 0))];
+        renderSeleccionEstudioRentabilidad();
+        buscarSkusEstudioRentabilidad();
+    }
+    function renderSeleccionEstudioRentabilidad() {
+        var items = Object.keys(rentabilidadEstudioSeleccion).map(function (key) { return rentabilidadEstudioSeleccion[key]; });
+        $("rentabilidad_estudio_seleccion_resumen").innerHTML =
+            "<div class=\"d-flex flex-wrap gap-2\">" +
+            "<span class=\"badge badge-light-primary\">Seleccionados " + items.length + "</span>" +
+            "<span class=\"badge badge-light-info\">Modo read-only</span>" +
+            "</div>";
+        $("rentabilidad_estudio_seleccion").innerHTML = items.map(function (item) {
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div></td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-danger\" type=\"button\" data-estudio-quitar=\"" + Number(item.id_sku || 0) + "\"><i class=\"bi bi-trash\"></i></button></td>" +
+                "</tr>";
+        }).join("") || "<tr><td colspan=\"2\" class=\"text-center text-muted py-10\">Agrega productos desde la busqueda para formar el grupo</td></tr>";
+    }
+    function limpiarEstudioRentabilidad() {
+        rentabilidadEstudioSeleccion = {};
+        $("rentabilidad_estudio_resultado").innerHTML = "";
+        $("rentabilidad_estudio_detalle").innerHTML = "";
+        renderSeleccionEstudioRentabilidad();
+        buscarSkusEstudioRentabilidad();
+    }
+    function analizarEstudioRentabilidad() {
+        if (!Object.keys(rentabilidadEstudioSeleccion).length) {
+            Swal.fire({text: "Agrega al menos un SKU al estudio", icon: "warning", confirmButtonText: "Aceptar"});
+            return Promise.resolve();
+        }
+        return request("/rentabilidad/estudios_analizar_erp?" + filtrosAnalisisEstudioRentabilidad()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderAnalisisEstudioRentabilidad(response.depurar || {});
+        }).catch(function (error) {
+            $("rentabilidad_estudio_resultado").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+        });
+    }
+    function guardarEstudioRentabilidad() {
+        if (!(window.RENTABILIDAD_PERMISOS || {}).snapshot) {
+            Swal.fire({text: "Tu usuario no tiene permiso para guardar estudios de rentabilidad.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        if (!Object.keys(rentabilidadEstudioSeleccion).length) {
+            Swal.fire({text: "Agrega al menos un SKU antes de guardar el estudio", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        Swal.fire({
+            title: "Respaldo externo",
+            text: "Indica la referencia o ruta del respaldo antes de guardar el estudio.",
+            input: "text",
+            inputPlaceholder: "Ej. C:\\xampp\\panel_db_backups\\...",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Continuar",
+            cancelButtonText: "Cancelar",
+            inputValidator: function (value) {
+                return value && value.trim().length >= 8 ? undefined : "Captura una referencia de respaldo valida";
+            }
+        }).then(function (respaldo) {
+            if (!respaldo.isConfirmed) { return; }
+            return Swal.fire({
+                title: "Confirmar guardado",
+                html: "Escribe <strong>AUTORIZO GUARDAR ESTUDIO RENTABILIDAD</strong> para continuar.",
+                input: "text",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Guardar",
+                cancelButtonText: "Cancelar",
+                inputValidator: function (value) {
+                    return value === "AUTORIZO GUARDAR ESTUDIO RENTABILIDAD" ? undefined : "La frase no coincide";
+                }
+            }).then(function (confirmacion) {
+                if (!confirmacion.isConfirmed) { return; }
+                var data = {
+                    id_estudio: $("rentabilidad_estudio_id").value,
+                    nombre: $("rentabilidad_estudio_nombre").value.trim(),
+                    objetivo: $("rentabilidad_estudio_objetivo").value,
+                    id_lista_precio: $("rentabilidad_estudio_lista_precio").value,
+                    ids_sku: Object.keys(rentabilidadEstudioSeleccion).join(","),
+                    gasto_pct: $("rentabilidad_estudio_gasto").value,
+                    comision_pct: $("rentabilidad_estudio_comision").value,
+                    margen_objetivo_pct: $("rentabilidad_estudio_objetivo_margen").value,
+                    ajuste_pct: $("rentabilidad_estudio_ajuste").value,
+                    respaldo_externo_ref: respaldo.value.trim(),
+                    confirmar_autorizacion: confirmacion.value
+                };
+                post("/rentabilidad/estudio_guardar_erp", data).then(function (response) {
+                    if (response.error) { throw new Error(response.mensaje); }
+                    Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                    mostrarEditorEstudioRentabilidad(false);
+                    cargarEstudiosRentabilidad();
+                }).catch(function (error) {
+                    Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
+                });
+            });
+        });
+    }
+    function renderAnalisisEstudioRentabilidad(data) {
+        var resumen = data.resumen || {};
+        var lista = data.lista || {};
+        var estudio = data.estudio || {};
+        $("rentabilidad_estudio_resultado").innerHTML =
+            "<div class=\"d-flex flex-wrap gap-2 mb-4\">" +
+            "<span class=\"badge badge-light-primary\">" + escapeHtml(estudio.nombre || "Estudio temporal") + "</span>" +
+            "<span class=\"badge badge-light-info\">Lista " + escapeHtml(lista.codigo || "") + "</span>" +
+            "<span class=\"badge badge-light-secondary\">SKUs " + Number(resumen.skus || 0) + "</span>" +
+            "<span class=\"badge badge-light-success\">Rentables " + Number(resumen.rentables || 0) + "</span>" +
+            "<span class=\"badge badge-light-danger\">Perdida " + Number(resumen.perdida || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Margen bajo " + Number(resumen.margen_bajo || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Sin costo " + Number(resumen.sin_costo || 0) + "</span>" +
+            "<span class=\"badge badge-light-primary\">Utilidad " + dinero(resumen.utilidad_estimada || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Ajuste sugerido " + dinero(resumen.delta_sugerido || 0) + "</span>" +
+            "<span class=\"badge badge-light-secondary\">Faltantes lista " + Number(resumen.faltantes_en_lista || 0) + "</span>" +
+            "</div>" +
+            "<div class=\"text-muted fs-8\">El resultado es temporal y no escribe en Listas, Catalogo ni Ventas.</div>";
+        $("rentabilidad_estudio_detalle").innerHTML = (data.items || []).map(renderItemListaRentabilidad).join("") ||
+            "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin detalle para la seleccion actual</td></tr>";
+    }
     function renderPropuestasListaRentabilidad(propuestas) {
         var contenedor = $("rentabilidad_herramienta_propuestas");
         if (!contenedor) { return; }
@@ -712,6 +1108,7 @@
             "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.costo_real_sin_impuesto) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.origen_costo || "") + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + pct(item.margen_bruto_pct) + "</div><div class=\"text-muted fs-8\">Bruta " + dinero(item.utilidad_bruta) + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.utilidad_estimada) + "</div><div class=\"text-muted fs-8\">" + pct(item.utilidad_estimada_pct) + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.gastos_estimados) + "</div><div class=\"text-muted fs-8\">Importe gasto</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + (item.precio_minimo_rentable_sin_impuesto == null ? "-" : dinero(item.precio_minimo_rentable_sin_impuesto)) + "</div><div class=\"text-muted fs-8\">Sug. " + (item.precio_sugerido_con_impuesto == null ? "-" : dinero(item.precio_sugerido_con_impuesto)) + "</div></td>" +
             "<td>" + badgeRiesgo(item) + hallazgos + "</td>" +
             "<td><div class=\"text-muted fs-8\">" + escapeHtml(item.siguiente_paso || "") + "</div></td>" +
@@ -1835,6 +2232,8 @@
         var vista = window.RENTABILIDAD_VISTA || "analisis";
         var visibles = {
             herramienta: ["Resumen de lista", "Atencion de costos", "Propuestas read-only", "Productos de la lista"],
+            estudios: ["Estudios guardados", "Editor de estudio", "Productos disponibles", "Productos del estudio", "Resultado del estudio", "Detalle de rentabilidad"],
+            envios_nacionales: ["Resumen nacional", "Politica sugerida", "Productos evaluados"],
             analisis: ["Tablero ejecutivo", "Estado del modulo", "Preflight uso comercial", "Plan de desbloqueo", "Auditoria final", "Recomendaciones operativas"],
             skus: ["Escenarios comerciales", "Matriz de escenarios", "Canal recomendado", "Precios objetivo", "Sensibilidad"],
             incidencias_costos: ["Incidencias de costo desde Catalogo"],
@@ -1880,6 +2279,75 @@
             $("rentabilidad_buscar").addEventListener("input", programarCarga);
             $("rentabilidad_buscar").addEventListener("keydown", function (event) {
                 if (event.key === "Enter") { event.preventDefault(); cargar(); }
+            });
+            cargar();
+            return;
+        }
+        if ((window.RENTABILIDAD_VISTA || "analisis") === "envios_nacionales") {
+            $("rentabilidad_envios_recargar").addEventListener("click", cargarEnviosNacionales);
+            $("rentabilidad_envios_lista_precio").addEventListener("change", cargarEnviosNacionales);
+            $("rentabilidad_envios_buscar").addEventListener("input", function () {
+                clearTimeout(rentabilidadTimerBusqueda);
+                rentabilidadTimerBusqueda = setTimeout(cargarEnviosNacionales, 450);
+            });
+            $("rentabilidad_envios_buscar").addEventListener("keydown", function (event) {
+                if (event.key === "Enter") { event.preventDefault(); cargarEnviosNacionales(); }
+            });
+            ["rentabilidad_envios_gasto", "rentabilidad_envios_costo", "rentabilidad_envios_cobrado", "rentabilidad_envios_gratis_desde", "rentabilidad_envios_comision", "rentabilidad_envios_margen"].forEach(function (id) {
+                $(id).addEventListener("change", cargarEnviosNacionales);
+            });
+            cargarListasEnviosNacionales().then(cargarEnviosNacionales).catch(function (error) {
+                $("rentabilidad_envios_resumen").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+            });
+            return;
+        }
+        if ((window.RENTABILIDAD_VISTA || "analisis") === "estudios") {
+            $("rentabilidad_estudios_recargar").addEventListener("click", cargarEstudiosRentabilidad);
+            $("rentabilidad_estudio_nuevo").addEventListener("click", abrirNuevoEstudioRentabilidad);
+            $("rentabilidad_estudio_cancelar").addEventListener("click", function () {
+                mostrarEditorEstudioRentabilidad(false);
+                cargarEstudiosRentabilidad();
+            });
+            $("rentabilidad_estudio_guardar").addEventListener("click", guardarEstudioRentabilidad);
+            $("rentabilidad_estudios_estatus").addEventListener("change", cargarEstudiosRentabilidad);
+            $("rentabilidad_estudios_buscar").addEventListener("input", function () {
+                clearTimeout(rentabilidadTimerBusqueda);
+                rentabilidadTimerBusqueda = setTimeout(cargarEstudiosRentabilidad, 350);
+            });
+            $("rentabilidad_estudios_tabla").addEventListener("click", function (event) {
+                var boton = event.target.closest("[data-estudio-abrir]");
+                if (boton) { abrirEstudioGuardadoRentabilidad(boton.getAttribute("data-estudio-abrir")); }
+            });
+            $("rentabilidad_estudio_lista_precio").addEventListener("change", function () {
+                rentabilidadEstudioSeleccion = {};
+                renderSeleccionEstudioRentabilidad();
+                buscarSkusEstudioRentabilidad();
+            });
+            $("rentabilidad_estudio_categoria").addEventListener("change", buscarSkusEstudioRentabilidad);
+            $("rentabilidad_estudio_buscar_btn").addEventListener("click", buscarSkusEstudioRentabilidad);
+            $("rentabilidad_estudio_buscar").addEventListener("input", function () {
+                clearTimeout(rentabilidadTimerBusqueda);
+                rentabilidadTimerBusqueda = setTimeout(buscarSkusEstudioRentabilidad, 350);
+            });
+            $("rentabilidad_estudio_buscar").addEventListener("keydown", function (event) {
+                if (event.key === "Enter") { event.preventDefault(); buscarSkusEstudioRentabilidad(); }
+            });
+            $("rentabilidad_estudio_analizar").addEventListener("click", analizarEstudioRentabilidad);
+            $("rentabilidad_estudio_limpiar").addEventListener("click", limpiarEstudioRentabilidad);
+            ["rentabilidad_estudio_gasto", "rentabilidad_estudio_comision", "rentabilidad_estudio_objetivo_margen", "rentabilidad_estudio_ajuste"].forEach(function (id) {
+                $(id).addEventListener("change", function () {
+                    if (Object.keys(rentabilidadEstudioSeleccion).length) { analizarEstudioRentabilidad(); }
+                });
+            });
+            $("rentabilidad_estudio_disponibles").addEventListener("click", function (event) {
+                var boton = event.target.closest("[data-estudio-agregar]");
+                if (boton) {
+                    agregarSkuEstudioRentabilidad(boton.getAttribute("data-estudio-agregar"), boton.getAttribute("data-sku"), boton.getAttribute("data-producto"));
+                }
+            });
+            $("rentabilidad_estudio_seleccion").addEventListener("click", function (event) {
+                var boton = event.target.closest("[data-estudio-quitar]");
+                if (boton) { quitarSkuEstudioRentabilidad(boton.getAttribute("data-estudio-quitar")); }
             });
             cargar();
             return;

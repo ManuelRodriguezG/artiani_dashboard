@@ -5,6 +5,9 @@
     var clientes = [];
     var cotizaciones = [];
     var productos = [];
+    var surtidos = [];
+    var inventarios = [];
+    var sugeridos = [];
     var listas = [];
     var permisosComerciales = [];
     var permisosUi = window.DISTRIBUCION_ADMIN_PERMISOS || {};
@@ -90,6 +93,10 @@
             "distribucion.inventario.ver_disponibilidad": "Ver disponibilidad confirmada",
             "distribucion.cotizacion.solicitar": "Solicitar cotizacion",
             "distribucion.pedido.preliminar": "Enviar solicitud de pedido",
+            "distribucion.surtido.gestionar": "Gestionar surtido habitual",
+            "distribucion.inventario_cliente.gestionar": "Gestionar inventario propio",
+            "distribucion.resurtido.sugerido": "Ver sugerido de resurtido",
+            "distribucion.pedido.ver": "Ver pedidos propios",
             "distribucion.catalogo.descargar": "Descargar catalogo",
             "distribucion.cuenta.editar": "Editar cuenta"
         };
@@ -319,6 +326,63 @@
         }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">Sin cotizaciones</td></tr>";
     }
 
+    function numero(value) {
+        return Number(value || 0).toLocaleString("es-MX", {minimumFractionDigits: 0, maximumFractionDigits: 2});
+    }
+
+    function filtroTexto(item) {
+        return [
+            item.cliente,
+            item.empresa,
+            item.correo,
+            item.sku,
+            item.nombre_sku,
+            item.producto,
+            item.alias_cliente,
+            item.ubicacion_cliente
+        ].join(" ").toLowerCase();
+    }
+
+    function renderSurtidos() {
+        var lista = document.getElementById("dist_surtidos_lista");
+        if (!lista) { return; }
+        var q = (document.getElementById("dist_surtidos_buscar").value || "").toLowerCase();
+        var visibles = surtidos.filter(function (item) { return filtroTexto(item).indexOf(q) !== -1; });
+        document.getElementById("dist_surtidos_total").textContent = visibles.length;
+        lista.innerHTML = visibles.map(function (item) {
+            var alias = [item.alias_cliente, item.ubicacion_cliente].filter(Boolean).join(" / ");
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.cliente || ("Cliente " + item.id_cliente_distribucion)) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.empresa || item.correo || "") + "</div></td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_sku || item.producto || "") + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.sku || ("SKU " + item.id_sku)) + "</div></td>" +
+                "<td>" + escapeHtml(alias || "Sin alias") + "</td><td>" + escapeHtml(item.prioridad || 0) + "</td><td>" + badge(item.estatus || "activo") + "</td></tr>";
+        }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-10\">Sin productos seleccionados</td></tr>";
+    }
+
+    function renderInventarioTabla(items, listaId, totalId, vacio) {
+        var lista = document.getElementById(listaId);
+        if (!lista) { return; }
+        document.getElementById(totalId).textContent = items.length;
+        lista.innerHTML = items.map(function (item) {
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.cliente || ("Cliente " + item.id_cliente_distribucion)) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.empresa || item.correo || "") + "</div></td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_sku || item.producto || "") + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.sku || ("SKU " + item.id_sku)) + "</div></td>" +
+                "<td class=\"text-end\">" + numero(item.existencia_cliente) + "</td>" +
+                "<td class=\"text-end\">" + numero(item.minimo) + " / " + numero(item.maximo) + "</td>" +
+                "<td class=\"text-end fw-bold\">" + numero(item.cantidad_sugerida) + "</td>" +
+                "<td class=\"text-muted fs-7\">" + escapeHtml(item.fecha_conteo || item.fecha_actualizacion || "") + "</td></tr>";
+        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">" + escapeHtml(vacio) + "</td></tr>";
+    }
+
+    function renderInventarios() {
+        var q = (document.getElementById("dist_inventarios_buscar").value || "").toLowerCase();
+        var visibles = inventarios.filter(function (item) { return filtroTexto(item).indexOf(q) !== -1; });
+        renderInventarioTabla(visibles, "dist_inventarios_lista", "dist_inventarios_total", "Sin inventarios de clientes");
+    }
+
+    function renderSugeridos() {
+        var q = (document.getElementById("dist_sugeridos_buscar").value || "").toLowerCase();
+        var visibles = sugeridos.filter(function (item) { return filtroTexto(item).indexOf(q) !== -1; });
+        renderInventarioTabla(visibles, "dist_sugeridos_lista", "dist_sugeridos_total", "Sin sugeridos de resurtido");
+    }
+
     function renderProductos() {
         var lista = document.getElementById("dist_productos_lista");
         if (!lista) { return; }
@@ -359,6 +423,27 @@
         });
     }
 
+    function cargarSurtidos() {
+        return request("/DistribucionAdmin/cliente_surtidos?limite=200").then(function (response) {
+            surtidos = response.depurar && response.depurar.items ? response.depurar.items : [];
+            renderSurtidos();
+        });
+    }
+
+    function cargarInventarios() {
+        return request("/DistribucionAdmin/cliente_inventarios?limite=200").then(function (response) {
+            inventarios = response.depurar && response.depurar.items ? response.depurar.items : [];
+            renderInventarios();
+        });
+    }
+
+    function cargarSugeridos() {
+        return request("/DistribucionAdmin/cliente_sugeridos?limite=200").then(function (response) {
+            sugeridos = response.depurar && response.depurar.items ? response.depurar.items : [];
+            renderSugeridos();
+        });
+    }
+
     function cargarProductos() {
         var q = "";
         var input = document.getElementById("dist_productos_buscar");
@@ -386,7 +471,7 @@
 
     function cargarTodo() {
         return cargarAuxiliares().then(function () {
-            return Promise.all([cargarSolicitudes(), cargarClientes(), cargarCotizaciones(), cargarProductos()]);
+            return Promise.all([cargarSolicitudes(), cargarClientes(), cargarCotizaciones(), cargarSurtidos(), cargarInventarios(), cargarSugeridos(), cargarProductos()]);
         }).catch(showError);
     }
 
@@ -597,6 +682,12 @@
             renderSolicitudes();
         } else if (event.target.id === "dist_clientes_buscar") {
             renderClientes();
+        } else if (event.target.id === "dist_surtidos_buscar") {
+            renderSurtidos();
+        } else if (event.target.id === "dist_inventarios_buscar") {
+            renderInventarios();
+        } else if (event.target.id === "dist_sugeridos_buscar") {
+            renderSugeridos();
         } else if (event.target.id === "dist_productos_buscar" && event.target.value.length === 0) {
             cargarProductos().catch(showError);
         }

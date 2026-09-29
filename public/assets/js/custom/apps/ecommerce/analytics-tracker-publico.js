@@ -147,6 +147,10 @@
     });
   }
 
+  function rawPost(path, payload, options) {
+    return post(path, withDefaults(payload || {}), options || {});
+  }
+
   function sanitize(value) {
     if (Array.isArray(value)) {
       return value.map(sanitize).filter(function (item) { return item !== undefined; });
@@ -230,6 +234,7 @@
     openWhatsapp: openWhatsapp,
     facturacionView: facturacionView,
     facturacionSubmit: facturacionSubmit,
+    rawPost: rawPost,
     sanitize: sanitize
   };
 

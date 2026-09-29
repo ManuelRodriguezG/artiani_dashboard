@@ -55,6 +55,10 @@ class DistribucionPermisosApi extends CRUD {
       "distribucion.inventario.ver_disponibilidad",
       "distribucion.cotizacion.solicitar",
       "distribucion.pedido.preliminar",
+      "distribucion.surtido.gestionar",
+      "distribucion.inventario_cliente.gestionar",
+      "distribucion.resurtido.sugerido",
+      "distribucion.pedido.ver",
       "distribucion.catalogo.descargar",
       "distribucion.cuenta.editar"
     );
@@ -68,13 +72,18 @@ class DistribucionPermisosApi extends CRUD {
    */
   public function accionesPermitidas($permisos) {
     $permisos = is_array($permisos) ? $permisos : array();
+    $puedeVerCatalogo = in_array("distribucion.catalogo.ver", $permisos, true);
     return array(
-      "ver_catalogo" => in_array("distribucion.catalogo.ver", $permisos, true),
-      "ver_detalle" => in_array("distribucion.catalogo.ver_detalle", $permisos, true),
+      "ver_catalogo" => $puedeVerCatalogo,
+      "ver_detalle" => $puedeVerCatalogo || in_array("distribucion.catalogo.ver_detalle", $permisos, true),
       "ver_precio" => in_array("distribucion.precio.ver_publico", $permisos, true) || in_array("distribucion.precio.ver_mayoreo", $permisos, true) || in_array("distribucion.precio.ver_lista_asignada", $permisos, true),
       "ver_disponibilidad" => in_array("distribucion.inventario.ver_disponibilidad", $permisos, true),
       "agregar_cotizacion" => in_array("distribucion.cotizacion.solicitar", $permisos, true),
       "pedido_preliminar" => in_array("distribucion.pedido.preliminar", $permisos, true),
+      "gestionar_surtido" => in_array("distribucion.surtido.gestionar", $permisos, true),
+      "gestionar_inventario_cliente" => in_array("distribucion.inventario_cliente.gestionar", $permisos, true),
+      "ver_sugerido_resurtido" => in_array("distribucion.resurtido.sugerido", $permisos, true),
+      "ver_pedidos" => in_array("distribucion.pedido.ver", $permisos, true),
       "descargar_catalogo" => in_array("distribucion.catalogo.descargar", $permisos, true),
       "editar_cuenta" => in_array("distribucion.cuenta.editar", $permisos, true)
     );
@@ -86,6 +95,16 @@ class DistribucionPermisosApi extends CRUD {
       $header = trim((string) $_SERVER["HTTP_AUTHORIZATION"]);
     } elseif (isset($_SERVER["REDIRECT_HTTP_AUTHORIZATION"])) {
       $header = trim((string) $_SERVER["REDIRECT_HTTP_AUTHORIZATION"]);
+    } elseif (isset($_SERVER["Authorization"])) {
+      $header = trim((string) $_SERVER["Authorization"]);
+    } elseif (function_exists("getallheaders")) {
+      $headers = getallheaders();
+      foreach ($headers as $nombre => $valor) {
+        if (strtolower((string) $nombre) === "authorization") {
+          $header = trim((string) $valor);
+          break;
+        }
+      }
     }
     if (stripos($header, "Bearer ") === 0) {
       return trim(substr($header, 7));

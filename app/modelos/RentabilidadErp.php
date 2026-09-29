@@ -161,6 +161,383 @@ class RentabilidadErp extends CRUD {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
     }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: buscar SKUs dentro de una lista base para armar estudios temporales de rentabilidad.
+     * Impacto: habilita analisis de grupos de productos sin guardar reportes ni tocar Listas.
+     * Contrato: read-only; no modifica Catalogo, Listas, Inventario ni Ventas.
+     */
+    public function buscarSkusEstudioRentabilidad($filtros = array()) {
+        try {
+            if (!$this->tablaExisteSimple("erp_listas_precios") || !$this->tablaExisteSimple("erp_listas_precios_detalle")) {
+                return $this->respuesta(true, "warning", "Falta esquema de listas de precios para buscar SKUs");
+            }
+            $idLista = intval(isset($filtros["id_lista_precio"]) ? $filtros["id_lista_precio"] : 0);
+            if ($idLista <= 0) {
+                return $this->respuesta(true, "warning", "Selecciona una lista base para buscar productos");
+            }
+            $db = $this->getConexion();
+            $lista = $this->consultarListaPrecioRentabilidad($db, $idLista);
+            if (!$lista) {
+                return $this->respuesta(true, "warning", "Lista de precios no encontrada");
+            }
+            $q = trim(isset($filtros["q"]) ? strval($filtros["q"]) : "");
+            $idCategoria = intval(isset($filtros["id_categoria_erp"]) ? $filtros["id_categoria_erp"] : 0);
+            $limite = max(5, min(80, intval(isset($filtros["limite"]) ? $filtros["limite"] : 30)));
+            $items = array();
+            foreach ($this->consultarFilasListaPrecio($db, $idLista, $q, $limite, array(), $idCategoria) as $fila) {
+                $items[] = array(
+                    "id_lista_precio_detalle" => intval($fila["id_lista_precio_detalle"]),
+                    "id_sku" => intval($fila["id_sku"]),
+                    "sku" => $fila["sku"],
+                    "producto" => $fila["producto"],
+                    "categoria" => isset($fila["categoria"]) ? $fila["categoria"] : "",
+                    "moneda" => $fila["moneda_precio"],
+                    "precio_lista" => round(floatval($fila["precio_lista"]), 6),
+                    "inventario_disponible" => round(floatval($fila["disponible_total"]), 4)
+                );
+            }
+            return $this->respuesta(false, "success", "SKUs disponibles para estudio consultados", array(
+                "lista" => $lista,
+                "items" => $items,
+                "reglas" => array(
+                    "La lista base aporta precios e impuestos para el analisis.",
+                    "La seleccion es temporal; guardar estudios requiere fase persistente autorizada.",
+                    "Rentabilidad no modifica la lista ni precios desde esta consulta."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: calcular un estudio temporal de rentabilidad para un grupo de SKUs seleccionado.
+     * Impacto: permite comparar familias, marcas, paquetes, derivados o grupos comerciales sin mezclar pantallas.
+     * Contrato: read-only/dry-run; no guarda reportes, no actualiza precios y no escribe costos.
+     */
+    public function analizarEstudioTemporal($filtros = array()) {
+        try {
+            if (!$this->tablaExisteSimple("erp_listas_precios") || !$this->tablaExisteSimple("erp_listas_precios_detalle")) {
+                return $this->respuesta(true, "warning", "Falta esquema de listas de precios para analizar estudios");
+            }
+            $idLista = intval(isset($filtros["id_lista_precio"]) ? $filtros["id_lista_precio"] : 0);
+            if ($idLista <= 0) {
+                return $this->respuesta(true, "warning", "Selecciona una lista base para analizar el estudio");
+            }
+            $ids = $this->idsSkuDesdeFiltro(isset($filtros["ids_sku"]) ? $filtros["ids_sku"] : "");
+            if (empty($ids)) {
+                return $this->respuesta(true, "warning", "Agrega al menos un SKU al estudio");
+            }
+            $db = $this->getConexion();
+            $lista = $this->consultarListaPrecioRentabilidad($db, $idLista);
+            if (!$lista) {
+                return $this->respuesta(true, "warning", "Lista de precios no encontrada");
+            }
+            $gastoPct = $this->porcentaje($filtros, "gasto_pct", 0);
+            $comisionPct = $this->porcentaje($filtros, "comision_pct", 0);
+            $margenObjetivoPct = $this->porcentaje($filtros, "margen_objetivo_pct", 20);
+            $ajustePct = $this->porcentajeAjusteLista($filtros, "ajuste_pct", 0);
+            $limite = max(count($ids), min(120, intval(isset($filtros["limite"]) ? $filtros["limite"] : 120)));
+
+            $items = array();
+            foreach ($this->consultarFilasListaPrecio($db, $idLista, "", $limite, $ids) as $fila) {
+                $items[] = $this->calcularItemListaPrecio($db, $fila, $lista, $gastoPct, $comisionPct, $margenObjetivoPct, $ajustePct);
+            }
+            $encontrados = array();
+            foreach ($items as $item) {
+                $encontrados[] = intval($item["id_sku"]);
+            }
+            $faltantes = array_values(array_diff($ids, $encontrados));
+            $resumen = $this->resumenListaPrecio($items);
+            $resumen["seleccionados"] = count($ids);
+            $resumen["faltantes_en_lista"] = count($faltantes);
+            $resumen["ticket_promedio_utilidad"] = count($items) > 0 ? round($resumen["utilidad_estimada"] / count($items), 6) : 0;
+
+            return $this->respuesta(false, "success", "Estudio temporal de rentabilidad calculado", array(
+                "estudio" => array(
+                    "nombre" => trim(isset($filtros["nombre"]) ? strval($filtros["nombre"]) : "Estudio temporal"),
+                    "objetivo" => trim(isset($filtros["objetivo"]) ? strval($filtros["objetivo"]) : "analisis"),
+                    "modo" => "read_only_temporal",
+                    "ids_sku_solicitados" => $ids,
+                    "ids_sku_faltantes_en_lista" => $faltantes
+                ),
+                "lista" => $lista,
+                "escenario" => array(
+                    "origen" => "estudio_temporal",
+                    "id_lista_precio" => $idLista,
+                    "canal" => $lista["canal"],
+                    "gasto_pct" => $gastoPct,
+                    "comision_pct" => $comisionPct,
+                    "margen_objetivo_pct" => $margenObjetivoPct,
+                    "ajuste_pct" => $ajustePct
+                ),
+                "resumen" => $resumen,
+                "propuestas" => $this->propuestasListaPrecio($items),
+                "items" => $items,
+                "reglas" => array(
+                    "Este estudio no se guarda en base de datos.",
+                    "La lista base solo aporta precios; Rentabilidad calcula costo y utilidad en read-only.",
+                    "Si algun SKU seleccionado no esta en la lista base, queda como faltante del estudio.",
+                    "Guardar estudios o enviar alertas persistentes requiere respaldo y autorizacion."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: listar estudios persistentes de rentabilidad cuando el esquema exista.
+     * Impacto: alimenta la bandeja principal de estudios guardados.
+     * Contrato: read-only; si falta esquema devuelve estado pendiente sin fallar.
+     */
+    public function listarEstudiosRentabilidad($filtros = array()) {
+        try {
+            if (!$this->tablaExisteSimple("erp_rentabilidad_estudios") || !$this->tablaExisteSimple("erp_rentabilidad_estudio_skus")) {
+                return $this->respuesta(false, "success", "Esquema de estudios pendiente", array(
+                    "items" => array(),
+                    "resumen" => array("total" => 0, "activos" => 0, "borrador" => 0, "cerrados" => 0),
+                    "schema_pendiente" => true,
+                    "siguiente_paso" => "Aplicar esquema de estudios con respaldo externo y autorizacion para guardar estudios."
+                ));
+            }
+            $db = $this->getConexion();
+            $q = trim(isset($filtros["q"]) ? strval($filtros["q"]) : "");
+            $estatus = trim(isset($filtros["estatus"]) ? strval($filtros["estatus"]) : "");
+            $limite = max(10, min(200, intval(isset($filtros["limite"]) ? $filtros["limite"] : 80)));
+            $where = array("1=1");
+            $params = array();
+            if ($q !== "") {
+                $where[] = "(e.folio LIKE :q OR e.nombre LIKE :q OR e.objetivo LIKE :q OR e.lista_nombre LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            if ($estatus !== "") {
+                $where[] = "e.estatus=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            $stmt = $db->prepare("SELECT e.id_estudio, e.folio, e.nombre, e.objetivo, e.id_lista_precio,
+                    e.lista_codigo, e.lista_nombre, e.canal, e.gasto_operativo_pct, e.comision_pct,
+                    e.margen_objetivo_pct, e.ajuste_pct, e.estatus, e.fecha_registro, e.fecha_actualizacion,
+                    COUNT(es.id_estudio_sku) total_skus
+                FROM erp_rentabilidad_estudios e
+                LEFT JOIN erp_rentabilidad_estudio_skus es ON es.id_estudio=e.id_estudio
+                WHERE " . implode(" AND ", $where) . "
+                GROUP BY e.id_estudio
+                ORDER BY e.fecha_actualizacion DESC, e.fecha_registro DESC
+                LIMIT " . $limite);
+            $stmt->execute($params);
+            $items = array();
+            $resumen = array("total" => 0, "activos" => 0, "borrador" => 0, "cerrados" => 0);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $estatusFila = isset($fila["estatus"]) ? $fila["estatus"] : "";
+                $resumen["total"]++;
+                if ($estatusFila === "activo") { $resumen["activos"]++; }
+                if ($estatusFila === "borrador") { $resumen["borrador"]++; }
+                if ($estatusFila === "cerrado") { $resumen["cerrados"]++; }
+                $items[] = array(
+                    "id_estudio" => intval($fila["id_estudio"]),
+                    "folio" => $fila["folio"],
+                    "nombre" => $fila["nombre"],
+                    "objetivo" => $fila["objetivo"],
+                    "id_lista_precio" => intval($fila["id_lista_precio"]),
+                    "lista_codigo" => $fila["lista_codigo"],
+                    "lista_nombre" => $fila["lista_nombre"],
+                    "canal" => $fila["canal"],
+                    "gasto_pct" => round(floatval($fila["gasto_operativo_pct"]), 4),
+                    "comision_pct" => round(floatval($fila["comision_pct"]), 4),
+                    "margen_objetivo_pct" => round(floatval($fila["margen_objetivo_pct"]), 4),
+                    "ajuste_pct" => round(floatval($fila["ajuste_pct"]), 4),
+                    "estatus" => $estatusFila,
+                    "total_skus" => intval($fila["total_skus"]),
+                    "fecha_registro" => $fila["fecha_registro"],
+                    "fecha_actualizacion" => $fila["fecha_actualizacion"]
+                );
+            }
+            return $this->respuesta(false, "success", "Estudios de rentabilidad consultados", array(
+                "items" => $items,
+                "resumen" => $resumen,
+                "schema_pendiente" => false
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    public function consultarEstudioRentabilidad($filtros = array()) {
+        try {
+            if (!$this->tablaExisteSimple("erp_rentabilidad_estudios") || !$this->tablaExisteSimple("erp_rentabilidad_estudio_skus")) {
+                return $this->respuesta(true, "warning", "Esquema de estudios pendiente");
+            }
+            $id = intval(isset($filtros["id_estudio"]) ? $filtros["id_estudio"] : 0);
+            if ($id <= 0) {
+                return $this->respuesta(true, "warning", "Indica el estudio a consultar");
+            }
+            $db = $this->getConexion();
+            $stmt = $db->prepare("SELECT * FROM erp_rentabilidad_estudios WHERE id_estudio=:id LIMIT 1");
+            $stmt->execute(array(":id" => $id));
+            $estudio = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$estudio) {
+                return $this->respuesta(true, "warning", "Estudio no encontrado");
+            }
+            $stmtItems = $db->prepare("SELECT id_estudio_sku, id_sku, sku, producto, orden
+                FROM erp_rentabilidad_estudio_skus
+                WHERE id_estudio=:id
+                ORDER BY orden ASC, id_estudio_sku ASC");
+            $stmtItems->execute(array(":id" => $id));
+            return $this->respuesta(false, "success", "Estudio consultado", array(
+                "estudio" => array(
+                    "id_estudio" => intval($estudio["id_estudio"]),
+                    "folio" => $estudio["folio"],
+                    "nombre" => $estudio["nombre"],
+                    "objetivo" => $estudio["objetivo"],
+                    "id_lista_precio" => intval($estudio["id_lista_precio"]),
+                    "gasto_pct" => round(floatval($estudio["gasto_operativo_pct"]), 4),
+                    "comision_pct" => round(floatval($estudio["comision_pct"]), 4),
+                    "margen_objetivo_pct" => round(floatval($estudio["margen_objetivo_pct"]), 4),
+                    "ajuste_pct" => round(floatval($estudio["ajuste_pct"]), 4),
+                    "estatus" => $estudio["estatus"],
+                    "comentario" => $estudio["comentario"]
+                ),
+                "items" => $stmtItems->fetchAll(PDO::FETCH_ASSOC)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    public function guardarEstudioRentabilidad($datos = array(), $idUsuario = null) {
+        $db = $this->getConexion();
+        try {
+            $autorizacion = $this->validarAutorizacionEscritura($datos, "AUTORIZO GUARDAR ESTUDIO RENTABILIDAD", "guardar estudio de rentabilidad");
+            if (!empty($autorizacion["error"])) {
+                return $autorizacion;
+            }
+            if (!$this->tablaExisteSimple("erp_rentabilidad_estudios") || !$this->tablaExisteSimple("erp_rentabilidad_estudio_skus")) {
+                return $this->respuesta(true, "warning", "Antes de guardar estudios hay que aplicar el esquema de estudios con respaldo autorizado");
+            }
+            $idLista = intval(isset($datos["id_lista_precio"]) ? $datos["id_lista_precio"] : 0);
+            $ids = $this->idsSkuDesdeFiltro(isset($datos["ids_sku"]) ? $datos["ids_sku"] : "");
+            $nombre = trim(isset($datos["nombre"]) ? strval($datos["nombre"]) : "");
+            if ($idLista <= 0) {
+                return $this->respuesta(true, "warning", "Selecciona una lista base");
+            }
+            if ($nombre === "") {
+                return $this->respuesta(true, "warning", "Captura el nombre del estudio");
+            }
+            if (empty($ids)) {
+                return $this->respuesta(true, "warning", "Agrega al menos un SKU al estudio");
+            }
+            $lista = $this->consultarListaPrecioRentabilidad($db, $idLista);
+            if (!$lista) {
+                return $this->respuesta(true, "warning", "Lista de precios no encontrada");
+            }
+            $filas = $this->consultarFilasListaPrecio($db, $idLista, "", max(count($ids), 120), $ids);
+            if (empty($filas)) {
+                return $this->respuesta(true, "warning", "Los SKUs seleccionados no estan activos en la lista base");
+            }
+            $idEstudioExistente = intval(isset($datos["id_estudio"]) ? $datos["id_estudio"] : 0);
+            $folio = "EST-" . date("Ymd-His");
+            $db->beginTransaction();
+            $paramsEstudio = array(
+                ":nombre" => $nombre,
+                ":objetivo" => trim(isset($datos["objetivo"]) ? strval($datos["objetivo"]) : "revision_margen"),
+                ":lista" => $idLista,
+                ":lista_codigo" => $lista["codigo"],
+                ":lista_nombre" => $lista["nombre"],
+                ":canal" => $lista["canal"],
+                ":gasto" => $this->porcentaje($datos, "gasto_pct", 0),
+                ":comision" => $this->porcentaje($datos, "comision_pct", 0),
+                ":margen" => $this->porcentaje($datos, "margen_objetivo_pct", 20),
+                ":ajuste" => $this->porcentajeAjusteLista($datos, "ajuste_pct", 0),
+                ":filtros" => json_encode(array("ids_sku" => $ids), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ":comentario" => trim(isset($datos["comentario"]) ? strval($datos["comentario"]) : ""),
+                ":respaldo" => $autorizacion["depurar"]["respaldo_externo_ref"],
+                ":usuario" => intval($idUsuario) ?: null
+            );
+            if ($idEstudioExistente > 0) {
+                $stmtExiste = $db->prepare("SELECT id_estudio, folio FROM erp_rentabilidad_estudios WHERE id_estudio=:id LIMIT 1");
+                $stmtExiste->execute(array(":id" => $idEstudioExistente));
+                $actual = $stmtExiste->fetch(PDO::FETCH_ASSOC);
+                if (!$actual) {
+                    throw new Exception("Estudio no encontrado para actualizar");
+                }
+                $paramsEstudio[":id"] = $idEstudioExistente;
+                $stmt = $db->prepare("UPDATE erp_rentabilidad_estudios
+                    SET nombre=:nombre, objetivo=:objetivo, id_lista_precio=:lista, lista_codigo=:lista_codigo,
+                        lista_nombre=:lista_nombre, canal=:canal, gasto_operativo_pct=:gasto,
+                        comision_pct=:comision, margen_objetivo_pct=:margen, ajuste_pct=:ajuste,
+                        filtros_json=:filtros, comentario=:comentario, respaldo_externo_ref=:respaldo,
+                        actualizado_por=:usuario
+                    WHERE id_estudio=:id");
+                $stmt->execute($paramsEstudio);
+                $idEstudio = $idEstudioExistente;
+                $folio = $actual["folio"];
+                $db->prepare("DELETE FROM erp_rentabilidad_estudio_skus WHERE id_estudio=:id")->execute(array(":id" => $idEstudio));
+            } else {
+                $paramsEstudio[":folio"] = $folio;
+                $stmt = $db->prepare("INSERT INTO erp_rentabilidad_estudios
+                    (folio, nombre, objetivo, id_lista_precio, lista_codigo, lista_nombre, canal,
+                     gasto_operativo_pct, comision_pct, margen_objetivo_pct, ajuste_pct, filtros_json,
+                     estatus, comentario, respaldo_externo_ref, creado_por, actualizado_por)
+                    VALUES
+                    (:folio, :nombre, :objetivo, :lista, :lista_codigo, :lista_nombre, :canal,
+                     :gasto, :comision, :margen, :ajuste, :filtros, 'activo', :comentario, :respaldo, :usuario, :usuario)");
+                $stmt->execute($paramsEstudio);
+                $idEstudio = intval($db->lastInsertId());
+            }
+            $stmtItem = $db->prepare("INSERT INTO erp_rentabilidad_estudio_skus
+                (id_estudio, id_sku, sku, producto, orden)
+                VALUES (:estudio, :sku_id, :sku, :producto, :orden)");
+            $orden = 0;
+            foreach ($filas as $fila) {
+                $stmtItem->execute(array(
+                    ":estudio" => $idEstudio,
+                    ":sku_id" => intval($fila["id_sku"]),
+                    ":sku" => $fila["sku"],
+                    ":producto" => $fila["producto"],
+                    ":orden" => ++$orden
+                ));
+            }
+            $db->commit();
+            return $this->respuesta(false, "success", "Estudio de rentabilidad guardado", array(
+                "id_estudio" => $idEstudio,
+                "folio" => $folio,
+                "skus_guardados" => $orden,
+                "respaldo_externo_ref" => $autorizacion["depurar"]["respaldo_externo_ref"]
+            ));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    public function categoriasEstudioRentabilidad($filtros = array()) {
+        try {
+            if (!$this->tablaExisteSimple("erp_catalogo_categorias")) {
+                return $this->respuesta(false, "success", "No hay categorias ERP disponibles", array("items" => array()));
+            }
+            $db = $this->getConexion();
+            $stmt = $db->query("SELECT id_categoria_erp, codigo, nombre, ruta
+                FROM erp_catalogo_categorias
+                WHERE estatus='activa' AND permite_productos=1
+                ORDER BY COALESCE(ruta, nombre), nombre
+                LIMIT 400");
+            return $this->respuesta(false, "success", "Categorias consultadas", array(
+                "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
     public function analizarListaPrecios($filtros = array()) {
         try {
             if (!$this->tablaExisteSimple("erp_listas_precios") || !$this->tablaExisteSimple("erp_listas_precios_detalle")) {
@@ -213,6 +590,65 @@ class RentabilidadErp extends CRUD {
                     "Precio sin impuestos calculado con la configuracion fiscal del SKU.",
                     "Costo vigente resuelto por Rentabilidad sin escribir costos en Catalogo.",
                     "Las acciones sugeridas son alertas/propuestas; no modifican listas ni ventas."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: simular rentabilidad de ventas nacionales considerando gasto fijo, comision y subsidio de envio.
+     * Impacto: Rentabilidad ayuda a decidir envio barato/gratis por lista sin modificar precios ni promociones.
+     * Contrato: read-only; no escribe politicas, no cambia Listas, no afecta Ventas ni Ecommerce.
+     */
+    public function simularEnviosNacionales($filtros = array()) {
+        try {
+            $filtrosAnalisis = $filtros;
+            $filtrosAnalisis["riesgo"] = "";
+            $filtrosAnalisis["limite"] = isset($filtros["limite"]) ? $filtros["limite"] : 120;
+            $analisis = $this->analizarListaPrecios($filtrosAnalisis);
+            if (!empty($analisis["error"])) {
+                return $analisis;
+            }
+
+            $costoEnvio = $this->importeNoNegativo($filtros, "costo_envio", 180);
+            $envioCobrado = $this->importeNoNegativo($filtros, "envio_cobrado", 0);
+            $envioGratisDesde = $this->importeNoNegativo($filtros, "envio_gratis_desde", 0);
+            $margenObjetivoPct = $this->porcentaje($filtros, "margen_objetivo_pct", 15);
+            $gastoPct = $this->porcentaje($filtros, "gasto_pct", 23);
+            $comisionPct = $this->porcentaje($filtros, "comision_pct", 0);
+            $subsidioEnvioBarato = max(0, $costoEnvio - $envioCobrado);
+
+            $items = array();
+            foreach ($analisis["depurar"]["items"] as $item) {
+                $items[] = $this->calcularItemEnvioNacional($item, $gastoPct, $comisionPct, $margenObjetivoPct, $costoEnvio, $envioCobrado, $envioGratisDesde);
+            }
+            $resumen = $this->resumenEnviosNacionales($items);
+            $recomendacion = $this->recomendarPoliticaEnvioNacional($items, $costoEnvio, $envioCobrado, $envioGratisDesde);
+
+            return $this->respuesta(false, "success", "Simulacion de envios nacionales calculada", array(
+                "lista" => $analisis["depurar"]["lista"],
+                "escenario" => array(
+                    "origen" => "envios_nacionales",
+                    "gasto_pct" => $gastoPct,
+                    "comision_pct" => $comisionPct,
+                    "margen_objetivo_pct" => $margenObjetivoPct,
+                    "costo_envio" => $costoEnvio,
+                    "envio_cobrado" => $envioCobrado,
+                    "subsidio_envio_barato" => round($subsidioEnvioBarato, 6),
+                    "envio_gratis_desde" => $envioGratisDesde
+                ),
+                "resumen" => $resumen,
+                "recomendacion" => $recomendacion,
+                "items" => $items,
+                "reglas" => array(
+                    "El gasto fijo se calcula como porcentaje sobre precio sin impuestos.",
+                    "El envio gratis absorbe el costo completo del envio; el envio barato absorbe costo menos cobro al cliente.",
+                    "Los umbrales son simulaciones comerciales, no promociones aplicadas.",
+                    "La decision final debe considerar ticket real por pedido, zonas de paqueteria y productos combinados."
                 )
             ));
         } catch (Exception $e) {
@@ -6205,7 +6641,7 @@ class RentabilidadErp extends CRUD {
         );
     }
 
-    private function consultarFilasListaPrecio($db, $idLista, $termino, $limite) {
+    private function consultarFilasListaPrecio($db, $idLista, $termino, $limite, $idsSku = array(), $idCategoria = 0) {
         $limite = max(1, min(500, intval($limite)));
         $where = array(
             "d.id_lista_precio=:lista",
@@ -6221,10 +6657,28 @@ class RentabilidadErp extends CRUD {
             $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q)";
             $params[":q"] = "%" . $termino . "%";
         }
+        if (!empty($idsSku)) {
+            $placeholders = array();
+            foreach (array_values($idsSku) as $idx => $idSku) {
+                $key = ":sku_estudio_" . $idx;
+                $placeholders[] = $key;
+                $params[$key] = intval($idSku);
+            }
+            $where[] = "s.id_sku IN (" . implode(",", $placeholders) . ")";
+        }
+        $idCategoria = intval($idCategoria);
+        if ($idCategoria > 0) {
+            $where[] = "EXISTS (
+                SELECT 1 FROM erp_catalogo_producto_categorias pcf
+                WHERE pcf.id_producto_erp=s.id_producto_erp AND pcf.id_categoria_erp=:id_categoria_erp
+            )";
+            $params[":id_categoria_erp"] = $idCategoria;
+        }
         $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.id_lista_precio, d.precio precio_lista,
                 COALESCE(d.moneda,'MXN') moneda_precio, d.fecha_inicio detalle_fecha_inicio,
                 d.fecha_fin detalle_fecha_fin, s.id_sku, s.sku, COALESCE(s.nombre, p.nombre) producto,
                 s.id_producto_erp, s.costo_referencia, s.factor_unidad_base,
+                cat.id_categoria_erp, COALESCE(cat.ruta, cat.nombre) categoria,
                 imp.iva_porcentaje, imp.ieps_porcentaje, imp.incluye_impuestos,
                 inv.cantidad_total, inv.disponible_total, inv.apartada_total, inv.valor_total, inv.costo_promedio_inventario,
                 compra.ultimo_costo_compra, compra.fecha_ultima_compra, compra.costo_promedio_compras,
@@ -6233,6 +6687,8 @@ class RentabilidadErp extends CRUD {
             FROM erp_listas_precios_detalle d
             INNER JOIN erp_catalogo_skus s ON s.id_sku=d.id_sku
             INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+            LEFT JOIN erp_catalogo_categorias cat ON cat.id_categoria_erp=pc.id_categoria_erp
             LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku
             LEFT JOIN (
                 SELECT id_sku_erp id_sku,
@@ -6303,6 +6759,20 @@ class RentabilidadErp extends CRUD {
             LIMIT " . $limite);
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function idsSkuDesdeFiltro($valor) {
+        $ids = array();
+        foreach (preg_split('/[^0-9]+/', strval($valor)) as $id) {
+            $id = intval($id);
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+            if (count($ids) >= 120) {
+                break;
+            }
+        }
+        return array_values($ids);
     }
 
     private function calcularItemListaPrecio($db, $fila, $lista, $gastoPct, $comisionPct, $margenObjetivoPct, $ajustePct) {
@@ -6511,6 +6981,164 @@ class RentabilidadErp extends CRUD {
             $resumen[$campo] = round($resumen[$campo], 6);
         }
         return $resumen;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-28
+     * Proposito: calcular impacto de envio nacional por SKU usando precio, costo e impuestos ya resueltos.
+     * Impacto: planeacion comercial de ventas fuera de ciudad dentro de Rentabilidad.
+     * Contrato: recibe un item read-only de lista de precios y devuelve una simulacion sin persistencia.
+     */
+    private function calcularItemEnvioNacional($item, $gastoPct, $comisionPct, $margenObjetivoPct, $costoEnvio, $envioCobrado, $envioGratisDesde) {
+        $precioSin = floatval($item["precio_analisis_sin_impuesto"]);
+        $precioCon = floatval($item["precio_lista_con_impuesto"]);
+        $costo = floatval($item["costo_real_sin_impuesto"]);
+        $impuestos = isset($item["fiscal"]) ? $item["fiscal"] : array();
+        $iva = isset($impuestos["iva_porcentaje"]) && $impuestos["iva_porcentaje"] !== null ? floatval($impuestos["iva_porcentaje"]) : 0;
+        $ieps = isset($impuestos["ieps_porcentaje"]) && $impuestos["ieps_porcentaje"] !== null ? floatval($impuestos["ieps_porcentaje"]) : 0;
+        $tasa = max(0, $iva + $ieps) / 100;
+        $subsidioEnvioBarato = max(0, floatval($costoEnvio) - floatval($envioCobrado));
+        $aplicaGratisConfigurado = floatval($envioGratisDesde) > 0 && $precioCon >= floatval($envioGratisDesde);
+        $subsidioConfigurado = $aplicaGratisConfigurado ? floatval($costoEnvio) : $subsidioEnvioBarato;
+        $gastoImporte = $precioSin * ((floatval($gastoPct) + floatval($comisionPct)) / 100);
+        $utilidadSinSubsidio = $precioSin - $costo - $gastoImporte;
+        $utilidadEnvioBarato = $utilidadSinSubsidio - $subsidioEnvioBarato;
+        $utilidadEnvioGratis = $utilidadSinSubsidio - floatval($costoEnvio);
+        $utilidadConfigurada = $utilidadSinSubsidio - $subsidioConfigurado;
+        $denominador = 1 - ((floatval($gastoPct) + floatval($comisionPct) + floatval($margenObjetivoPct)) / 100);
+        $minimoSin = $denominador > 0 ? $costo / $denominador : null;
+        $minimoBaratoSin = $denominador > 0 ? ($costo + $subsidioEnvioBarato) / $denominador : null;
+        $minimoGratisSin = $denominador > 0 ? ($costo + floatval($costoEnvio)) / $denominador : null;
+        $minimoGratisCon = $minimoGratisSin === null ? null : $minimoGratisSin * (1 + $tasa);
+        $minimoBaratoCon = $minimoBaratoSin === null ? null : $minimoBaratoSin * (1 + $tasa);
+        $margenNetoGratisPct = $precioSin > 0 ? ($utilidadEnvioGratis / $precioSin) * 100 : null;
+        $margenNetoConfiguradoPct = $precioSin > 0 ? ($utilidadConfigurada / $precioSin) * 100 : null;
+
+        if ($costo <= 0 || $precioSin <= 0) {
+            $decision = "resolver_datos";
+            $decisionTexto = "Resolver costo/precio antes de decidir envio nacional.";
+            $tipo = "warning";
+        } elseif ($utilidadEnvioGratis >= 0 && ($margenNetoGratisPct === null || $margenNetoGratisPct >= 0)) {
+            $decision = "apto_envio_gratis";
+            $decisionTexto = "Puede absorber envio gratis bajo los parametros actuales.";
+            $tipo = "success";
+        } elseif ($utilidadEnvioBarato >= 0) {
+            $decision = "solo_envio_cobrado";
+            $decisionTexto = "Conviene ofrecer envio cobrado o parcialmente subsidiado.";
+            $tipo = "info";
+        } else {
+            $decision = "no_subsidiar";
+            $decisionTexto = "No conviene subsidiar envio con el precio actual.";
+            $tipo = "danger";
+        }
+
+        return array(
+            "id_sku" => $item["id_sku"],
+            "sku" => $item["sku"],
+            "producto" => $item["producto"],
+            "precio_publico" => round($precioCon, 6),
+            "precio_sin_impuesto" => round($precioSin, 6),
+            "costo_real_sin_impuesto" => round($costo, 6),
+            "origen_costo" => $item["origen_costo"],
+            "utilidad_sin_subsidio" => round($utilidadSinSubsidio, 6),
+            "utilidad_envio_barato" => round($utilidadEnvioBarato, 6),
+            "utilidad_envio_gratis" => round($utilidadEnvioGratis, 6),
+            "utilidad_politica_configurada" => round($utilidadConfigurada, 6),
+            "margen_neto_gratis_pct" => $margenNetoGratisPct === null ? null : round($margenNetoGratisPct, 2),
+            "margen_neto_configurado_pct" => $margenNetoConfiguradoPct === null ? null : round($margenNetoConfiguradoPct, 2),
+            "subsidio_configurado" => round($subsidioConfigurado, 6),
+            "aplica_envio_gratis_configurado" => $aplicaGratisConfigurado,
+            "minimo_sin_subsidio_con_impuesto" => $minimoSin === null ? null : round($minimoSin * (1 + $tasa), 6),
+            "minimo_envio_barato_con_impuesto" => $minimoBaratoCon === null ? null : round($minimoBaratoCon, 6),
+            "minimo_envio_gratis_con_impuesto" => $minimoGratisCon === null ? null : round($minimoGratisCon, 6),
+            "brecha_para_envio_gratis" => $minimoGratisCon === null ? null : round(max(0, $minimoGratisCon - $precioCon), 6),
+            "decision_clave" => $decision,
+            "decision_texto" => $decisionTexto,
+            "decision_tipo" => $tipo,
+            "riesgo_precio_actual" => $item["riesgo_clave"],
+            "siguiente_paso" => $this->siguientePasoEnvioNacional($decision, $minimoGratisCon, $precioCon)
+        );
+    }
+
+    private function resumenEnviosNacionales($items) {
+        $resumen = array(
+            "skus" => count($items),
+            "apto_envio_gratis" => 0,
+            "solo_envio_cobrado" => 0,
+            "no_subsidiar" => 0,
+            "resolver_datos" => 0,
+            "utilidad_politica_configurada" => 0,
+            "subsidio_configurado" => 0,
+            "brecha_envio_gratis" => 0
+        );
+        foreach ($items as $item) {
+            $clave = isset($item["decision_clave"]) ? $item["decision_clave"] : "";
+            if (isset($resumen[$clave])) { $resumen[$clave]++; }
+            $resumen["utilidad_politica_configurada"] += floatval($item["utilidad_politica_configurada"]);
+            $resumen["subsidio_configurado"] += floatval($item["subsidio_configurado"]);
+            $resumen["brecha_envio_gratis"] += floatval($item["brecha_para_envio_gratis"]);
+        }
+        foreach (array("utilidad_politica_configurada", "subsidio_configurado", "brecha_envio_gratis") as $campo) {
+            $resumen[$campo] = round($resumen[$campo], 6);
+        }
+        return $resumen;
+    }
+
+    private function recomendarPoliticaEnvioNacional($items, $costoEnvio, $envioCobrado, $envioGratisDesde) {
+        $umbrales = array();
+        foreach ($items as $item) {
+            if ($item["minimo_envio_gratis_con_impuesto"] !== null && $item["decision_clave"] !== "resolver_datos") {
+                $umbrales[] = floatval($item["minimo_envio_gratis_con_impuesto"]);
+            }
+        }
+        sort($umbrales);
+        $p50 = $this->percentilSimple($umbrales, 0.50);
+        $p75 = $this->percentilSimple($umbrales, 0.75);
+        $p90 = $this->percentilSimple($umbrales, 0.90);
+        $sugerido = $p75 === null ? 0 : ceil($p75 / 50) * 50;
+        $mensaje = $sugerido > 0
+            ? "Usar como primera prueba envio gratis desde $" . number_format($sugerido, 2, ".", ",") . " y medir ticket real por zona."
+            : "Faltan costos/precios suficientes para sugerir umbral.";
+        return array(
+            "costo_envio" => round(floatval($costoEnvio), 6),
+            "envio_cobrado" => round(floatval($envioCobrado), 6),
+            "envio_gratis_desde_actual" => round(floatval($envioGratisDesde), 6),
+            "umbral_p50" => $p50 === null ? null : round($p50, 6),
+            "umbral_p75" => $p75 === null ? null : round($p75, 6),
+            "umbral_p90" => $p90 === null ? null : round($p90, 6),
+            "umbral_sugerido" => round($sugerido, 6),
+            "mensaje" => $mensaje,
+            "criterio" => "P75 de los minimos por SKU redondeado a $50 para no prometer envio gratis por debajo de la mayoria de productos analizados."
+        );
+    }
+
+    private function siguientePasoEnvioNacional($decision, $minimoGratisCon, $precioCon) {
+        if ($decision === "resolver_datos") {
+            return "Completar costo, precio e impuestos antes de ofertar fuera de ciudad.";
+        }
+        if ($decision === "apto_envio_gratis") {
+            return "Puede entrar a prueba de envio gratis o bundle nacional.";
+        }
+        if ($decision === "solo_envio_cobrado") {
+            return "Publicar con envio cobrado o envio economico; revisar si conviene paquete con mas piezas.";
+        }
+        $brecha = $minimoGratisCon === null ? 0 : max(0, floatval($minimoGratisCon) - floatval($precioCon));
+        return "No subsidiar; requiere subir precio, mejorar costo o aumentar ticket al menos $" . number_format($brecha, 2, ".", ",") . ".";
+    }
+
+    private function percentilSimple($valores, $percentil) {
+        $total = count($valores);
+        if ($total <= 0) {
+            return null;
+        }
+        $indice = max(0, min($total - 1, intval(ceil($total * $percentil) - 1)));
+        return floatval($valores[$indice]);
+    }
+
+    private function importeNoNegativo($datos, $campo, $default) {
+        $valor = isset($datos[$campo]) ? str_replace(",", ".", strval($datos[$campo])) : $default;
+        return round(max(0, floatval($valor)), 6);
     }
 
     private function accionSugeridaListaPrecio($riesgo, $precioMinimo, $precioActualSin, $precioSugeridoSin) {
