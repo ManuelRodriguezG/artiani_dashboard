@@ -15,6 +15,7 @@
     var listas = [];
     var permisosComerciales = [];
     var permisosUi = window.DISTRIBUCION_ADMIN_PERMISOS || {};
+    var seccionActiva = window.DISTRIBUCION_ADMIN_SECCION || "resumen";
 
     function escapeHtml(value) {
         var div = document.createElement("div");
@@ -71,8 +72,21 @@
         return "$" + Number(value).toLocaleString("es-MX", {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
 
+    function moneyText(value) {
+        if (value === null || value === undefined || value === "") {
+            return "Por revisar";
+        }
+        return "$" + Number(value).toLocaleString("es-MX", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
     function numero(value) {
         return Number(value || 0).toLocaleString("es-MX", {minimumFractionDigits: 0, maximumFractionDigits: 2});
+    }
+
+    function valorNumerico(value) {
+        if (value === null || value === undefined || value === "") { return null; }
+        var numeroValor = Number(value);
+        return Number.isFinite(numeroValor) ? numeroValor : null;
     }
 
     function jsonSeguro(value) {
@@ -366,6 +380,7 @@
     }
 
     function renderSolicitudes() {
+        if (!document.getElementById("dist_solicitudes_lista")) { return; }
         var q = (document.getElementById("dist_solicitudes_buscar").value || "").toLowerCase();
         var visibles = solicitudes.filter(function (item) {
             return [item.folio, item.nombre, item.nombre_negocio, item.empresa, item.correo, item.telefono, item.whatsapp, item.ciudad, item.estado, item.tipo_negocio].join(" ").toLowerCase().indexOf(q) !== -1;
@@ -390,6 +405,7 @@
     }
 
     function renderClientes() {
+        if (!document.getElementById("dist_clientes_lista")) { return; }
         var q = (document.getElementById("dist_clientes_buscar").value || "").toLowerCase();
         var incompleto = selectValue("dist_clientes_incompletos");
         var visibles = clientes.filter(function (item) {
@@ -439,6 +455,7 @@
     }
 
     function renderCotizaciones() {
+        if (!document.getElementById("dist_cotizaciones_lista")) { return; }
         var q = (selectValue("dist_cotizaciones_buscar") || "").toLowerCase();
         var visibles = cotizaciones.filter(function (item) {
             return [item.folio, item.cliente, item.empresa, item.correo, item.estatus].join(" ").toLowerCase().indexOf(q) !== -1;
@@ -451,11 +468,24 @@
                   "<button class=\"btn btn-sm btn-icon btn-light-dark\" title=\"Cerrar\" data-cotizacion-accion=\"cerrar\" data-cotizacion=\"" + escapeHtml(item.id_cotizacion_distribucion) + "\"><i class=\"bi bi-check2-circle\"></i></button>"
                 : "";
             acciones = "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Detalle\" data-cotizacion-detalle=\"" + escapeHtml(item.id_cotizacion_distribucion) + "\"><i class=\"bi bi-card-list\"></i></button> " + acciones;
-            var total = item.estatus === "pedido_solicitado" ? "<span class=\"text-muted\">Por confirmar</span>" : money(item.total_confirmado || item.total_estimado);
+            var totalSolicitado = valorNumerico(item.total_solicitado_items);
+            if (totalSolicitado === null) { totalSolicitado = valorNumerico(item.subtotal || item.total_estimado); }
+            var totalConfirmado = valorNumerico(item.total_confirmado);
+            if (totalConfirmado === null) { totalConfirmado = valorNumerico(item.total_confirmado_items); }
+            var valorHtml = "<div class=\"fw-semibold\">" + money(totalConfirmado !== null ? totalConfirmado : totalSolicitado) + "</div>" +
+                "<div class=\"text-muted fs-8\">Sol. " + moneyText(totalSolicitado) + " / Conf. " + moneyText(totalConfirmado) + "</div>";
             var estadoCliente = item.respuesta_cliente_estatus ? "<div class=\"text-muted fs-8\">Cliente: " + escapeHtml(item.respuesta_cliente_estatus) + "</div>" : "";
-            return "<tr><td class=\"fw-bold\">" + escapeHtml(item.folio) + "</td><td><div class=\"fw-semibold\">" + escapeHtml(item.cliente || ("ID " + item.id_cliente_distribucion)) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.empresa || item.correo || "") + "</div></td><td><span class=\"badge badge-light\">" + escapeHtml(item.partidas || 0) + "</span></td><td>" + total + "</td>" +
+            var pendientes = Number(item.partidas_pendientes || 0);
+            var revision = "<div><span class=\"badge " + (pendientes > 0 ? "badge-light-warning" : "badge-light-success") + "\">" + escapeHtml(item.partidas_revisadas || 0) + "/" + escapeHtml(item.partidas || 0) + "</span></div>" +
+                "<div class=\"text-muted fs-8\">" + (pendientes > 0 ? escapeHtml(pendientes) + " pendientes" : "Completo") + "</div>";
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.folio) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.tipo_entrega || "entrega por definir") + "</div></td>" +
+                "<td><div class=\"fw-semibold\">" + escapeHtml(item.cliente || ("ID " + item.id_cliente_distribucion)) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.empresa || item.correo || "") + "</div></td>" +
+                "<td>" + revision + "</td>" +
+                "<td class=\"text-end\"><div class=\"fw-semibold\">" + numero(item.cantidad_solicitada) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.partidas || 0) + " partidas</div></td>" +
+                "<td class=\"text-end\"><div class=\"fw-semibold\">" + numero(item.cantidad_confirmada) + "</div><div class=\"text-muted fs-8\">existencia revisada</div></td>" +
+                "<td>" + valorHtml + "</td>" +
                 "<td>" + badge(item.estatus) + estadoCliente + "</td><td class=\"text-muted fs-7\">" + escapeHtml(item.fecha_registro || "") + "</td><td class=\"text-end\">" + acciones + "</td></tr>";
-        }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\">Sin cotizaciones</td></tr>";
+        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin pedidos</td></tr>";
     }
 
     function filtroTexto(item) {
@@ -714,9 +744,31 @@
             button.classList.toggle("d-none", !permisosUi.editar);
         });
         return cargarAuxiliares().then(function () {
-            return Promise.all([cargarResumen(), cargarDemanda(), cargarSolicitudes(), cargarClientes(), cargarCotizaciones(), cargarSurtidos(), cargarInventarios(), cargarSugeridos(), cargarProductos()]).then(function () {
-                renderClientes();
-            });
+            if (seccionActiva === "solicitudes") {
+                return cargarSolicitudes();
+            }
+            if (seccionActiva === "clientes") {
+                return Promise.all([cargarClientes(), cargarCotizaciones(), cargarSurtidos(), cargarInventarios(), cargarSugeridos()]).then(function () { renderClientes(); });
+            }
+            if (seccionActiva === "pedidos") {
+                return cargarCotizaciones();
+            }
+            if (seccionActiva === "mi_catalogo") {
+                return cargarSurtidos();
+            }
+            if (seccionActiva === "inventarios") {
+                return cargarInventarios();
+            }
+            if (seccionActiva === "sugeridos") {
+                return cargarSugeridos();
+            }
+            if (seccionActiva === "productos") {
+                return cargarProductos();
+            }
+            if (seccionActiva === "demanda") {
+                return cargarDemanda();
+            }
+            return cargarResumen();
         }).catch(showError);
     }
 
@@ -881,6 +933,86 @@
      * Proposito: mostrar partidas de pedido/cotizacion y permitir revision interna controlada.
      * Impacto: UI ERP Distribucion; no aparta inventario ni crea venta/pedido ERP.
      */
+    function resumenPedido(cotizacion, items) {
+        var cantidadSolicitada = 0;
+        var cantidadConfirmada = 0;
+        var totalSolicitado = 0;
+        var tieneTotalSolicitado = false;
+        var totalConfirmado = 0;
+        var tieneTotalConfirmado = false;
+        var pendientes = 0;
+        (items || []).forEach(function (item) {
+            var cantidad = Number(item.cantidad || 0);
+            var confirmada = Number(item.cantidad_confirmada || 0);
+            var precio = valorNumerico(item.precio_unitario_snapshot);
+            cantidadSolicitada += cantidad;
+            cantidadConfirmada += confirmada;
+            if (valorNumerico(item.subtotal_snapshot) !== null) {
+                totalSolicitado += Number(item.subtotal_snapshot);
+                tieneTotalSolicitado = true;
+            } else if (precio !== null) {
+                totalSolicitado += cantidad * precio;
+                tieneTotalSolicitado = true;
+            }
+            if (precio !== null && confirmada > 0) {
+                totalConfirmado += confirmada * precio;
+                tieneTotalConfirmado = true;
+            }
+            if (!item.estatus_revision || ["por_confirmar", "requiere_revision", "pendiente_proveedor"].indexOf(item.estatus_revision) !== -1) {
+                pendientes++;
+            }
+        });
+        var costoEnvio = valorNumerico(cotizacion.costo_envio);
+        if (costoEnvio !== null && costoEnvio > 0 && tieneTotalConfirmado) {
+            totalConfirmado += costoEnvio;
+        }
+        var totalConfirmadoGuardado = valorNumerico(cotizacion.total_confirmado);
+        if (totalConfirmadoGuardado !== null) {
+            totalConfirmado = totalConfirmadoGuardado;
+            tieneTotalConfirmado = true;
+        }
+        return {
+            cantidad_solicitada: cantidadSolicitada,
+            cantidad_confirmada: cantidadConfirmada,
+            total_solicitado: tieneTotalSolicitado ? totalSolicitado : valorNumerico(cotizacion.subtotal || cotizacion.total_estimado),
+            total_confirmado: tieneTotalConfirmado ? totalConfirmado : null,
+            pendientes: pendientes
+        };
+    }
+
+    function abrirImpresionPedido(cotizacion, items) {
+        var resumen = resumenPedido(cotizacion, items);
+        var filas = (items || []).map(function (item) {
+            var cantidad = Number(item.cantidad || 0);
+            var confirmada = Number(item.cantidad_confirmada || 0);
+            var precio = valorNumerico(item.precio_unitario_snapshot);
+            var solicitado = valorNumerico(item.subtotal_snapshot);
+            if (solicitado === null && precio !== null) { solicitado = cantidad * precio; }
+            var confirmado = precio !== null && confirmada > 0 ? confirmada * precio : null;
+            return "<tr><td><strong>" + escapeHtml(item.producto_actual || item.nombre_snapshot || "") + "</strong><br><span>" + escapeHtml(item.sku_actual || item.sku_snapshot || ("SKU " + item.id_sku)) + "</span></td>" +
+                "<td class=\"num\">" + escapeHtml(numero(cantidad)) + "</td><td class=\"num\">" + escapeHtml(numero(confirmada)) + "</td><td>" + escapeHtml(item.estatus_revision || "por_confirmar") + "</td>" +
+                "<td class=\"num\">" + escapeHtml(moneyText(precio)) + "</td><td class=\"num\">" + escapeHtml(moneyText(solicitado)) + "</td><td class=\"num\">" + escapeHtml(moneyText(confirmado)) + "</td>" +
+                "<td>" + escapeHtml(item.comentario_revision || "") + "</td></tr>";
+        }).join("");
+        var ventana = window.open("", "_blank", "width=1100,height=800");
+        if (!ventana) {
+            Swal.fire({text: "No se pudo abrir la ventana de impresion. Revisa si el navegador bloqueo ventanas emergentes.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        ventana.document.write("<!doctype html><html><head><meta charset=\"utf-8\"><title>" + escapeHtml(cotizacion.folio || "Pedido Distribucion") + "</title>" +
+            "<style>body{font-family:Arial,sans-serif;color:#222;margin:24px}h1{font-size:22px;margin:0 0 4px}.muted{color:#666;font-size:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}.box{border:1px solid #ddd;padding:10px;border-radius:6px}.label{font-size:11px;color:#666;text-transform:uppercase}.value{font-weight:700;margin-top:4px}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}th{background:#f5f5f5}.num{text-align:right}@media print{button{display:none}}</style></head><body>" +
+            "<button onclick=\"window.print()\">Imprimir</button><h1>" + escapeHtml(cotizacion.folio || "Pedido Distribucion") + "</h1>" +
+            "<div class=\"muted\">" + escapeHtml([cotizacion.cliente, cotizacion.empresa, cotizacion.correo, cotizacion.estatus].filter(Boolean).join(" / ")) + "</div>" +
+            "<div class=\"grid\"><div class=\"box\"><div class=\"label\">Solicitado</div><div class=\"value\">" + escapeHtml(numero(resumen.cantidad_solicitada)) + "</div></div>" +
+            "<div class=\"box\"><div class=\"label\">Confirmado</div><div class=\"value\">" + escapeHtml(numero(resumen.cantidad_confirmada)) + "</div></div>" +
+            "<div class=\"box\"><div class=\"label\">Valor solicitado</div><div class=\"value\">" + escapeHtml(moneyText(resumen.total_solicitado)) + "</div></div>" +
+            "<div class=\"box\"><div class=\"label\">Valor confirmado</div><div class=\"value\">" + escapeHtml(moneyText(resumen.total_confirmado)) + "</div></div></div>" +
+            "<table><thead><tr><th>Producto</th><th class=\"num\">Solicitado</th><th class=\"num\">Confirmado</th><th>Revision</th><th class=\"num\">Precio</th><th class=\"num\">Importe sol.</th><th class=\"num\">Importe conf.</th><th>Comentario</th></tr></thead><tbody>" + filas + "</tbody></table>" +
+            "</body></html>");
+        ventana.document.close();
+        ventana.focus();
+    }
+
     function verCotizacionDetalle(idCotizacion) {
         request("/DistribucionAdmin/cotizacion_detalle?id_cotizacion_distribucion=" + encodeURIComponent(idCotizacion)).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
@@ -888,14 +1020,30 @@
             var items = response.depurar && response.depurar.items ? response.depurar.items : [];
             var facturacion = jsonSeguro(cotizacion.facturacion_json);
             var requiereFactura = Number(cotizacion.requiere_factura || facturacion.requiere_factura || 0) === 1;
+            var resumen = resumenPedido(cotizacion, items);
             var filas = items.map(function (item) {
                 var revision = item.estatus_revision ? badge(item.estatus_revision) : "<span class=\"text-muted\">Por confirmar</span>";
                 var boton = permisosUi.cotizaciones_gestionar
                     ? "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Revisar partida\" data-cotizacion-item-revisar=\"" + escapeHtml(item.id_cotizacion_item) + "\"><i class=\"bi bi-pencil-square\"></i></button>"
                     : "";
+                var cantidad = Number(item.cantidad || 0);
+                var confirmada = Number(item.cantidad_confirmada || 0);
+                var precio = valorNumerico(item.precio_unitario_snapshot);
+                var solicitado = valorNumerico(item.subtotal_snapshot);
+                if (solicitado === null && precio !== null) { solicitado = cantidad * precio; }
+                var confirmado = precio !== null && confirmada > 0 ? confirmada * precio : null;
                 return "<tr><td><div class=\"fw-semibold\">" + escapeHtml(item.producto_actual || item.nombre_snapshot || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_actual || item.sku_snapshot || ("SKU " + item.id_sku)) + "</div></td>" +
-                    "<td class=\"text-end\">" + numero(item.cantidad) + "</td><td class=\"text-end\">" + numero(item.cantidad_confirmada) + "</td><td>" + revision + "</td><td>" + escapeHtml(item.comentario_revision || "") + "</td><td class=\"text-end\">" + boton + "</td></tr>";
-            }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin partidas</td></tr>";
+                    "<td class=\"text-end fw-semibold\">" + numero(cantidad) + "</td><td class=\"text-end\">" + numero(confirmada) + "</td>" +
+                    "<td class=\"text-end\">" + money(precio) + "</td><td class=\"text-end\">" + money(solicitado) + "</td><td class=\"text-end\">" + money(confirmado) + "</td>" +
+                    "<td>" + revision + "<div class=\"text-muted fs-8 mt-1\">" + escapeHtml(item.comentario_revision || "") + "</div></td><td class=\"text-end\">" + boton + "</td></tr>";
+            }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-6\">Sin partidas</td></tr>";
+            var resumenHtml = "<div class=\"dist-order-kpis text-start mb-5\">" +
+                "<div class=\"dist-order-kpi\"><div class=\"text-muted fs-8 text-uppercase\">Solicitado</div><div class=\"value\">" + escapeHtml(numero(resumen.cantidad_solicitada)) + "</div></div>" +
+                "<div class=\"dist-order-kpi\"><div class=\"text-muted fs-8 text-uppercase\">Confirmado</div><div class=\"value\">" + escapeHtml(numero(resumen.cantidad_confirmada)) + "</div></div>" +
+                "<div class=\"dist-order-kpi\"><div class=\"text-muted fs-8 text-uppercase\">Valor solicitado</div><div class=\"value\">" + money(resumen.total_solicitado) + "</div></div>" +
+                "<div class=\"dist-order-kpi\"><div class=\"text-muted fs-8 text-uppercase\">Valor confirmado</div><div class=\"value\">" + money(resumen.total_confirmado) + "</div></div>" +
+                "<div class=\"dist-order-kpi\"><div class=\"text-muted fs-8 text-uppercase\">Partidas pendientes</div><div class=\"value\">" + escapeHtml(resumen.pendientes) + "</div></div>" +
+                "</div>";
             var entregaHtml = "<div class=\"row g-3 text-start mb-5\">" +
                 "<div class=\"col-md-3\"><label class=\"form-label fw-semibold\">Entrega</label><select id=\"dist_pedido_tipo_entrega\" class=\"form-select form-select-solid\">" +
                 ["por_definir", "envio", "recoger_tienda"].map(function (tipo) {
@@ -904,7 +1052,7 @@
                 "<div class=\"col-md-3\"><label class=\"form-label fw-semibold\">Costo envio</label><input id=\"dist_pedido_costo_envio\" class=\"form-control form-control-solid\" inputmode=\"decimal\" value=\"" + escapeHtml(cotizacion.costo_envio || 0) + "\"></div>" +
                 "<div class=\"col-md-3 d-flex align-items-end\"><label class=\"form-check form-check-custom form-check-solid mb-3\"><input id=\"dist_pedido_habilitar_envio\" class=\"form-check-input\" type=\"checkbox\"" + (Number(cotizacion.entrega_habilitar_envio || 1) === 1 ? " checked" : "") + "><span class=\"form-check-label\">Envio</span></label></div>" +
                 "<div class=\"col-md-3 d-flex align-items-end\"><label class=\"form-check form-check-custom form-check-solid mb-3\"><input id=\"dist_pedido_habilitar_recoger\" class=\"form-check-input\" type=\"checkbox\"" + (Number(cotizacion.entrega_habilitar_recoger_tienda || 1) === 1 ? " checked" : "") + "><span class=\"form-check-label\">Recoger</span></label></div>" +
-                "<div class=\"col-12 d-flex justify-content-between align-items-center\"><div class=\"text-muted fs-8\">Respuesta cliente: " + escapeHtml(cotizacion.respuesta_cliente_estatus || "pendiente") + "</div>" +
+                "<div class=\"col-12 d-flex justify-content-between align-items-center\"><div class=\"text-muted fs-8\">Respuesta cliente: " + escapeHtml(cotizacion.respuesta_cliente_estatus || "pendiente") + "</div><button type=\"button\" class=\"btn btn-sm btn-light-primary\" data-cotizacion-imprimir=\"" + escapeHtml(idCotizacion) + "\"><i class=\"bi bi-printer\"></i> Imprimir revision</button>" +
                 (permisosUi.cotizaciones_gestionar ? "<button type=\"button\" class=\"btn btn-sm btn-light-success\" data-cotizacion-entrega-guardar=\"" + escapeHtml(idCotizacion) + "\"><i class=\"bi bi-send-check\"></i> Guardar respuesta para cliente</button>" : "") + "</div>" +
                 "</div>";
             var facturaHtml = "<div class=\"text-start mb-5 border rounded p-4\">" +
@@ -921,12 +1069,19 @@
             Swal.fire({
                 title: cotizacion.folio || "Solicitud Distribucion",
                 html: "<div class=\"text-start mb-4\"><div class=\"fw-bold\">" + escapeHtml(cotizacion.cliente || ("Cliente " + (cotizacion.id_cliente_distribucion || ""))) + "</div><div class=\"text-muted fs-8\">" + escapeHtml([cotizacion.empresa, cotizacion.correo, cotizacion.estatus].filter(Boolean).join(" / ")) + "</div></div>" +
+                    resumenHtml +
                     entregaHtml +
                     facturaHtml +
-                    "<div class=\"table-responsive text-start\"><table class=\"table table-row-dashed fs-7 gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold\"><th>Producto</th><th class=\"text-end\">Solicitado</th><th class=\"text-end\">Confirmado</th><th>Revision</th><th>Comentario</th><th></th></tr></thead><tbody>" + filas + "</tbody></table></div>",
-                width: 980,
+                    "<div class=\"table-responsive text-start\"><table class=\"table table-row-dashed fs-7 gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold\"><th>Producto</th><th class=\"text-end\">Solicitado</th><th class=\"text-end\">Confirmado</th><th class=\"text-end\">Precio</th><th class=\"text-end\">Imp. solicitado</th><th class=\"text-end\">Imp. confirmado</th><th>Revision</th><th></th></tr></thead><tbody>" + filas + "</tbody></table></div>",
+                width: 1180,
                 confirmButtonText: "Cerrar",
                 didOpen: function () {
+                    var imprimir = document.querySelector(".swal2-container [data-cotizacion-imprimir]");
+                    if (imprimir) {
+                        imprimir.addEventListener("click", function () {
+                            abrirImpresionPedido(cotizacion, items);
+                        });
+                    }
                     var guardarEntrega = document.querySelector(".swal2-container [data-cotizacion-entrega-guardar]");
                     if (guardarEntrega) {
                         guardarEntrega.addEventListener("click", function () {
@@ -972,11 +1127,13 @@
 
     function revisarPartidaCotizacion(item, idCotizacion) {
         if (!item) { return; }
+        var solicitado = Number(item.cantidad || 0);
         Swal.fire({
             title: "Revisar partida",
             html: "<div class=\"text-start\">" +
                 "<div class=\"mb-4\"><div class=\"fw-semibold\">" + escapeHtml(item.producto_actual || item.nombre_snapshot || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_actual || item.sku_snapshot || "") + "</div></div>" +
-                "<label class=\"form-label fw-semibold\">Cantidad confirmada</label><input id=\"dist_revision_cantidad\" class=\"form-control form-control-solid mb-4\" inputmode=\"decimal\" value=\"" + escapeHtml(item.cantidad_confirmada || item.cantidad || 0) + "\">" +
+                "<div class=\"row g-3 mb-4\"><div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Cantidad solicitada</label><input class=\"form-control form-control-solid\" value=\"" + escapeHtml(numero(solicitado)) + "\" disabled></div>" +
+                "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Existencia / cantidad confirmada</label><input id=\"dist_revision_cantidad\" class=\"form-control form-control-solid\" inputmode=\"decimal\" value=\"" + escapeHtml(item.cantidad_confirmada || item.cantidad || 0) + "\"></div></div>" +
                 "<label class=\"form-label fw-semibold\">Estatus</label><select id=\"dist_revision_estatus\" class=\"form-select form-select-solid mb-4\">" +
                 ["por_confirmar", "confirmado", "parcial", "no_disponible", "pendiente_proveedor", "requiere_revision"].map(function (estatus) {
                     return "<option value=\"" + estatus + "\"" + (item.estatus_revision === estatus ? " selected" : "") + ">" + estatus + "</option>";
@@ -987,8 +1144,17 @@
             showCancelButton: true,
             confirmButtonText: "Guardar revision",
             preConfirm: function () {
+                var confirmada = Number((document.getElementById("dist_revision_cantidad") || {}).value || "0");
+                if (!Number.isFinite(confirmada) || confirmada < 0) {
+                    Swal.showValidationMessage("Captura una cantidad confirmada valida.");
+                    return false;
+                }
+                if (confirmada > solicitado) {
+                    Swal.showValidationMessage("La cantidad confirmada no puede ser mayor a la solicitada por el cliente.");
+                    return false;
+                }
                 return {
-                    cantidad_confirmada: (document.getElementById("dist_revision_cantidad") || {}).value || "0",
+                    cantidad_confirmada: confirmada,
                     estatus_revision: (document.getElementById("dist_revision_estatus") || {}).value || "por_confirmar",
                     comentario_revision: (document.getElementById("dist_revision_comentario") || {}).value || ""
                 };

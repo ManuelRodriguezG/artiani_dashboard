@@ -30,6 +30,19 @@ class DistribucionClientesApi extends CRUD {
     $referencias = trim((string) $this->valor($datos, "referencias", ""));
     $interesesComerciales = trim((string) $this->valor($datos, "intereses_comerciales", ""));
     $mensaje = trim((string) $this->valor($datos, "mensaje", ""));
+    $facturacionEntrada = $this->valor($datos, "facturacion", array());
+    if (!is_array($facturacionEntrada)) { $facturacionEntrada = array(); }
+    $requiereFactura = intval($this->valor($datos, "requiere_factura", $this->valor($facturacionEntrada, "requiere_factura", 0))) === 1 ? 1 : 0;
+    $facturacion = array(
+      "requiere_factura" => $requiereFactura,
+      "rfc" => $requiereFactura ? $rfc : "",
+      "razon_social" => $requiereFactura ? trim((string) $this->valor($facturacionEntrada, "razon_social", $this->valor($datos, "razon_social", ""))) : "",
+      "regimen_fiscal" => $requiereFactura ? trim((string) $this->valor($facturacionEntrada, "regimen_fiscal", $this->valor($datos, "regimen_fiscal", ""))) : "",
+      "uso_cfdi" => $requiereFactura ? strtoupper(trim((string) $this->valor($facturacionEntrada, "uso_cfdi", $this->valor($datos, "uso_cfdi", "")))) : "",
+      "codigo_postal_fiscal" => $requiereFactura ? trim((string) $this->valor($facturacionEntrada, "codigo_postal_fiscal", $this->valor($datos, "codigo_postal_fiscal", ""))) : "",
+      "correo_facturacion" => $requiereFactura ? strtolower(trim((string) $this->valor($facturacionEntrada, "correo_facturacion", $this->valor($datos, "correo_facturacion", "")))) : "",
+      "comentarios_facturacion" => $requiereFactura ? trim((string) $this->valor($facturacionEntrada, "comentarios_facturacion", $this->valor($datos, "comentarios_facturacion", ""))) : ""
+    );
     $tiposNegocio = array("venta_internet", "veterinaria", "petshop", "acuario", "acuario_petshop", "estetica_canina", "criador", "vendedor_mercado", "vendedor_ambulante", "otro");
     $errores = array();
     if ($nombre === "") { $errores[] = "nombre_requerido"; }
@@ -39,6 +52,16 @@ class DistribucionClientesApi extends CRUD {
     if ($ciudad === "") { $errores[] = "ciudad_requerida"; }
     if ($estado === "") { $errores[] = "estado_requerido"; }
     if (!in_array($tipoNegocio, $tiposNegocio, true)) { $errores[] = "tipo_negocio_invalido"; }
+    if ($facturacion["requiere_factura"] === 1) {
+      foreach (array("rfc", "razon_social", "regimen_fiscal", "uso_cfdi", "codigo_postal_fiscal", "correo_facturacion") as $campoFiscal) {
+        if (trim((string) $facturacion[$campoFiscal]) === "") {
+          $errores[] = "facturacion_" . $campoFiscal . "_requerido";
+        }
+      }
+      if ($facturacion["correo_facturacion"] !== "" && !filter_var($facturacion["correo_facturacion"], FILTER_VALIDATE_EMAIL)) {
+        $errores[] = "correo_facturacion_invalido";
+      }
+    }
     if (!empty($errores)) {
       return $this->respuesta(true, "warning", "Solicitud de acceso incompleta", array("errores" => $errores));
     }
@@ -82,6 +105,8 @@ class DistribucionClientesApi extends CRUD {
         "colonia" => $colonia,
         "codigo_postal" => $codigoPostal,
         "referencias" => $referencias,
+        "requiere_factura" => $facturacion["requiere_factura"],
+        "facturacion" => $facturacion,
         "intereses_comerciales" => $interesesComerciales,
         "mensaje" => $mensaje,
         "pendiente_permitir_registro_sin_correo" => true

@@ -34,6 +34,18 @@ class Almacen extends Controlador {
 
     /**
      * IA: Codex GPT-5
+     * Fecha: 2026-10-01
+     * Proposito: expone una vista read-only para consultar recetas y planear escenarios por producto.
+     * Impacto: Almacen/Planeaciones de preparacion; usa reglas existentes de Catalogo y no crea kardex ni stock.
+     * Contrato: requiere permiso de lectura de Almacen; cualquier guardado real debe implementarse en endpoints separados con autorizacion.
+     */
+    public function planeacion_preparacion() {
+        $this->requerirPermiso("almacen.ver");
+        $this->vista("apps/erp/almacen/planeacion_preparacion");
+    }
+
+    /**
+     * IA: Codex GPT-5
      * Fecha: 2026-07-25
      * Proposito: expone la vista independiente para abrir empaques cerrados y habilitar piezas internas.
      * Impacto: Almacen/Apertura de empaques; separa este flujo de Preparacion/Empaque y Resurtido.

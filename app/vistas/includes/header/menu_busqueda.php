@@ -88,6 +88,7 @@ function erpHeaderCatalogoBusqueda()
         array('seccion' => 'ERP', 'titulo' => 'Almacen', 'icono' => 'bi-building', 'items' => array(
             array('titulo' => 'Recepciones', 'ruta' => '/almacen/mostrar_recepciones', 'permiso' => 'almacen.ver', 'detalle' => 'Recibir mercancia ordenes'),
             array('titulo' => 'Resurtido', 'ruta' => '/almacen/resurtido', 'permiso' => 'almacen.ver', 'detalle' => 'Resurtido almacen'),
+            array('titulo' => 'Planeaciones preparacion', 'ruta' => '/almacen/planeacion_preparacion', 'permiso' => 'almacen.ver', 'detalle' => 'Escenarios por producto e instrucciones de preparacion'),
             array('titulo' => 'Preparacion/Empaque', 'ruta' => '/almacen/preparacion_empaque', 'permiso' => 'almacen.ver', 'detalle' => 'Preparacion empaque pedidos'),
             array('titulo' => 'Apertura de empaques', 'ruta' => '/almacen/apertura_empaques', 'permiso' => 'almacen.ver', 'detalle' => 'Abrir empaques almacen'),
             array('titulo' => 'Etiquetado', 'ruta' => '/almacen/etiquetado', 'permiso' => 'almacen.ver', 'detalle' => 'Etiquetas almacen productos'),
@@ -134,6 +135,17 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Flujo sesiones', 'ruta' => '/ecommercePublico/analytics_flujo', 'permiso' => 'catalogo.ver', 'detalle' => 'Recorridos anonimos ecommerce'),
             array('titulo' => 'SEO y URLs', 'ruta' => '/ecommercePublico/seo_migracion', 'permiso' => 'catalogo.ver', 'detalle' => 'SEO sitemap robots redirecciones URLs canonicas'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver', 'detalle' => 'Productos ecommerce catalogo anterior')
+        )),
+        array('seccion' => 'Distribucion', 'titulo' => 'Distribucion', 'icono' => 'bi-box-arrow-up-right', 'items' => array(
+            array('titulo' => 'Resumen Distribucion', 'ruta' => '/DistribucionAdmin/panel_resumen', 'permiso' => 'distribucion.ver', 'detalle' => 'Resumen dashboard distribucion'),
+            array('titulo' => 'Solicitudes Distribucion', 'ruta' => '/DistribucionAdmin/panel_solicitudes', 'permiso' => 'distribucion.ver', 'detalle' => 'Solicitudes acceso clientes distribucion'),
+            array('titulo' => 'Clientes Distribucion', 'ruta' => '/DistribucionAdmin/panel_clientes', 'permiso' => 'distribucion.ver', 'detalle' => 'Clientes mayoristas permisos listas precios distribucion'),
+            array('titulo' => 'Pedidos Distribucion', 'ruta' => '/DistribucionAdmin/panel_pedidos', 'permiso' => 'distribucion.cotizaciones.ver', 'detalle' => 'Pedidos cotizaciones revision existencias distribucion'),
+            array('titulo' => 'Mi catalogo Distribucion', 'ruta' => '/DistribucionAdmin/panel_mi_catalogo', 'permiso' => 'distribucion.ver', 'detalle' => 'Mi catalogo movimientos clientes distribucion'),
+            array('titulo' => 'Inventarios cliente Distribucion', 'ruta' => '/DistribucionAdmin/panel_inventarios', 'permiso' => 'distribucion.ver', 'detalle' => 'Inventarios declarados por clientes distribucion'),
+            array('titulo' => 'Sugeridos Distribucion', 'ruta' => '/DistribucionAdmin/panel_sugeridos', 'permiso' => 'distribucion.ver', 'detalle' => 'Sugerido resurtido clientes distribucion'),
+            array('titulo' => 'Productos Distribucion', 'ruta' => '/DistribucionAdmin/panel_productos', 'permiso' => 'distribucion.editar', 'detalle' => 'Publicacion productos canal distribucion'),
+            array('titulo' => 'Demanda Distribucion', 'ruta' => '/DistribucionAdmin/panel_demanda', 'permiso' => 'distribucion.ver', 'detalle' => 'Demanda actividad comercial distribucion')
         )),
         array('seccion' => 'Administracion', 'titulo' => 'Administracion', 'icono' => 'bi-shield-lock', 'items' => array(
             array('titulo' => 'Configuracion del sistema', 'ruta' => '/sistema/configuracion', 'permiso' => 'configuracion.administrar', 'detalle' => 'Branding logos favicon parametros sistema'),

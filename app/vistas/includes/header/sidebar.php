@@ -231,6 +231,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Recepciones', 'ruta' => '/almacen/mostrar_recepciones', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Resurtido', 'ruta' => '/almacen/resurtido', 'permiso' => 'almacen.ver'),
+            array('titulo' => 'Planeaciones preparacion', 'ruta' => '/almacen/planeacion_preparacion', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Preparacion/Empaque', 'ruta' => '/almacen/preparacion_empaque', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Apertura de empaques', 'ruta' => '/almacen/apertura_empaques', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Etiquetado', 'ruta' => '/almacen/etiquetado', 'permiso' => 'almacen.ver'),
@@ -338,7 +339,15 @@ $gruposMenu = array(
         'icono' => 'bi-box-arrow-up-right',
         'permiso' => 'distribucion.ver',
         'items' => array(
-            array('titulo' => 'Administracion', 'ruta' => '/DistribucionAdmin/administracion', 'permiso' => 'distribucion.ver')
+            array('titulo' => 'Resumen', 'ruta' => '/DistribucionAdmin/panel_resumen', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Solicitudes', 'ruta' => '/DistribucionAdmin/panel_solicitudes', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Clientes', 'ruta' => '/DistribucionAdmin/panel_clientes', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Pedidos', 'ruta' => '/DistribucionAdmin/panel_pedidos', 'permiso' => 'distribucion.cotizaciones.ver'),
+            array('titulo' => 'Mi catalogo', 'ruta' => '/DistribucionAdmin/panel_mi_catalogo', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Inventarios', 'ruta' => '/DistribucionAdmin/panel_inventarios', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Sugeridos', 'ruta' => '/DistribucionAdmin/panel_sugeridos', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Productos', 'ruta' => '/DistribucionAdmin/panel_productos', 'permiso' => 'distribucion.editar'),
+            array('titulo' => 'Demanda', 'ruta' => '/DistribucionAdmin/panel_demanda', 'permiso' => 'distribucion.ver')
         )
     ),
     array(

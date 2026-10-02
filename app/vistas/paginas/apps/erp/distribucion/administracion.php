@@ -1,3 +1,26 @@
+<?php
+include __DIR__ . '/resumen.php';
+return;
+$distSeccionActiva = isset($datos['seccion_activa']) ? $datos['seccion_activa'] : 'resumen';
+$distSecciones = array(
+    'resumen' => array('titulo' => 'Resumen', 'ruta' => '/DistribucionAdmin/panel_resumen', 'tab' => 'dist_tab_resumen'),
+    'solicitudes' => array('titulo' => 'Solicitudes', 'ruta' => '/DistribucionAdmin/panel_solicitudes', 'tab' => 'dist_tab_solicitudes'),
+    'clientes' => array('titulo' => 'Clientes', 'ruta' => '/DistribucionAdmin/panel_clientes', 'tab' => 'dist_tab_clientes'),
+    'pedidos' => array('titulo' => 'Pedidos', 'ruta' => '/DistribucionAdmin/panel_pedidos', 'tab' => 'dist_tab_cotizaciones'),
+    'mi_catalogo' => array('titulo' => 'Mi catalogo', 'ruta' => '/DistribucionAdmin/panel_mi_catalogo', 'tab' => 'dist_tab_mi_catalogo'),
+    'inventarios' => array('titulo' => 'Inventarios', 'ruta' => '/DistribucionAdmin/panel_inventarios', 'tab' => 'dist_tab_inventarios'),
+    'sugeridos' => array('titulo' => 'Sugeridos', 'ruta' => '/DistribucionAdmin/panel_sugeridos', 'tab' => 'dist_tab_sugeridos'),
+    'productos' => array('titulo' => 'Productos', 'ruta' => '/DistribucionAdmin/panel_productos', 'tab' => 'dist_tab_productos'),
+    'demanda' => array('titulo' => 'Demanda', 'ruta' => '/DistribucionAdmin/panel_demanda', 'tab' => 'dist_tab_demanda')
+);
+if (!isset($distSecciones[$distSeccionActiva])) {
+    $distSeccionActiva = 'resumen';
+}
+$distTituloActivo = $distSecciones[$distSeccionActiva]['titulo'];
+$distPaneClass = function ($seccion) use ($distSeccionActiva) {
+    return $seccion === $distSeccionActiva ? 'tab-pane fade show active' : 'tab-pane fade d-none';
+};
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,6 +39,10 @@
         .dist-filter-row .form-control, .dist-filter-row .form-select { min-width: 170px; width: auto; }
         .dist-table-wrap { max-height: 62vh; overflow: auto; }
         .dist-table-wrap table thead th { position: sticky; top: 0; background: var(--bs-card-bg); z-index: 1; }
+        .dist-section-note { border-left: 3px solid var(--bs-primary); padding: 10px 14px; background: var(--bs-gray-100); border-radius: 6px; }
+        .dist-order-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .dist-order-kpi { border: 1px solid var(--bs-gray-200); border-radius: 6px; padding: 10px 12px; background: var(--bs-body-bg); }
+        .dist-order-kpi .value { font-weight: 700; font-size: 1.05rem; }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -27,6 +54,7 @@
             asignar_precios: <?= Sesionseguridad::tienePermiso('distribucion.asignar_precios') ? 'true' : 'false' ?>,
             cotizaciones_gestionar: <?= Sesionseguridad::tienePermiso('distribucion.cotizaciones.gestionar') ? 'true' : 'false' ?>
         };
+        window.DISTRIBUCION_ADMIN_SECCION = "<?= htmlspecialchars($distSeccionActiva, ENT_QUOTES, 'UTF-8') ?>";
     </script>
     <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
         <div class="app-page flex-column flex-column-fluid" id="kt_app_page">
@@ -38,8 +66,8 @@
                         <div class="app-toolbar py-3 py-lg-6">
                             <div class="app-container container-fluid d-flex flex-stack">
                                 <div>
-                                    <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Distribucion</h1>
-                                    <span class="text-muted">Clientes externos, permisos comerciales y solicitudes de pedido</span>
+                                    <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Distribucion / <?= htmlspecialchars($distTituloActivo, ENT_QUOTES, 'UTF-8') ?></h1>
+                                    <span class="text-muted">Modulo interno separado por areas operativas</span>
                                 </div>
                                 <button type="button" id="distribucion_refrescar" class="btn btn-light-primary">
                                     <i class="bi bi-arrow-clockwise"></i>
@@ -49,37 +77,17 @@
                         </div>
                         <div class="app-content flex-column-fluid">
                             <div class="app-container container-fluid">
-                                <ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x mb-5 fs-6" role="tablist">
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dist_tab_resumen" type="button" role="tab">Resumen</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_solicitudes" type="button" role="tab">Solicitudes</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_clientes" type="button" role="tab">Clientes</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_cotizaciones" type="button" role="tab">Pedidos</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_mi_catalogo" type="button" role="tab">Mi catalogo</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_inventarios" type="button" role="tab">Inventarios</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_sugeridos" type="button" role="tab">Sugeridos</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_productos" type="button" role="tab">Productos</button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_demanda" type="button" role="tab">Demanda</button>
-                                    </li>
+                                <ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x mb-5 fs-6" role="navigation">
+                                    <?php foreach ($distSecciones as $claveSeccion => $seccionMenu): ?>
+                                        <li class="nav-item" role="presentation">
+                                            <a class="nav-link <?= $claveSeccion === $distSeccionActiva ? 'active' : '' ?>" href="<?= htmlspecialchars($seccionMenu['ruta'], ENT_QUOTES, 'UTF-8') ?>">
+                                                <?= htmlspecialchars($seccionMenu['titulo'], ENT_QUOTES, 'UTF-8') ?>
+                                            </a>
+                                        </li>
+                                    <?php endforeach; ?>
                                 </ul>
                                 <div class="tab-content">
-                                    <div class="tab-pane fade show active" id="dist_tab_resumen" role="tabpanel">
+                                    <div class="<?= $distPaneClass('resumen') ?>" id="dist_tab_resumen" role="tabpanel">
                                         <div class="dist-kpi-grid mb-5" id="dist_resumen_kpis"></div>
                                         <div class="row g-5">
                                             <div class="col-xl-4">
@@ -102,7 +110,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane fade" id="dist_tab_solicitudes" role="tabpanel">
+                                    <div class="<?= $distPaneClass('solicitudes') ?>" id="dist_tab_solicitudes" role="tabpanel">
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
                                                 <div class="card-title">
@@ -139,7 +147,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane fade" id="dist_tab_clientes" role="tabpanel">
+                                    <div class="<?= $distPaneClass('clientes') ?>" id="dist_tab_clientes" role="tabpanel">
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
                                                 <div class="card-title">
@@ -181,11 +189,14 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane fade" id="dist_tab_cotizaciones" role="tabpanel">
+                                    <div class="<?= $distPaneClass('pedidos') ?>" id="dist_tab_cotizaciones" role="tabpanel">
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
                                                 <div class="card-title">
-                                                    <h2 class="fw-bold mb-0">Solicitudes recibidas</h2>
+                                                    <div>
+                                                        <h2 class="fw-bold mb-1">Pedidos</h2>
+                                                        <div class="text-muted fs-7">Bandeja de revision interna: solicitado no se modifica; aqui se confirma existencia, precio y respuesta.</div>
+                                                    </div>
                                                 </div>
                                                 <div class="card-toolbar dist-filter-row">
                                                     <span id="dist_cotizaciones_total" class="badge badge-light-primary">0</span>
@@ -200,8 +211,10 @@
                                                             <tr class="text-start text-muted fw-bold fs-7 text-uppercase">
                                                                 <th>Folio</th>
                                                                 <th>Cliente</th>
-                                                                <th>Partidas</th>
-                                                                <th>Total</th>
+                                                                <th>Revision</th>
+                                                                <th>Solicitado</th>
+                                                                <th>Confirmado</th>
+                                                                <th>Valor</th>
                                                                 <th>Estado</th>
                                                                 <th>Fecha</th>
                                                                 <th class="text-end">Acciones</th>
@@ -213,7 +226,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane fade" id="dist_tab_mi_catalogo" role="tabpanel">
+                                    <div class="<?= $distPaneClass('mi_catalogo') ?>" id="dist_tab_mi_catalogo" role="tabpanel">
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
                                                 <div class="card-title">
@@ -250,7 +263,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane fade" id="dist_tab_inventarios" role="tabpanel">
+                                    <div class="<?= $distPaneClass('inventarios') ?>" id="dist_tab_inventarios" role="tabpanel">
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
                                                 <div class="card-title">
@@ -288,7 +301,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane fade" id="dist_tab_sugeridos" role="tabpanel">
+                                    <div class="<?= $distPaneClass('sugeridos') ?>" id="dist_tab_sugeridos" role="tabpanel">
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
                                                 <div class="card-title">
@@ -325,7 +338,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane fade" id="dist_tab_productos" role="tabpanel">
+                                    <div class="<?= $distPaneClass('productos') ?>" id="dist_tab_productos" role="tabpanel">
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
                                                 <div class="card-title">
@@ -401,7 +414,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane fade" id="dist_tab_demanda" role="tabpanel">
+                                    <div class="<?= $distPaneClass('demanda') ?>" id="dist_tab_demanda" role="tabpanel">
                                         <div class="row g-5">
                                             <div class="col-xl-4"><div class="card"><div class="card-header border-0"><h3 class="card-title">Productos en Mi catalogo</h3></div><div class="card-body pt-0" id="dist_demanda_catalogo"></div></div></div>
                                             <div class="col-xl-4"><div class="card"><div class="card-header border-0"><h3 class="card-title">Productos solicitados</h3></div><div class="card-body pt-0" id="dist_demanda_pedidos"></div></div></div>
@@ -421,6 +434,6 @@
     </div>
     <script src="assets/plugins/global/plugins.bundle.js"></script>
     <script src="assets/js/scripts.bundle.js"></script>
-    <script src="/assets/js/custom/apps/erp/distribucion/administracion.js?v=20260929-publicar-filtrados"></script>
+    <script src="/assets/js/custom/apps/erp/distribucion/administracion.js?v=20261001-secciones"></script>
 </body>
 </html>

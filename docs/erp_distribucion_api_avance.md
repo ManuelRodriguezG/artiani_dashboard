@@ -50,6 +50,15 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Pedidos/cotizaciones muestran detalle de partidas y preparan revision por partida con `cantidad_confirmada`, `estatus_revision`, `comentario_revision`, `fecha_revision` e `id_usuario_revision` solo si las columnas ya existen.
 - No se ejecuto DDL ni migracion. Si faltan columnas de revision por partida, deben aplicarse desde el plan de `DistribucionApiEsquema` con respaldo y autorizacion explicita.
 
+## Cambios 2026-10-01 - navegacion interna separada
+
+- Distribucion deja de depender de una sola entrada visual de Administracion para operar el modulo.
+- El sidebar y el buscador global apuntan a paginas separadas: Resumen, Solicitudes, Clientes, Pedidos, Mi catalogo, Inventarios, Sugeridos, Productos y Demanda.
+- Las rutas internas usan `DistribucionAdmin/panel_*` para no chocar con endpoints JSON existentes como `resumen`, `solicitudes`, `clientes`, `cotizaciones` y `demanda`.
+- Cada seccion tiene su propia vista PHP dentro de `app/vistas/paginas/apps/erp/distribucion/`; el layout comun solo conserva header, sidebar, navegacion y scripts.
+- El JS carga solo los datos requeridos por la pagina activa para evitar que Pedidos, Clientes, Mi catalogo, Inventarios y Productos queden mezclados en una sola pantalla.
+- Pedidos queda como bandeja operativa separada para revisar partidas, cantidades solicitadas bloqueadas, cantidades confirmadas, valores e impresion de revision.
+
 ## Pendientes
 
 - Validar en UAT con un cliente aprobado que tenga solo `distribucion.catalogo.ver`.

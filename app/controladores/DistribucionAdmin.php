@@ -19,11 +19,80 @@ class DistribucionAdmin extends Controlador {
    * Contrato: vista; no escribe por si misma.
    */
   public function administracion() {
+    $this->abrirSeccion("resumen", "/DistribucionAdmin/administracion");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-01
+   * Proposito: abrir una pagina operativa separada del modulo Distribucion.
+   * Impacto: UI ERP Distribucion; evita concentrar todas las areas dentro de Administracion.
+   * Contrato: vista protegida por `distribucion.ver`; no escribe por si misma.
+   */
+  private function abrirSeccion($seccion, $rutaCanonica) {
     $this->requerirPermiso("distribucion.ver");
-    $this->vista("apps/erp/distribucion/administracion", array(
+    $secciones = array("resumen", "solicitudes", "clientes", "pedidos", "mi_catalogo", "inventarios", "sugeridos", "productos", "demanda");
+    if (!in_array($seccion, $secciones, true)) {
+      $seccion = "resumen";
+    }
+    if ($seccion === "pedidos") {
+      $this->requerirPermiso("distribucion.cotizaciones.ver");
+    }
+    if ($seccion === "productos") {
+      $this->requerirPermiso("distribucion.editar");
+    }
+    $vistas = array(
+      "resumen" => "resumen",
+      "solicitudes" => "solicitudes",
+      "clientes" => "clientes",
+      "pedidos" => "pedidos",
+      "mi_catalogo" => "mi_catalogo",
+      "inventarios" => "inventarios",
+      "sugeridos" => "sugeridos",
+      "productos" => "productos",
+      "demanda" => "demanda"
+    );
+    $this->vista("apps/erp/distribucion/" . $vistas[$seccion], array(
       "modulo" => "distribucion",
-      "ruta_canonica" => "/DistribucionAdmin/administracion"
+      "seccion_activa" => $seccion,
+      "ruta_canonica" => $rutaCanonica
     ));
+  }
+
+  public function panel_resumen() {
+    $this->abrirSeccion("resumen", "/DistribucionAdmin/panel_resumen");
+  }
+
+  public function panel_solicitudes() {
+    $this->abrirSeccion("solicitudes", "/DistribucionAdmin/panel_solicitudes");
+  }
+
+  public function panel_clientes() {
+    $this->abrirSeccion("clientes", "/DistribucionAdmin/panel_clientes");
+  }
+
+  public function panel_pedidos() {
+    $this->abrirSeccion("pedidos", "/DistribucionAdmin/panel_pedidos");
+  }
+
+  public function panel_mi_catalogo() {
+    $this->abrirSeccion("mi_catalogo", "/DistribucionAdmin/panel_mi_catalogo");
+  }
+
+  public function panel_inventarios() {
+    $this->abrirSeccion("inventarios", "/DistribucionAdmin/panel_inventarios");
+  }
+
+  public function panel_sugeridos() {
+    $this->abrirSeccion("sugeridos", "/DistribucionAdmin/panel_sugeridos");
+  }
+
+  public function panel_productos() {
+    $this->abrirSeccion("productos", "/DistribucionAdmin/panel_productos");
+  }
+
+  public function panel_demanda() {
+    $this->abrirSeccion("demanda", "/DistribucionAdmin/panel_demanda");
   }
 
   /**

@@ -228,6 +228,50 @@ class DistribucionCotizacionesApi extends CRUD {
       return $this->respuesta(true, "warning", "La solicitud contiene SKUs no disponibles para Distribucion", array("bloqueos" => array_values(array_unique($bloqueos))));
     }
 
+    require_once RUTA_APP . "/modelos/DistribucionCatalogoApi.php";
+    $precios = (new DistribucionCatalogoApi())->resolverPrecios($datos, $contexto);
+    $depurarPrecios = $this->valor($precios, "depurar", array());
+    $itemsPrecio = $this->valor($depurarPrecios, "items", array());
+    $preciosSnapshot = array();
+    $totalEstimado = 0.0;
+    $totalCompleto = empty($precios["error"]) && !empty($itemsPrecio);
+    foreach ($items as $item) {
+      $idSkuInicial = intval($this->valor($item, "id_sku", 0));
+      if ($idSkuInicial <= 0) { continue; }
+      $preciosSnapshot[$idSkuInicial] = array(
+        "precio_unitario" => null,
+        "subtotal" => null,
+        "mensaje" => "pendiente_revision_precio",
+        "motivo" => "precio_no_resuelto"
+      );
+    }
+    foreach ($itemsPrecio as $itemPrecio) {
+      $idSkuPrecio = intval($this->valor($itemPrecio, "id_sku", 0));
+      if ($idSkuPrecio <= 0) { continue; }
+      $precio = $this->valor($itemPrecio, "precio", array());
+      $precioVisible = !empty($precio["visible"]) && $this->valor($precio, "monto", null) !== null;
+      $cantidad = floatval($this->valor($itemPrecio, "cantidad", 1));
+      $precioUnitario = $precioVisible ? floatval($precio["monto"]) : null;
+      $subtotalLinea = $precioVisible ? round($precioUnitario * $cantidad, 6) : null;
+      if ($precioVisible) {
+        $totalEstimado += $subtotalLinea;
+      } else {
+        $totalCompleto = false;
+      }
+      $preciosSnapshot[$idSkuPrecio] = array(
+        "precio_unitario" => $precioUnitario,
+        "subtotal" => $subtotalLinea,
+        "mensaje" => $precioVisible ? null : $this->valor($precio, "mensaje", "precio_no_visible"),
+        "motivo" => $precioVisible ? null : $this->valor($precio, "tipo", "precio_no_visible")
+      );
+    }
+    foreach ($items as $item) {
+      $idSkuSolicitado = intval($this->valor($item, "id_sku", 0));
+      if ($idSkuSolicitado > 0 && (!isset($preciosSnapshot[$idSkuSolicitado]) || $this->valor($preciosSnapshot[$idSkuSolicitado], "precio_unitario", null) === null)) {
+        $totalCompleto = false;
+      }
+    }
+
     try {
       $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
       $folio = $this->folioPedido($db);
@@ -238,14 +282,17 @@ class DistribucionCotizacionesApi extends CRUD {
       $db->beginTransaction();
       $columnasEntrega = $this->columnasEntregaPedidoDisponibles($db);
       $columnas = array("folio", "id_cliente_distribucion", "estatus", "moneda", "subtotal", "total_estimado", "comentarios", "snapshot_json", "fecha_registro", "fecha_actualizacion");
-      $valores = array(":folio", ":cliente", "'pedido_solicitado'", "'MXN'", "NULL", "NULL", ":comentarios", ":snapshot", "NOW()", "NOW()");
+      $valores = array(":folio", ":cliente", "'pedido_solicitado'", "'MXN'", ":subtotal", ":total", ":comentarios", ":snapshot", "NOW()", "NOW()");
       $paramsPedido = array(
         ":folio" => $folio,
         ":cliente" => $idCliente,
+        ":subtotal" => $this->decimalONull($totalCompleto ? round($totalEstimado, 6) : null),
+        ":total" => $this->decimalONull($totalCompleto ? round($totalEstimado, 6) : null),
         ":comentarios" => $comentarios,
         ":snapshot" => json_encode(array(
           "tipo" => "pedido_preliminar",
           "entrada" => $datos,
+          "precios" => $depurarPrecios,
           "entrega" => $entrega,
           "facturacion" => $facturacion,
           "contexto" => $this->contextoAuditable($contexto),
@@ -272,19 +319,26 @@ class DistribucionCotizacionesApi extends CRUD {
       $idPedido = intval($db->lastInsertId());
       $stmtItem = $db->prepare("INSERT INTO erp_distribucion_cotizacion_items
         (id_cotizacion_distribucion, id_sku, sku_snapshot, nombre_snapshot, cantidad, precio_unitario_snapshot, subtotal_snapshot, disponibilidad_snapshot, snapshot_json, fecha_registro)
-        VALUES (:pedido, :sku, :sku_snapshot, :nombre, :cantidad, NULL, NULL, 'por_confirmar', :snapshot, NOW())");
+        VALUES (:pedido, :sku, :sku_snapshot, :nombre, :cantidad, :precio, :subtotal, 'por_confirmar', :snapshot, NOW())");
       foreach ($items as $item) {
         $idSku = intval($this->valor($item, "id_sku", 0));
         $info = isset($skuInfo[$idSku]) ? $skuInfo[$idSku] : array("sku" => null, "nombre" => null);
+        $precioSnapshot = isset($preciosSnapshot[$idSku]) ? $preciosSnapshot[$idSku] : array();
         $stmtItem->execute(array(
           ":pedido" => $idPedido,
           ":sku" => $idSku,
           ":sku_snapshot" => $this->valor($info, "sku", null),
           ":nombre" => $this->valor($info, "nombre", null),
           ":cantidad" => floatval($this->valor($item, "cantidad", 1)),
+          ":precio" => $this->decimalONull($this->valor($precioSnapshot, "precio_unitario", null)),
+          ":subtotal" => $this->decimalONull($this->valor($precioSnapshot, "subtotal", null)),
           ":snapshot" => json_encode(array(
             "id_sku" => $idSku,
             "cantidad" => floatval($this->valor($item, "cantidad", 1)),
+            "precio_unitario" => $this->valor($precioSnapshot, "precio_unitario", null),
+            "subtotal" => $this->valor($precioSnapshot, "subtotal", null),
+            "precio_mensaje" => $this->valor($precioSnapshot, "mensaje", null),
+            "precio_motivo" => $this->valor($precioSnapshot, "motivo", null),
             "disponibilidad" => "por_confirmar",
             "revision_erp_requerida" => true
           ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
@@ -308,6 +362,9 @@ class DistribucionCotizacionesApi extends CRUD {
         "id_cotizacion_distribucion" => $idPedido,
         "estatus" => "pedido_solicitado",
         "disponibilidad" => "por_confirmar",
+        "subtotal" => $totalCompleto ? round($totalEstimado, 6) : null,
+        "total_estimado" => $totalCompleto ? round($totalEstimado, 6) : null,
+        "precio_snapshot_completo" => $totalCompleto,
         "guardrails" => array("existencia_no_expuesta" => true, "no_aparta_inventario" => true, "no_crea_venta" => true, "no_crea_pedido_erp" => true)
       ));
     } catch (Exception $e) {
@@ -342,11 +399,26 @@ class DistribucionCotizacionesApi extends CRUD {
         $params[":q"] = "%" . $q . "%";
       }
       $joinCliente = $this->tablaExiste($db, "erp_distribucion_clientes") ? "LEFT JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=co.id_cliente_distribucion" : "LEFT JOIN (SELECT NULL id_cliente_distribucion, NULL nombre, NULL empresa, NULL correo) c ON 1=0";
-      $itemsSelect = $this->tablaExiste($db, "erp_distribucion_cotizacion_items") ? "(SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion)" : "0";
+      $tieneItems = $this->tablaExiste($db, "erp_distribucion_cotizacion_items");
+      $tieneRevision = $tieneItems && $this->columnasRevisionDisponibles($db);
+      $itemsSelect = $tieneItems ? "(SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion)" : "0";
+      $itemsPendientesSelect = $tieneRevision ? "(SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion AND (i.estatus_revision IS NULL OR i.estatus_revision='' OR i.estatus_revision IN ('por_confirmar','requiere_revision','pendiente_proveedor')))" : "0";
+      $itemsRevisadosSelect = $tieneRevision ? "(SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion AND i.estatus_revision IS NOT NULL AND i.estatus_revision<>'' AND i.estatus_revision NOT IN ('por_confirmar','requiere_revision','pendiente_proveedor'))" : "0";
+      $cantidadSolicitadaSelect = $tieneItems ? "(SELECT COALESCE(SUM(i.cantidad),0) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion)" : "0";
+      $cantidadConfirmadaSelect = $tieneRevision ? "(SELECT COALESCE(SUM(i.cantidad_confirmada),0) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion)" : "0";
+      $totalSolicitadoSelect = $tieneItems ? "(SELECT SUM(i.subtotal_snapshot) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion)" : "NULL";
+      $totalConfirmadoItemsSelect = $tieneRevision ? "(SELECT SUM(COALESCE(i.cantidad_confirmada,0) * COALESCE(i.precio_unitario_snapshot,0)) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion)" : "NULL";
       $extra = $this->columnasEntregaPedidoDisponibles($db) ? "co.total_confirmado, co.tipo_entrega, co.costo_envio, co.respuesta_cliente_estatus, co.fecha_respuesta_cliente, co.fecha_respuesta_erp," : "NULL total_confirmado, NULL tipo_entrega, NULL costo_envio, NULL respuesta_cliente_estatus, NULL fecha_respuesta_cliente, NULL fecha_respuesta_erp,";
       $extra .= $this->columnasFacturacionPedidoDisponibles($db) ? "co.requiere_factura, co.facturacion_json," : "NULL requiere_factura, NULL facturacion_json,";
       $stmt = $db->prepare("SELECT co.id_cotizacion_distribucion, co.folio, co.id_cliente_distribucion, co.estatus, co.moneda, co.subtotal, co.total_estimado, " . $extra . " co.fecha_registro,
-          c.nombre cliente, c.empresa, c.correo, " . $itemsSelect . " partidas
+          c.nombre cliente, c.empresa, c.correo,
+          " . $itemsSelect . " partidas,
+          " . $itemsPendientesSelect . " partidas_pendientes,
+          " . $itemsRevisadosSelect . " partidas_revisadas,
+          " . $cantidadSolicitadaSelect . " cantidad_solicitada,
+          " . $cantidadConfirmadaSelect . " cantidad_confirmada,
+          " . $totalSolicitadoSelect . " total_solicitado_items,
+          " . $totalConfirmadoItemsSelect . " total_confirmado_items
         FROM erp_distribucion_cotizaciones co
         " . $joinCliente . "
         WHERE " . implode(" AND ", $where) . "
@@ -560,7 +632,9 @@ class DistribucionCotizacionesApi extends CRUD {
       $extra = $this->columnasEntregaPedidoDisponibles($db) ? "total_confirmado, tipo_entrega, entrega_habilitar_envio, entrega_habilitar_recoger_tienda, costo_envio, respuesta_cliente_estatus, fecha_respuesta_cliente, fecha_respuesta_erp," : "NULL total_confirmado, NULL tipo_entrega, NULL entrega_habilitar_envio, NULL entrega_habilitar_recoger_tienda, NULL costo_envio, NULL respuesta_cliente_estatus, NULL fecha_respuesta_cliente, NULL fecha_respuesta_erp,";
       $extra .= $this->columnasFacturacionPedidoDisponibles($db) ? "requiere_factura, facturacion_json," : "NULL requiere_factura, NULL facturacion_json,";
       $stmt = $db->prepare("SELECT id_cotizacion_distribucion, folio, estatus, moneda, subtotal, total_estimado, " . $extra . " comentarios, fecha_registro, fecha_actualizacion,
-          (SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) partidas
+          (SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) partidas,
+          (SELECT COALESCE(SUM(i.cantidad),0) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) cantidad_solicitada,
+          (SELECT COALESCE(SUM(i.cantidad_confirmada),0) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) cantidad_confirmada
         FROM erp_distribucion_cotizaciones co
         WHERE id_cliente_distribucion=:cliente
         ORDER BY id_cotizacion_distribucion DESC
