@@ -25,6 +25,13 @@ class DistribucionCotizacionesApi extends CRUD {
     $disponibilidad = $catalogo->resolverDisponibilidad($datos, $contexto);
     $itemsPrecio = $this->valor($this->valor($precios, "depurar", array()), "items", array());
     $itemsDisponibilidad = $this->valor($this->valor($disponibilidad, "depurar", array()), "items", array());
+    $comentariosEntrada = array();
+    foreach ($this->valor($datos, "items", array()) as $entradaItem) {
+      $idSkuComentario = intval($this->valor($entradaItem, "id_sku", 0));
+      if ($idSkuComentario > 0) {
+        $comentariosEntrada[$idSkuComentario] = trim((string) $this->valor($entradaItem, "comentario", ""));
+      }
+    }
     $items = array();
     $subtotal = 0.0;
     $subtotalCompleto = true;
@@ -48,6 +55,7 @@ class DistribucionCotizacionesApi extends CRUD {
       $items[] = array(
         "id_sku" => intval($this->valor($item, "id_sku", 0)),
         "cantidad" => $cantidad,
+        "comentario" => $this->valor($comentariosEntrada, intval($this->valor($item, "id_sku", 0)), ""),
         "precio_unitario" => $precioUnitario,
         "subtotal" => $subtotalLinea,
         "disponibilidad" => $disp,
@@ -224,22 +232,43 @@ class DistribucionCotizacionesApi extends CRUD {
       $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
       $folio = $this->folioPedido($db);
       $comentarios = trim((string) $this->valor($datos, "comentarios", ""));
+      $entrega = $this->normalizarEntregaPedido($datos, array());
+      $facturacion = $this->normalizarFacturacionPedido($datos, array());
       $skuInfo = $this->skuInfo($db, $items);
       $db->beginTransaction();
-      $stmt = $db->prepare("INSERT INTO erp_distribucion_cotizaciones
-        (folio, id_cliente_distribucion, estatus, moneda, subtotal, total_estimado, comentarios, snapshot_json, fecha_registro, fecha_actualizacion)
-        VALUES (:folio, :cliente, 'pedido_solicitado', 'MXN', NULL, NULL, :comentarios, :snapshot, NOW(), NOW())");
-      $stmt->execute(array(
+      $columnasEntrega = $this->columnasEntregaPedidoDisponibles($db);
+      $columnas = array("folio", "id_cliente_distribucion", "estatus", "moneda", "subtotal", "total_estimado", "comentarios", "snapshot_json", "fecha_registro", "fecha_actualizacion");
+      $valores = array(":folio", ":cliente", "'pedido_solicitado'", "'MXN'", "NULL", "NULL", ":comentarios", ":snapshot", "NOW()", "NOW()");
+      $paramsPedido = array(
         ":folio" => $folio,
         ":cliente" => $idCliente,
         ":comentarios" => $comentarios,
         ":snapshot" => json_encode(array(
           "tipo" => "pedido_preliminar",
           "entrada" => $datos,
+          "entrega" => $entrega,
+          "facturacion" => $facturacion,
           "contexto" => $this->contextoAuditable($contexto),
           "guardrails" => array("existencia_no_expuesta" => true, "requiere_revision_interna" => true)
         ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-      ));
+      );
+      if ($columnasEntrega) {
+        $columnas = array_merge($columnas, array("tipo_entrega", "entrega_habilitar_envio", "entrega_habilitar_recoger_tienda", "costo_envio", "direccion_envio_json"));
+        $valores = array_merge($valores, array(":tipo_entrega", ":habilitar_envio", ":habilitar_recoger", ":costo_envio", ":direccion_envio"));
+        $paramsPedido[":tipo_entrega"] = $entrega["tipo_entrega"];
+        $paramsPedido[":habilitar_envio"] = $entrega["entrega_habilitar_envio"];
+        $paramsPedido[":habilitar_recoger"] = $entrega["entrega_habilitar_recoger_tienda"];
+        $paramsPedido[":costo_envio"] = $this->decimalONull($entrega["costo_envio"]);
+        $paramsPedido[":direccion_envio"] = json_encode($entrega["direccion_envio"], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+      }
+      if ($this->columnasFacturacionPedidoDisponibles($db)) {
+        $columnas = array_merge($columnas, array("requiere_factura", "facturacion_json"));
+        $valores = array_merge($valores, array(":requiere_factura", ":facturacion"));
+        $paramsPedido[":requiere_factura"] = $facturacion["requiere_factura"];
+        $paramsPedido[":facturacion"] = json_encode($facturacion, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+      }
+      $stmt = $db->prepare("INSERT INTO erp_distribucion_cotizaciones (" . implode(", ", $columnas) . ") VALUES (" . implode(", ", $valores) . ")");
+      $stmt->execute($paramsPedido);
       $idPedido = intval($db->lastInsertId());
       $stmtItem = $db->prepare("INSERT INTO erp_distribucion_cotizacion_items
         (id_cotizacion_distribucion, id_sku, sku_snapshot, nombre_snapshot, cantidad, precio_unitario_snapshot, subtotal_snapshot, disponibilidad_snapshot, snapshot_json, fecha_registro)
@@ -314,7 +343,9 @@ class DistribucionCotizacionesApi extends CRUD {
       }
       $joinCliente = $this->tablaExiste($db, "erp_distribucion_clientes") ? "LEFT JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=co.id_cliente_distribucion" : "LEFT JOIN (SELECT NULL id_cliente_distribucion, NULL nombre, NULL empresa, NULL correo) c ON 1=0";
       $itemsSelect = $this->tablaExiste($db, "erp_distribucion_cotizacion_items") ? "(SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion)" : "0";
-      $stmt = $db->prepare("SELECT co.id_cotizacion_distribucion, co.folio, co.id_cliente_distribucion, co.estatus, co.moneda, co.subtotal, co.total_estimado, co.fecha_registro,
+      $extra = $this->columnasEntregaPedidoDisponibles($db) ? "co.total_confirmado, co.tipo_entrega, co.costo_envio, co.respuesta_cliente_estatus, co.fecha_respuesta_cliente, co.fecha_respuesta_erp," : "NULL total_confirmado, NULL tipo_entrega, NULL costo_envio, NULL respuesta_cliente_estatus, NULL fecha_respuesta_cliente, NULL fecha_respuesta_erp,";
+      $extra .= $this->columnasFacturacionPedidoDisponibles($db) ? "co.requiere_factura, co.facturacion_json," : "NULL requiere_factura, NULL facturacion_json,";
+      $stmt = $db->prepare("SELECT co.id_cotizacion_distribucion, co.folio, co.id_cliente_distribucion, co.estatus, co.moneda, co.subtotal, co.total_estimado, " . $extra . " co.fecha_registro,
           c.nombre cliente, c.empresa, c.correo, " . $itemsSelect . " partidas
         FROM erp_distribucion_cotizaciones co
         " . $joinCliente . "
@@ -432,6 +463,226 @@ class DistribucionCotizacionesApi extends CRUD {
     } catch (Exception $e) {
       if ($db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", "No se pudo guardar revision de partida", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-30
+   * Proposito: guardar respuesta interna de surtido y entrega para que el cliente la revise en Distribucion.
+   * Impacto: Pedidos Distribucion; no aparta inventario ni crea venta/pedido ERP.
+   * Contrato: POST interno protegido; requiere columnas de entrega en erp_distribucion_cotizaciones.
+   */
+  public function configurarEntregaInterna($datos = array(), $idUsuario = null) {
+    $id = intval($this->valor($datos, "id_cotizacion_distribucion", $this->valor($datos, "id", 0)));
+    if ($id <= 0) {
+      return $this->respuesta(true, "warning", "Pedido requerido");
+    }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->columnasEntregaPedidoDisponibles($db) || !$this->columnasFacturacionPedidoDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Configuracion de entrega pendiente de esquema", array("configurado" => false, "requiere_plan_esquema" => true));
+    }
+    $entrega = $this->normalizarEntregaPedido($datos, array());
+    $facturacion = $this->normalizarFacturacionPedido($datos, array());
+    try {
+      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, id_cliente_distribucion, estatus FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id LIMIT 1");
+      $stmt->execute(array(":id" => $id));
+      $pedido = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$pedido) {
+        return $this->respuesta(true, "warning", "Pedido no encontrado");
+      }
+      $db->beginTransaction();
+      $total = $this->totalConfirmadoPedido($db, $id, $entrega["costo_envio"]);
+      $db->prepare("UPDATE erp_distribucion_cotizaciones
+        SET tipo_entrega=:tipo_entrega,
+            entrega_habilitar_envio=:habilitar_envio,
+            entrega_habilitar_recoger_tienda=:habilitar_recoger,
+            costo_envio=:costo_envio,
+            direccion_envio_json=:direccion_envio,
+            requiere_factura=:requiere_factura,
+            facturacion_json=:facturacion,
+            total_confirmado=:total_confirmado,
+            estatus='respondida',
+            fecha_respuesta_erp=NOW(),
+            id_usuario_respuesta_erp=:usuario,
+            fecha_actualizacion=NOW()
+        WHERE id_cotizacion_distribucion=:id")
+        ->execute(array(
+          ":tipo_entrega" => $entrega["tipo_entrega"],
+          ":habilitar_envio" => $entrega["entrega_habilitar_envio"],
+          ":habilitar_recoger" => $entrega["entrega_habilitar_recoger_tienda"],
+          ":costo_envio" => $this->decimalONull($entrega["costo_envio"]),
+          ":direccion_envio" => json_encode($entrega["direccion_envio"], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+          ":requiere_factura" => $facturacion["requiere_factura"],
+          ":facturacion" => json_encode($facturacion, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+          ":total_confirmado" => $this->decimalONull($total),
+          ":usuario" => $idUsuario,
+          ":id" => $id
+        ));
+      $this->registrarAuditoria($db, "cotizacion", $id, "configurar_entrega", "ok", "Respuesta de pedido Distribucion guardada", array(
+        "estatus_anterior" => $pedido["estatus"],
+        "estatus" => "respondida",
+        "entrega" => $entrega,
+        "facturacion" => $facturacion,
+        "total_confirmado" => $total,
+        "nota" => trim((string) $this->valor($datos, "nota", ""))
+      ), $idUsuario, intval($pedido["id_cliente_distribucion"]));
+      $db->commit();
+      return $this->respuesta(false, "success", "Respuesta de pedido guardada para el cliente", array(
+        "ejecutado" => true,
+        "id_cotizacion_distribucion" => $id,
+        "estatus" => "respondida",
+        "total_confirmado" => $total,
+        "entrega" => $entrega
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo guardar respuesta de pedido", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-30
+   * Proposito: listar pedidos propios para el portal Distribucion.
+   * Impacto: Cliente externo; consulta solo documentos de su cuenta y no expone stock interno.
+   */
+  public function pedidosCliente($filtros = array(), $contexto = array()) {
+    $permiso = $this->validarClientePedido($contexto);
+    if ($permiso) { return $permiso; }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db)) {
+      return $this->respuesta(false, "warning", "Pedidos Distribucion pendientes de esquema", array("configurado" => false, "items" => array()));
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $limite = max(1, min(100, intval($this->valor($filtros, "limite", 50))));
+      $extra = $this->columnasEntregaPedidoDisponibles($db) ? "total_confirmado, tipo_entrega, entrega_habilitar_envio, entrega_habilitar_recoger_tienda, costo_envio, respuesta_cliente_estatus, fecha_respuesta_cliente, fecha_respuesta_erp," : "NULL total_confirmado, NULL tipo_entrega, NULL entrega_habilitar_envio, NULL entrega_habilitar_recoger_tienda, NULL costo_envio, NULL respuesta_cliente_estatus, NULL fecha_respuesta_cliente, NULL fecha_respuesta_erp,";
+      $extra .= $this->columnasFacturacionPedidoDisponibles($db) ? "requiere_factura, facturacion_json," : "NULL requiere_factura, NULL facturacion_json,";
+      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, folio, estatus, moneda, subtotal, total_estimado, " . $extra . " comentarios, fecha_registro, fecha_actualizacion,
+          (SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) partidas
+        FROM erp_distribucion_cotizaciones co
+        WHERE id_cliente_distribucion=:cliente
+        ORDER BY id_cotizacion_distribucion DESC
+        LIMIT " . intval($limite));
+      $stmt->execute(array(":cliente" => $idCliente));
+      return $this->respuesta(false, "success", "Pedidos Distribucion consultados", array("configurado" => true, "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudieron consultar pedidos", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-30
+   * Proposito: consultar detalle de pedido propio con cantidades confirmadas por ERP.
+   * Impacto: Cliente externo; permite decidir si acepta sin consultar tablas internas.
+   */
+  public function pedidoDetalleCliente($filtros = array(), $contexto = array()) {
+    $permiso = $this->validarClientePedido($contexto);
+    if ($permiso) { return $permiso; }
+    $id = intval($this->valor($filtros, "id_cotizacion_distribucion", $this->valor($filtros, "id", 0)));
+    if ($id <= 0) {
+      return $this->respuesta(true, "warning", "Pedido requerido");
+    }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->tablaExiste($db, "erp_distribucion_cotizacion_items")) {
+      return $this->respuesta(false, "warning", "Detalle de pedido pendiente de esquema", array("configurado" => false, "pedido" => null, "items" => array()));
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $stmt = $db->prepare("SELECT * FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente LIMIT 1");
+      $stmt->execute(array(":id" => $id, ":cliente" => $idCliente));
+      $pedido = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$pedido) {
+        return $this->respuesta(true, "warning", "Pedido no encontrado");
+      }
+      $stmtItems = $db->prepare("SELECT i.id_cotizacion_item, i.id_sku, i.sku_snapshot, i.nombre_snapshot, i.cantidad,
+          i.precio_unitario_snapshot, i.subtotal_snapshot, i.disponibilidad_snapshot,
+          i.cantidad_confirmada, i.estatus_revision, i.comentario_revision, i.fecha_revision,
+          s.sku sku_actual, COALESCE(NULLIF(s.nombre,''), p.nombre, i.nombre_snapshot) producto_actual
+        FROM erp_distribucion_cotizacion_items i
+        LEFT JOIN erp_catalogo_skus s ON s.id_sku=i.id_sku
+        LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE i.id_cotizacion_distribucion=:id
+        ORDER BY i.id_cotizacion_item ASC");
+      $stmtItems->execute(array(":id" => $id));
+      return $this->respuesta(false, "success", "Pedido Distribucion consultado", array(
+        "configurado" => true,
+        "pedido" => $pedido,
+        "items" => $stmtItems->fetchAll(PDO::FETCH_ASSOC),
+        "opciones_entrega" => array(
+          "envio" => intval($this->valor($pedido, "entrega_habilitar_envio", 1)) === 1,
+          "recoger_tienda" => intval($this->valor($pedido, "entrega_habilitar_recoger_tienda", 1)) === 1
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo consultar pedido", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-30
+   * Proposito: registrar aceptacion o ajuste solicitado por el cliente sobre la respuesta del ERP.
+   * Impacto: Pedidos Distribucion; conserva trazabilidad antes de surtir.
+   */
+  public function responderPedidoCliente($datos = array(), $contexto = array()) {
+    $permiso = $this->validarClientePedido($contexto);
+    if ($permiso) { return $permiso; }
+    $id = intval($this->valor($datos, "id_cotizacion_distribucion", $this->valor($datos, "id", 0)));
+    $respuesta = trim((string) $this->valor($datos, "respuesta", ""));
+    if (!in_array($respuesta, array("aceptado", "rechazado", "requiere_ajuste"), true)) {
+      return $this->respuesta(true, "warning", "Respuesta no valida");
+    }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->columnasEntregaPedidoDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Respuesta de pedido pendiente de esquema", array("configurado" => false));
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, id_cliente_distribucion, estatus FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente LIMIT 1");
+      $stmt->execute(array(":id" => $id, ":cliente" => $idCliente));
+      $pedido = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$pedido) {
+        return $this->respuesta(true, "warning", "Pedido no encontrado");
+      }
+      $estatusNuevo = $respuesta === "aceptado" ? "cliente_acepto" : ($respuesta === "rechazado" ? "cliente_rechazo" : "requiere_ajuste_cliente");
+      $comentario = substr(trim((string) $this->valor($datos, "comentario", "")), 0, 2000);
+      $entrega = $this->normalizarEntregaPedido($datos, $pedido);
+      $db->beginTransaction();
+      $db->prepare("UPDATE erp_distribucion_cotizaciones
+        SET respuesta_cliente_estatus=:respuesta,
+            respuesta_cliente_comentario=:comentario,
+            tipo_entrega=:tipo_entrega,
+            estatus=:estatus,
+            fecha_respuesta_cliente=NOW(),
+            fecha_actualizacion=NOW()
+        WHERE id_cotizacion_distribucion=:id")
+        ->execute(array(
+          ":respuesta" => $respuesta,
+          ":comentario" => $comentario,
+          ":tipo_entrega" => $entrega["tipo_entrega"],
+          ":estatus" => $estatusNuevo,
+          ":id" => $id
+        ));
+      $this->registrarAuditoria($db, "cotizacion", $id, "respuesta_cliente", "ok", "Cliente respondio pedido Distribucion", array(
+        "estatus_anterior" => $pedido["estatus"],
+        "estatus" => $estatusNuevo,
+        "respuesta" => $respuesta,
+        "comentario" => $comentario,
+        "tipo_entrega" => $entrega["tipo_entrega"]
+      ), null, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Respuesta registrada", array(
+        "ejecutado" => true,
+        "id_cotizacion_distribucion" => $id,
+        "respuesta" => $respuesta,
+        "estatus" => $estatusNuevo
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo registrar respuesta", array("detalle" => "error_controlado"));
     }
   }
 
@@ -678,6 +929,114 @@ class DistribucionCotizacionesApi extends CRUD {
       }
     }
     return true;
+  }
+
+  private function columnasEntregaPedidoDisponibles($db) {
+    foreach (array("total_confirmado", "tipo_entrega", "entrega_habilitar_envio", "entrega_habilitar_recoger_tienda", "costo_envio", "direccion_envio_json", "respuesta_cliente_estatus", "respuesta_cliente_comentario", "fecha_respuesta_cliente", "fecha_respuesta_erp", "id_usuario_respuesta_erp") as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_cotizaciones", $columna)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private function columnasFacturacionPedidoDisponibles($db) {
+    foreach (array("requiere_factura", "facturacion_json") as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_cotizaciones", $columna)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private function normalizarEntregaPedido($datos, $base = array()) {
+    $tipo = trim((string) $this->valor($datos, "tipo_entrega", $this->valor($datos, "metodo_entrega", $this->valor($base, "tipo_entrega", "por_definir"))));
+    if (!in_array($tipo, array("por_definir", "envio", "recoger_tienda"), true)) {
+      $tipo = "por_definir";
+    }
+    $habilitarEnvio = intval($this->valor($datos, "entrega_habilitar_envio", $this->valor($base, "entrega_habilitar_envio", 1))) === 1 ? 1 : 0;
+    $habilitarRecoger = intval($this->valor($datos, "entrega_habilitar_recoger_tienda", $this->valor($base, "entrega_habilitar_recoger_tienda", 1))) === 1 ? 1 : 0;
+    if ($tipo === "envio" && $habilitarEnvio !== 1) { $tipo = "por_definir"; }
+    if ($tipo === "recoger_tienda" && $habilitarRecoger !== 1) { $tipo = "por_definir"; }
+    $direccion = $this->valor($datos, "direccion_envio", array());
+    if (is_string($direccion)) {
+      $decodificada = json_decode($direccion, true);
+      $direccion = is_array($decodificada) ? $decodificada : array("texto" => substr($direccion, 0, 1000));
+    }
+    if (!is_array($direccion)) { $direccion = array(); }
+    return array(
+      "tipo_entrega" => $tipo,
+      "entrega_habilitar_envio" => $habilitarEnvio,
+      "entrega_habilitar_recoger_tienda" => $habilitarRecoger,
+      "costo_envio" => max(0, floatval($this->valor($datos, "costo_envio", $this->valor($base, "costo_envio", 0)))),
+      "direccion_envio" => $direccion
+    );
+  }
+
+  private function normalizarFacturacionPedido($datos, $base = array()) {
+    $entrada = $this->valor($datos, "facturacion", array());
+    if (is_string($entrada)) {
+      $decodificada = json_decode($entrada, true);
+      $entrada = is_array($decodificada) ? $decodificada : array();
+    }
+    if (!is_array($entrada)) { $entrada = array(); }
+    $baseJson = $this->valor($base, "facturacion_json", "");
+    if (is_string($baseJson) && $baseJson !== "") {
+      $baseDecodificada = json_decode($baseJson, true);
+      if (is_array($baseDecodificada)) {
+        $base = array_merge($base, $baseDecodificada);
+      }
+    }
+    $requiere = intval($this->valor($datos, "requiere_factura", $this->valor($entrada, "requiere_factura", $this->valor($base, "requiere_factura", 0)))) === 1 ? 1 : 0;
+    $salida = array(
+      "requiere_factura" => $requiere,
+      "rfc" => strtoupper(substr(trim((string) $this->valor($entrada, "rfc", $this->valor($datos, "rfc_facturacion", $this->valor($base, "rfc", "")))), 0, 20)),
+      "razon_social" => substr(trim((string) $this->valor($entrada, "razon_social", $this->valor($datos, "razon_social", $this->valor($base, "razon_social", "")))), 0, 220),
+      "regimen_fiscal" => substr(trim((string) $this->valor($entrada, "regimen_fiscal", $this->valor($datos, "regimen_fiscal", $this->valor($base, "regimen_fiscal", "")))), 0, 120),
+      "uso_cfdi" => strtoupper(substr(trim((string) $this->valor($entrada, "uso_cfdi", $this->valor($datos, "uso_cfdi", $this->valor($base, "uso_cfdi", "")))), 0, 20)),
+      "codigo_postal_fiscal" => substr(trim((string) $this->valor($entrada, "codigo_postal_fiscal", $this->valor($datos, "codigo_postal_fiscal", $this->valor($base, "codigo_postal_fiscal", "")))), 0, 20),
+      "correo_facturacion" => strtolower(substr(trim((string) $this->valor($entrada, "correo_facturacion", $this->valor($datos, "correo_facturacion", $this->valor($base, "correo_facturacion", "")))), 0, 180)),
+      "comentarios_facturacion" => substr(trim((string) $this->valor($entrada, "comentarios_facturacion", $this->valor($datos, "comentarios_facturacion", $this->valor($base, "comentarios_facturacion", "")))), 0, 1000)
+    );
+    if ($salida["requiere_factura"] !== 1) {
+      $salida["rfc"] = "";
+      $salida["razon_social"] = "";
+      $salida["regimen_fiscal"] = "";
+      $salida["uso_cfdi"] = "";
+      $salida["codigo_postal_fiscal"] = "";
+      $salida["correo_facturacion"] = "";
+      $salida["comentarios_facturacion"] = "";
+    }
+    return $salida;
+  }
+
+  private function validarClientePedido($contexto) {
+    if (empty($contexto["autenticado"])) {
+      return $this->respuesta(true, "warning", "Debes iniciar sesion para consultar pedidos", array("requiere_autenticacion" => true));
+    }
+    $permisos = $this->valor($contexto, "permisos", array());
+    if (!is_array($permisos) || (!in_array("distribucion.pedido.preliminar", $permisos, true) && !in_array("distribucion.cotizacion.solicitar", $permisos, true))) {
+      return $this->respuesta(true, "warning", "No tienes permiso para consultar pedidos", array("requiere_permiso" => "distribucion.pedido.preliminar"));
+    }
+    if (intval($this->valor($contexto, "id_cliente_distribucion", 0)) <= 0) {
+      return $this->respuesta(true, "warning", "Cliente Distribucion requerido");
+    }
+    return null;
+  }
+
+  private function totalConfirmadoPedido($db, $idCotizacion, $costoEnvio) {
+    if (!$this->tablaExiste($db, "erp_distribucion_cotizacion_items")) {
+      return $this->decimalONull($costoEnvio);
+    }
+    $stmt = $db->prepare("SELECT SUM(COALESCE(cantidad_confirmada, 0) * COALESCE(precio_unitario_snapshot, 0)) subtotal
+      FROM erp_distribucion_cotizacion_items
+      WHERE id_cotizacion_distribucion=:id");
+    $stmt->execute(array(":id" => intval($idCotizacion)));
+    $subtotal = $stmt->fetchColumn();
+    if ($subtotal === null || $subtotal === false) {
+      $subtotal = 0;
+    }
+    return round(floatval($subtotal) + max(0, floatval($costoEnvio)), 6);
   }
 
   private function respuesta($error, $tipo, $mensaje, $depurar = array()) {

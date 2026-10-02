@@ -44,7 +44,7 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 ## Cambios 2026-09-29 - consola interna ERP
 
 - `DistribucionAdmin/administracion` se consolida como consola operativa interna con tabs de Resumen, Solicitudes, Clientes, Mi catalogo, Inventario cliente, Sugerido, Pedidos, Productos y Demanda.
-- Se agrega `DistribucionAnaliticaInterna` para lecturas agregadas de dashboard, demanda y catalogos de filtros internos. Es read-only y no expone costos, margenes ni stock exacto al frontend externo.
+- Se agrega el modelo `distribucionanaliticainterna.php` con clase `DistribucionAnaliticaInterna` para lecturas agregadas de dashboard, demanda y catalogos de filtros internos. Es read-only y no expone costos, margenes ni stock exacto al frontend externo.
 - `DistribucionAdmin` agrega endpoints internos read-only: `/resumen`, `/demanda` y `/catalogos_filtros`.
 - Productos publicables soporta filtros internos por marca, categoria, proveedor, estado de canal, precio, imagen y ficha, reutilizando tablas de Catalogo ERP.
 - Pedidos/cotizaciones muestran detalle de partidas y preparan revision por partida con `cantidad_confirmada`, `estatus_revision`, `comentario_revision`, `fecha_revision` e `id_usuario_revision` solo si las columnas ya existen.

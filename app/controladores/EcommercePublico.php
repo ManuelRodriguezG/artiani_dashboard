@@ -152,7 +152,7 @@ class EcommercePublico extends Controlador {
     $limite = isset($_GET["limite"]) ? max(1, min(24, intval($_GET["limite"]))) : 12;
     $catalogo = $this->modelo("EcommerceCatalogoPublico")->busquedaInteligentePublica(array_merge($_GET, array("q" => $q, "limite" => $limite)));
     $blog = $this->modelo("EcommerceBlogPublico");
-    $blogItems = $blog->buscarBlogPublico($q, min(8, $limite));
+    $blogItems = $blog->buscarBlogPublico($q, min(8, $limite), $_GET);
     return $this->responderApiPublica(array(
       "error" => false,
       "tipo" => "success",
@@ -269,7 +269,7 @@ class EcommercePublico extends Controlador {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     $blog = $this->modelo("EcommerceBlogPublico");
     if (trim((string) $slug) !== "") {
-      return $this->responderApiPublica($blog->blogDetallePublico($slug));
+      return $this->responderApiPublica($blog->blogDetallePublico($slug, $_GET));
     }
     return $this->responderApiPublica($blog->blogPublico($_GET));
   }
@@ -956,6 +956,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: abrir explorador interno por secciones de Ecommerce Analytics.
+   * Impacto: permite analizar sesiones, page views, productos, busquedas y WhatsApp sin exponer PII.
+   * Contrato: vista protegida por `catalogo.ver`; no escribe BD.
+   */
+  public function analytics_analisis() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/analytics_analisis");
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: abrir consola interna de SEO/migracion URLs del ecommerce publico.
    * Impacto: Ecommerce SEO; concentra URLs canonicas, redirecciones, sitemap, robots y DDL pendiente.
@@ -1418,6 +1429,17 @@ class EcommercePublico extends Controlador {
   public function analytics_flujo_erp() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommerceAnalyticsErp")->flujoSesionesInterno($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: consultar datos detallados por seccion de Ecommerce Analytics.
+   * Impacto: soporta analisis profundo de sesiones, URLs, productos, busquedas y eventos WhatsApp.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura y session_id truncado.
+   */
+  public function analytics_analisis_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceAnalyticsErp")->analyticsAnalisisInterno($_GET));
   }
 
   /**

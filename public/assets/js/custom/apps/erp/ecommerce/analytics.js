@@ -59,6 +59,7 @@
     setText("ecom_an_kpi_facturacion", resumen.facturacion_submit_total || 0);
     renderEmbudo(get(depurar, ["embudo"], {}));
     renderAbandono(get(depurar, ["abandono_por_etapa"], []));
+    renderCalidadTracking(get(depurar, ["calidad_tracking"], {}));
     renderSesiones(get(depurar, ["sesiones_recientes"], []));
     renderList("ecom_an_canales", get(depurar, ["canales"], []));
     renderList("ecom_an_fuentes", get(depurar, ["fuentes_trafico"], []), etiquetaFuenteTrafico);
@@ -96,6 +97,20 @@
     node.innerHTML = pasos.map(function (paso) {
       return '<div class="ecom-an-step"><span class="text-muted fs-8">' + escapeHtml(paso[1]) + '</span><strong>' + Number(embudo[paso[0]] || 0) + '</strong><span class="text-muted fs-8">' + escapeHtml(paso[0]) + '</span></div>';
     }).join("");
+  }
+
+  function renderCalidadTracking(calidad) {
+    setText("ecom_an_calidad_un_evento", calidad.sesiones_un_evento || 0);
+    setText("ecom_an_calidad_un_evento_pct", (calidad.sesiones_un_evento_pct || 0) + "% del rango");
+    setText("ecom_an_calidad_sesiones_eventos", calidad.sesiones_distintas_eventos || 0);
+    setText("ecom_an_calidad_eventos_sesion", calidad.eventos_por_sesion || 0);
+    setText("ecom_an_calidad_lectura", calidad.lectura || "Sin lectura disponible.");
+    var estado = document.getElementById("ecom_an_calidad_estado");
+    if (!estado) return;
+    var diagnostico = calidad.diagnostico || "";
+    var alerta = diagnostico === "sesiones_un_evento_altas" || diagnostico === "baja_profundidad";
+    estado.className = "badge " + (alerta ? "badge-light-warning" : "badge-light-success");
+    estado.textContent = alerta ? "Revisar frontend" : "Normal";
   }
 
   function renderList(id, items, formatter) {

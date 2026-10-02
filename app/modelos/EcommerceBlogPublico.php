@@ -18,6 +18,8 @@ class EcommerceBlogPublico extends CRUD {
       "endpoints_publicos" => array(
         "listado_blog" => "/ecommercePublico/blog?pagina=1&limite=12",
         "detalle_blog" => "/ecommercePublico/blog/{slug}",
+        "listado_blog_demo" => "/ecommercePublico/blog?demo=1",
+        "detalle_blog_demo" => "/ecommercePublico/blog/guia-acuario-comunitario-artiani?demo=1",
         "busqueda_global" => "/ecommercePublico/buscar?q={termino}",
         "contenido_producto" => "/ecommercePublico/producto/{slug}/contenido_relacionado",
         "contenido_categoria" => "/ecommercePublico/categoria/{path_slug}/contenido_relacionado",
@@ -42,6 +44,9 @@ class EcommerceBlogPublico extends CRUD {
    * Contrato: GET publico read-only; salida incluye items y paginacion.
    */
   public function blogPublico($filtros = array()) {
+    if ($this->esDemoBlog($filtros)) {
+      return $this->blogMuestraPublica($filtros);
+    }
     $db = $this->getConexion();
     if (!$db || !$this->tablaExiste("erp_ecommerce_blog_publicaciones")) {
       return $this->respuesta(false, "warning", "Blog/CMS pendiente de esquema", array(
@@ -116,7 +121,10 @@ class EcommerceBlogPublico extends CRUD {
    * Impacto: Frontend ecommerce /blog/{slug}; soporta SEO, relaciones y videos diferidos.
    * Contrato: GET publico read-only; si llega slug anterior devuelve redireccion 301 sugerida.
    */
-  public function blogDetallePublico($slug) {
+  public function blogDetallePublico($slug, $opciones = array()) {
+    if ($this->esDemoBlog($opciones) && $this->slugSimple($slug) === "guia-acuario-comunitario-artiani") {
+      return $this->blogMuestraDetallePublico($slug);
+    }
     $db = $this->getConexion();
     $slug = $this->slugSimple($slug);
     if ($slug === "") {
@@ -164,8 +172,8 @@ class EcommerceBlogPublico extends CRUD {
    * Impacto: Busqueda ecommerce global; mantiene el blog como proveedor independiente.
    * Contrato: GET read-only; no mezcla reglas de productos ni calcula precios.
    */
-  public function buscarBlogPublico($q, $limite = 6) {
-    $respuesta = $this->blogPublico(array("q" => $q, "pagina" => 1, "limite" => $limite));
+  public function buscarBlogPublico($q, $limite = 6, $filtros = array()) {
+    $respuesta = $this->blogPublico(array_merge($filtros, array("q" => $q, "pagina" => 1, "limite" => $limite)));
     return $this->valor($respuesta, array("depurar", "items"), array());
   }
 
@@ -425,6 +433,140 @@ class EcommerceBlogPublico extends CRUD {
         "bloques_interactivos" => $this->bloquesInteractivos($id)
       )
     ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-29
+   * Proposito: entregar una publicacion demo de Blog para maquetacion frontend sin escribir BD.
+   * Impacto: API publica Blog; permite construir listado/detalle antes de aplicar DDL productivo.
+   * Contrato: solo se activa con `demo=1` o `muestra=1`; no consulta ni modifica datos reales.
+   */
+  private function blogMuestraPublica($filtros = array()) {
+    $q = strtolower(trim((string) $this->valor($filtros, "q", "")));
+    $item = $this->blogMuestraResumen();
+    $items = array();
+    if ($q === "" || strpos(strtolower($item["titulo"] . " " . $item["extracto"] . " acuario pecera filtro peces agua"), $q) !== false) {
+      $items[] = $item;
+    }
+    return $this->respuesta(false, "success", "Listado demo de blog consultado", array(
+      "ok" => true,
+      "demo" => true,
+      "estado" => "demo_readonly",
+      "items" => $items,
+      "paginacion" => $this->paginacion(1, max(1, min(36, intval($this->valor($filtros, "limite", 12)))), count($items)),
+      "filtros" => array(
+        "q" => $q,
+        "tipo" => $this->tipoNormalizado($this->valor($filtros, "tipo", "")),
+        "categoria_slug" => $this->slugPath($this->valor($filtros, "categoria_slug", "")),
+        "producto_slug" => $this->slugSimple($this->valor($filtros, "producto_slug", ""))
+      ),
+      "endpoints_demo" => array(
+        "detalle" => "/ecommercePublico/blog/guia-acuario-comunitario-artiani?demo=1",
+        "busqueda_global" => "/ecommercePublico/buscar?q=acuario&demo=1"
+      ),
+      "guardrails" => $this->guardrailsPublicos()
+    ));
+  }
+
+  private function blogMuestraDetallePublico($slug) {
+    return $this->respuesta(false, "success", "Publicacion demo de blog consultada", array(
+      "ok" => true,
+      "demo" => true,
+      "estado" => "demo_readonly",
+      "publicacion" => $this->blogMuestraDetalle(),
+      "imagenes" => $this->blogMuestraImagenes(),
+      "videos" => array(),
+      "productos_relacionados" => $this->blogMuestraProductos(),
+      "categorias_relacionadas" => $this->blogMuestraCategorias(),
+      "bloques_interactivos" => $this->blogMuestraBloquesInteractivos(),
+      "publicaciones_relacionadas" => array(),
+      "guardrails" => $this->guardrailsPublicos()
+    ));
+  }
+
+  private function blogMuestraResumen() {
+    $portada = $this->blogMuestraPortada();
+    return array(
+      "id" => 900001,
+      "tipo" => "guia",
+      "titulo" => "Guia rapida para armar un acuario comunitario estable",
+      "slug" => "guia-acuario-comunitario-artiani",
+      "url" => "/blog/guia-acuario-comunitario-artiani",
+      "estado" => "publicado",
+      "fecha_publicacion" => "2026-09-29",
+      "autor" => "Artiani",
+      "extracto" => "Una guia editorial de muestra para que el frontend pruebe portada, contenido, productos relacionados, categorias y un bloque interactivo.",
+      "thumbnail" => $portada["url"],
+      "imagen_portada" => $portada,
+      "orden" => 1,
+      "destacado" => 1
+    );
+  }
+
+  private function blogMuestraDetalle() {
+    $item = $this->blogMuestraResumen();
+    $item["contenido_html"] = '<p>Este articulo demo ayuda a validar la vista publica del blog antes de activar persistencia real. El objetivo es probar jerarquia editorial, imagen principal, llamadas a productos relacionados y contenido comercial sin escribir en base de datos.</p><h2>Antes de comprar</h2><p>Define el tamano de la pecera, el tipo de peces y el sistema de filtracion. Un acuario comunitario estable necesita filtracion suficiente, ciclado del agua y accesorios compatibles con la rutina de mantenimiento.</p><h2>Checklist base</h2><ul><li>Pecera con capacidad adecuada para las especies elegidas.</li><li>Filtro dimensionado para el volumen de agua.</li><li>Acondicionador, alimento y decoracion segura.</li><li>Pruebas basicas de agua antes de introducir peces.</li></ul><blockquote>Tip comercial: usa los productos relacionados como una guia de compra, no como calculadora de stock o precio.</blockquote><h3>Como usar esta muestra</h3><p>Frontend puede renderizar esta respuesta igual que una publicacion real: listado, detalle, SEO, categorias, productos relacionados y puntos interactivos sobre imagen.</p>';
+    $item["seo"] = array(
+      "title" => "Guia rapida para armar un acuario comunitario | Artiani",
+      "description" => "Ejemplo read-only de Blog/CMS para maquetar la vista publica del frontend Artiani.",
+      "canonical" => "/blog/guia-acuario-comunitario-artiani",
+      "robots" => "noindex,nofollow",
+      "og_image" => $this->valor($item, array("imagen_portada", "url"), "")
+    );
+    return $item;
+  }
+
+  private function blogMuestraPortada() {
+    return array(
+      "url" => "/assets/media/cms/ecommerce/pecera-con-peces-representando-la-categoria-de-acuario-y-peces-ace89519.webp",
+      "alt" => "Acuario comunitario con peces y decoracion natural",
+      "width" => 1600,
+      "height" => 900
+    );
+  }
+
+  private function blogMuestraImagenes() {
+    return array(
+      array(
+        "url" => "/assets/media/cms/ecommerce/filtros-representando-la-categoria-de-filtracion-y-oxigenacion-966519e9.webp",
+        "alt" => "Filtro para mantener estable el agua del acuario",
+        "caption" => "Filtracion y oxigenacion como base del mantenimiento.",
+        "width" => 1200,
+        "height" => 800,
+        "versiones" => array("desktop" => "", "tablet" => "", "mobile" => "", "thumbnail" => "")
+      )
+    );
+  }
+
+  private function blogMuestraProductos() {
+    return array(
+      array("id_publicacion" => 810001, "nombre" => "Filtro interno para acuario", "slug" => "filtro-interno-acuario-demo", "url" => "/producto/filtro-interno-acuario-demo", "marca" => "Demo Artiani"),
+      array("id_publicacion" => 810002, "nombre" => "Acondicionador de agua", "slug" => "acondicionador-agua-demo", "url" => "/producto/acondicionador-agua-demo", "marca" => "Demo Artiani"),
+      array("id_publicacion" => 810003, "nombre" => "Alimento para peces comunitarios", "slug" => "alimento-peces-comunitarios-demo", "url" => "/producto/alimento-peces-comunitarios-demo", "marca" => "Demo Artiani")
+    );
+  }
+
+  private function blogMuestraCategorias() {
+    return array(
+      array("nombre" => "Acuario y peces", "path_slug" => "acuario-y-peces", "url" => "/categoria/acuario-y-peces"),
+      array("nombre" => "Filtracion y oxigenacion", "path_slug" => "acuario-y-peces/filtracion-y-oxigenacion", "url" => "/categoria/acuario-y-peces/filtracion-y-oxigenacion")
+    );
+  }
+
+  private function blogMuestraBloquesInteractivos() {
+    return array(
+      array(
+        "tipo" => "imagen_productos",
+        "titulo" => "Compra lo esencial del montaje",
+        "imagen" => $this->blogMuestraPortada(),
+        "puntos" => array(
+          array("x" => 30, "y" => 54, "producto" => array("id_publicacion" => 810001, "nombre" => "Filtro interno para acuario", "url" => "/producto/filtro-interno-acuario-demo"), "orden" => 1),
+          array("x" => 62, "y" => 42, "producto" => array("id_publicacion" => 810002, "nombre" => "Acondicionador de agua", "url" => "/producto/acondicionador-agua-demo"), "orden" => 2),
+          array("x" => 78, "y" => 68, "producto" => array("id_publicacion" => 810003, "nombre" => "Alimento para peces comunitarios", "url" => "/producto/alimento-peces-comunitarios-demo"), "orden" => 3)
+        )
+      )
+    );
   }
 
   private function contenidoPorRelacion($tipo, $slug) {
@@ -717,6 +859,10 @@ class EcommerceBlogPublico extends CRUD {
   private function jsonDecode($valor) {
     $decode = json_decode((string) $valor, true);
     return is_array($decode) ? $decode : array();
+  }
+
+  private function esDemoBlog($opciones) {
+    return intval($this->valor($opciones, "demo", 0)) === 1 || intval($this->valor($opciones, "muestra", 0)) === 1;
   }
 
   /**

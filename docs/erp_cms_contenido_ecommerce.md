@@ -436,6 +436,7 @@ Backend preparado:
 - La vista `/cms/blog` ya tiene editor inicial para titulo, slug, tipo, estado, autor, fecha, orden, destacado, portada con ALT, extracto, contenido HTML seguro y SEO basico.
 - El editor permite capturar relaciones avanzadas con apoyo visual: portada, imagenes internas, productos relacionados, categorias relacionadas y bloque interactivo de imagen/productos. Tambien conserva el JSON tecnico sincronizado, incluye preview administrativo local en iframe aislado y sanitizacion HTML en backend con lista blanca. Videos queda como relacion futura administrada fuera de Blog.
 - UAT read-only disponible en `storage/uat/uat_cms_blog_readonly.php`; ultimo resultado `senal_cms_blog=verde_contrato_blog_readonly` con DDL pendiente esperado.
+- Muestra read-only para frontend disponible sin BD: listado `/ecommercePublico/blog?demo=1`, detalle `/ecommercePublico/blog/guia-acuario-comunitario-artiani?demo=1` y busqueda global `/ecommercePublico/buscar?q=acuario&demo=1`.
 - El backend guarda esas relaciones si el esquema existe; antes del DDL responde `requiere_ddl` sin escribir BD.
 
 Endpoints publicos:

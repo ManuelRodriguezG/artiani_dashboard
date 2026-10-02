@@ -1803,3 +1803,182 @@ Regla:
 
 - No hubo DDL.
 - Es una escritura masiva controlada; debe usarse solo cuando el operador quiera homologar visualmente todos los catalogos activos.
+
+## Ajuste 2026-09-30 - Variantes visuales solo con imagen
+
+Contexto:
+
+- Mientras no este madura la captura de atributos comerciales, el catalogo debe ayudar a ordenar productos sin mostrar medidas o nombres de variante incompletos.
+- El usuario prefiere mejorar temporalmente los titulos de producto y dejar las variantes agrupadas como apoyo visual mediante miniaturas.
+
+Cambios aplicados:
+
+- Se quita la ayuda visible de medidas junto a la carga de portada.
+- La tabla de candidatos deja de mostrar `variante_resumen`.
+- Las tarjetas agrupadas ya no muestran etiquetas, nombres, medidas ni conteos de variantes debajo del producto.
+- La vista previa HTML, el preview de paginas y la exportacion PNG conservan la agrupacion, pero solo muestran mini imagenes de variantes cuando existen.
+- El texto copiado conserva una sola linea por producto visual agrupado, sin listar nombres o atributos de variantes.
+
+Regla:
+
+- No se borran atributos, SKUs ni variantes; solo se ocultan en la presentacion comercial hasta tener una version confiable de atributos.
+
+## Ajuste 2026-09-30 - Pie de proteccion comercial
+
+Contexto:
+
+- Los catalogos comerciales pueden compartirse por WhatsApp/redes fuera del control del negocio.
+- Se necesita que cada imagen conserve fecha, pagina, aviso de precios y contacto para reducir confusion cuando circule despues.
+
+Cambios aplicados:
+
+- El campo `Nota portada` pasa a mostrarse como `Aviso del catalogo`.
+- Si el aviso queda vacio, el sistema usa: `Precios y disponibilidad sujetos a cambios sin previo aviso`.
+- La vista previa HTML muestra una linea de proteccion comercial.
+- El preview de paginas y la exportacion PNG dibujan un pie por pagina con:
+  - fecha del catalogo;
+  - pagina actual / total;
+  - aviso del catalogo;
+  - contacto si esta capturado.
+- El layout reserva espacio inferior para que el pie no tape productos.
+
+Regla:
+
+- No hubo DDL; se reutiliza `portada_nota` para persistir el aviso configurable y `contacto_texto` para contacto.
+- No cambia precios, costos, rentabilidad ni SKUs.
+
+## Ajuste 2026-09-30 - Portada con texto sombreado
+
+Contexto:
+
+- En portadas con imagen completa, el degradado oscuro ayudaba a leer el texto pero opacaba demasiado la imagen principal.
+
+Cambios aplicados:
+
+- La vista HTML de portada con imagen completa ya no usa fondo degradado encima de la foto.
+- El exportador PNG ya no dibuja una capa oscura general sobre la portada.
+- Titulo, etiqueta, descripcion, contacto/aviso y pie de pagina usan sombra directa en el texto cuando estan sobre imagen.
+- El pie de proteccion sobre portada completa deja de usar caja oscura; queda solo texto con sombra.
+
+Regla:
+
+- La imagen de portada debe conservar protagonismo; si despues falta legibilidad se evaluara delineado de texto, no oscurecer toda la imagen.
+
+## Ajuste 2026-09-30 - Fecha/temporada y texto mayor en portada
+
+Contexto:
+
+- El usuario necesita saber donde colocar una fecha visible tipo `Septiembre 2026`.
+- El texto que va sobre la imagen de portada debe verse mas grande y claro.
+
+Cambios aplicados:
+
+- El campo de portada cambia su placeholder a `Etiqueta / fecha portada`.
+- Si la etiqueta de portada queda vacia, la UI usa automaticamente el mes y ano actual, por ejemplo `Septiembre 2026`.
+- El valor sigue persistiendo en `portada_etiqueta`, por lo que no requiere DDL.
+- Se aumenta el tamano visual del texto sobre portada completa:
+  - etiqueta/fecha;
+  - titulo;
+  - descripcion;
+  - contacto o aviso.
+- El exportador PNG usa el mismo criterio de etiqueta/fecha y aumenta esos textos en canvas.
+
+Regla:
+
+- Para campanas mensuales, escribir la fecha comercial en `Etiqueta / fecha portada`.
+- No se agregan columnas nuevas ni se cambia la logica de precios.
+
+## Ajuste 2026-09-30 - Contraste de texto en portada
+
+Contexto:
+
+- El texto blanco con sombra negra no siempre se distingue sobre portadas claras o con productos.
+- El usuario propuso texto negro con relieve/delineado blanco para mejorar legibilidad sin opacar la imagen.
+
+Cambios aplicados:
+
+- La portada HTML con imagen completa usa texto oscuro con sombra/relieve blanco.
+- El exportador PNG usa texto oscuro sobre imagen y sombra blanca directa en canvas.
+- El pie de proteccion sobre portada tambien usa texto oscuro con relieve blanco.
+
+Regla:
+
+- Mantener la portada sin capas oscuras generales; mejorar contraste en el texto.
+
+## Ajuste 2026-09-30 - Regreso a texto blanco con sombra tenue
+
+Contexto:
+
+- El texto oscuro con relieve blanco no tuvo suficiente lectura sobre la imagen de portada real.
+- Se decide volver a texto blanco, pero con una sombra general mas tenue que la primera version para no opacar tanto la imagen.
+
+Cambios aplicados:
+
+- La portada HTML con imagen completa usa un degradado tenue sobre la imagen.
+- El exportador PNG dibuja un sombreado tenue en toda la portada.
+- Los textos de portada y pie vuelven a blanco con sombra negra.
+- Se conservan los tamanos grandes definidos para fecha, titulo, descripcion y aviso/contacto.
+
+Regla:
+
+- Ajustar primero intensidad de sombra antes de cambiar de nuevo el color del texto.
+
+## Correccion 2026-09-30 - Pie usa fecha de portada
+
+Contexto:
+
+- La portada mostraba correctamente la fecha/temporada editable, pero el pie mostraba `Sin fecha`.
+- La causa era una colision de nombre entre la funcion de fecha comercial del pie y la funcion usada para listar catalogos guardados.
+
+Cambios aplicados:
+
+- El pie de proteccion usa `Etiqueta / fecha portada`, la misma fecha/temporada visible en la portada.
+- La funcion de fecha tecnica del listado de catalogos guardados se renombra para no pisar la fecha comercial.
+
+Regla:
+
+- En material exportado, la fecha visible debe ser la fecha/temporada comercial editable, no la fecha tecnica de actualizacion.
+
+## Correccion 2026-10-01 - Nuevo catalogo limpia material
+
+Contexto:
+
+- Al entrar a `Catalogo nuevo` despues de editar otro catalogo, se conservaba portada/contacto/textos del catalogo anterior por la persistencia local del navegador.
+- La configuracion visual global si debe conservarse como preferencia del operador: colores, tipografia, tamanos, columnas/filas y opciones visibles.
+
+Cambios aplicados:
+
+- El arranque de `Catalogo nuevo` ejecuta limpieza completa del material local:
+  - seleccion/productos;
+  - nombre interno;
+  - titulo/subtitulo/CTA;
+  - portada, logo y contacto;
+  - descripcion, aviso y fecha/temporada de portada;
+  - preview de paginas.
+- Se conserva `STORAGE_OPTIONS_KEY`, por lo que colores, fuente, tamanos y layout se mantienen.
+
+Regla:
+
+- Nuevo catalogo debe iniciar sin contenido propio de otro catalogo; solo puede heredar preferencias visuales.
+
+## Ajuste 2026-10-01 - Seleccion masiva por resultados
+
+Contexto:
+
+- Al buscar por categoria, texto, marca o filtros, el operador necesita agregar muchos productos al catalogo sin ir uno por uno.
+- Tambien necesita retirar masivamente de la seleccion los productos de una busqueda/categoria cuando no correspondan.
+
+Cambios aplicados:
+
+- Los botones masivos quedan renombrados para el flujo operativo:
+  - `Agregar resultados`: agrega todos los productos cargados por la busqueda/filtro actual.
+  - `Agregar pagina`: agrega solo la pagina visible.
+  - `Quitar resultados`: retira de la seleccion todos los productos cargados por la busqueda/filtro actual.
+  - `Quitar pagina`: retira solo la pagina visible.
+  - `Quitar todo seleccionado`: limpia toda la seleccion actual.
+- Cada accion masiva muestra cuantos productos agrego o quito.
+- `Quitar todo seleccionado` tambien limpia el preview de paginas para evitar ver una exportacion vieja.
+
+Regla:
+
+- Estas acciones solo modifican la seleccion local del catalogo; no borran productos, SKUs ni catalogos guardados.

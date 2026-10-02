@@ -264,6 +264,13 @@ class EcommerceAnalyticsErp extends CRUD {
       "necesidades_consultadas" => array(),
       "productos_interes_sin_conversion" => array(),
       "oportunidades_publicacion" => array(),
+      "calidad_tracking" => array(
+        "sesiones_un_evento" => 0,
+        "sesiones_un_evento_pct" => 0,
+        "sesiones_distintas_eventos" => 0,
+        "eventos_por_sesion" => 0,
+        "diagnostico" => "sin_datos"
+      ),
       "persistencia" => array(
         "activa" => $this->trackingPublicoActivo($tablas),
         "modo_actual" => $this->trackingPublicoActivo($tablas) ? "registra_bd" : "valida_sin_guardar"
@@ -289,6 +296,7 @@ class EcommerceAnalyticsErp extends CRUD {
         $depurar["resumen"]["sesiones_total"] = intval($stmt->fetchColumn());
         $this->cargarDashboardSesiones($db, $depurar, $inicio, $fin, $limite);
         $this->cargarDashboardAtribucion($db, $depurar, $inicio, $fin, $limite);
+        $this->cargarDashboardCalidadTracking($db, $depurar, $inicio, $fin);
       }
       if ($tablas["conversiones"]) {
         $this->cargarDashboardConversiones($db, $depurar, $inicio, $fin, $limite);
@@ -314,12 +322,13 @@ class EcommerceAnalyticsErp extends CRUD {
     $desde = $this->fechaFiltro($this->valor($filtros, "desde", date("Y-m-d", strtotime("-7 days"))), date("Y-m-d", strtotime("-7 days")));
     $hasta = $this->fechaFiltro($this->valor($filtros, "hasta", date("Y-m-d")), date("Y-m-d"));
     $limite = max(5, min(100, intval($this->valor($filtros, "limite", 25))));
+    $minEventos = max(1, min(50, intval($this->valor($filtros, "min_eventos", 1))));
     $sessionKey = $this->limpiarToken($this->valor($filtros, "session_key", ""), 16);
     $tablas = $this->tablasDisponibles($db);
     $depurar = array(
       "read_only" => true,
       "configurado" => !empty($tablas["sesiones"]) && !empty($tablas["eventos"]),
-      "rango" => array("desde" => $desde, "hasta" => $hasta, "limite" => $limite),
+      "rango" => array("desde" => $desde, "hasta" => $hasta, "limite" => $limite, "min_eventos" => $minEventos),
       "session_key" => $sessionKey,
       "fecha_consulta" => date("Y-m-d H:i:s"),
       "tablas" => $tablas,
@@ -339,7 +348,7 @@ class EcommerceAnalyticsErp extends CRUD {
     $fin = $hasta . " 23:59:59";
 
     try {
-      $depurar["sesiones"] = $this->consultarSesionesFlujo($db, $inicio, $fin, $limite);
+      $depurar["sesiones"] = $this->consultarSesionesFlujo($db, $inicio, $fin, $limite, $minEventos);
       $depurar["resumen"]["sesiones_total"] = count($depurar["sesiones"]);
       if ($sessionKey === "" && !empty($depurar["sesiones"][0]["session_key"])) {
         $sessionKey = $depurar["sesiones"][0]["session_key"];
@@ -355,6 +364,50 @@ class EcommerceAnalyticsErp extends CRUD {
         }
       }
       return $this->respuesta(false, "success", "Flujo de navegacion Ecommerce / Analytics", $depurar);
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), $depurar);
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-29
+   * Proposito: explorar secciones detalladas de Ecommerce Analytics en modo interno.
+   * Impacto: permite analizar sesiones, page views, productos, busquedas y WhatsApp sin exponer PII ni tocar ventas/inventario.
+   * Contrato: solo lectura; devuelve session_id truncado como session_key anonima.
+   */
+  public function analyticsAnalisisInterno($filtros = array()) {
+    $db = $this->getConexion();
+    $desde = $this->fechaFiltro($this->valor($filtros, "desde", date("Y-m-d", strtotime("-7 days"))), date("Y-m-d", strtotime("-7 days")));
+    $hasta = $this->fechaFiltro($this->valor($filtros, "hasta", date("Y-m-d")), date("Y-m-d"));
+    $limite = max(10, min(500, intval($this->valor($filtros, "limite", 100))));
+    $seccion = $this->seccionAnalisis($this->valor($filtros, "seccion", "sesiones"));
+    $texto = $this->textoFiltroAnalisis($this->valor($filtros, "q", ""));
+    $tablas = $this->tablasDisponibles($db);
+    $depurar = array(
+      "read_only" => true,
+      "configurado" => !empty($tablas["sesiones"]) || !empty($tablas["eventos"]) || !empty($tablas["busquedas"]),
+      "seccion" => $seccion,
+      "rango" => array("desde" => $desde, "hasta" => $hasta, "limite" => $limite, "q" => $texto),
+      "fecha_consulta" => date("Y-m-d H:i:s"),
+      "tablas" => $tablas,
+      "resumen" => array(),
+      "columnas" => array(),
+      "items" => array(),
+      "guardrails" => $this->guardrails()
+    );
+    if (!$db) {
+      return $this->respuesta(true, "warning", "Conexion MySQL no disponible", $depurar);
+    }
+    $inicio = $desde . " 00:00:00";
+    $fin = $hasta . " 23:59:59";
+    try {
+      if ($seccion === "sesiones") { $this->analisisSesiones($db, $depurar, $inicio, $fin, $limite, $texto); }
+      if ($seccion === "page_views") { $this->analisisPageViews($db, $depurar, $inicio, $fin, $limite, $texto); }
+      if ($seccion === "productos") { $this->analisisProductosVistos($db, $depurar, $inicio, $fin, $limite, $texto); }
+      if ($seccion === "busquedas") { $this->analisisBusquedas($db, $depurar, $inicio, $fin, $limite, $texto); }
+      if ($seccion === "whatsapp") { $this->analisisWhatsapp($db, $depurar, $inicio, $fin, $limite, $texto); }
+      if ($seccion === "eventos") { $this->analisisEventos($db, $depurar, $inicio, $fin, $limite, $texto); }
+      return $this->respuesta(false, "success", "Analisis detallado Ecommerce / Analytics", $depurar);
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), $depurar);
     }
@@ -763,7 +816,153 @@ class EcommerceAnalyticsErp extends CRUD {
     $depurar["productos_interes_sin_conversion"] = $this->consultaProductosInteresSinConversion($db, $inicio, $fin, $limite);
   }
 
-  private function consultarSesionesFlujo($db, $inicio, $fin, $limite) {
+  private function analisisSesiones($db, &$depurar, $inicio, $fin, $limite, $texto) {
+    $depurar["columnas"] = array("session_key", "eventos_total", "primer_ruta", "ultimo_ruta", "canal", "dispositivo_aproximado", "fecha_inicio", "fecha_ultima_actividad");
+    $where = "COALESCE(fecha_ultima_actividad, fecha_inicio) BETWEEN :inicio AND :fin";
+    $params = array(":inicio" => $inicio, ":fin" => $fin);
+    if ($texto !== "") {
+      $where .= " AND (session_id_hash LIKE :q_prefix OR primer_ruta LIKE :q OR ultimo_ruta LIKE :q OR referrer LIKE :q OR canal LIKE :q OR dispositivo_aproximado LIKE :q)";
+      $params[":q"] = "%" . $texto . "%";
+      $params[":q_prefix"] = $texto . "%";
+    }
+    $stmt = $db->prepare("SELECT COUNT(*) total, SUM(CASE WHEN eventos_total<=1 THEN 1 ELSE 0 END) un_evento, AVG(eventos_total) promedio_eventos
+      FROM erp_ecommerce_analytics_sesiones
+      WHERE " . $where);
+    $stmt->execute($params);
+    $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+    $depurar["resumen"] = array(
+      "total" => intval($this->valor($resumen, "total", 0)),
+      "sesiones_un_evento" => intval($this->valor($resumen, "un_evento", 0)),
+      "eventos_promedio" => round(floatval($this->valor($resumen, "promedio_eventos", 0)), 2)
+    );
+    $stmt = $db->prepare("SELECT LEFT(session_id_hash, 12) session_key, canal, primer_ruta, ultimo_ruta, referrer, utm_source, utm_medium, utm_campaign, dispositivo_aproximado, fecha_inicio, fecha_ultima_actividad, eventos_total
+      FROM erp_ecommerce_analytics_sesiones
+      WHERE " . $where . "
+      ORDER BY COALESCE(fecha_ultima_actividad, fecha_inicio) DESC
+      LIMIT " . intval($limite));
+    $stmt->execute($params);
+    $depurar["items"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function analisisPageViews($db, &$depurar, $inicio, $fin, $limite, $texto) {
+    $depurar["columnas"] = array("ruta", "total", "sesiones", "primera_fecha", "ultima_fecha");
+    $where = "fecha_registro BETWEEN :inicio AND :fin AND tipo_evento='page_view'";
+    $params = array(":inicio" => $inicio, ":fin" => $fin);
+    if ($texto !== "") {
+      $where .= " AND (ruta LIKE :q OR referrer LIKE :q OR utm_source LIKE :q OR utm_campaign LIKE :q)";
+      $params[":q"] = "%" . $texto . "%";
+    }
+    $stmt = $db->prepare("SELECT COUNT(*) total, COUNT(DISTINCT session_id_hash) sesiones, COUNT(DISTINCT ruta) urls
+      FROM erp_ecommerce_analytics_eventos
+      WHERE " . $where);
+    $stmt->execute($params);
+    $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+    $depurar["resumen"] = array("page_views" => intval($this->valor($resumen, "total", 0)), "sesiones" => intval($this->valor($resumen, "sesiones", 0)), "urls" => intval($this->valor($resumen, "urls", 0)));
+    $stmt = $db->prepare("SELECT ruta, COUNT(*) total, COUNT(DISTINCT session_id_hash) sesiones, MIN(fecha_registro) primera_fecha, MAX(fecha_registro) ultima_fecha
+      FROM erp_ecommerce_analytics_eventos
+      WHERE " . $where . " AND TRIM(COALESCE(ruta,''))<>''
+      GROUP BY ruta
+      ORDER BY total DESC, ultima_fecha DESC
+      LIMIT " . intval($limite));
+    $stmt->execute($params);
+    $depurar["items"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function analisisProductosVistos($db, &$depurar, $inicio, $fin, $limite, $texto) {
+    $depurar["columnas"] = array("slug", "id_publicacion", "id_sku", "vistas", "sesiones", "primera_fecha", "ultima_fecha");
+    $where = "fecha_registro BETWEEN :inicio AND :fin AND tipo_evento='view_product'";
+    $params = array(":inicio" => $inicio, ":fin" => $fin);
+    if ($texto !== "") {
+      $where .= " AND (slug LIKE :q OR ruta LIKE :q OR CAST(id_publicacion AS CHAR) LIKE :q OR CAST(id_sku AS CHAR) LIKE :q)";
+      $params[":q"] = "%" . $texto . "%";
+    }
+    $stmt = $db->prepare("SELECT COUNT(*) vistas, COUNT(DISTINCT session_id_hash) sesiones, COUNT(DISTINCT COALESCE(NULLIF(slug,''), CONCAT(id_publicacion,'/',id_sku))) productos
+      FROM erp_ecommerce_analytics_eventos
+      WHERE " . $where);
+    $stmt->execute($params);
+    $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+    $depurar["resumen"] = array("vistas" => intval($this->valor($resumen, "vistas", 0)), "sesiones" => intval($this->valor($resumen, "sesiones", 0)), "productos" => intval($this->valor($resumen, "productos", 0)));
+    $stmt = $db->prepare("SELECT slug, id_publicacion, id_sku, COUNT(*) vistas, COUNT(DISTINCT session_id_hash) sesiones, MIN(fecha_registro) primera_fecha, MAX(fecha_registro) ultima_fecha
+      FROM erp_ecommerce_analytics_eventos
+      WHERE " . $where . " AND (TRIM(COALESCE(slug,''))<>'' OR COALESCE(id_publicacion,0)>0 OR COALESCE(id_sku,0)>0)
+      GROUP BY slug, id_publicacion, id_sku
+      ORDER BY vistas DESC, ultima_fecha DESC
+      LIMIT " . intval($limite));
+    $stmt->execute($params);
+    $depurar["items"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function analisisBusquedas($db, &$depurar, $inicio, $fin, $limite, $texto) {
+    $depurar["columnas"] = array("query_normalizada", "total", "sin_resultados_total", "resultados_promedio", "sesiones", "ultima_fecha");
+    $where = "fecha_registro BETWEEN :inicio AND :fin";
+    $params = array(":inicio" => $inicio, ":fin" => $fin);
+    if ($texto !== "") {
+      $where .= " AND (query_normalizada LIKE :q OR query LIKE :q OR ruta LIKE :q OR mascota LIKE :q OR necesidad LIKE :q)";
+      $params[":q"] = "%" . $texto . "%";
+    }
+    $stmt = $db->prepare("SELECT COUNT(*) total, SUM(CASE WHEN sin_resultados=1 THEN 1 ELSE 0 END) sin_resultados, COUNT(DISTINCT session_id_hash) sesiones
+      FROM erp_ecommerce_analytics_busquedas
+      WHERE " . $where);
+    $stmt->execute($params);
+    $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+    $depurar["resumen"] = array("busquedas" => intval($this->valor($resumen, "total", 0)), "sin_resultados" => intval($this->valor($resumen, "sin_resultados", 0)), "sesiones" => intval($this->valor($resumen, "sesiones", 0)));
+    $stmt = $db->prepare("SELECT query_normalizada, COUNT(*) total, SUM(CASE WHEN sin_resultados=1 THEN 1 ELSE 0 END) sin_resultados_total, ROUND(AVG(resultados_total), 2) resultados_promedio, COUNT(DISTINCT session_id_hash) sesiones, MAX(fecha_registro) ultima_fecha
+      FROM erp_ecommerce_analytics_busquedas
+      WHERE " . $where . "
+      GROUP BY query_normalizada
+      ORDER BY total DESC, sin_resultados_total DESC, query_normalizada ASC
+      LIMIT " . intval($limite));
+    $stmt->execute($params);
+    $depurar["items"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function analisisWhatsapp($db, &$depurar, $inicio, $fin, $limite, $texto) {
+    $depurar["columnas"] = array("fecha", "session_key", "ruta", "slug", "id_publicacion", "id_sku", "canal", "dispositivo_aproximado");
+    $where = "fecha_registro BETWEEN :inicio AND :fin AND tipo_evento='open_whatsapp'";
+    $params = array(":inicio" => $inicio, ":fin" => $fin);
+    if ($texto !== "") {
+      $where .= " AND (ruta LIKE :q OR slug LIKE :q OR canal LIKE :q OR CAST(id_publicacion AS CHAR) LIKE :q OR CAST(id_sku AS CHAR) LIKE :q)";
+      $params[":q"] = "%" . $texto . "%";
+    }
+    $stmt = $db->prepare("SELECT COUNT(*) total, COUNT(DISTINCT session_id_hash) sesiones, COUNT(DISTINCT COALESCE(NULLIF(slug,''), CONCAT(id_publicacion,'/',id_sku))) productos
+      FROM erp_ecommerce_analytics_eventos
+      WHERE " . $where);
+    $stmt->execute($params);
+    $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+    $depurar["resumen"] = array("aperturas_whatsapp" => intval($this->valor($resumen, "total", 0)), "sesiones" => intval($this->valor($resumen, "sesiones", 0)), "productos" => intval($this->valor($resumen, "productos", 0)));
+    $stmt = $db->prepare("SELECT fecha_registro fecha, LEFT(session_id_hash, 12) session_key, ruta, slug, id_publicacion, id_sku, canal, dispositivo_aproximado
+      FROM erp_ecommerce_analytics_eventos
+      WHERE " . $where . "
+      ORDER BY fecha_registro DESC, id_analytics_evento DESC
+      LIMIT " . intval($limite));
+    $stmt->execute($params);
+    $depurar["items"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function analisisEventos($db, &$depurar, $inicio, $fin, $limite, $texto) {
+    $depurar["columnas"] = array("fecha", "tipo_evento", "session_key", "ruta", "slug", "id_publicacion", "id_sku", "canal");
+    $where = "fecha_registro BETWEEN :inicio AND :fin";
+    $params = array(":inicio" => $inicio, ":fin" => $fin);
+    if ($texto !== "") {
+      $where .= " AND (tipo_evento LIKE :q OR ruta LIKE :q OR slug LIKE :q OR canal LIKE :q OR LEFT(session_id_hash, 12) LIKE :q)";
+      $params[":q"] = "%" . $texto . "%";
+    }
+    $stmt = $db->prepare("SELECT COUNT(*) total, COUNT(DISTINCT session_id_hash) sesiones, COUNT(DISTINCT tipo_evento) tipos
+      FROM erp_ecommerce_analytics_eventos
+      WHERE " . $where);
+    $stmt->execute($params);
+    $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+    $depurar["resumen"] = array("eventos" => intval($this->valor($resumen, "total", 0)), "sesiones" => intval($this->valor($resumen, "sesiones", 0)), "tipos" => intval($this->valor($resumen, "tipos", 0)));
+    $stmt = $db->prepare("SELECT fecha_registro fecha, tipo_evento, LEFT(session_id_hash, 12) session_key, ruta, slug, id_publicacion, id_sku, canal, dispositivo_aproximado
+      FROM erp_ecommerce_analytics_eventos
+      WHERE " . $where . "
+      ORDER BY fecha_registro DESC, id_analytics_evento DESC
+      LIMIT " . intval($limite));
+    $stmt->execute($params);
+    $depurar["items"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function consultarSesionesFlujo($db, $inicio, $fin, $limite, $minEventos = 1) {
     $stmt = $db->prepare("SELECT s.session_id_hash, s.canal, s.primer_ruta, s.ultimo_ruta, s.referrer, s.utm_source, s.utm_medium, s.utm_campaign, s.dispositivo_aproximado, s.fecha_inicio, s.fecha_ultima_actividad, s.eventos_total,
         (SELECT COUNT(*) FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_ev AND :fin_ev) eventos_rango,
         (SELECT COUNT(*) FROM erp_ecommerce_analytics_busquedas b WHERE b.session_id_hash=s.session_id_hash AND b.fecha_registro BETWEEN :inicio_bus AND :fin_bus) busquedas_rango,
@@ -774,11 +973,13 @@ class EcommerceAnalyticsErp extends CRUD {
         (SELECT e.utm_campaign FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_attr5 AND :fin_attr5 AND (e.ruta LIKE '%fbclid=%' OR e.ruta LIKE '%gclid=%' OR e.ruta LIKE '%gbraid=%' OR e.ruta LIKE '%wbraid=%' OR e.ruta LIKE '%msclkid=%' OR e.ruta LIKE '%ttclid=%' OR TRIM(COALESCE(e.referrer,''))<>'' OR TRIM(COALESCE(e.utm_source,''))<>'') ORDER BY e.fecha_registro ASC, e.id_analytics_evento ASC LIMIT 1) evento_atribucion_utm_campaign
       FROM erp_ecommerce_analytics_sesiones s
       WHERE COALESCE(s.fecha_ultima_actividad, s.fecha_inicio) BETWEEN :inicio AND :fin
+      HAVING (eventos_rango + busquedas_rango) >= :min_eventos
       ORDER BY COALESCE(s.fecha_ultima_actividad, s.fecha_inicio) DESC
       LIMIT " . intval($limite));
     $stmt->execute(array(
       ":inicio" => $inicio,
       ":fin" => $fin,
+      ":min_eventos" => $minEventos,
       ":inicio_ev" => $inicio,
       ":fin_ev" => $fin,
       ":inicio_bus" => $inicio,
@@ -993,6 +1194,43 @@ class EcommerceAnalyticsErp extends CRUD {
       LIMIT " . intval($limite));
     $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
     $depurar["canales"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function cargarDashboardCalidadTracking($db, &$depurar, $inicio, $fin) {
+    $stmt = $db->prepare("SELECT COUNT(*) total, SUM(CASE WHEN eventos_total<=1 THEN 1 ELSE 0 END) un_evento
+      FROM erp_ecommerce_analytics_sesiones
+      WHERE COALESCE(fecha_ultima_actividad, fecha_inicio) BETWEEN :inicio AND :fin");
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $sesiones = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+    $totalSesiones = intval($this->valor($sesiones, "total", 0));
+    $unEvento = intval($this->valor($sesiones, "un_evento", 0));
+
+    $stmt = $db->prepare("SELECT COUNT(*) eventos, COUNT(DISTINCT session_id_hash) sesiones
+      FROM erp_ecommerce_analytics_eventos
+      WHERE fecha_registro BETWEEN :inicio AND :fin");
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $eventos = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+    $eventosTotal = intval($this->valor($eventos, "eventos", 0));
+    $sesionesEventos = intval($this->valor($eventos, "sesiones", 0));
+    $porcentajeUnEvento = $totalSesiones > 0 ? round(($unEvento / $totalSesiones) * 100, 2) : 0;
+    $eventosPorSesion = $sesionesEventos > 0 ? round($eventosTotal / $sesionesEventos, 2) : 0;
+    $diagnostico = "normal";
+    if ($totalSesiones > 0 && $porcentajeUnEvento >= 65) {
+      $diagnostico = "sesiones_un_evento_altas";
+    } elseif ($sesionesEventos > 0 && $eventosPorSesion < 1.5) {
+      $diagnostico = "baja_profundidad";
+    }
+
+    $depurar["calidad_tracking"] = array(
+      "sesiones_un_evento" => $unEvento,
+      "sesiones_un_evento_pct" => $porcentajeUnEvento,
+      "sesiones_distintas_eventos" => $sesionesEventos,
+      "eventos_por_sesion" => $eventosPorSesion,
+      "diagnostico" => $diagnostico,
+      "lectura" => $diagnostico === "sesiones_un_evento_altas"
+        ? "Muchas sesiones tienen un solo evento; revisar persistencia de session_id, doble carga del tracker o trafico automatico."
+        : "La relacion eventos/sesion esta dentro de un rango revisable."
+    );
   }
 
   private function cargarDashboardAtribucion($db, &$depurar, $inicio, $fin, $limite) {
@@ -1467,6 +1705,18 @@ class EcommerceAnalyticsErp extends CRUD {
       $salida[] = array("de" => $orden[$i], "a" => $orden[$i + 1], "abandono_estimado" => max(0, $actual - $siguiente), "ratio_paso" => $actual > 0 ? round($siguiente / $actual, 4) : null);
     }
     return $salida;
+  }
+
+  private function seccionAnalisis($valor) {
+    $valor = $this->limpiarToken($valor, 40);
+    $permitidas = array("sesiones", "page_views", "productos", "busquedas", "whatsapp", "eventos");
+    return in_array($valor, $permitidas, true) ? $valor : "sesiones";
+  }
+
+  private function textoFiltroAnalisis($valor) {
+    $valor = trim((string) $valor);
+    $valor = preg_replace('/[\x00-\x1F\x7F]/', '', $valor);
+    return substr($valor, 0, 120);
   }
 
   private function fechaFiltro($valor, $fallback) {

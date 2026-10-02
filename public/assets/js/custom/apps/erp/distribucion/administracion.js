@@ -11,6 +11,7 @@
     var resumen = {};
     var demanda = {};
     var catalogosFiltros = {marcas: [], categorias: [], proveedores: []};
+    var productosPaginacion = {pagina: 1, limite: 120, total: 0, total_paginas: 1};
     var listas = [];
     var permisosComerciales = [];
     var permisosUi = window.DISTRIBUCION_ADMIN_PERMISOS || {};
@@ -72,6 +73,17 @@
 
     function numero(value) {
         return Number(value || 0).toLocaleString("es-MX", {minimumFractionDigits: 0, maximumFractionDigits: 2});
+    }
+
+    function jsonSeguro(value) {
+        if (!value) { return {}; }
+        if (typeof value === "object") { return value; }
+        try {
+            var parsed = JSON.parse(value);
+            return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (e) {
+            return {};
+        }
     }
 
     function selectValue(id) {
@@ -403,6 +415,7 @@
             var acciones = "";
             if (permisosUi.editar) {
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Permisos\" data-cliente-permisos=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-sliders\"></i></button> ";
+                acciones += "<button class=\"btn btn-sm btn-icon btn-light-secondary\" title=\"Entrega\" data-cliente-entrega=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-truck\"></i></button> ";
             }
             acciones += "<button class=\"btn btn-sm btn-icon btn-light-info\" title=\"Historial de acceso\" data-cliente-auditoria=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-clock-history\"></i></button> ";
             if (item.telefono) {
@@ -418,7 +431,7 @@
                 "<span class=\"badge badge-light-info me-1\">Pedidos " + escapeHtml(totalPedidos) + "</span>" +
                 "<span class=\"badge badge-light me-1\">Inv. " + escapeHtml(totalInventario) + "</span>" +
                 (totalSugeridos > 0 ? "<span class=\"badge badge-light-warning\">Sugerido " + escapeHtml(totalSugeridos) + "</span>" : "") +
-                "<div class=\"text-muted fs-8 mt-1\">Permisos " + escapeHtml(item.permisos_activos || 0) + " / Ultimo acceso " + escapeHtml(item.fecha_ultimo_login || "sin acceso") + "</div>";
+                "<div class=\"text-muted fs-8 mt-1\">Permisos " + escapeHtml(item.permisos_activos || 0) + " / Entrega " + escapeHtml(item.metodo_entrega_default || "por_definir") + " / Ultimo acceso " + escapeHtml(item.fecha_ultimo_login || "sin acceso") + "</div>";
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.nombre) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.correo) + "</div></td>" +
                 "<td>" + tipo + "</td><td>" + lista + "</td><td>" + indicadores + "</td>" +
                 "<td>" + badge(item.estatus) + "</td><td class=\"text-end\">" + acciones + "</td></tr>";
@@ -438,9 +451,10 @@
                   "<button class=\"btn btn-sm btn-icon btn-light-dark\" title=\"Cerrar\" data-cotizacion-accion=\"cerrar\" data-cotizacion=\"" + escapeHtml(item.id_cotizacion_distribucion) + "\"><i class=\"bi bi-check2-circle\"></i></button>"
                 : "";
             acciones = "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Detalle\" data-cotizacion-detalle=\"" + escapeHtml(item.id_cotizacion_distribucion) + "\"><i class=\"bi bi-card-list\"></i></button> " + acciones;
-            var total = item.estatus === "pedido_solicitado" ? "<span class=\"text-muted\">Por confirmar</span>" : money(item.total_estimado);
+            var total = item.estatus === "pedido_solicitado" ? "<span class=\"text-muted\">Por confirmar</span>" : money(item.total_confirmado || item.total_estimado);
+            var estadoCliente = item.respuesta_cliente_estatus ? "<div class=\"text-muted fs-8\">Cliente: " + escapeHtml(item.respuesta_cliente_estatus) + "</div>" : "";
             return "<tr><td class=\"fw-bold\">" + escapeHtml(item.folio) + "</td><td><div class=\"fw-semibold\">" + escapeHtml(item.cliente || ("ID " + item.id_cliente_distribucion)) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.empresa || item.correo || "") + "</div></td><td><span class=\"badge badge-light\">" + escapeHtml(item.partidas || 0) + "</span></td><td>" + total + "</td>" +
-                "<td>" + badge(item.estatus) + "</td><td class=\"text-muted fs-7\">" + escapeHtml(item.fecha_registro || "") + "</td><td class=\"text-end\">" + acciones + "</td></tr>";
+                "<td>" + badge(item.estatus) + estadoCliente + "</td><td class=\"text-muted fs-7\">" + escapeHtml(item.fecha_registro || "") + "</td><td class=\"text-end\">" + acciones + "</td></tr>";
         }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\">Sin cotizaciones</td></tr>";
     }
 
@@ -511,6 +525,7 @@
         if (!lista) { return; }
         var selectAll = document.getElementById("dist_productos_select_all");
         if (selectAll) { selectAll.checked = false; }
+        renderProductosPaginacion();
         lista.innerHTML = productos.map(function (item) {
             var activo = ["activo", "publicado", "aprobado"].indexOf(item.canal_estatus) !== -1 && Number(item.sincronizar_catalogo || 0) === 1;
             var acciones = permisosUi.editar
@@ -528,6 +543,31 @@
                 "<td class=\"text-muted fs-7\">" + escapeHtml(item.id_externo || "Sin publicar") + "</td><td>" + badge(item.canal_estatus || "sin_vinculo") + "</td>" +
                 "<td class=\"text-end\">" + acciones + "</td></tr>";
         }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin SKUs publicables</td></tr>";
+    }
+
+    function renderProductosPaginacion() {
+        var total = Number(productosPaginacion.total || 0);
+        var pagina = Number(productosPaginacion.pagina || 1);
+        var limite = Number(productosPaginacion.limite || 120);
+        var totalPaginas = Math.max(1, Number(productosPaginacion.total_paginas || 1));
+        var inicio = total === 0 ? 0 : ((pagina - 1) * limite) + 1;
+        var fin = Math.min(total, (pagina - 1) * limite + productos.length);
+        var info = document.getElementById("dist_productos_paginacion_info");
+        var actual = document.getElementById("dist_productos_pagina_actual");
+        var anterior = document.getElementById("dist_productos_pagina_anterior");
+        var siguiente = document.getElementById("dist_productos_pagina_siguiente");
+        if (info) {
+            info.textContent = "Mostrando " + inicio + "-" + fin + " de " + total + " productos";
+        }
+        if (actual) {
+            actual.textContent = pagina + " / " + totalPaginas;
+        }
+        if (anterior) {
+            anterior.disabled = pagina <= 1;
+        }
+        if (siguiente) {
+            siguiente.disabled = pagina >= totalPaginas;
+        }
     }
 
     function cargarSolicitudes() {
@@ -596,9 +636,20 @@
         var q = "";
         var input = document.getElementById("dist_productos_buscar");
         if (input) { q = input.value || ""; }
-        return request("/DistribucionAdmin/skus_publicables?" + query({
-            limite: 120,
-            q: q,
+        productosPaginacion.limite = Number(selectValue("dist_productos_limite") || productosPaginacion.limite || 120);
+        return request("/DistribucionAdmin/skus_publicables?" + query(productosQueryFiltros(productosPaginacion.limite, productosPaginacion.pagina))).then(function (response) {
+            productos = response.depurar && response.depurar.items ? response.depurar.items : [];
+            productosPaginacion = response.depurar && response.depurar.paginacion ? response.depurar.paginacion : productosPaginacion;
+            renderProductos();
+        });
+    }
+
+    function productosQueryFiltros(limite, pagina) {
+        var input = document.getElementById("dist_productos_buscar");
+        return {
+            limite: limite,
+            pagina: pagina,
+            q: input ? (input.value || "") : "",
             id_marca_erp: selectValue("dist_productos_marca"),
             id_categoria_erp: selectValue("dist_productos_categoria"),
             id_proveedor: selectValue("dist_productos_proveedor"),
@@ -606,10 +657,17 @@
             precio: selectValue("dist_productos_precio"),
             imagen: selectValue("dist_productos_imagen"),
             ficha: selectValue("dist_productos_ficha")
-        })).then(function (response) {
-            productos = response.depurar && response.depurar.items ? response.depurar.items : [];
-            renderProductos();
-        });
+        };
+    }
+
+    function cargarProductosDesdePagina(pagina) {
+        productosPaginacion.pagina = Math.max(1, Number(pagina || 1));
+        return cargarProductos();
+    }
+
+    function reiniciarProductosYCargar() {
+        productosPaginacion.pagina = 1;
+        return cargarProductos();
     }
 
     function cargarResumen() {
@@ -652,7 +710,7 @@
     }
 
     function cargarTodo() {
-        document.querySelectorAll("#dist_productos_publicar_lote, #dist_productos_desactivar_lote").forEach(function (button) {
+        document.querySelectorAll("#dist_productos_publicar_lote, #dist_productos_publicar_filtrados, #dist_productos_desactivar_lote").forEach(function (button) {
             button.classList.toggle("d-none", !permisosUi.editar);
         });
         return cargarAuxiliares().then(function () {
@@ -788,6 +846,36 @@
         });
     }
 
+    function editarEntregaCliente(idCliente) {
+        var cliente = clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(idCliente); }) || {};
+        Swal.fire({
+            title: cliente.nombre || "Entrega cliente",
+            html: "<div class=\"text-start\">" +
+                "<label class=\"form-label fw-semibold\">Metodo default</label><select id=\"dist_cliente_metodo_entrega\" class=\"form-select form-select-solid mb-4\">" +
+                ["por_definir", "envio", "recoger_tienda"].map(function (metodo) {
+                    return "<option value=\"" + metodo + "\"" + ((cliente.metodo_entrega_default || "por_definir") === metodo ? " selected" : "") + ">" + metodo + "</option>";
+                }).join("") + "</select>" +
+                "<label class=\"form-label fw-semibold\">Costo de envio default</label><input id=\"dist_cliente_costo_envio\" class=\"form-control form-control-solid mb-4\" inputmode=\"decimal\" value=\"" + escapeHtml(cliente.costo_envio_default || 0) + "\">" +
+                "<label class=\"form-check form-check-custom form-check-solid mb-3\"><input id=\"dist_cliente_habilitar_envio\" class=\"form-check-input\" type=\"checkbox\"" + (Number(cliente.entrega_habilitar_envio || 1) === 1 ? " checked" : "") + "><span class=\"form-check-label\">Puede usar envio</span></label>" +
+                "<label class=\"form-check form-check-custom form-check-solid\"><input id=\"dist_cliente_habilitar_recoger\" class=\"form-check-input\" type=\"checkbox\"" + (Number(cliente.entrega_habilitar_recoger_tienda || 1) === 1 ? " checked" : "") + "><span class=\"form-check-label\">Puede recoger en tienda</span></label>" +
+                "</div>",
+            width: 620,
+            showCancelButton: true,
+            confirmButtonText: "Guardar entrega",
+            preConfirm: function () {
+                return {
+                    metodo_entrega_default: (document.getElementById("dist_cliente_metodo_entrega") || {}).value || "por_definir",
+                    costo_envio_default: (document.getElementById("dist_cliente_costo_envio") || {}).value || "0",
+                    entrega_habilitar_envio: (document.getElementById("dist_cliente_habilitar_envio") || {}).checked ? 1 : 0,
+                    entrega_habilitar_recoger_tienda: (document.getElementById("dist_cliente_habilitar_recoger") || {}).checked ? 1 : 0
+                };
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            accionSimple("/DistribucionAdmin/cliente_entrega_configurar", Object.assign({id_cliente_distribucion: idCliente}, result.value || {}));
+        });
+    }
+
     /**
      * IA: Codex GPT-5 | Fecha: 2026-09-29
      * Proposito: mostrar partidas de pedido/cotizacion y permitir revision interna controlada.
@@ -798,6 +886,8 @@
             if (response.error) { throw new Error(response.mensaje); }
             var cotizacion = response.depurar && response.depurar.cotizacion ? response.depurar.cotizacion : {};
             var items = response.depurar && response.depurar.items ? response.depurar.items : [];
+            var facturacion = jsonSeguro(cotizacion.facturacion_json);
+            var requiereFactura = Number(cotizacion.requiere_factura || facturacion.requiere_factura || 0) === 1;
             var filas = items.map(function (item) {
                 var revision = item.estatus_revision ? badge(item.estatus_revision) : "<span class=\"text-muted\">Por confirmar</span>";
                 var boton = permisosUi.cotizaciones_gestionar
@@ -806,13 +896,43 @@
                 return "<tr><td><div class=\"fw-semibold\">" + escapeHtml(item.producto_actual || item.nombre_snapshot || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_actual || item.sku_snapshot || ("SKU " + item.id_sku)) + "</div></td>" +
                     "<td class=\"text-end\">" + numero(item.cantidad) + "</td><td class=\"text-end\">" + numero(item.cantidad_confirmada) + "</td><td>" + revision + "</td><td>" + escapeHtml(item.comentario_revision || "") + "</td><td class=\"text-end\">" + boton + "</td></tr>";
             }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin partidas</td></tr>";
+            var entregaHtml = "<div class=\"row g-3 text-start mb-5\">" +
+                "<div class=\"col-md-3\"><label class=\"form-label fw-semibold\">Entrega</label><select id=\"dist_pedido_tipo_entrega\" class=\"form-select form-select-solid\">" +
+                ["por_definir", "envio", "recoger_tienda"].map(function (tipo) {
+                    return "<option value=\"" + tipo + "\"" + ((cotizacion.tipo_entrega || "por_definir") === tipo ? " selected" : "") + ">" + tipo + "</option>";
+                }).join("") + "</select></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label fw-semibold\">Costo envio</label><input id=\"dist_pedido_costo_envio\" class=\"form-control form-control-solid\" inputmode=\"decimal\" value=\"" + escapeHtml(cotizacion.costo_envio || 0) + "\"></div>" +
+                "<div class=\"col-md-3 d-flex align-items-end\"><label class=\"form-check form-check-custom form-check-solid mb-3\"><input id=\"dist_pedido_habilitar_envio\" class=\"form-check-input\" type=\"checkbox\"" + (Number(cotizacion.entrega_habilitar_envio || 1) === 1 ? " checked" : "") + "><span class=\"form-check-label\">Envio</span></label></div>" +
+                "<div class=\"col-md-3 d-flex align-items-end\"><label class=\"form-check form-check-custom form-check-solid mb-3\"><input id=\"dist_pedido_habilitar_recoger\" class=\"form-check-input\" type=\"checkbox\"" + (Number(cotizacion.entrega_habilitar_recoger_tienda || 1) === 1 ? " checked" : "") + "><span class=\"form-check-label\">Recoger</span></label></div>" +
+                "<div class=\"col-12 d-flex justify-content-between align-items-center\"><div class=\"text-muted fs-8\">Respuesta cliente: " + escapeHtml(cotizacion.respuesta_cliente_estatus || "pendiente") + "</div>" +
+                (permisosUi.cotizaciones_gestionar ? "<button type=\"button\" class=\"btn btn-sm btn-light-success\" data-cotizacion-entrega-guardar=\"" + escapeHtml(idCotizacion) + "\"><i class=\"bi bi-send-check\"></i> Guardar respuesta para cliente</button>" : "") + "</div>" +
+                "</div>";
+            var facturaHtml = "<div class=\"text-start mb-5 border rounded p-4\">" +
+                "<label class=\"form-check form-check-custom form-check-solid mb-4\"><input id=\"dist_pedido_requiere_factura\" class=\"form-check-input\" type=\"checkbox\"" + (requiereFactura ? " checked" : "") + "><span class=\"form-check-label fw-semibold\">Cliente solicita factura</span></label>" +
+                "<div class=\"row g-3\">" +
+                "<div class=\"col-md-4\"><label class=\"form-label fw-semibold\">RFC</label><input id=\"dist_pedido_factura_rfc\" class=\"form-control form-control-solid\" value=\"" + escapeHtml(facturacion.rfc || "") + "\"></div>" +
+                "<div class=\"col-md-8\"><label class=\"form-label fw-semibold\">Razon social</label><input id=\"dist_pedido_factura_razon\" class=\"form-control form-control-solid\" value=\"" + escapeHtml(facturacion.razon_social || "") + "\"></div>" +
+                "<div class=\"col-md-4\"><label class=\"form-label fw-semibold\">Regimen fiscal</label><input id=\"dist_pedido_factura_regimen\" class=\"form-control form-control-solid\" value=\"" + escapeHtml(facturacion.regimen_fiscal || "") + "\"></div>" +
+                "<div class=\"col-md-4\"><label class=\"form-label fw-semibold\">Uso CFDI</label><input id=\"dist_pedido_factura_uso\" class=\"form-control form-control-solid\" value=\"" + escapeHtml(facturacion.uso_cfdi || "") + "\"></div>" +
+                "<div class=\"col-md-4\"><label class=\"form-label fw-semibold\">CP fiscal</label><input id=\"dist_pedido_factura_cp\" class=\"form-control form-control-solid\" value=\"" + escapeHtml(facturacion.codigo_postal_fiscal || "") + "\"></div>" +
+                "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Correo factura</label><input id=\"dist_pedido_factura_correo\" class=\"form-control form-control-solid\" value=\"" + escapeHtml(facturacion.correo_facturacion || "") + "\"></div>" +
+                "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Comentarios factura</label><input id=\"dist_pedido_factura_comentarios\" class=\"form-control form-control-solid\" value=\"" + escapeHtml(facturacion.comentarios_facturacion || "") + "\"></div>" +
+                "</div></div>";
             Swal.fire({
                 title: cotizacion.folio || "Solicitud Distribucion",
                 html: "<div class=\"text-start mb-4\"><div class=\"fw-bold\">" + escapeHtml(cotizacion.cliente || ("Cliente " + (cotizacion.id_cliente_distribucion || ""))) + "</div><div class=\"text-muted fs-8\">" + escapeHtml([cotizacion.empresa, cotizacion.correo, cotizacion.estatus].filter(Boolean).join(" / ")) + "</div></div>" +
+                    entregaHtml +
+                    facturaHtml +
                     "<div class=\"table-responsive text-start\"><table class=\"table table-row-dashed fs-7 gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold\"><th>Producto</th><th class=\"text-end\">Solicitado</th><th class=\"text-end\">Confirmado</th><th>Revision</th><th>Comentario</th><th></th></tr></thead><tbody>" + filas + "</tbody></table></div>",
                 width: 980,
                 confirmButtonText: "Cerrar",
                 didOpen: function () {
+                    var guardarEntrega = document.querySelector(".swal2-container [data-cotizacion-entrega-guardar]");
+                    if (guardarEntrega) {
+                        guardarEntrega.addEventListener("click", function () {
+                            guardarEntregaCotizacion(idCotizacion);
+                        });
+                    }
                     document.querySelectorAll(".swal2-container [data-cotizacion-item-revisar]").forEach(function (button) {
                         button.addEventListener("click", function () {
                             var idItem = button.getAttribute("data-cotizacion-item-revisar");
@@ -822,6 +942,31 @@
                     });
                 }
             });
+        }).catch(showError);
+    }
+
+    function guardarEntregaCotizacion(idCotizacion) {
+        request("/DistribucionAdmin/cotizacion_entrega_guardar", {
+            id_cotizacion_distribucion: idCotizacion,
+            tipo_entrega: (document.getElementById("dist_pedido_tipo_entrega") || {}).value || "por_definir",
+            costo_envio: (document.getElementById("dist_pedido_costo_envio") || {}).value || "0",
+            entrega_habilitar_envio: (document.getElementById("dist_pedido_habilitar_envio") || {}).checked ? 1 : 0,
+            entrega_habilitar_recoger_tienda: (document.getElementById("dist_pedido_habilitar_recoger") || {}).checked ? 1 : 0,
+            requiere_factura: (document.getElementById("dist_pedido_requiere_factura") || {}).checked ? 1 : 0,
+            facturacion: JSON.stringify({
+                requiere_factura: (document.getElementById("dist_pedido_requiere_factura") || {}).checked ? 1 : 0,
+                rfc: (document.getElementById("dist_pedido_factura_rfc") || {}).value || "",
+                razon_social: (document.getElementById("dist_pedido_factura_razon") || {}).value || "",
+                regimen_fiscal: (document.getElementById("dist_pedido_factura_regimen") || {}).value || "",
+                uso_cfdi: (document.getElementById("dist_pedido_factura_uso") || {}).value || "",
+                codigo_postal_fiscal: (document.getElementById("dist_pedido_factura_cp") || {}).value || "",
+                correo_facturacion: (document.getElementById("dist_pedido_factura_correo") || {}).value || "",
+                comentarios_facturacion: (document.getElementById("dist_pedido_factura_comentarios") || {}).value || ""
+            })
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            showOk(response.mensaje);
+            cargarCotizaciones().then(function () { verCotizacionDetalle(idCotizacion); });
         }).catch(showError);
     }
 
@@ -923,6 +1068,68 @@
         });
     }
 
+    function cargarTodosProductosFiltrados() {
+        var todos = [];
+        var pagina = 1;
+        var totalPaginas = 1;
+        function cargarPagina() {
+            return request("/DistribucionAdmin/skus_publicables?" + query(productosQueryFiltros(300, pagina))).then(function (response) {
+                if (response.error) { throw new Error(response.mensaje); }
+                var depurar = response.depurar || {};
+                var items = depurar.items || [];
+                var paginacion = depurar.paginacion || {};
+                totalPaginas = Number(paginacion.total_paginas || 1);
+                todos = todos.concat(items);
+                pagina++;
+                if (pagina <= totalPaginas) {
+                    return cargarPagina();
+                }
+                return todos;
+            });
+        }
+        return cargarPagina();
+    }
+
+    function confirmarPublicarProductosFiltrados() {
+        if (!permisosUi.editar) { return; }
+        Swal.fire({
+            title: "Revisando productos",
+            text: "Estoy contando todos los productos que coinciden con tus filtros.",
+            allowOutsideClick: false,
+            didOpen: function () { Swal.showLoading(); }
+        });
+        cargarTodosProductosFiltrados().then(function (items) {
+            var pendientes = items.filter(function (item) {
+                var publicado = ["activo", "publicado", "aprobado"].indexOf(item.canal_estatus) !== -1 && Number(item.sincronizar_catalogo || 0) === 1;
+                return !publicado;
+            });
+            if (!pendientes.length) {
+                Swal.fire({text: "No hay productos pendientes de publicar con los filtros actuales.", icon: "info", confirmButtonText: "Aceptar"});
+                return;
+            }
+            var resumenLote = resumenCalidadProductos(pendientes);
+            Swal.fire({
+                title: "Publicar todos filtrados",
+                html: "<div class=\"text-start\">" +
+                    "<div class=\"mb-3\">Se van a intentar publicar <strong>" + escapeHtml(resumenLote.total) + "</strong> productos no publicados que coinciden con los filtros actuales.</div>" +
+                    "<div class=\"mb-3 text-muted fs-8\">La publicacion respeta el bloqueo del ERP: los productos sin precio activo no se publicaran.</div>" +
+                    "<div class=\"d-flex flex-wrap gap-2\">" +
+                    "<span class=\"badge badge-light-danger\">Sin precio " + escapeHtml(resumenLote.sin_precio) + "</span>" +
+                    "<span class=\"badge badge-light-warning\">Sin imagen " + escapeHtml(resumenLote.sin_imagen) + "</span>" +
+                    "<span class=\"badge badge-light-warning\">Sin ficha " + escapeHtml(resumenLote.sin_ficha) + "</span>" +
+                    "</div></div>",
+                icon: "warning",
+                width: 720,
+                showCancelButton: true,
+                confirmButtonText: "Publicar todos filtrados",
+                cancelButtonText: "Cancelar"
+            }).then(function (result) {
+                if (!result.isConfirmed) { return; }
+                ejecutarProductosLote("publicar", pendientes);
+            });
+        }).catch(showError);
+    }
+
     function ejecutarProductosLote(accion, items) {
         var url = accion === "publicar" ? "/DistribucionAdmin/publicar_sku" : "/DistribucionAdmin/desactivar_sku";
         var total = items.length;
@@ -963,9 +1170,15 @@
         if (button.id === "distribucion_refrescar") {
             cargarTodo();
         } else if (button.id === "dist_productos_buscar_btn") {
-            cargarProductos().catch(showError);
+            reiniciarProductosYCargar().catch(showError);
+        } else if (button.id === "dist_productos_pagina_anterior") {
+            cargarProductosDesdePagina(Number(productosPaginacion.pagina || 1) - 1).catch(showError);
+        } else if (button.id === "dist_productos_pagina_siguiente") {
+            cargarProductosDesdePagina(Number(productosPaginacion.pagina || 1) + 1).catch(showError);
         } else if (button.id === "dist_productos_publicar_lote") {
             confirmarProductosLote("publicar");
+        } else if (button.id === "dist_productos_publicar_filtrados") {
+            confirmarPublicarProductosFiltrados();
         } else if (button.id === "dist_productos_desactivar_lote") {
             confirmarProductosLote("desactivar");
         } else if (button.hasAttribute("data-solicitud-aprobar")) {
@@ -990,6 +1203,8 @@
             accionSimple("/DistribucionAdmin/cliente_suspendir", {id_cliente_distribucion: button.getAttribute("data-cliente-suspender")});
         } else if (button.hasAttribute("data-cliente-permisos")) {
             editarPermisos(button.getAttribute("data-cliente-permisos"));
+        } else if (button.hasAttribute("data-cliente-entrega")) {
+            editarEntregaCliente(button.getAttribute("data-cliente-entrega"));
         } else if (button.hasAttribute("data-cliente-auditoria")) {
             verAuditoriaCliente(button.getAttribute("data-cliente-auditoria"));
         } else if (button.hasAttribute("data-cliente-whatsapp")) {
@@ -1044,8 +1259,10 @@
             }
         } else if (event.target.id === "dist_sugeridos_marca" || event.target.id === "dist_sugeridos_categoria" || event.target.id === "dist_sugeridos_proveedor") {
             cargarSugeridos().catch(showError);
+        } else if (event.target.id === "dist_productos_limite") {
+            reiniciarProductosYCargar().catch(showError);
         } else if (event.target.id === "dist_productos_marca" || event.target.id === "dist_productos_categoria" || event.target.id === "dist_productos_proveedor" || event.target.id === "dist_productos_canal" || event.target.id === "dist_productos_precio" || event.target.id === "dist_productos_imagen" || event.target.id === "dist_productos_ficha") {
-            cargarProductos().catch(showError);
+            reiniciarProductosYCargar().catch(showError);
         } else if (event.target.hasAttribute("data-cliente-tipo")) {
             accionSimple("/DistribucionAdmin/asignar_tipo_cliente", {
                 id_cliente_distribucion: event.target.getAttribute("data-cliente-tipo"),
@@ -1073,7 +1290,7 @@
         } else if (event.target.id === "dist_cotizaciones_buscar") {
             renderCotizaciones();
         } else if (event.target.id === "dist_productos_buscar" && event.target.value.length === 0) {
-            cargarProductos().catch(showError);
+            reiniciarProductosYCargar().catch(showError);
         }
     });
 

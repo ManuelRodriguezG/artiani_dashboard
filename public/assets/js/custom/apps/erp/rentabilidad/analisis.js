@@ -486,7 +486,7 @@
         if (!$("rentabilidad_lista_precio").value) {
             $("rentabilidad_herramienta_resumen").innerHTML = "<div class=\"text-muted fs-8\">Sin listas de precios disponibles para analizar</div>";
             if ($("rentabilidad_herramienta_propuestas")) { $("rentabilidad_herramienta_propuestas").innerHTML = "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">Sin lista seleccionada</td></tr>"; }
-            $("rentabilidad_herramienta_items").innerHTML = "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\">Sin lista seleccionada</td></tr>";
+            $("rentabilidad_herramienta_items").innerHTML = "<tr><td colspan=\"11\" class=\"text-center text-muted py-10\">Sin lista seleccionada</td></tr>";
             return Promise.resolve();
         }
         return request("/rentabilidad/analizar_lista_erp?" + filtrosListaRentabilidad()).then(function (response) {
@@ -631,7 +631,7 @@
             "<span class=\"badge badge-light-secondary fs-7\">Sin precio " + Number(resumen.sin_precio || 0) + "</span>" +
             "<span class=\"badge badge-light-success fs-7\">Valor inventario " + dinero(resumen.valor_inventario || 0) + "</span>";
         $("rentabilidad_items").innerHTML = (data.items || []).map(renderItem).join("") ||
-            "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin SKUs para el filtro seleccionado</td></tr>";
+            "<tr><td colspan=\"11\" class=\"text-center text-muted py-10\">Sin SKUs para el filtro seleccionado</td></tr>";
     }
     function renderAnalisisListaRentabilidad(data) {
         var resumen = data.resumen || {};
@@ -653,7 +653,7 @@
             "<div class=\"text-muted fs-8\">Gasto " + pct(escenario.gasto_pct || 0) + " / Comision " + pct(escenario.comision_pct || 0) + " / Margen objetivo " + pct(escenario.margen_objetivo_pct || 0) + " / Simulacion ajuste " + pct(escenario.ajuste_pct || 0) + "</div>";
         renderPropuestasListaRentabilidad(data.propuestas || {});
         $("rentabilidad_herramienta_items").innerHTML = (data.items || []).map(renderItemListaRentabilidad).join("") ||
-            "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin productos para la lista/filtro seleccionado</td></tr>";
+            "<tr><td colspan=\"11\" class=\"text-center text-muted py-10\">Sin productos para la lista/filtro seleccionado</td></tr>";
     }
     function cargarAtencionCostosListaRentabilidad() {
         if (!$("rentabilidad_lista_precio").value) {
@@ -1012,53 +1012,39 @@
             return;
         }
         Swal.fire({
-            title: "Respaldo externo",
-            text: "Indica la referencia o ruta del respaldo antes de guardar el estudio.",
+            title: "Confirmar guardado",
+            html: "Escribe <strong>AUTORIZO GUARDAR ESTUDIO RENTABILIDAD</strong> para continuar.<br><span class=\"text-muted fs-8\">El sistema generara un respaldo externo de estudios antes de guardar.</span>",
             input: "text",
-            inputPlaceholder: "Ej. C:\\xampp\\panel_db_backups\\...",
             icon: "warning",
             showCancelButton: true,
-            confirmButtonText: "Continuar",
+            confirmButtonText: "Guardar",
             cancelButtonText: "Cancelar",
             inputValidator: function (value) {
-                return value && value.trim().length >= 8 ? undefined : "Captura una referencia de respaldo valida";
+                return value === "AUTORIZO GUARDAR ESTUDIO RENTABILIDAD" ? undefined : "La frase no coincide";
             }
-        }).then(function (respaldo) {
-            if (!respaldo.isConfirmed) { return; }
-            return Swal.fire({
-                title: "Confirmar guardado",
-                html: "Escribe <strong>AUTORIZO GUARDAR ESTUDIO RENTABILIDAD</strong> para continuar.",
-                input: "text",
-                icon: "warning",
-                showCancelButton: true,
-                confirmButtonText: "Guardar",
-                cancelButtonText: "Cancelar",
-                inputValidator: function (value) {
-                    return value === "AUTORIZO GUARDAR ESTUDIO RENTABILIDAD" ? undefined : "La frase no coincide";
-                }
-            }).then(function (confirmacion) {
-                if (!confirmacion.isConfirmed) { return; }
-                var data = {
-                    id_estudio: $("rentabilidad_estudio_id").value,
-                    nombre: $("rentabilidad_estudio_nombre").value.trim(),
-                    objetivo: $("rentabilidad_estudio_objetivo").value,
-                    id_lista_precio: $("rentabilidad_estudio_lista_precio").value,
-                    ids_sku: Object.keys(rentabilidadEstudioSeleccion).join(","),
-                    gasto_pct: $("rentabilidad_estudio_gasto").value,
-                    comision_pct: $("rentabilidad_estudio_comision").value,
-                    margen_objetivo_pct: $("rentabilidad_estudio_objetivo_margen").value,
-                    ajuste_pct: $("rentabilidad_estudio_ajuste").value,
-                    respaldo_externo_ref: respaldo.value.trim(),
-                    confirmar_autorizacion: confirmacion.value
-                };
-                post("/rentabilidad/estudio_guardar_erp", data).then(function (response) {
-                    if (response.error) { throw new Error(response.mensaje); }
-                    Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
-                    mostrarEditorEstudioRentabilidad(false);
-                    cargarEstudiosRentabilidad();
-                }).catch(function (error) {
-                    Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
-                });
+        }).then(function (confirmacion) {
+            if (!confirmacion.isConfirmed) { return; }
+            var data = {
+                id_estudio: $("rentabilidad_estudio_id").value,
+                nombre: $("rentabilidad_estudio_nombre").value.trim(),
+                objetivo: $("rentabilidad_estudio_objetivo").value,
+                id_lista_precio: $("rentabilidad_estudio_lista_precio").value,
+                ids_sku: Object.keys(rentabilidadEstudioSeleccion).join(","),
+                gasto_pct: $("rentabilidad_estudio_gasto").value,
+                comision_pct: $("rentabilidad_estudio_comision").value,
+                margen_objetivo_pct: $("rentabilidad_estudio_objetivo_margen").value,
+                ajuste_pct: $("rentabilidad_estudio_ajuste").value,
+                respaldo_externo_ref: "",
+                confirmar_autorizacion: confirmacion.value
+            };
+            post("/rentabilidad/estudio_guardar_erp", data).then(function (response) {
+                if (response.error) { throw new Error(response.mensaje); }
+                var respaldo = ((response.depurar || {}).respaldo_externo_ref || "");
+                Swal.fire({html: escapeHtml(response.mensaje) + (respaldo ? "<br><span class=\"text-muted fs-8\">Respaldo: " + escapeHtml(respaldo) + "</span>" : ""), icon: "success", confirmButtonText: "Aceptar"});
+                mostrarEditorEstudioRentabilidad(false);
+                cargarEstudiosRentabilidad();
+            }).catch(function (error) {
+                Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
             });
         });
     }
@@ -1081,7 +1067,7 @@
             "</div>" +
             "<div class=\"text-muted fs-8\">El resultado es temporal y no escribe en Listas, Catalogo ni Ventas.</div>";
         $("rentabilidad_estudio_detalle").innerHTML = (data.items || []).map(renderItemListaRentabilidad).join("") ||
-            "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin detalle para la seleccion actual</td></tr>";
+            "<tr><td colspan=\"11\" class=\"text-center text-muted py-10\">Sin detalle para la seleccion actual</td></tr>";
     }
     function renderPropuestasListaRentabilidad(propuestas) {
         var contenedor = $("rentabilidad_herramienta_propuestas");
@@ -1105,8 +1091,10 @@
         return "<tr>" +
             "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.accion_sugerida || "") + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.precio_lista_con_impuesto) + "</div><div class=\"text-muted fs-8\">Sin imp. " + dinero(item.precio_lista_sin_impuesto) + "</div><div class=\"text-muted fs-8\">Analisis " + dinero(item.precio_analisis_sin_impuesto) + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.impuestos_estimados) + "</div><div class=\"text-muted fs-8\">IVA " + dinero(item.iva_estimado) + "</div><div class=\"text-muted fs-8\">IEPS " + dinero(item.ieps_estimado) + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.costo_real_sin_impuesto) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.origen_costo || "") + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + pct(item.margen_bruto_pct) + "</div><div class=\"text-muted fs-8\">Bruta " + dinero(item.utilidad_bruta) + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.ganancia_bruta_con_impuesto) + "</div><div class=\"text-muted fs-8\">Sin imp. " + dinero(item.ganancia_bruta_sin_impuesto) + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.utilidad_estimada) + "</div><div class=\"text-muted fs-8\">" + pct(item.utilidad_estimada_pct) + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.gastos_estimados) + "</div><div class=\"text-muted fs-8\">Importe gasto</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + (item.precio_minimo_rentable_sin_impuesto == null ? "-" : dinero(item.precio_minimo_rentable_sin_impuesto)) + "</div><div class=\"text-muted fs-8\">Sug. " + (item.precio_sugerido_con_impuesto == null ? "-" : dinero(item.precio_sugerido_con_impuesto)) + "</div></td>" +

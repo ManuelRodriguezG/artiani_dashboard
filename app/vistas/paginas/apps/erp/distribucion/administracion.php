@@ -350,13 +350,36 @@
                                                         <i class="bi bi-cloud-upload"></i>
                                                         Publicar lote
                                                     </button>
+                                                    <button type="button" id="dist_productos_publicar_filtrados" class="btn btn-success">
+                                                        <i class="bi bi-cloud-check"></i>
+                                                        Publicar todos filtrados
+                                                    </button>
                                                     <button type="button" id="dist_productos_desactivar_lote" class="btn btn-light-danger">
                                                         <i class="bi bi-eye-slash"></i>
                                                         Desactivar lote
                                                     </button>
+                                                    <select id="dist_productos_limite" class="form-select form-select-solid w-100px">
+                                                        <option value="50">50</option>
+                                                        <option value="120" selected>120</option>
+                                                        <option value="300">300</option>
+                                                    </select>
                                                 </div>
                                             </div>
                                             <div class="card-body pt-0">
+                                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+                                                    <div id="dist_productos_paginacion_info" class="text-muted fs-7">Productos 0 de 0</div>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <button type="button" id="dist_productos_pagina_anterior" class="btn btn-sm btn-light">
+                                                            <i class="bi bi-chevron-left"></i>
+                                                            Anterior
+                                                        </button>
+                                                        <span id="dist_productos_pagina_actual" class="badge badge-light-primary">1 / 1</span>
+                                                        <button type="button" id="dist_productos_pagina_siguiente" class="btn btn-sm btn-light">
+                                                            Siguiente
+                                                            <i class="bi bi-chevron-right"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
                                                 <div class="table-responsive">
                                                     <table class="table align-middle table-row-dashed fs-6 gy-5">
                                                         <thead>
@@ -398,6 +421,6 @@
     </div>
     <script src="assets/plugins/global/plugins.bundle.js"></script>
     <script src="assets/js/scripts.bundle.js"></script>
-    <script src="/assets/js/custom/apps/erp/distribucion/administracion.js?v=20260929-consola-operativa"></script>
+    <script src="/assets/js/custom/apps/erp/distribucion/administracion.js?v=20260929-publicar-filtrados"></script>
 </body>
 </html>

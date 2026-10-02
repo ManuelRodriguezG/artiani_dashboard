@@ -73,7 +73,20 @@ if (!empty($ids) && !array_key_exists("items", $analisis["depurar"])) {
 }
 if (!empty($analisis["depurar"]["items"])) {
     $item = $analisis["depurar"]["items"][0];
-    foreach (array("precio_lista_con_impuesto", "costo_real_sin_impuesto", "margen_bruto_pct", "utilidad_estimada", "siguiente_paso") as $campo) {
+    foreach (array(
+        "precio_lista_con_impuesto",
+        "precio_lista_sin_impuesto",
+        "iva_estimado",
+        "ieps_estimado",
+        "impuestos_estimados",
+        "costo_real_sin_impuesto",
+        "margen_bruto_pct",
+        "ganancia_bruta_con_impuesto",
+        "ganancia_bruta_sin_impuesto",
+        "gastos_estimados",
+        "utilidad_estimada",
+        "siguiente_paso"
+    ) as $campo) {
         if (!array_key_exists($campo, $item)) {
             $fallas[] = array("id" => "COST-EST-UAT-007", "mensaje" => "Falta campo en item de estudio", "campo" => $campo);
         }

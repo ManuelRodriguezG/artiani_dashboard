@@ -30,12 +30,41 @@ Objetivo:
 Fichas iniciales incluidas en semilla PHP:
 
 - Peces de agua dulce.
-- Hamster.
+- Hamster, separado operativamente en hámster sirio y hámster ruso/chino.
 - Cuyo.
 - Erizo.
 - Chinchilla.
 - Huron.
 - Serpientes.
+
+## Decision operativa: hámster
+
+Fecha: 2026-09-29
+
+Para Artiani, `Hamster` queda como ficha padre y se separa en dos variantes comerciales:
+
+- `Hámster sirio`.
+- `Hámster ruso o chino`.
+
+La separacion existe porque la recomendacion de productos cambia por talla y seguridad:
+
+- Sirio: requiere habitat mas amplio, rueda grande, refugios/tuneles de entrada amplia y accesorios que no le queden chicos.
+- Ruso/chino: requiere habitat seguro contra escapes, barrotes estrechos o paredes lisas, accesorios bajos y rueda mediana sin huecos donde pueda atorarse.
+
+Regla comercial segura:
+
+- Recomendar habitat individual como punto de partida.
+- No vender ruedas pequenas para sirio si arquean la espalda.
+- No recomendar jaulas con barrotes separados para ruso/chino.
+- Incluir desgaste dental como necesidad permanente: mordederas, madera segura, juguetes para roer y alimento completo con textura adecuada.
+- Explicar sustratos con criterio, no solo por nombre comercial: papel, aserrin prensado, sustrato de maiz y viruta deben evaluarse por polvo, aroma, humedad, suavidad y seguridad para pequeños mamiferos.
+- Usar medidas operativas en la ficha: habitat de referencia 100 x 50 cm cuando sea posible, rueda 28-30 cm o mayor para sirio, rueda 20-25 cm para ruso y 25-28 cm si chino arquea espalda, sustrato 15-20 cm minimo practico e ideal 25 cm o mas si el habitat lo permite.
+- Separar el ideal de bienestar del criterio comercial. La ficha debe clasificar productos como `comercial recomendado`, `comercial aceptable con advertencia` o `no recomendar como permanente`, porque el catalogo contiene productos de varios tamaños y usos.
+- Las jaulas/habitats comerciales detectados como 80 cm, 100 cm y 120 cm deben evaluarse de forma distinta a jaulas mini; una jaula mini puede servir para traslado/temporal, no como vivienda definitiva.
+- La ficha de hámster ahora analiza jaulas/habitats reales del Catalogo ERP en modo read-only, extrae medidas del nombre del SKU/producto cuando existen y clasifica: `principal_recomendado_comercial`, `principal_compacto`, `compacto_ruso_chino`, `temporal_o_inicial`, `solo_temporal_traslado` o `revision_manual`.
+- Si un producto no tiene medidas detectables en el nombre, queda en `revision_manual`; no debe publicarse como recomendado hasta revisar ficha fisica o completar atributos en Catalogo ERP.
+- Esferas de ejercicio: comercialmente existen, pero no deben presentarse como sustituto de rueda ni ejercicio principal; si se venden, explicar uso corto y supervisado.
+- Productos del catalogo se muestran como candidatos read-only y requieren revision humana antes de vincularse formalmente a la ficha.
 
 ## Contratos operativos
 
@@ -79,7 +108,7 @@ No se ejecuto DDL ni escritura en BD durante esta etapa.
 Fecha: 2026-09-28
 
 - Contexto actual: el modulo abre una Enciclopedia funcional con semilla PHP y filtros operativos.
-- Cambios recientes: se preparo controlador, modelo, esquema dry-run, listado, detalle independiente, formulario de nueva ficha, JS, permisos base y menu.
+- Cambios recientes: se preparo controlador, modelo, esquema dry-run, listado, detalle independiente, formulario de nueva ficha, JS, permisos base y menu. Se enriquecio la ficha de hámster con comparativa sirio vs ruso/chino, especificaciones de habitat/rueda/sustrato/dental/alimento, criterio comercial por niveles, candidatos read-only y analisis automatico de jaulas/habitats reales del Catalogo ERP.
 - Decisiones: Artiani es modulo propio, no una pantalla dentro de Catalogo; Catalogo ERP se usara despues para productos relacionados.
 - Pendientes: autorizar esquema, sembrar fichas reales en BD, crear editor de fichas, vincular productos relacionados contra SKUs y preparar salida publica para ecommerce.
 - Impacta a: Catalogo ERP, CMS/frontend, Atencion comercial, capacitacion interna y futuro agente IA.

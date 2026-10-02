@@ -248,6 +248,7 @@
                                                         <option value="todos">Todos</option>
                                                         <option value="con_precio">Con precio</option>
                                                         <option value="sin_precio">Sin precio</option>
+                                                        <option value="bloqueo_activacion">Bloquean activacion</option>
                                                         <option value="margen_bajo">Margen bajo</option>
                                                         <option value="perdida">Perdida</option>
                                                         <option value="sin_costo">Sin costo</option>

@@ -55,20 +55,29 @@
                         <div class="app-container container-fluid">
                             <div class="ecom-flow-panel p-4 mb-5">
                                 <div class="row g-3 align-items-end">
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Desde</label>
                                         <input class="form-control form-control-solid" type="date" id="ecom_flow_desde">
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Hasta</label>
                                         <input class="form-control form-control-solid" type="date" id="ecom_flow_hasta">
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Limite sesiones</label>
                                         <select class="form-select form-select-solid" id="ecom_flow_limite">
                                             <option value="25">25</option>
                                             <option value="50">50</option>
                                             <option value="100">100</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Min. eventos</label>
+                                        <select class="form-select form-select-solid" id="ecom_flow_min_eventos">
+                                            <option value="1">Todas las sesiones</option>
+                                            <option value="2" selected>2+ eventos</option>
+                                            <option value="5">5+ eventos</option>
+                                            <option value="10">10+ eventos</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3 text-md-end">

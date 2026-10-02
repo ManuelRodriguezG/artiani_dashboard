@@ -342,8 +342,11 @@ class DistribucionClientesApi extends CRUD {
         $params[":q"] = "%" . $q . "%";
       }
       $joinLista = $this->tablaExiste($db, "erp_listas_precios") ? "LEFT JOIN erp_listas_precios l ON l.id_lista_precio=c.id_lista_precio" : "LEFT JOIN (SELECT NULL id_lista_precio, NULL nombre) l ON 1=0";
+      $extraEntrega = $this->columnasEntregaClienteDisponibles($db)
+        ? "c.metodo_entrega_default, c.entrega_habilitar_envio, c.entrega_habilitar_recoger_tienda, c.costo_envio_default,"
+        : "NULL metodo_entrega_default, NULL entrega_habilitar_envio, NULL entrega_habilitar_recoger_tienda, NULL costo_envio_default,";
       $stmt = $db->prepare("SELECT c.id_cliente_distribucion, c.nombre, c.empresa, c.correo, c.telefono, c.tipo_cliente, c.estatus,
-          c.id_lista_precio, l.nombre lista_precio, c.fecha_aprobacion, c.fecha_ultimo_login, c.fecha_registro,
+          c.id_lista_precio, " . $extraEntrega . " l.nombre lista_precio, c.fecha_aprobacion, c.fecha_ultimo_login, c.fecha_registro,
           (SELECT COUNT(*) FROM erp_distribucion_cliente_permisos cp WHERE cp.id_cliente_distribucion=c.id_cliente_distribucion AND cp.estatus='activo') permisos_activos,
           (SELECT GROUP_CONCAT(cp.permiso ORDER BY cp.permiso SEPARATOR ',') FROM erp_distribucion_cliente_permisos cp WHERE cp.id_cliente_distribucion=c.id_cliente_distribucion AND cp.estatus='activo') permisos
         FROM erp_distribucion_clientes c
@@ -793,6 +796,64 @@ class DistribucionClientesApi extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-30
+   * Proposito: guardar configuracion logistica default del cliente Distribucion.
+   * Impacto: Admin ERP; permite proponer envio/recoger y costo base en pedidos futuros.
+   * Contrato: escritura auditada sobre cliente externo, no crea pedidos ni ventas.
+   */
+  public function entregaClientePlanInterno($datos = array(), $idUsuario = null) {
+    $idCliente = intval($this->valor($datos, "id_cliente_distribucion", 0));
+    if ($idCliente <= 0) {
+      return $this->respuesta(true, "warning", "Cliente requerido");
+    }
+    $metodo = trim((string) $this->valor($datos, "metodo_entrega_default", $this->valor($datos, "tipo_entrega", "por_definir")));
+    if (!in_array($metodo, array("por_definir", "envio", "recoger_tienda"), true)) {
+      $metodo = "por_definir";
+    }
+    $habilitarEnvio = intval($this->valor($datos, "entrega_habilitar_envio", 1)) === 1 ? 1 : 0;
+    $habilitarRecoger = intval($this->valor($datos, "entrega_habilitar_recoger_tienda", 1)) === 1 ? 1 : 0;
+    if ($metodo === "envio" && $habilitarEnvio !== 1) { $metodo = "por_definir"; }
+    if ($metodo === "recoger_tienda" && $habilitarRecoger !== 1) { $metodo = "por_definir"; }
+    $costoEnvio = max(0, floatval($this->valor($datos, "costo_envio_default", $this->valor($datos, "costo_envio", 0))));
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->columnasEntregaClienteDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Configuracion de entrega pendiente de esquema", array("configurado" => false, "requiere_plan_esquema" => true));
+    }
+    try {
+      $db->beginTransaction();
+      $cliente = $this->buscarCliente($db, $idCliente);
+      if (!$cliente) { throw new Exception("cliente_no_encontrado"); }
+      $db->prepare("UPDATE erp_distribucion_clientes
+        SET metodo_entrega_default=:metodo,
+            entrega_habilitar_envio=:habilitar_envio,
+            entrega_habilitar_recoger_tienda=:habilitar_recoger,
+            costo_envio_default=:costo_envio,
+            fecha_actualizacion=NOW()
+        WHERE id_cliente_distribucion=:cliente")
+        ->execute(array(
+          ":metodo" => $metodo,
+          ":habilitar_envio" => $habilitarEnvio,
+          ":habilitar_recoger" => $habilitarRecoger,
+          ":costo_envio" => $costoEnvio,
+          ":cliente" => $idCliente
+        ));
+      $detalle = array(
+        "metodo_entrega_default" => $metodo,
+        "entrega_habilitar_envio" => $habilitarEnvio,
+        "entrega_habilitar_recoger_tienda" => $habilitarRecoger,
+        "costo_envio_default" => $costoEnvio
+      );
+      $this->registrarAuditoria($db, "cliente", $idCliente, "configurar_entrega", "ok", "Entrega Distribucion actualizada", $detalle, $idUsuario, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Entrega del cliente actualizada", array("ejecutado" => true, "id_cliente_distribucion" => $idCliente) + $detalle);
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo actualizar entrega del cliente", array("detalle" => "error_controlado"));
+    }
+  }
+
   private function permisosCliente($db, $idCliente) {
     if (!$this->tablaExiste($db, "erp_distribucion_cliente_permisos")) {
       return array();
@@ -1059,6 +1120,15 @@ class DistribucionClientesApi extends CRUD {
     $columnas = array("nombre_negocio", "whatsapp", "rfc", "ciudad", "estado", "tipo_negocio", "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal", "referencias", "intereses_comerciales", "datos_comerciales_json", "ip_registro", "user_agent");
     foreach ($columnas as $columna) {
       if (!$this->columnaExiste($db, "erp_distribucion_solicitudes", $columna)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private function columnasEntregaClienteDisponibles($db) {
+    foreach (array("metodo_entrega_default", "entrega_habilitar_envio", "entrega_habilitar_recoger_tienda", "costo_envio_default") as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_clientes", $columna)) {
         return false;
       }
     }

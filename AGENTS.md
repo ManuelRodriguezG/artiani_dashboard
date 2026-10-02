@@ -34,6 +34,12 @@ Este archivo es la puerta de entrada para agentes que trabajen en este proyecto.
 - Las clases `*Esquema.php` normalmente extienden `DBSchema` para auditar o planear cambios de tablas, columnas e indices.
 - Las vistas PHP estan en `app/vistas/paginas`; los JS de modulos ERP estan en `public/assets/js/custom/apps/erp`.
 
+## Nomenclatura de archivos para productivo
+
+- No crear archivos nuevos de controladores o modelos con mayusculas intermedias en el nombre de archivo, porque el servidor productivo puede ser sensible a mayusculas/minusculas y fallar aunque funcione en Windows/XAMPP.
+- Para nuevos controladores/modelos, usar nombres de archivo en minusculas y una convencion compatible con el router/autoload antes de implementar. Si el modulo legacy exige un nombre tipo CamelCase para funcionar, confirmar con el dueno antes de crear el archivo y documentar la razon.
+- No renombrar archivos legacy existentes solo por esta regla sin plan de impacto, porque puede romper rutas, includes, clases o referencias ya desplegadas.
+
 ## Rutas, seguridad y reglas transversales
 
 - `Core.php` decide controlador/metodo, instancia el controlador y ejecuta `call_user_func_array`.

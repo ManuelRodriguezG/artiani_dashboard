@@ -42,6 +42,7 @@
                                 <span class="text-muted">Navegacion, busquedas y conversion anonima del ecommerce publico</span>
                             </div>
                             <div class="d-flex gap-2">
+                                <a class="btn btn-light" href="/ecommercePublico/analytics_analisis"><i class="bi bi-table"></i> Analisis</a>
                                 <a class="btn btn-light" href="/ecommercePublico/analytics_flujo"><i class="bi bi-diagram-3"></i> Flujo</a>
                                 <a class="btn btn-light" href="/ecommercePublico/control"><i class="bi bi-sliders"></i> Control</a>
                                 <a class="btn btn-light" href="/ecommercePublico/seo_migracion"><i class="bi bi-signpost-split"></i> SEO</a>
@@ -95,6 +96,22 @@
                                 <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Eventos</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_eventos">0</div><div class="text-muted fs-7 mt-2">Tracking total.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">WhatsApp</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_whatsapp">0</div><div class="text-muted fs-7 mt-2">Aperturas estimadas.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Facturacion</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_facturacion">0</div><div class="text-muted fs-7 mt-2">Envios de solicitud.</div></div></div>
+                            </div>
+
+                            <div class="ecom-an-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Calidad del tracking</h3>
+                                        <span class="text-muted fs-7" id="ecom_an_calidad_lectura">Calculando calidad de sesiones anonimas.</span>
+                                    </div>
+                                    <span class="badge badge-light" id="ecom_an_calidad_estado">-</span>
+                                </div>
+                                <div class="row g-3 mt-1">
+                                    <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Sesiones 1 evento</div><div class="ecom-an-kpi__value" id="ecom_an_calidad_un_evento">0</div><div class="text-muted fs-7 mt-2" id="ecom_an_calidad_un_evento_pct">0%</div></div></div>
+                                    <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Sesiones en eventos</div><div class="ecom-an-kpi__value" id="ecom_an_calidad_sesiones_eventos">0</div><div class="text-muted fs-7 mt-2">Distintas por hash.</div></div></div>
+                                    <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Eventos / sesion</div><div class="ecom-an-kpi__value" id="ecom_an_calidad_eventos_sesion">0</div><div class="text-muted fs-7 mt-2">Promedio del rango.</div></div></div>
+                                    <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Vista recomendada</div><div class="ecom-an-kpi__value fs-4"><a href="/ecommercePublico/analytics_flujo" class="text-primary">Flujo</a></div><div class="text-muted fs-7 mt-2">Filtra por 2+ eventos.</div></div></div>
+                                </div>
                             </div>
 
                             <div class="ecom-an-panel p-5 mb-5">

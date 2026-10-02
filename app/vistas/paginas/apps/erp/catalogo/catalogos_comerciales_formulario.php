@@ -44,8 +44,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
         .cc-card__title { font-weight: 800; font-size: var(--cc-product-size); line-height: 1.16; color: var(--cc-product-color); letter-spacing: 0; overflow-wrap: anywhere; }
         .cc-card__meta { color: var(--cc-meta-color); font-size: var(--cc-meta-size); line-height: 1.18; }
         .cc-card__price { font-weight: 800; color: var(--cc-price-color); font-size: var(--cc-price-size); margin-top: auto; }
-        .cc-card__variants { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-        .cc-card__variant { border: 1px solid #dfe3ea; border-radius: 6px; color: var(--cc-meta-color); font-size: var(--cc-meta-size); line-height: 1.15; padding: 3px 5px; background: #f8fafc; overflow-wrap: anywhere; }
         .cc-card__variant-images { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
         .cc-card__variant-image { width: 42px; height: 42px; border-radius: 6px; border: 1px solid #dfe3ea; object-fit: contain; background: #f8fafc; padding: 2px; box-sizing: border-box; }
         .cc-preview-grid--square, .cc-preview-grid--story { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -62,18 +60,20 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
         .cc-preview-header__title { font-size: var(--cc-title-size); line-height: 1.15; font-weight: 850; color: var(--cc-title-color); letter-spacing: 0; margin: 0; }
         .cc-preview-header__subtitle { color: var(--cc-meta-color); font-size: .92rem; margin-top: 6px; }
         .cc-preview-header__cta { color: var(--cc-price-color); font-size: .9rem; font-weight: 700; margin-top: 10px; }
+        .cc-preview-footer-note { border-top: 1px solid #edf0f5; color: var(--cc-meta-color); font-size: .78rem; line-height: 1.25; margin: 10px 0 12px; padding-top: 8px; text-align: center; }
         .cc-cover-card { border: 1px solid #dfe3ea; border-radius: 8px; min-height: 150px; padding: 18px; margin-bottom: 12px; background: #f8fafc; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
         .cc-cover-card--image { min-height: 320px; position: relative; overflow: hidden; justify-content: flex-end; padding: 0; background: #111827; }
         .cc-cover-card--image img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-        .cc-cover-card__overlay { position: relative; z-index: 1; width: 100%; padding: 18px; background: linear-gradient(180deg, rgba(17,24,39,0), rgba(17,24,39,.82)); color: #fff; }
+        .cc-cover-card__overlay { position: relative; z-index: 1; width: 100%; padding: 18px; color: #fff; background: linear-gradient(180deg, rgba(17,24,39,.08), rgba(17,24,39,.48)); }
         .cc-cover-card__overlay .cc-cover-card__title,
         .cc-cover-card__overlay .cc-cover-card__desc,
-        .cc-cover-card__overlay .cc-cover-card__cta { color: #fff; }
+        .cc-cover-card__overlay .cc-cover-card__cta,
+        .cc-cover-card__overlay .cc-cover-card__label { color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.9), 0 8px 18px rgba(0,0,0,.56); }
         .cc-cover-card__logo { width: 84px; height: 84px; object-fit: contain; border-radius: 8px; background: rgba(255,255,255,.92); padding: 8px; margin-bottom: 8px; }
-        .cc-cover-card__label { color: #0f7a5f; font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
-        .cc-cover-card__title { color: var(--cc-title-color); font-size: var(--cc-title-size); line-height: 1.08; font-weight: 850; letter-spacing: 0; margin: 0; }
-        .cc-cover-card__desc { color: var(--cc-meta-color); font-size: .88rem; line-height: 1.3; max-width: 760px; }
-        .cc-cover-card__cta { color: var(--cc-price-color); font-size: .82rem; font-weight: 750; }
+        .cc-cover-card__label { color: #0f7a5f; font-size: .98rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0; }
+        .cc-cover-card__title { color: var(--cc-title-color); font-size: calc(var(--cc-title-size) * 1.16); line-height: 1.06; font-weight: 850; letter-spacing: 0; margin: 0; }
+        .cc-cover-card__desc { color: var(--cc-meta-color); font-size: 1.02rem; line-height: 1.3; max-width: 760px; }
+        .cc-cover-card__cta { color: var(--cc-price-color); font-size: .98rem; font-weight: 800; }
         .cc-style-grid { display: grid; grid-template-columns: minmax(150px, 1fr) repeat(8, minmax(92px, .65fr)); gap: 10px; align-items: end; margin-bottom: 14px; }
         .cc-color-input { width: 100%; min-height: 38px; padding: 4px; border: 1px solid #e4e6ef; border-radius: 6px; background: #fff; }
         .cc-pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
@@ -183,8 +183,8 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                         <input class="form-control form-control-solid" id="cc_portada_descripcion" maxlength="180" placeholder="Seleccion de productos para tu proyecto">
                                     </div>
                                     <div>
-                                        <label class="form-label fw-semibold">Nota portada</label>
-                                        <input class="form-control form-control-solid" id="cc_portada_nota" maxlength="120" placeholder="Precios sujetos a disponibilidad">
+                                        <label class="form-label fw-semibold">Aviso del catalogo</label>
+                                        <input class="form-control form-control-solid" id="cc_portada_nota" maxlength="180" placeholder="Precios sujetos a cambios sin previo aviso">
                                     </div>
                                 </div>
                                 <div class="d-flex gap-4 flex-wrap mt-4">
@@ -199,7 +199,8 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                         </select>
                                     </div>
                                     <div class="w-250px">
-                                        <input class="form-control form-control-solid form-control-sm" id="cc_portada_etiqueta" maxlength="50" placeholder="Etiqueta de portada">
+                                        <label class="form-label fw-semibold fs-8 mb-1" for="cc_portada_etiqueta">Fecha/temporada portada</label>
+                                        <input class="form-control form-control-solid form-control-sm" id="cc_portada_etiqueta" maxlength="50" placeholder="Septiembre 2026">
                                     </div>
                                     <div class="w-300px">
                                         <input class="form-control form-control-solid form-control-sm" id="cc_portada_imagen_url" maxlength="255" placeholder="Ruta imagen portada /uploads/...">
@@ -209,7 +210,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                             <input class="form-control form-control-solid" type="file" id="cc_portada_imagen_archivo" accept="image/jpeg,image/png,image/webp,image/gif">
                                             <button class="btn btn-light-primary" type="button" id="cc_portada_imagen_subir"><i class="bi bi-cloud-arrow-up"></i> Cargar portada</button>
                                         </div>
-                                        <div class="form-text" id="cc_portada_medidas">Portada carta/exportacion: 2550 x 3300 px.</div>
                                     </div>
                                     <div class="w-250px">
                                         <input class="form-control form-control-solid form-control-sm" id="cc_logo_url" maxlength="255" placeholder="Ruta logo /uploads/...">
@@ -234,10 +234,10 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                         <div class="text-muted fs-8">Selecciona SKUs desde Catalogo ERP; no se fusionan ni modifican productos.</div>
                                     </div>
                                     <div class="d-flex gap-2 flex-wrap">
-                                        <button class="btn btn-sm btn-light-primary" type="button" id="cc_seleccionar_visibles"><i class="bi bi-check2-square"></i> Seleccionar visibles</button>
-                                        <button class="btn btn-sm btn-light-primary" type="button" id="cc_seleccionar_cargados"><i class="bi bi-plus-square-dotted"></i> Agregar cargados</button>
-                                        <button class="btn btn-sm btn-light-danger" type="button" id="cc_quitar_visibles"><i class="bi bi-x-square"></i> Quitar visibles</button>
-                                        <button class="btn btn-sm btn-light-danger" type="button" id="cc_quitar_cargados"><i class="bi bi-dash-square-dotted"></i> Quitar cargados</button>
+                                        <button class="btn btn-sm btn-primary" type="button" id="cc_seleccionar_cargados"><i class="bi bi-plus-square-dotted"></i> Agregar resultados</button>
+                                        <button class="btn btn-sm btn-light-primary" type="button" id="cc_seleccionar_visibles"><i class="bi bi-check2-square"></i> Agregar pagina</button>
+                                        <button class="btn btn-sm btn-light-danger" type="button" id="cc_quitar_cargados"><i class="bi bi-dash-square-dotted"></i> Quitar resultados</button>
+                                        <button class="btn btn-sm btn-light-danger" type="button" id="cc_quitar_visibles"><i class="bi bi-x-square"></i> Quitar pagina</button>
                                     </div>
                                 </div>
                                 <div class="cc-toolbar mb-5">
@@ -313,7 +313,7 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                             <h3 class="fs-6 fw-bold mb-0">Seleccionados</h3>
                                             <div class="d-flex gap-2 flex-wrap">
                                                 <button class="btn btn-sm btn-light-primary" type="button" id="cc_copiar_listado"><i class="bi bi-clipboard"></i> Copiar listado</button>
-                                                <button class="btn btn-sm btn-light-danger" type="button" id="cc_limpiar"><i class="bi bi-trash"></i> Quitar todo</button>
+                                                <button class="btn btn-sm btn-light-danger" type="button" id="cc_limpiar"><i class="bi bi-trash"></i> Quitar todo seleccionado</button>
                                             </div>
                                         </div>
                                         <div id="cc_seleccion" class="d-flex flex-column gap-3"></div>
@@ -502,6 +502,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260927-carta-portada-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20261001-seleccion-masiva-1"></script>
 </body>
 </html>

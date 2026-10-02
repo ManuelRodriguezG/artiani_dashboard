@@ -1209,11 +1209,17 @@ class EcommerceCatalogoPublico extends CRUD {
       $alt = mb_substr($alt, 0, 255);
 
       $uso = $this->mediaValorPermitido($this->valor($datos, "uso", "home"), array(
-        "home", "categoria", "producto", "global", "blog", "marca", "pagina", "politica", "general"
+        // IA: Codex GPT-6 | 2026-09-30 | PIT agrega usos transversales sin quitar los valores CMS existentes.
+        "home", "categoria", "producto", "global", "blog", "marca", "pagina", "politica", "general", "cms", "comercial"
       ), "general");
       $tipo = $this->mediaValorPermitido($this->valor($datos, "tipo", "banner"), array(
-        "banner", "hero", "card", "thumb", "editorial", "logo", "logo_blanco", "og", "open_graph", "principal", "favicon"
+        // IA: Codex GPT-6 | 2026-09-30 | PIT conserva roles visuales antes de asignarlos a modulos consumidores.
+        "banner", "hero", "card", "thumb", "editorial", "logo", "logo_blanco", "og", "open_graph", "principal", "favicon",
+        "portada", "galeria", "detalle", "empaque", "referencia"
       ), "editorial");
+      $origenMedia = $this->mediaValorPermitido($this->valor($datos, "origen", "cms_media_admin"), array(
+        "cms_media_admin", "pit"
+      ), "cms_media_admin");
 
       $hash = $inspeccion["hash"];
       if (!$hash) {
@@ -1274,7 +1280,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $metadata = array(
         "ancho" => $dimensiones && !empty($dimensiones[0]) ? (int) $dimensiones[0] : null,
         "alto" => $dimensiones && !empty($dimensiones[1]) ? (int) $dimensiones[1] : null,
-        "origen" => "cms_media_admin",
+        "origen" => $origenMedia,
         "fecha_upload" => date("c"),
         "conserva_formato_original" => true,
         "nombre_seo" => $base,

@@ -94,6 +94,22 @@ docs/erp_ecommerce_publico_orden_activacion_autorizada.md
 
 ## Respaldos generados
 
+Distribucion Mi catalogo e inventario cliente:
+
+```text
+C:\xampp\panel_db_backups\artianicom_sys_panel_20260929_antes_distribucion_mi_catalogo_inventario.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=57932482
+aplicacion_posterior=DistribucionApiEsquema::planActualizarDistribucionApi(true)
+resultado_aplicacion=success
+```
+
 Ecommerce publico Fase 1:
 
 ```text
@@ -631,3 +647,81 @@ Alcance:
 - Aplicador acotado: `storage/uat/uat_ecommerce_seo_verificaciones_schema_apply_authorized.php`.
 - Token usado: `ECOMMERCE_SEO_VERIFICACIONES_DDL`.
 - No modifica redirecciones, sitemap, catalogo, inventario ni frontend.
+
+## Rentabilidad - guardado de estudios
+
+Fecha: 2026-09-30
+
+Regla:
+
+- Guardar o actualizar un estudio de rentabilidad sigue siendo escritura en base productiva y requiere frase exacta `AUTORIZO GUARDAR ESTUDIO RENTABILIDAD`.
+- Para no pedir al usuario una ruta manual en cada guardado, el modelo genera respaldo externo automatico cuando `respaldo_externo_ref` viene vacio.
+- El respaldo automatico es focalizado y cubre solo:
+  - `erp_rentabilidad_estudios`;
+  - `erp_rentabilidad_estudio_skus`.
+- Ruta destino: `C:\xampp\panel_db_backups`.
+- Patron de archivo:
+
+```txt
+C:\xampp\panel_db_backups\{base}_panel_de_control_YYYYMMDD_HHMMSS_antes_guardar_estudio_rentabilidad.sql
+```
+
+- Si no se puede generar el respaldo, el guardado se bloquea y no inicia transaccion.
+
+## Distribucion - pedidos, entrega y aceptacion cliente
+
+Fecha: 2026-09-30
+
+Respaldo previo focalizado:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20260930_antes_distribucion_pedidos_entrega_tablas.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+tamano_bytes=323242
+base=artianicom_sys
+```
+
+Nota operativa:
+
+- Se intento respaldo completo en `artianicom_sys_panel_20260930_antes_distribucion_pedidos_entrega.sql`, pero fallo por desconexion MySQL y quedo parcial.
+- Se intento respaldo completo en modo `--single-transaction --quick --skip-lock-tables`, pero fallo en `erp_ecommerce_analytics_sesiones`.
+- Como el DDL solo agrega columnas en tablas de Distribucion, se uso respaldo focalizado de:
+  - `erp_distribucion_clientes`;
+  - `erp_distribucion_cotizaciones`;
+  - `erp_distribucion_cotizacion_items`;
+  - `erp_distribucion_auditoria`.
+
+Alcance:
+
+- Agrega configuracion logistica default por cliente Distribucion.
+- Agrega campos de entrega, total confirmado y respuesta del cliente en pedidos/cotizaciones Distribucion.
+- No modifica inventario, ventas, pedidos ERP internos, ecommerce ni listas de precios.
+
+## Distribucion - facturacion solicitada en pedido
+
+Fecha: 2026-10-01
+
+Respaldo previo focalizado:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20261001_antes_distribucion_facturacion_pedido_tablas.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+tamano_bytes=320321
+base=artianicom_sys
+```
+
+Alcance:
+
+- Agrega campos para conservar si el cliente solicita factura en pedidos/cotizaciones Distribucion.
+- Guarda datos fiscales capturados por el frontend en `facturacion_json`.
+- No genera factura automaticamente, no crea venta, no aparta inventario y no modifica pedidos ERP internos.

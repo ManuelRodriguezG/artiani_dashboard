@@ -656,24 +656,6 @@
                             <div id="catalogo_atributos_tecnicos_estado" class="alert alert-light-info mb-6">
                                 Atributos para ficha tecnica, comparacion y filtros futuros. No cambian inventario, precio ni operacion POS.
                             </div>
-                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
-                            <div class="border rounded p-5 mb-6" id="catalogo_medidas_tecnicas">
-                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-                                    <div>
-                                        <h3 class="fs-5 mb-1">Medidas</h3>
-                                        <div class="text-muted fs-7">Captura dimensiones comparables por SKU. Se guardan como Largo, Ancho y Alto en cm.</div>
-                                    </div>
-                                    <button class="btn btn-sm btn-primary" type="button" id="catalogo_guardar_medidas_tecnicas"><i class="bi bi-rulers"></i> Guardar medidas</button>
-                                </div>
-                                <div class="alert alert-light-warning d-none" id="catalogo_medidas_tecnicas_estado"></div>
-                                <div class="table-responsive">
-                                    <table class="table align-middle table-row-dashed gy-3 mb-0">
-                                        <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU</th><th>Nombre</th><th>Largo</th><th>Ancho</th><th>Alto</th></tr></thead>
-                                        <tbody id="catalogo_medidas_tecnicas_lista"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            <?php endif; ?>
                             <div class="table-responsive">
                                 <table class="table align-middle table-row-dashed gy-4">
                                     <thead id="catalogo_atributos_tecnicos_encabezado"></thead>
@@ -694,7 +676,7 @@
                                     </div>
                                     <div class="col-md-5">
                                         <label class="form-label">O crear atributo tecnico</label>
-                                        <input class="form-control" name="nuevo_atributo" maxlength="100" placeholder="Ej. Caudal, Consumo, Material, Medida">
+                                        <input class="form-control" name="nuevo_atributo" maxlength="100" placeholder="Ej. Caudal, Consumo, Material, Capacidad">
                                     </div>
                                     <div class="col-md-2 text-end">
                                         <button class="btn btn-primary w-100" type="button" id="catalogo_preparar_atributo_tecnico"><i class="bi bi-list-check"></i> Preparar</button>

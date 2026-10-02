@@ -1845,3 +1845,41 @@ Pendiente siguiente:
 
 - Probar en UI guardar una presentacion o paquete activo y confirmar que aparece una notificacion en `erp_notificaciones` sin duplicarse al guardar dos veces.
 - En Rentabilidad, construir la bandeja/resolucion de incidencias `catalogo_sku_derivado_costo_pendiente`.
+
+## Avance 2026-09-30 - Estudios con IVA, ganancia y respaldo automatico
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Decision operativa:
+
+- Rentabilidad debe mostrar precio, impuestos, costo y utilidad sin mezclar IVA/IEPS con margen real.
+- En tablas de analisis por lista y estudios se separan:
+  - precio con impuesto;
+  - precio sin impuesto;
+  - IVA estimado;
+  - IEPS estimado;
+  - costo sin impuesto;
+  - margen bruto;
+  - ganancia bruta con impuesto;
+  - ganancia bruta sin impuesto;
+  - gasto/comision en importe;
+  - utilidad estimada despues de gasto/comision.
+- El gasto operativo porcentual capturado se muestra tambien como importe por SKU para que el usuario vea cuanto representa realmente.
+
+Guardado de estudios:
+
+- La frase exacta se mantiene: `AUTORIZO GUARDAR ESTUDIO RENTABILIDAD`.
+- La UI ya no pide capturar manualmente una ruta de respaldo.
+- Si no se envia `respaldo_externo_ref`, `RentabilidadErp::guardarEstudioRentabilidad` genera automaticamente un respaldo externo focalizado en:
+  - `erp_rentabilidad_estudios`;
+  - `erp_rentabilidad_estudio_skus`.
+- El respaldo se guarda fuera del repo en `C:\xampp\panel_db_backups` antes de iniciar la transaccion de guardado.
+- Si el respaldo automatico falla, el estudio no se guarda.
+- No modifica Listas, Catalogo, Inventario ni Ventas.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\modelos\RentabilidadErp.php`: OK.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\rentabilidad\herramienta.php`: OK.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\rentabilidad\estudios.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\rentabilidad\analisis.js`: OK.

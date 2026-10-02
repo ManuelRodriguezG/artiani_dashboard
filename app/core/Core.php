@@ -42,6 +42,8 @@
 			$controladoresProtegidos = array(
 				'Almacen', 'Archivos', 'Artiani', 'Atencion', 'Busqueda', 'BusinessIntelligence', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
 				'Cms', 'Contabilidad', 'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'MigracionBd', 'Operacion', 'Panel',
+				// IA: Codex GPT-6 | 2026-09-30 | PIT nace como modulo independiente protegido antes de integrarse a Catalogo/CMS.
+				'pit',
 				'Paquetes', 'Producto', 'Produccion', 'Proveedor', 'Proyecto', 'Rentabilidad', 'Sistema', 'Sucursal', 'Tms', 'Users', 'Usuario',
 				'DistribucionAdmin',
 				'Utilidad', 'Ventas'
@@ -124,6 +126,8 @@
 				// IA: Codex GPT-6 | 2026-09-24 | Media registra resultado explicito; evitar duplicarlo.
 				// IA: Codex GPT-6 | 2026-09-25 | Reparacion de lectura tiene auditoria explicita de permisos antes/despues.
 				'Cms.media_admin_subir_erp', 'Cms.media_admin_eliminar_erp', 'Cms.media_admin_reemplazar_erp', 'Cms.media_admin_reparar_acceso_erp',
+				// IA: Codex GPT-6 | 2026-09-30 | PIT audita altas con controlador propio aunque reutilice Media.
+				'pit.media_subir_erp',
 				'Cms.contenido_bloque_estatus_erp',
 				'Cms.contenido_publicacion_guardar_erp',
 				'Cms.contenido_publicacion_estatus_erp',

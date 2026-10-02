@@ -223,8 +223,10 @@
                                             <tr class="text-muted fw-bold fs-8 text-uppercase">
                                                 <th>SKU</th>
                                                 <th class="text-end">Precio</th>
+                                                <th class="text-end">Impuestos</th>
                                                 <th class="text-end">Costo</th>
                                                 <th class="text-end">Margen</th>
+                                                <th class="text-end">Ganancia</th>
                                                 <th class="text-end">Utilidad</th>
                                                 <th class="text-end">Gasto</th>
                                                 <th class="text-end">Minimo</th>
@@ -252,6 +254,6 @@ window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
     "snapshot" => Sesionseguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260929-gasto-importe-1"></script>
+<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260930-ivas-ganancia-1"></script>
 </body>
 </html>

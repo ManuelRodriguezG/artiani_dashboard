@@ -73,6 +73,10 @@ class DistribucionApiEsquema extends DBSchema {
       "`estatus` VARCHAR(30) NOT NULL DEFAULT 'pendiente'",
       "`contrasenia_hash` VARCHAR(255) NULL",
       "`id_lista_precio` INT NULL",
+      "`metodo_entrega_default` VARCHAR(30) NOT NULL DEFAULT 'por_definir'",
+      "`entrega_habilitar_envio` TINYINT(1) NOT NULL DEFAULT 1",
+      "`entrega_habilitar_recoger_tienda` TINYINT(1) NOT NULL DEFAULT 1",
+      "`costo_envio_default` DECIMAL(18,6) NULL",
       "`fecha_aprobacion` DATETIME NULL",
       "`fecha_ultimo_login` DATETIME NULL",
       "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -82,6 +86,10 @@ class DistribucionApiEsquema extends DBSchema {
       "KEY `idx_dist_cliente_estatus` (`estatus`, `tipo_cliente`)",
       "KEY `idx_dist_cliente_lista` (`id_lista_precio`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "metodo_entrega_default", "VARCHAR(30) NOT NULL DEFAULT 'por_definir' AFTER `id_lista_precio`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "entrega_habilitar_envio", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `metodo_entrega_default`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "entrega_habilitar_recoger_tienda", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `entrega_habilitar_envio`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "costo_envio_default", "DECIMAL(18,6) NULL AFTER `entrega_habilitar_recoger_tienda`", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_solicitudes", array(
       "`id_solicitud_distribucion` BIGINT NOT NULL AUTO_INCREMENT",
@@ -258,6 +266,19 @@ class DistribucionApiEsquema extends DBSchema {
       "`moneda` VARCHAR(10) NOT NULL DEFAULT 'MXN'",
       "`subtotal` DECIMAL(18,6) NULL",
       "`total_estimado` DECIMAL(18,6) NULL",
+      "`total_confirmado` DECIMAL(18,6) NULL",
+      "`tipo_entrega` VARCHAR(30) NOT NULL DEFAULT 'por_definir'",
+      "`entrega_habilitar_envio` TINYINT(1) NOT NULL DEFAULT 1",
+      "`entrega_habilitar_recoger_tienda` TINYINT(1) NOT NULL DEFAULT 1",
+      "`costo_envio` DECIMAL(18,6) NULL",
+      "`direccion_envio_json` LONGTEXT NULL",
+      "`requiere_factura` TINYINT(1) NOT NULL DEFAULT 0",
+      "`facturacion_json` LONGTEXT NULL",
+      "`respuesta_cliente_estatus` VARCHAR(40) NULL",
+      "`respuesta_cliente_comentario` TEXT NULL",
+      "`fecha_respuesta_cliente` DATETIME NULL",
+      "`fecha_respuesta_erp` DATETIME NULL",
+      "`id_usuario_respuesta_erp` INT NULL",
       "`comentarios` TEXT NULL",
       "`snapshot_json` LONGTEXT NULL",
       "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -267,6 +288,19 @@ class DistribucionApiEsquema extends DBSchema {
       "KEY `idx_dist_cotizacion_cliente` (`id_cliente_distribucion`, `estatus`)",
       "KEY `idx_dist_cotizacion_estatus` (`estatus`, `fecha_registro`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "total_confirmado", "DECIMAL(18,6) NULL AFTER `total_estimado`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "tipo_entrega", "VARCHAR(30) NOT NULL DEFAULT 'por_definir' AFTER `total_confirmado`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "entrega_habilitar_envio", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `tipo_entrega`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "entrega_habilitar_recoger_tienda", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `entrega_habilitar_envio`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "costo_envio", "DECIMAL(18,6) NULL AFTER `entrega_habilitar_recoger_tienda`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "direccion_envio_json", "LONGTEXT NULL AFTER `costo_envio`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "requiere_factura", "TINYINT(1) NOT NULL DEFAULT 0 AFTER `direccion_envio_json`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "facturacion_json", "LONGTEXT NULL AFTER `requiere_factura`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "respuesta_cliente_estatus", "VARCHAR(40) NULL AFTER `facturacion_json`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "respuesta_cliente_comentario", "TEXT NULL AFTER `respuesta_cliente_estatus`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "fecha_respuesta_cliente", "DATETIME NULL AFTER `respuesta_cliente_comentario`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "fecha_respuesta_erp", "DATETIME NULL AFTER `fecha_respuesta_cliente`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "id_usuario_respuesta_erp", "INT NULL AFTER `fecha_respuesta_erp`", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cotizacion_items", array(
       "`id_cotizacion_item` BIGINT NOT NULL AUTO_INCREMENT",

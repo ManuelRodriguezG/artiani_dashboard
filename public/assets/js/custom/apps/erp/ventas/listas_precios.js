@@ -82,8 +82,52 @@
         return String(value).substring(0, 10);
     }
 
+    function valorSelectLista(id, valor, fallback) {
+        var select = document.getElementById(id);
+        if (!select) {
+            return "";
+        }
+        var normalizado = valor == null ? "" : String(valor).trim();
+        if (normalizado === "") {
+            normalizado = fallback || "";
+        }
+        var existe = Array.prototype.some.call(select.options || [], function (option) {
+            return String(option.value) === normalizado;
+        });
+        select.value = existe ? normalizado : (fallback || "");
+        select.dispatchEvent(new Event("change", {bubbles: true}));
+        return select.value;
+    }
+
     function mostrarAlerta(tipo, mensaje) {
         document.getElementById("lp_alerta").innerHTML = "<div class=\"alert alert-" + escapeHtml(tipo || "info") + " py-3 mb-4\">" + escapeHtml(mensaje || "") + "</div>";
+    }
+
+    function mostrarAlertaHtml(tipo, html) {
+        document.getElementById("lp_alerta").innerHTML = "<div class=\"alert alert-" + escapeHtml(tipo || "info") + " py-3 mb-4\">" + (html || "") + "</div>";
+    }
+
+    function renderListaAlerta(items) {
+        items = (items || []).filter(function (item) { return !!item; });
+        if (!items.length) {
+            return "";
+        }
+        return "<ul class=\"mb-0 ps-4\">" + items.map(function (item) {
+            return "<li>" + escapeHtml(item) + "</li>";
+        }).join("") + "</ul>";
+    }
+
+    function mostrarAlertaRevisionBloqueada(titulo, bloqueos, avisos) {
+        var html = "<div class=\"fw-bold mb-1\">" + escapeHtml(titulo || "No se puede activar la lista") + "</div>";
+        if ((bloqueos || []).length) {
+            html += "<div class=\"fw-semibold fs-8 text-uppercase mt-2 mb-1\">Bloqueos</div>" + renderListaAlerta(bloqueos);
+        }
+        if ((avisos || []).length) {
+            html += "<div class=\"fw-semibold fs-8 text-uppercase mt-3 mb-1\">Avisos</div>" + renderListaAlerta(avisos);
+        }
+        html += "<div class=\"fs-8 mt-3\">Corrige los productos marcados en revision comercial y vuelve a intentar activar.</div>";
+        mostrarAlertaHtml("danger", html);
+        enfocarElemento("lp_alerta");
     }
 
     function actualizarFlujoOperativo(pasoActivo) {
@@ -372,13 +416,13 @@
         document.getElementById("lp_lista_nombre").value = lista.nombre || "";
         document.getElementById("lp_lista_inicio").value = fechaInput(lista.fecha_inicio);
         document.getElementById("lp_lista_fin").value = fechaInput(lista.fecha_fin);
-        document.getElementById("lp_lista_estatus").value = lista.estatus || "borrador";
+        valorSelectLista("lp_lista_estatus", lista.estatus, "borrador");
         document.getElementById("lp_lista_observaciones").value = lista.observaciones || "";
-        document.getElementById("lp_lista_canal").value = lista.canal || "general";
+        var canalLista = valorSelectLista("lp_lista_canal", lista.canal, "general");
         document.getElementById("lp_lista_almacen").value = lista.id_almacen || "";
         document.getElementById("lp_preview_almacen").value = lista.id_almacen || document.getElementById("lp_preview_almacen").value || "";
         document.getElementById("lp_lista_prioridad").value = lista.prioridad || "100";
-        document.getElementById("lp_seg_canal").value = lista.canal || "general";
+        valorSelectLista("lp_seg_canal", canalLista, "general");
         document.getElementById("lp_seg_almacen").value = lista.id_almacen || "";
         document.getElementById("lp_seg_prioridad").value = lista.prioridad || "100";
         document.getElementById("lp_seg_inicio").value = fechaInput(lista.fecha_inicio);
@@ -534,7 +578,9 @@
         }
         return postRequest("/comercial/listas_precios_lista_guardar_operativo_erp", payloadLista(opciones.extra || {})).then(function (response) {
             if (response.error) {
-                throw new Error(response.mensaje);
+                var err = new Error(response.mensaje);
+                err.depurar = response.depurar || null;
+                throw err;
             }
             var data = response.depurar || {};
             estado.lista = data.lista || null;
@@ -561,20 +607,25 @@
         var estatusAnterior = estatusSelect.value;
         var revisionLocal = revisionLocalPantalla();
         if (estatus === "activa" && revisionLocal.bloqueos.length > 0) {
-            mostrarAlerta("warning", revisionLocal.bloqueos[0]);
+            mostrarAlertaRevisionBloqueada("Hay cambios pendientes antes de activar", revisionLocal.bloqueos, revisionLocal.avisos);
             return;
         }
         if (estatus === "activa" && estado.revision && estado.revision.puede_activar === false) {
-            mostrarAlerta("warning", "La lista tiene bloqueos de revision. Resuelvelos antes de activar.");
+            mostrarAlertaRevisionBloqueada("La lista tiene bloqueos de revision", estado.revision.bloqueos || [], estado.revision.avisos || []);
             return;
         }
         estatusSelect.value = estatus;
         guardarLista({
             extra: estatus === "activa" ? {confirmar_activacion: "1"} : {},
-            onError: function () {
+            onError: function (error) {
                 estatusSelect.value = estatusAnterior;
                 actualizarBotonesEstatus();
                 actualizarFlujoOperativo("encabezado");
+                if (estatus === "activa" && error && error.depurar) {
+                    estado.revision = error.depurar;
+                    renderRevision(error.depurar);
+                    mostrarAlertaRevisionBloqueada("La lista no se activo", error.depurar.bloqueos || [], error.depurar.avisos || []);
+                }
             }
         });
     }
@@ -2353,6 +2404,9 @@
             "<span class=\"badge badge-light\">Sin costo " + escapeHtml(margen.sin_costo || 0) + "</span>" +
             "<span class=\"badge badge-light-primary\">Conflictos " + escapeHtml(conflictos.length || 0) + "</span>" +
         "</div>";
+        if (Number(margen.perdida || 0) > 0) {
+            html += "<div class=\"alert alert-light-danger py-3 mb-3\"><div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2\"><div><div class=\"fw-semibold\">Productos que bloquean activacion</div><div class=\"fs-8 text-muted\">Corrige primero estos precios; son los que estan debajo del costo vigente.</div></div><button class=\"btn btn-sm btn-danger\" type=\"button\" data-lp-revision-filtro=\"bloqueo_activacion\"><i class=\"bi bi-funnel\"></i> Ver bloquean activacion (" + escapeHtml(margen.perdida || 0) + ")</button></div></div>";
+        }
         html += renderRevisionProductosVisibles(revisionProductos);
         if (bloqueos.length) {
             html += "<div class=\"fw-semibold fs-8 text-uppercase text-muted mb-1\">Pendientes por resolver</div><ul class=\"fs-8 ps-4 mb-3\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
@@ -2487,9 +2541,10 @@
         var bloqueos = revision.puede_activar === false || (revision.bloqueos || []).length > 0 || revisionLocal.bloqueos.length > 0;
         var avisos = (revision.avisos || []).length > 0 || revisionLocal.avisos.length > 0;
         if (activar) {
-            activar.disabled = !idLista || pendientes > 0 || bloqueos || estatus === "activa";
-            activar.className = avisos && !bloqueos ? "btn btn-warning" : "btn btn-success";
-            activar.innerHTML = avisos && !bloqueos ? "<i class=\"bi bi-exclamation-triangle\"></i> Activar con avisos" : "<i class=\"bi bi-check2-circle\"></i> Activar";
+            activar.disabled = !idLista || pendientes > 0 || estatus === "activa";
+            activar.className = bloqueos ? "btn btn-danger" : (avisos ? "btn btn-warning" : "btn btn-success");
+            activar.innerHTML = bloqueos ? "<i class=\"bi bi-exclamation-octagon\"></i> Ver bloqueos" : (avisos ? "<i class=\"bi bi-exclamation-triangle\"></i> Activar con avisos" : "<i class=\"bi bi-check2-circle\"></i> Activar");
+            activar.title = bloqueos ? "La revision encontro bloqueos; presiona para ver el detalle." : "";
         }
         if (pausar) {
             pausar.disabled = !idLista || estatus === "pausada" || estatus === "cancelada";

@@ -46,7 +46,7 @@ class DistribucionAdmin extends Controlador {
    */
   public function resumen() {
     $this->requerirPermiso("distribucion.ver");
-    return json_encode($this->modelo("DistribucionAnaliticaInterna")->resumenInterno($_GET));
+    return json_encode($this->modelo("distribucionanaliticainterna")->resumenInterno($_GET));
   }
 
   /**
@@ -58,7 +58,7 @@ class DistribucionAdmin extends Controlador {
    */
   public function demanda() {
     $this->requerirPermiso("distribucion.ver");
-    return json_encode($this->modelo("DistribucionAnaliticaInterna")->demandaInterna($_GET));
+    return json_encode($this->modelo("distribucionanaliticainterna")->demandaInterna($_GET));
   }
 
   /**
@@ -70,7 +70,7 @@ class DistribucionAdmin extends Controlador {
    */
   public function catalogos_filtros() {
     $this->requerirPermiso("distribucion.ver");
-    return json_encode($this->modelo("DistribucionAnaliticaInterna")->catalogosInternos());
+    return json_encode($this->modelo("distribucionanaliticainterna")->catalogosInternos());
   }
 
   /**
@@ -251,6 +251,18 @@ class DistribucionAdmin extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-30
+   * Proposito: configurar preferencias logisticas del cliente externo Distribucion.
+   * Impacto: Admin ERP Distribucion; define envio/recoger y costo default sin tocar pedidos existentes.
+   * Contrato: POST protegido por `distribucion.editar`.
+   */
+  public function cliente_entrega_configurar() {
+    $this->requerirPermiso("distribucion.editar");
+    return json_encode($this->modelo("DistribucionClientesApi")->entregaClientePlanInterno($_POST, $this->usuarioActualId()));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: consultar cotizaciones recibidas desde Distribucion.
    * Impacto: Admin ERP Distribucion; prepara seguimiento interno sin convertir a venta.
@@ -293,6 +305,18 @@ class DistribucionAdmin extends Controlador {
   public function cotizacion_item_revision() {
     $this->requerirPermiso("distribucion.cotizaciones.gestionar");
     return json_encode($this->modelo("DistribucionCotizacionesApi")->revisionPartidaInterna($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-30
+   * Proposito: guardar costo/opciones de entrega y responder pedido Distribucion al cliente.
+   * Impacto: Admin ERP Distribucion; deja el pedido listo para aceptacion del cliente sin crear venta ni apartar inventario.
+   * Contrato: POST protegido por `distribucion.cotizaciones.gestionar`.
+   */
+  public function cotizacion_entrega_guardar() {
+    $this->requerirPermiso("distribucion.cotizaciones.gestionar");
+    return json_encode($this->modelo("DistribucionCotizacionesApi")->configurarEntregaInterna($_POST, $this->usuarioActualId()));
   }
 
   /**

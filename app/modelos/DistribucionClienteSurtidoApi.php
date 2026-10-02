@@ -19,26 +19,56 @@ class DistribucionClienteSurtidoApi extends CRUD {
       $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
       $limite = max(1, min(300, intval($this->valor($filtros, "limite", 150))));
       $q = trim((string) $this->valor($filtros, "q", ""));
+      $idCategoria = intval($this->valor($filtros, "categoria", $this->valor($filtros, "id_categoria_erp", 0)));
+      $idMarca = intval($this->valor($filtros, "marca", $this->valor($filtros, "id_marca_erp", 0)));
       $where = array("cp.id_cliente_distribucion=:cliente", "cp.estatus='activo'", "cv.canal='distribucion'", "cv.estatus='activo'", "cv.sincronizar_catalogo=1");
       $params = array(":cliente" => $idCliente);
       if ($q !== "") {
-        $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q OR cp.alias_cliente LIKE :q)";
+        $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q OR cp.alias_cliente LIKE :q OR cp.ubicacion_cliente LIKE :q OR m.nombre LIKE :q OR cat.nombre LIKE :q OR cat.ruta LIKE :q)";
         $params[":q"] = "%" . $q . "%";
       }
+      if ($idCategoria > 0) {
+        $where[] = "EXISTS (SELECT 1 FROM erp_catalogo_producto_categorias pcf WHERE pcf.id_producto_erp=p.id_producto_erp AND pcf.id_categoria_erp=:categoria)";
+        $params[":categoria"] = $idCategoria;
+      }
+      if ($idMarca > 0) {
+        $where[] = "p.id_marca_erp=:marca";
+        $params[":marca"] = $idMarca;
+      }
       $stmt = $db->prepare("SELECT cp.id_cliente_producto, cp.id_cliente_distribucion, cp.id_sku, cp.alias_cliente, cp.ubicacion_cliente,
-          cp.prioridad, cp.notas, cp.fecha_registro, cp.fecha_actualizacion, s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) nombre_sku,
-          p.nombre producto, cv.id_externo slug
+          cp.prioridad, cp.notas, cp.fecha_registro, cp.fecha_actualizacion, s.sku, s.factor_unidad_base,
+          COALESCE(NULLIF(s.nombre,''), p.nombre) nombre_sku, p.nombre producto, cv.id_externo slug,
+          m.id_marca_erp, m.nombre marca, cat.id_categoria_erp, COALESCE(cat.ruta, cat.nombre) categoria, img.url_imagen imagen_principal
         FROM erp_distribucion_cliente_productos cp
         INNER JOIN erp_catalogo_skus s ON s.id_sku=cp.id_sku
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
         INNER JOIN erp_catalogo_canales_vinculos cv ON cv.id_sku=cp.id_sku
+        LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+        LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+        LEFT JOIN erp_catalogo_categorias cat ON cat.id_categoria_erp=pc.id_categoria_erp
+        LEFT JOIN erp_catalogo_imagenes img ON img.id_imagen_erp=(
+          SELECT i.id_imagen_erp
+          FROM erp_catalogo_imagenes i
+          WHERE i.id_producto_erp=p.id_producto_erp
+            AND (i.id_sku=s.id_sku OR i.id_sku IS NULL OR i.id_sku=0)
+            AND i.estatus='activo'
+            AND TRIM(COALESCE(i.url_imagen,''))<>''
+          ORDER BY CASE WHEN i.id_sku=s.id_sku THEN 0 ELSE 1 END, CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+          LIMIT 1
+        )
         WHERE " . implode(" AND ", $where) . "
         ORDER BY cp.prioridad DESC, p.nombre ASC, s.sku ASC
         LIMIT " . intval($limite));
       $stmt->execute($params);
+      $items = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $fila["imagen_principal"] = $this->urlRecurso($this->valor($fila, "imagen_principal", null));
+        $fila["presentacion"] = $this->presentacion($fila);
+        $items[] = $fila;
+      }
       return $this->respuesta(false, "success", "Mi catalogo Distribucion consultado", array(
         "configurado" => true,
-        "items" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        "items" => $items,
         "sesion" => $this->sesionSalida($contexto)
       ));
     } catch (Exception $e) {
@@ -533,6 +563,24 @@ class DistribucionClienteSurtidoApi extends CRUD {
     $texto = trim((string) $valor);
     if ($texto === "") { return null; }
     return substr($texto, 0, $max);
+  }
+
+  private function presentacion($fila) {
+    $factor = floatval($this->valor($fila, "factor_unidad_base", 1));
+    if ($factor > 1) {
+      return "Caja x " . rtrim(rtrim(number_format($factor, 2, ".", ""), "0"), ".");
+    }
+    return "Unidad";
+  }
+
+  private function urlRecurso($url) {
+    $url = trim((string) $url);
+    if ($url === "") { return null; }
+    if (preg_match('/^https?:\/\//i', $url) || strpos($url, "/") === 0) {
+      return $url;
+    }
+    $base = defined("RUTA_RECURSOS_IMG") ? RUTA_RECURSOS_IMG : (defined("RUTA_URL") ? RUTA_URL : "");
+    return rtrim($base, "/") . "/" . ltrim($url, "/");
   }
 
   private function tablaExiste($db, $tabla) {

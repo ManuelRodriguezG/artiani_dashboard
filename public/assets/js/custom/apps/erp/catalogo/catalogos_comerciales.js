@@ -188,47 +188,6 @@
         return filas > 0 ? `${base}_${columnas}x${filas}` : `${base}_${columnas}`;
     }
 
-    function medidasFormatoActual() {
-        const plantilla = plantillaActual();
-        if (plantilla === "letter") {
-            return {
-                nombre: "Carta vertical",
-                lienzo: "2550 x 3300 px",
-                alta: "2550 x 3300 px",
-                nota: "proporcion 8.5 x 11"
-            };
-        }
-        if (plantilla === "story") {
-            return {
-                nombre: "Vertical redes",
-                lienzo: "1080 x 1600 px",
-                alta: "1080 x 1920 px si disenas historia completa",
-                nota: "formato vertical digital"
-            };
-        }
-        if (plantilla === "compact") {
-            return {
-                nombre: "Compacta",
-                lienzo: "1080 x 1600 px",
-                alta: "misma proporcion",
-                nota: "listado vertical"
-            };
-        }
-        return {
-            nombre: "Cuadrada redes",
-            lienzo: "1080 x 1600 px",
-            alta: "1080 x 1080 px solo si usaras portada cuadrada fuera del catalogo",
-            nota: "formato digital"
-        };
-    }
-
-    function actualizarAyudaFormatoPortada() {
-        const ayuda = $("cc_portada_medidas");
-        if (!ayuda) return;
-        const medidas = medidasFormatoActual();
-        ayuda.textContent = `${medidas.nombre}: portada ${medidas.lienzo}. Alta calidad: ${medidas.alta}; ${medidas.nota}.`;
-    }
-
     function badgeAlerta(alerta) {
         const mapa = {
             sin_imagen: "badge-light-danger",
@@ -326,12 +285,12 @@
         if ($("cc_material_cta")) $("cc_material_cta").value = datos.cta || "Pregunta por disponibilidad";
         if ($("cc_portada_activa")) $("cc_portada_activa").checked = datos.portadaActiva !== false;
         if ($("cc_portada_tipo")) $("cc_portada_tipo").value = datos.portadaTipo === "imagen_completa" ? "imagen_completa" : "plantilla";
-        if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = datos.portadaEtiqueta || "Catalogo recomendado";
+        if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = datos.portadaEtiqueta || mesAnioCatalogoTexto();
         if ($("cc_portada_imagen_url")) $("cc_portada_imagen_url").value = datos.portadaImagenUrl || "";
         if ($("cc_logo_url")) $("cc_logo_url").value = datos.logoUrl || "";
         if ($("cc_contacto_texto")) $("cc_contacto_texto").value = datos.contactoTexto || "";
         if ($("cc_portada_descripcion")) $("cc_portada_descripcion").value = datos.portadaDescripcion || "";
-        if ($("cc_portada_nota")) $("cc_portada_nota").value = datos.portadaNota || "";
+        if ($("cc_portada_nota")) $("cc_portada_nota").value = datos.portadaNota || "Precios sujetos a cambios sin previo aviso";
     }
 
     function guardarOpcionesLocal() {
@@ -391,12 +350,12 @@
         if ($("cc_material_cta")) $("cc_material_cta").value = material.cta || "Pregunta por disponibilidad";
         if ($("cc_portada_activa")) $("cc_portada_activa").checked = material.portadaActiva !== false;
         if ($("cc_portada_tipo")) $("cc_portada_tipo").value = material.portadaTipo === "imagen_completa" ? "imagen_completa" : "plantilla";
-        if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = material.portadaEtiqueta || "Catalogo recomendado";
+        if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = material.portadaEtiqueta || mesAnioCatalogoTexto();
         if ($("cc_portada_imagen_url")) $("cc_portada_imagen_url").value = material.portadaImagenUrl || "";
         if ($("cc_logo_url")) $("cc_logo_url").value = material.logoUrl || "";
         if ($("cc_contacto_texto")) $("cc_contacto_texto").value = material.contactoTexto || "";
         if ($("cc_portada_descripcion")) $("cc_portada_descripcion").value = material.portadaDescripcion || "";
-        if ($("cc_portada_nota")) $("cc_portada_nota").value = material.portadaNota || "";
+        if ($("cc_portada_nota")) $("cc_portada_nota").value = material.portadaNota || "Precios sujetos a cambios sin previo aviso";
         guardarMaterialLocal();
     }
 
@@ -425,7 +384,6 @@
         if ($("cc_tam_meta")) $("cc_tam_meta").value = String(estilo.tamMeta || 14);
         if ($("cc_tam_precio")) $("cc_tam_precio").value = String(estilo.tamPrecio || 22);
         aplicarEstiloVisual();
-        actualizarAyudaFormatoPortada();
     }
 
     /**
@@ -647,7 +605,6 @@
                     <div class="fw-bold text-gray-900">${escapeHtml(item.nombre)}</div>
                     <div class="text-muted">${escapeHtml(item.sku)} - ${escapeHtml(item.tipo_item)} - ${escapeHtml(item.marca || "Sin marca")}</div>
                     ${item.presentacion_comercial ? `<div class="text-muted">${escapeHtml(item.presentacion_comercial)}</div>` : ""}
-                    ${item.variante_resumen ? `<div class="text-primary fs-8">${escapeHtml(item.variante_resumen)}</div>` : ""}
                 </td>
                 <td>${escapeHtml(item.categoria || "Sin categoria")}</td>
                 <td class="fw-semibold">${escapeHtml(dinero(item.precio, item.moneda))}</td>
@@ -661,23 +618,46 @@
         }).join("");
     }
 
-    function etiquetaVariante(item) {
-        const resumen = String(item.variante_resumen || "").trim();
-        if (resumen) return etiquetaValorVariante(resumen);
-        return String(item.nombre || item.sku || "Variante").trim();
-    }
-
-    function etiquetaValorVariante(texto) {
-        return String(texto || "")
-            .split("|")
-            .map((parte) => parte.trim().replace(/^[^:]{1,35}:\s*/, ""))
-            .filter(Boolean)
-            .join(" | ");
-    }
-
     function precioTextoComercial(item) {
         if (item && item.precio_texto) return item.precio_texto;
         return dinero(item ? item.precio : null, item ? item.moneda : "MXN");
+    }
+
+    function avisoCatalogoTexto(material) {
+        const aviso = String(material && material.portadaNota ? material.portadaNota : "").trim();
+        return aviso || "Precios y disponibilidad sujetos a cambios sin previo aviso";
+    }
+
+    function fechaCatalogoTexto() {
+        return new Intl.DateTimeFormat("es-MX", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric"
+        }).format(new Date());
+    }
+
+    function mesAnioCatalogoTexto() {
+        const texto = new Intl.DateTimeFormat("es-MX", {
+            month: "long",
+            year: "numeric"
+        }).format(new Date());
+        return texto.charAt(0).toUpperCase() + texto.slice(1);
+    }
+
+    function etiquetaPortadaTexto(material) {
+        const etiqueta = String(material && material.portadaEtiqueta ? material.portadaEtiqueta : "").trim();
+        return etiqueta || mesAnioCatalogoTexto();
+    }
+
+    function metaProteccionCatalogo(material, pagina, totalPaginas) {
+        const partes = [
+            `Catalogo ${etiquetaPortadaTexto(material)}`,
+            `Pagina ${pagina} de ${totalPaginas}`,
+            avisoCatalogoTexto(material)
+        ];
+        const contacto = String(material && material.contactoTexto ? material.contactoTexto : "").trim();
+        if (contacto) partes.push(contacto);
+        return partes;
     }
 
     /**
@@ -729,7 +709,7 @@
                 marca: base.marca || "",
                 categoria: base.categoria || "",
                 imagen_portada: imagen,
-                presentacion_comercial: `${variantes.length} variantes`,
+                presentacion_comercial: "",
                 precio: min,
                 moneda,
                 precio_texto: precioTexto,
@@ -738,7 +718,7 @@
                     id_sku: item.id_sku,
                     sku: item.sku,
                     nombre: item.nombre,
-                    etiqueta: etiquetaVariante(item),
+                    etiqueta: "",
                     imagen_portada: item.imagen_portada,
                     precio: item.precio,
                     moneda: item.moneda,
@@ -808,7 +788,6 @@
                 ${mostrarCategoria ? `<div class="cc-card__meta">${escapeHtml(item.categoria || "Sin categoria")}</div>` : ""}
                 ${mostrarPresentacion && item.presentacion_comercial ? `<div class="cc-card__meta">${escapeHtml(item.presentacion_comercial)}</div>` : ""}
                 ${Array.isArray(item.variantes) && item.variantes.some((variante) => variante.imagen_portada) ? `<div class="cc-card__variant-images">${item.variantes.filter((variante) => variante.imagen_portada).slice(0, 6).map((variante) => `<img class="cc-card__variant-image" src="${escapeHtml(normalizarRutaImagen(variante.imagen_portada))}" alt="">`).join("")}</div>` : ""}
-                ${Array.isArray(item.variantes) && item.variantes.length ? `<div class="cc-card__variants">${item.variantes.slice(0, 8).map((variante) => `<span class="cc-card__variant">${escapeHtml(variante.etiqueta || variante.sku || "Variante")}</span>`).join("")}</div>` : ""}
                 ${mostrarSku ? `<div class="cc-card__meta">${escapeHtml(item.sku)}</div>` : ""}
                 ${mostrarDisponibilidad ? `<div class="cc-card__meta">${escapeHtml(item.disponibilidad_simple || "consultar")}</div>` : ""}
                 ${mostrarPrecio ? `<div class="cc-card__price">${escapeHtml(precioTextoComercial(item))}</div>` : ""}
@@ -867,7 +846,8 @@
                 ${portadaDescripcion || subtitulo ? `<div class="cc-cover-card__desc">${escapeHtml(portadaDescripcion || subtitulo)}</div>` : ""}
                 ${contacto || portadaNota || cta ? contacto || `<div class="cc-cover-card__cta">${escapeHtml(portadaNota || cta)}</div>` : ""}
             </section>`) : "";
-        contenedor.innerHTML = `${portada}${titulo || subtitulo || cta ? encabezado : ""}`;
+        const pie = `<div class="cc-preview-footer-note">${escapeHtml(metaProteccionCatalogo(materialActual(), 1, 1).join(" · "))}</div>`;
+        contenedor.innerHTML = `${portada}${titulo || subtitulo || cta ? encabezado : ""}${pie}`;
     }
 
     function toggleSku(idSku) {
@@ -913,13 +893,17 @@
      */
     function seleccionarVisibles() {
         const pagina = paginaItems(estado.items, estado.paginaCandidatos, CANDIDATOS_POR_PAGINA);
+        let agregados = 0;
         pagina.items.forEach((item) => {
-            estado.seleccion.set(String(item.id_sku), item);
+            const clave = String(item.id_sku);
+            if (!estado.seleccion.has(clave)) agregados += 1;
+            estado.seleccion.set(clave, item);
         });
         guardarSeleccionLocal();
         renderTabla();
         renderSeleccion();
         limpiarPreviewPaginasExportacion();
+        setEstado(`Pagina agregada: ${agregados}`, "success");
     }
 
     /**
@@ -929,13 +913,17 @@
      * Contrato: solo usa los candidatos ya consultados; respeta el limite de carga seleccionado y no escribe BD.
      */
     function seleccionarCargados() {
+        let agregados = 0;
         estado.items.forEach((item) => {
-            estado.seleccion.set(String(item.id_sku), item);
+            const clave = String(item.id_sku);
+            if (!estado.seleccion.has(clave)) agregados += 1;
+            estado.seleccion.set(clave, item);
         });
         guardarSeleccionLocal();
         renderTabla();
         renderSeleccion();
         limpiarPreviewPaginasExportacion();
+        setEstado(`Resultados agregados: ${agregados}`, "success");
     }
 
     /**
@@ -946,13 +934,16 @@
      */
     function quitarVisibles() {
         const pagina = paginaItems(estado.items, estado.paginaCandidatos, CANDIDATOS_POR_PAGINA);
+        let quitados = 0;
         pagina.items.forEach((item) => {
-            estado.seleccion.delete(String(item.id_sku));
+            const clave = String(item.id_sku);
+            if (estado.seleccion.delete(clave)) quitados += 1;
         });
         guardarSeleccionLocal();
         renderTabla();
         renderSeleccion();
         limpiarPreviewPaginasExportacion();
+        setEstado(`Pagina quitada: ${quitados}`, "success");
     }
 
     /**
@@ -962,13 +953,16 @@
      * Contrato: solo modifica seleccion local/localStorage; no borra catalogos ni SKUs.
      */
     function quitarCargados() {
+        let quitados = 0;
         estado.items.forEach((item) => {
-            estado.seleccion.delete(String(item.id_sku));
+            const clave = String(item.id_sku);
+            if (estado.seleccion.delete(clave)) quitados += 1;
         });
         guardarSeleccionLocal();
         renderTabla();
         renderSeleccion();
         limpiarPreviewPaginasExportacion();
+        setEstado(`Resultados quitados: ${quitados}`, "success");
     }
 
     /**
@@ -1020,11 +1014,6 @@
             if (mostrarSku) partes.push(`SKU ${item.sku || ""}`.trim());
             if (mostrarDisponibilidad) partes.push(item.disponibilidad_simple || "consultar disponibilidad");
             lineas.push(partes.filter(Boolean).join(" - "));
-            if (Array.isArray(item.variantes) && item.variantes.length) {
-                item.variantes.slice(0, 12).forEach((variante) => {
-                    lineas.push(`   - ${variante.etiqueta || variante.sku || "Variante"}`);
-                });
-            }
         });
 
         if (cta) {
@@ -1082,12 +1071,13 @@
         if ($("cc_material_cta")) $("cc_material_cta").value = "Pregunta por disponibilidad";
         if ($("cc_portada_activa")) $("cc_portada_activa").checked = true;
         if ($("cc_portada_tipo")) $("cc_portada_tipo").value = "plantilla";
-        if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = "Catalogo recomendado";
+        if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = mesAnioCatalogoTexto();
         if ($("cc_portada_imagen_url")) $("cc_portada_imagen_url").value = "";
         if ($("cc_logo_url")) $("cc_logo_url").value = "";
         if ($("cc_contacto_texto")) $("cc_contacto_texto").value = "";
         if ($("cc_portada_descripcion")) $("cc_portada_descripcion").value = "";
         if ($("cc_portada_nota")) $("cc_portada_nota").value = "";
+        limpiarPreviewPaginasExportacion();
         renderTabla();
         renderSeleccion();
     }
@@ -1570,7 +1560,7 @@
         if (vista === "preview") renderSeleccion();
     }
 
-    function fechaCatalogoTexto(valor) {
+    function fechaCatalogoGuardadoTexto(valor) {
         if (!valor) return "Sin fecha";
         const fecha = new Date(String(valor).replace(" ", "T"));
         if (Number.isNaN(fecha.getTime())) return String(valor);
@@ -1594,7 +1584,7 @@
             <div>
                 <div class="cc-saved-card__title">${escapeHtml(catalogo.nombre || "Catalogo sin nombre")}</div>
                 <div class="cc-saved-card__meta">${escapeHtml(catalogo.codigo || "")} - ${escapeHtml(catalogo.total_items || 0)} productos</div>
-                <div class="cc-saved-card__meta">Actualizado: ${escapeHtml(fechaCatalogoTexto(catalogo.fecha_actualizacion || catalogo.fecha_creacion))}</div>
+                <div class="cc-saved-card__meta">Actualizado: ${escapeHtml(fechaCatalogoGuardadoTexto(catalogo.fecha_actualizacion || catalogo.fecha_creacion))}</div>
             </div>
             <div class="d-flex gap-2 flex-wrap mt-auto">
                 <a class="btn btn-sm btn-light-dark" href="/catalogoerp/catalogos_comerciales_ver?id_catalogo_comercial=${encodeURIComponent(catalogo.id_catalogo_comercial)}"><i class="bi bi-eye"></i> Ver</a>
@@ -1724,6 +1714,13 @@
         ctx.restore();
     }
 
+    function aplicarSombraTextoPortada(ctx, activa) {
+        ctx.shadowColor = activa ? "rgba(0,0,0,.78)" : "transparent";
+        ctx.shadowBlur = activa ? 12 : 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = activa ? 3 : 0;
+    }
+
     async function dibujarTarjetaCanvas(ctx, item, x, y, w, h, opciones) {
         const estilo = opciones.estiloVisual || estiloVisualActual();
         ctx.save();
@@ -1773,15 +1770,6 @@
                 }
                 cursor += miniSize + 8;
             }
-            ctx.fillStyle = estilo.colorMeta || "#5e6278";
-            ctx.font = `700 ${estilo.tamMeta || 9}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
-            item.variantes.slice(0, 6).forEach((variante) => {
-                if (cursor > precioY - 24) return;
-                cursor = canvasTexto(ctx, etiquetaValorVariante(variante.etiqueta || variante.sku || "Variante"), x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
-            });
-            if (item.variantes.length > 6 && cursor <= precioY - 24) {
-                cursor = canvasTexto(ctx, `+ ${item.variantes.length - 6} variantes mas`, x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
-            }
         }
         if (opciones.mostrarPrecio) {
             ctx.fillStyle = estilo.colorPrecio || "#0f7a5f";
@@ -1803,20 +1791,21 @@
         const pixelRatio = esCarta ? 2 : 1;
         const margen = 36;
         const gap = 12;
+        const footerH = 46;
         if (plantilla === "compact") {
-            return { width, height, pixelRatio, margen, gap, columnas: 1, cardW: width - margen * 2, cardH: 155, headerH: 76, tituloH: 52, portadaH: 120 };
+            return { width, height, pixelRatio, margen, gap, footerH, columnas: 1, cardW: width - margen * 2, cardH: 155, headerH: 76, tituloH: 52, portadaH: 120 };
         }
         const columnas = columnasExportacionActual();
         const filasDeseadas = filasExportacionActual();
         const altoPorColumnas = esCarta ? { 2: 480, 3: 360, 4: 300, 5: 260 } : { 2: 470, 3: 360, 4: 305, 5: 270 };
         const cardW = Math.floor((width - margen * 2 - gap * (columnas - 1)) / columnas);
-        return { width, height, pixelRatio, margen, gap, columnas, filasDeseadas, cardW, cardH: altoPorColumnas[columnas] || 360, headerH: 76, tituloH: 52, portadaH: 120 };
+        return { width, height, pixelRatio, margen, gap, footerH, columnas, filasDeseadas, cardW, cardH: altoPorColumnas[columnas] || 360, headerH: 76, tituloH: 52, portadaH: 120 };
     }
 
     function altoDisponibleItems(layout, incluirPortada) {
         const encabezado = incluirPortada ? layout.headerH : layout.tituloH;
         const altoInicial = layout.margen + encabezado + (incluirPortada ? layout.portadaH + layout.gap : 0) + layout.gap + 30;
-        return Math.max(120, layout.height - altoInicial - layout.margen);
+        return Math.max(120, layout.height - altoInicial - layout.margen - (layout.footerH || 0));
     }
 
     function cardHPaginaCatalogo(layout, incluirPortada) {
@@ -1855,9 +1844,10 @@
         const fondo = await cargarImagenCanvas(material.portadaImagenUrl || "");
         if (fondo) {
             dibujarImagenCover(ctx, fondo, 0, 0, layout.width, layout.height);
-            const gradiente = ctx.createLinearGradient(0, layout.height * 0.42, 0, layout.height);
-            gradiente.addColorStop(0, "rgba(17,24,39,0)");
-            gradiente.addColorStop(1, "rgba(17,24,39,.88)");
+            const gradiente = ctx.createLinearGradient(0, 0, 0, layout.height);
+            gradiente.addColorStop(0, "rgba(17,24,39,.08)");
+            gradiente.addColorStop(0.55, "rgba(17,24,39,.16)");
+            gradiente.addColorStop(1, "rgba(17,24,39,.48)");
             ctx.fillStyle = gradiente;
             ctx.fillRect(0, 0, layout.width, layout.height);
         } else {
@@ -1887,18 +1877,20 @@
         const baseX = layout.margen + 34;
         const baseY = fondo ? Math.round(layout.height * 0.58) : Math.round(layout.height * 0.57);
         if (logo) dibujarImagenCuadrada(ctx, logo, baseX, baseY - 92, 76);
+        aplicarSombraTextoPortada(ctx, Boolean(fondo));
         ctx.fillStyle = fondo ? "#ffffff" : (estilo.colorPrecio || "#0f7a5f");
-        ctx.font = `900 18px ${estilo.familiaFuente || "Arial, sans-serif"}`;
-        canvasTexto(ctx, (material.portadaEtiqueta || "Catalogo recomendado").toUpperCase(), baseX, baseY + (logo ? 0 : -24), layout.width - layout.margen * 2 - 68, 22, 1);
+        ctx.font = `900 28px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        canvasTexto(ctx, etiquetaPortadaTexto(material).toUpperCase(), baseX, baseY + (logo ? 0 : -24), layout.width - layout.margen * 2 - 68, 34, 1);
         ctx.fillStyle = fondo ? "#ffffff" : (estilo.colorTitulo || "#181c32");
-        ctx.font = `900 ${Math.max(40, Number(estilo.tamTitulo || 23) + 24)}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
-        let yTexto = canvasTexto(ctx, material.titulo || "Catalogo de productos", baseX, baseY + 54, layout.width - layout.margen * 2 - 68, Math.max(48, Number(estilo.tamTitulo || 23) + 30), 2);
-        ctx.fillStyle = fondo ? "rgba(255,255,255,.9)" : (estilo.colorMeta || "#5e6278");
-        ctx.font = `600 24px ${estilo.familiaFuente || "Arial, sans-serif"}`;
-        yTexto = canvasTexto(ctx, material.portadaDescripcion || material.subtitulo || "", baseX, yTexto + 14, layout.width - layout.margen * 2 - 68, 30, 3);
+        ctx.font = `900 ${Math.max(52, Number(estilo.tamTitulo || 23) + 34)}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        let yTexto = canvasTexto(ctx, material.titulo || "Catalogo de productos", baseX, baseY + 70, layout.width - layout.margen * 2 - 68, Math.max(60, Number(estilo.tamTitulo || 23) + 42), 2);
+        ctx.fillStyle = fondo ? "rgba(255,255,255,.94)" : (estilo.colorMeta || "#5e6278");
+        ctx.font = `700 29px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        yTexto = canvasTexto(ctx, material.portadaDescripcion || material.subtitulo || "", baseX, yTexto + 18, layout.width - layout.margen * 2 - 68, 36, 3);
         ctx.fillStyle = fondo ? "#ffffff" : (estilo.colorPrecio || "#0f7a5f");
-        ctx.font = `900 22px ${estilo.familiaFuente || "Arial, sans-serif"}`;
-        canvasTexto(ctx, material.contactoTexto || material.portadaNota || material.cta || "", baseX, yTexto + 28, layout.width - layout.margen * 2 - 68, 28, 2);
+        ctx.font = `900 28px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        canvasTexto(ctx, material.contactoTexto || material.portadaNota || material.cta || "", baseX, yTexto + 34, layout.width - layout.margen * 2 - 68, 34, 2);
+        aplicarSombraTextoPortada(ctx, false);
     }
 
     function dibujarPortadaPagina(ctx, material, layout, y, opciones) {
@@ -1911,7 +1903,7 @@
         ctx.stroke();
         ctx.fillStyle = "#0f7a5f";
         ctx.font = `800 14px ${estilo.familiaFuente || "Arial, sans-serif"}`;
-        ctx.fillText((material.portadaEtiqueta || "Catalogo recomendado").toUpperCase(), layout.margen + 22, y + 28);
+        ctx.fillText(etiquetaPortadaTexto(material).toUpperCase(), layout.margen + 22, y + 28);
         if (material.contactoTexto || material.portadaNota || material.cta) {
             ctx.textAlign = "right";
             ctx.fillText(material.contactoTexto || material.portadaNota || material.cta, layout.width - layout.margen - 22, y + 28);
@@ -1954,6 +1946,31 @@
         return y + alto + layout.gap;
     }
 
+    function dibujarPiePaginaCatalogo(ctx, material, layout, pagina, totalPaginas, opciones, sobreFondoOscuro) {
+        const estilo = opciones.estiloVisual || estiloVisualActual();
+        const y = layout.height - (layout.footerH || 46);
+        const x = layout.margen;
+        const w = layout.width - layout.margen * 2;
+        const lineas = metaProteccionCatalogo(material, pagina, totalPaginas);
+        ctx.save();
+        if (sobreFondoOscuro) {
+            ctx.fillStyle = "#ffffff";
+            aplicarSombraTextoPortada(ctx, true);
+        } else {
+            ctx.strokeStyle = "#edf0f5";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + w, y);
+            ctx.stroke();
+            ctx.fillStyle = estilo.colorMeta || "#5e6278";
+        }
+        ctx.font = `700 13px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        ctx.textAlign = "center";
+        canvasTexto(ctx, lineas.join(" · "), layout.width / 2, y + 23, w, 16, 2);
+        ctx.restore();
+    }
+
     async function dibujarPaginaCatalogoCanvas(paginaDatos, numeroPagina, totalPaginas, layout, material, opciones) {
         const canvas = document.createElement("canvas");
         const pixelRatio = layout.pixelRatio || 1;
@@ -1968,6 +1985,7 @@
         let y = layout.margen;
         if (paginaDatos.portadaCompleta) {
             await dibujarPortadaCompletaPagina(ctx, material, layout, opciones);
+            dibujarPiePaginaCatalogo(ctx, material, layout, numeroPagina, totalPaginas, opciones, Boolean(material.portadaImagenUrl));
             return canvas;
         }
         if (paginaDatos.portada) y = dibujarPortadaPagina(ctx, material, layout, y, opciones);
@@ -1980,11 +1998,7 @@
             const itemY = y + row * (cardH + layout.gap);
             await dibujarTarjetaCanvas(ctx, paginaDatos.items[i], x, itemY, layout.cardW, cardH, opciones);
         }
-        ctx.fillStyle = "#9ca3af";
-        ctx.font = "600 16px Arial, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("Precios y disponibilidad sujetos a confirmacion", layout.width / 2, layout.height - 26);
-        ctx.textAlign = "left";
+        dibujarPiePaginaCatalogo(ctx, material, layout, numeroPagina, totalPaginas, opciones, false);
         return canvas;
     }
 
@@ -2185,14 +2199,16 @@
             if (confirm("Se limpiara la seleccion actual para empezar otro catalogo. Continuar?")) ejecutar();
         });
         $("cc_limpiar")?.addEventListener("click", () => {
+            const total = estado.seleccion.size;
             estado.seleccion.clear();
             guardarSeleccionLocal();
             renderTabla();
             renderSeleccion();
+            limpiarPreviewPaginasExportacion();
+            setEstado(`Seleccion limpiada: ${total}`, "success");
         });
         ["cc_mostrar_precio", "cc_mostrar_marca", "cc_mostrar_categoria", "cc_mostrar_presentacion", "cc_mostrar_sku", "cc_mostrar_disponibilidad", "cc_agrupar_variantes", "cc_plantilla", "cc_columnas_exportacion", "cc_filas_exportacion", "cc_fuente_visual", "cc_tam_titulo", "cc_tam_producto", "cc_tam_meta", "cc_tam_precio", "cc_portada_tipo"].forEach((id) => {
             $(id)?.addEventListener("change", () => {
-                if (id === "cc_plantilla") actualizarAyudaFormatoPortada();
                 renderSeleccion();
                 guardarOpcionesLocal();
                 limpiarPreviewPaginasExportacion();
@@ -2274,10 +2290,9 @@
         renderSeleccion();
         if (estado.nuevoInicial) {
             estado.catalogoActualId = 0;
-            estado.seleccion.clear();
-            guardarSeleccionLocal();
             if ($("cc_borrador_nombre")) $("cc_borrador_nombre").value = "";
-            renderSeleccion();
+            reiniciarBorradorLocal();
+            setEstado("Nuevo catalogo", "success");
         }
         await cargarCategorias();
         await cargarCatalogosGuardados();

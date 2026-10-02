@@ -415,12 +415,15 @@ class RentabilidadErp extends CRUD {
     public function guardarEstudioRentabilidad($datos = array(), $idUsuario = null) {
         $db = $this->getConexion();
         try {
-            $autorizacion = $this->validarAutorizacionEscritura($datos, "AUTORIZO GUARDAR ESTUDIO RENTABILIDAD", "guardar estudio de rentabilidad");
-            if (!empty($autorizacion["error"])) {
-                return $autorizacion;
-            }
             if (!$this->tablaExisteSimple("erp_rentabilidad_estudios") || !$this->tablaExisteSimple("erp_rentabilidad_estudio_skus")) {
                 return $this->respuesta(true, "warning", "Antes de guardar estudios hay que aplicar el esquema de estudios con respaldo autorizado");
+            }
+            $fraseEsperada = "AUTORIZO GUARDAR ESTUDIO RENTABILIDAD";
+            $frase = trim(isset($datos["confirmar_autorizacion"]) ? strval($datos["confirmar_autorizacion"]) : "");
+            if ($frase !== $fraseEsperada) {
+                return $this->respuesta(true, "warning", "Autorizacion requerida para guardar estudio de rentabilidad", array(
+                    "frase_requerida" => $fraseEsperada
+                ));
             }
             $idLista = intval(isset($datos["id_lista_precio"]) ? $datos["id_lista_precio"] : 0);
             $ids = $this->idsSkuDesdeFiltro(isset($datos["ids_sku"]) ? $datos["ids_sku"] : "");
@@ -441,6 +444,17 @@ class RentabilidadErp extends CRUD {
             $filas = $this->consultarFilasListaPrecio($db, $idLista, "", max(count($ids), 120), $ids);
             if (empty($filas)) {
                 return $this->respuesta(true, "warning", "Los SKUs seleccionados no estan activos en la lista base");
+            }
+            if (strlen(trim(isset($datos["respaldo_externo_ref"]) ? strval($datos["respaldo_externo_ref"]) : "")) < 8) {
+                $respaldoGenerado = $this->generarRespaldoExternoEstudiosRentabilidad();
+                if (!empty($respaldoGenerado["error"])) {
+                    return $respaldoGenerado;
+                }
+                $datos["respaldo_externo_ref"] = $respaldoGenerado["depurar"]["archivo"];
+            }
+            $autorizacion = $this->validarAutorizacionEscritura($datos, $fraseEsperada, "guardar estudio de rentabilidad");
+            if (!empty($autorizacion["error"])) {
+                return $autorizacion;
             }
             $idEstudioExistente = intval(isset($datos["id_estudio"]) ? $datos["id_estudio"] : 0);
             $folio = "EST-" . date("Ymd-His");
@@ -4370,6 +4384,58 @@ class RentabilidadErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-30
+     * Proposito: crear respaldo externo focalizado antes de guardar estudios de rentabilidad.
+     * Impacto: evita pedir una ruta manual al usuario y conserva respaldo fuera del repo antes de escribir BD.
+     * Contrato: no expone credenciales; respalda solo tablas del submodulo de estudios.
+     */
+    private function generarRespaldoExternoEstudiosRentabilidad() {
+        $dir = "C:\\xampp\\panel_db_backups";
+        $mysqldump = "C:\\xampp\\mysql\\bin\\mysqldump.exe";
+        if (!is_file($mysqldump)) {
+            return $this->respuesta(true, "danger", "No se encontro la herramienta de respaldo externo para guardar el estudio");
+        }
+        if (!is_dir($dir) && !mkdir($dir, 0777, true)) {
+            return $this->respuesta(true, "danger", "No se pudo crear la carpeta de respaldos externos");
+        }
+
+        $stamp = date("Ymd_His");
+        $archivo = $dir . DIRECTORY_SEPARATOR . MYSQLBASE . "_panel_de_control_" . $stamp . "_antes_guardar_estudio_rentabilidad.sql";
+        $cnf = $dir . DIRECTORY_SEPARATOR . "mysqldump_rentabilidad_estudio_" . getmypid() . "_" . mt_rand(1000, 9999) . ".cnf";
+        $tablas = array("erp_rentabilidad_estudios", "erp_rentabilidad_estudio_skus");
+
+        file_put_contents($cnf, "[client]\n"
+            . "user=\"" . MYSQLUSER . "\"\n"
+            . "password=\"" . MYSQLPASS . "\"\n"
+            . "host=\"" . MYSQLHOST . "\"\n"
+            . "port=\"" . MYSQLPORT . "\"\n");
+
+        $cmd = escapeshellarg($mysqldump)
+            . " --defaults-extra-file=" . escapeshellarg($cnf)
+            . " --single-transaction --skip-lock-tables --result-file=" . escapeshellarg($archivo)
+            . " " . escapeshellarg(MYSQLBASE)
+            . " " . implode(" ", array_map("escapeshellarg", $tablas));
+
+        $salida = array();
+        $codigo = 1;
+        exec($cmd, $salida, $codigo);
+        @unlink($cnf);
+        clearstatcache(true, $archivo);
+
+        if ($codigo !== 0 || !is_file($archivo) || filesize($archivo) <= 0) {
+            return $this->respuesta(true, "danger", "No se pudo generar el respaldo externo antes de guardar el estudio", array(
+                "codigo" => $codigo
+            ));
+        }
+
+        return $this->respuesta(false, "success", "Respaldo externo generado", array(
+            "archivo" => $archivo,
+            "bytes" => filesize($archivo)
+        ));
+    }
+
     private function validarAutorizacionEscritura($datos, $fraseEsperada, $accion) {
         $frase = trim(isset($datos["confirmar_autorizacion"]) ? $datos["confirmar_autorizacion"] : "");
         $respaldo = trim(isset($datos["respaldo_externo_ref"]) ? $datos["respaldo_externo_ref"] : "");
@@ -6784,6 +6850,8 @@ class RentabilidadErp extends CRUD {
         $precioSinImpuesto = ($incluye === 1 && $tasa > 0) ? $precioLista / (1 + $tasa) : $precioLista;
         $precioConImpuesto = ($incluye === 1 || $tasa <= 0) ? $precioLista : $precioLista * (1 + $tasa);
         $precioAnalisis = $precioSinImpuesto * (1 + ($ajustePct / 100));
+        $ivaImporte = $precioSinImpuesto * (($iva === null ? 0 : $iva) / 100);
+        $iepsImporte = $precioSinImpuesto * (($ieps === null ? 0 : $ieps) / 100);
 
         $visitadosCosto = array();
         $costoResolucion = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku"]), array("tipo" => "auto"), $visitadosCosto);
@@ -6791,6 +6859,8 @@ class RentabilidadErp extends CRUD {
         $origenCosto = isset($costoResolucion["fuente"]) ? $costoResolucion["fuente"] : "sin_costo";
         $margenBrutoPct = $precioAnalisis > 0 ? (($precioAnalisis - $costoReal) / $precioAnalisis) * 100 : null;
         $utilidadBruta = $precioAnalisis - $costoReal;
+        $gananciaBrutaConImpuesto = $precioConImpuesto - $costoReal;
+        $gananciaBrutaSinImpuesto = $precioSinImpuesto - $costoReal;
         $gastosImporte = $precioAnalisis * (($gastoPct + $comisionPct) / 100);
         $utilidadEstimada = $utilidadBruta - $gastosImporte;
         $utilidadEstimadaPct = $precioAnalisis > 0 ? ($utilidadEstimada / $precioAnalisis) * 100 : null;
@@ -6824,12 +6894,16 @@ class RentabilidadErp extends CRUD {
             "precio_lista_sin_impuesto" => round($precioSinImpuesto, 6),
             "precio_analisis_sin_impuesto" => round($precioAnalisis, 6),
             "impuestos_estimados" => round(max(0, $precioConImpuesto - $precioSinImpuesto), 6),
+            "iva_estimado" => round($ivaImporte, 6),
+            "ieps_estimado" => round($iepsImporte, 6),
             "ajuste_pct" => round(floatval($ajustePct), 4),
             "costo_real_sin_impuesto" => round($costoReal, 6),
             "origen_costo" => $origenCosto,
             "costo_resolucion" => $costoResolucion,
             "margen_bruto_pct" => $margenBrutoPct === null ? null : round($margenBrutoPct, 2),
             "utilidad_bruta" => round($utilidadBruta, 6),
+            "ganancia_bruta_con_impuesto" => round($gananciaBrutaConImpuesto, 6),
+            "ganancia_bruta_sin_impuesto" => round($gananciaBrutaSinImpuesto, 6),
             "gastos_estimados" => round($gastosImporte, 6),
             "utilidad_estimada" => round($utilidadEstimada, 6),
             "utilidad_estimada_pct" => $utilidadEstimadaPct === null ? null : round($utilidadEstimadaPct, 2),

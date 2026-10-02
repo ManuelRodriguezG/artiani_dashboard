@@ -53,6 +53,7 @@ echo json_encode(array(
     "reglas" => array(
         "Este preflight no ejecuta DDL.",
         "Aplicar esquema no guarda estudios automaticamente.",
-        "Guardar estudios despues del esquema mantiene permiso rentabilidad.snapshot, CSRF, respaldo y frase propia."
+        "Guardar estudios despues del esquema mantiene permiso rentabilidad.snapshot, CSRF y frase propia.",
+        "Si el guardado no recibe respaldo_externo_ref, el modelo genera respaldo externo focalizado antes de escribir."
     )
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;

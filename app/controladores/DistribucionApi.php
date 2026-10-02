@@ -195,17 +195,26 @@ class DistribucionApi extends Controlador {
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
    * Proposito: registrar solicitud de pedido Distribucion sin mostrar existencia ni apartar inventario.
    * Impacto: Distribucion; el ERP recibe partidas solicitadas para revision interna de surtido.
-   * Contrato: POST /pedido/registrar autenticado con `distribucion.pedido.preliminar`.
+   * Contrato: GET listar/detalle y POST registrar/responder autenticados con `distribucion.pedido.preliminar`.
    */
   public function pedido($accion = "") {
     if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    $cotizaciones = $this->modelo("DistribucionCotizacionesApi");
+    if ($accion === "" || $accion === "listar") {
+      return $this->responderApiDistribucion($cotizaciones->pedidosCliente($_GET, $this->contextoCliente()));
+    }
+    if ($accion === "detalle") {
+      return $this->responderApiDistribucion($cotizaciones->pedidoDetalleCliente($_GET, $this->contextoCliente()));
+    }
     if (!$this->esPostDistribucion()) {
       return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("pedido/" . $accion));
     }
-    $cotizaciones = $this->modelo("DistribucionCotizacionesApi");
     $datos = $this->entradaJsonDistribucion();
     if ($accion === "registrar") {
       return $this->responderApiDistribucion($cotizaciones->registrarPedidoPreliminar($datos, $this->contextoCliente()));
+    }
+    if ($accion === "responder") {
+      return $this->responderApiDistribucion($cotizaciones->responderPedidoCliente($datos, $this->contextoCliente()));
     }
     return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("pedido/" . $accion));
   }

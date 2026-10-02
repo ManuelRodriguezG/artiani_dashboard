@@ -11,8 +11,9 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     iniciarFechas();
+    iniciarSesionUrl();
     bindEvents();
-    cargarFlujo();
+    cargarFlujo(estado.sessionKey);
   });
 
   function iniciarFechas() {
@@ -23,11 +24,21 @@
     setValue("ecom_flow_hasta", isoDate(hasta));
   }
 
+  function iniciarSesionUrl() {
+    try {
+      var params = new URLSearchParams(window.location.search || "");
+      estado.sessionKey = String(params.get("session_key") || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
+    } catch (e) {
+      estado.sessionKey = "";
+    }
+  }
+
   function bindEvents() {
     on("ecom_flow_recargar", "click", function () { cargarFlujo(estado.sessionKey); });
     on("ecom_flow_desde", "change", function () { estado.sessionKey = ""; cargarFlujo(); });
     on("ecom_flow_hasta", "change", function () { estado.sessionKey = ""; cargarFlujo(); });
     on("ecom_flow_limite", "change", function () { estado.sessionKey = ""; cargarFlujo(); });
+    on("ecom_flow_min_eventos", "change", function () { estado.sessionKey = ""; cargarFlujo(); });
     var sesiones = document.getElementById("ecom_flow_sesiones");
     if (sesiones) {
       sesiones.addEventListener("click", function (event) {
@@ -45,6 +56,7 @@
     params.set("desde", valor("ecom_flow_desde"));
     params.set("hasta", valor("ecom_flow_hasta"));
     params.set("limite", valor("ecom_flow_limite") || "25");
+    params.set("min_eventos", valor("ecom_flow_min_eventos") || "2");
     if (sessionKey) params.set("session_key", sessionKey);
     fetch("/ecommercePublico/analytics_flujo_erp?" + params.toString(), { headers: { "Accept": "application/json" } })
       .then(function (response) { return response.json(); })

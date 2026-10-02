@@ -17,6 +17,8 @@ $esquema = new EcommercePublicoEsquema();
 
 $manifest = $blog->manifestPublico();
 $listado = $blog->blogPublico(array("pagina" => 1, "limite" => 2, "q" => "pecera"));
+$listadoDemo = $blog->blogPublico(array("demo" => 1));
+$detalleDemo = $blog->blogDetallePublico("guia-acuario-comunitario-artiani", array("demo" => 1));
 $busqueda = $blog->buscarBlogPublico("pecera", 2);
 $producto = $blog->contenidoProductoPublico("filtro-cascada-sunny-shf-600");
 $categoria = $blog->contenidoCategoriaPublica("peces/filtracion/filtros");
@@ -36,6 +38,14 @@ $auditoriaDepurar = isset($auditoria["depurar"]) && is_array($auditoria["depurar
 
 $ok = empty($manifest["error"])
   && empty($listado["error"])
+  && empty($listadoDemo["error"])
+  && !empty($listadoDemo["depurar"]["demo"])
+  && count($listadoDemo["depurar"]["items"] ?? array()) === 1
+  && empty($detalleDemo["error"])
+  && !empty($detalleDemo["depurar"]["demo"])
+  && !empty($detalleDemo["depurar"]["publicacion"]["contenido_html"])
+  && count($detalleDemo["depurar"]["productos_relacionados"] ?? array()) >= 3
+  && count($detalleDemo["depurar"]["bloques_interactivos"] ?? array()) >= 1
   && is_array($busqueda)
   && empty($producto["error"])
   && empty($categoria["error"])
@@ -59,6 +69,8 @@ echo json_encode(array(
     "manifest_ok" => empty($manifest["error"]),
     "listado_error" => !empty($listado["error"]),
     "listado_estado" => $listado["depurar"]["estado"] ?? "schema_disponible_o_con_datos",
+    "demo_items" => count($listadoDemo["depurar"]["items"] ?? array()),
+    "demo_detalle_ok" => empty($detalleDemo["error"]) && !empty($detalleDemo["depurar"]["publicacion"]["contenido_html"]),
     "busqueda_items" => count($busqueda),
     "producto_items" => count($producto["depurar"]["items"] ?? array()),
     "categoria_items" => count($categoria["depurar"]["items"] ?? array()),

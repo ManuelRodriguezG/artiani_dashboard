@@ -5035,11 +5035,14 @@ class CatalogoErpDatos extends CRUD {
         }
       }
 
-      $stmt = $db->prepare("SELECT id_atributo_erp, codigo, tipo_dato, configuracion_json, es_variante FROM erp_catalogo_atributos WHERE id_atributo_erp=:atributo AND estatus='activo'");
+      $stmt = $db->prepare("SELECT id_atributo_erp, codigo, nombre, tipo_dato, configuracion_json, es_variante FROM erp_catalogo_atributos WHERE id_atributo_erp=:atributo AND estatus='activo'");
       $stmt->execute(array(":atributo" => $idAtributo));
       $definicionAtributo = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$definicionAtributo) {
         throw new Exception("El atributo seleccionado no existe o esta inactivo");
+      }
+      if ($this->esAtributoLegacyMedidas($definicionAtributo)) {
+        throw new Exception("El atributo legacy Medidas ya no se captura aqui. Usa Largo, Ancho y Alto como atributos separados");
       }
       if (intval($definicionAtributo["es_variante"]) === 1 && !$this->esAtributoDimensionTecnica($definicionAtributo)) {
         throw new Exception("Ese atributo esta marcado como variante; editalo en la pestana Variantes o crea un atributo tecnico separado");
@@ -5461,6 +5464,8 @@ class CatalogoErpDatos extends CRUD {
       INNER JOIN erp_catalogo_sku_atributos sa ON sa.id_atributo_erp=a.id_atributo_erp
       INNER JOIN erp_catalogo_skus s ON s.id_sku=sa.id_sku
       WHERE s.id_producto_erp=:producto AND (a.es_variante=0 OR UPPER(a.codigo) IN (" . $codigosDimension . ")) AND a.estatus='activo'
+        AND LOWER(TRIM(a.nombre)) NOT IN ('medida','medidas')
+        AND UPPER(TRIM(a.codigo)) NOT IN ('ATR-MEDIDA','ATR-MEDIDAS')
       ORDER BY a.nombre");
     $stmt->execute(array(":producto" => $idProducto));
     $atributos = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -5469,7 +5474,9 @@ class CatalogoErpDatos extends CRUD {
       $ids = implode(",", array_map(function ($sku) { return intval($sku["id_sku"]); }, $skus));
       $stmt = $db->query("SELECT sa.id_sku, sa.id_atributo_erp, sa.valor FROM erp_catalogo_sku_atributos sa
         INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp AND (a.es_variante=0 OR UPPER(a.codigo) IN (" . $codigosDimension . "))
-        WHERE sa.id_sku IN (" . $ids . ")");
+        WHERE sa.id_sku IN (" . $ids . ")
+          AND LOWER(TRIM(a.nombre)) NOT IN ('medida','medidas')
+          AND UPPER(TRIM(a.codigo)) NOT IN ('ATR-MEDIDA','ATR-MEDIDAS')");
       foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
         $valores[$fila["id_sku"]][$fila["id_atributo_erp"]] = $fila["valor"];
       }
@@ -5487,6 +5494,19 @@ class CatalogoErpDatos extends CRUD {
   private function esAtributoDimensionTecnica($atributo) {
     $codigo = strtoupper(trim((string) (isset($atributo["codigo"]) ? $atributo["codigo"] : "")));
     return in_array($codigo, array("ATR-LARGO", "ATR-ANCHO", "ATR-ALTO", "ATR-DIAMETRO", "ATR-GROSOR", "ATR-GROSOR-VIDRIO"), true);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-29
+   * Proposito: bloquea el atributo legacy `Medidas` en capturas nuevas para evitar duplicidad con Largo/Ancho/Alto.
+   * Impacto: Catalogo ERP > Productos > Atributos; conserva datos historicos pero ya no los muestra como flujo vigente.
+   * Contrato: identifica solo los nombres/codigos genericos de Medidas, no atributos especificos como `Medidas con mueble`.
+   */
+  private function esAtributoLegacyMedidas($atributo) {
+    $nombre = strtolower(trim((string) (isset($atributo["nombre"]) ? $atributo["nombre"] : "")));
+    $codigo = strtoupper(trim((string) (isset($atributo["codigo"]) ? $atributo["codigo"] : "")));
+    return in_array($nombre, array("medida", "medidas"), true) || in_array($codigo, array("ATR-MEDIDA", "ATR-MEDIDAS"), true);
   }
 
   private function codigosAtributosDimensionTecnicaSql() {

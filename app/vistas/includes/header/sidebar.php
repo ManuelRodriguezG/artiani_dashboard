@@ -273,6 +273,16 @@ $gruposMenu = array(
         )
     ),
     array(
+        'seccion' => 'ERP',
+        'titulo' => 'PIT Imagenes',
+        'icono' => 'bi-images',
+        'permiso' => array('cms.ver', 'catalogo.ver'),
+        'items' => array(
+            // IA: Codex GPT-6 | 2026-09-30 | PIT queda como modulo independiente; las asignaciones a productos vendran despues.
+            array('titulo' => 'Biblioteca PIT', 'ruta' => '/pit', 'permiso' => array('cms.ver', 'catalogo.ver'))
+        )
+    ),
+    array(
         'seccion' => 'CMS',
         'titulo' => 'Contenido tienda',
         'icono' => 'bi-window-sidebar',
@@ -318,6 +328,7 @@ $gruposMenu = array(
             array('titulo' => 'Leads / Carritos', 'ruta' => '/ecommercePublico/leads', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Cotizaciones', 'ruta' => '/ecommercePublico/cotizaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Analisis analytics', 'ruta' => '/ecommercePublico/analytics_analisis', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Flujo sesiones', 'ruta' => '/ecommercePublico/analytics_flujo', 'permiso' => 'catalogo.ver')
         )
     ),

@@ -95,6 +95,9 @@
     function etiquetaProveedor(item) { return item.proveedor; }
     function etiquetaSku(item) { return item.sku + " - " + item.nombre; }
     function etiquetaAtributo(item) {
+        if (esAtributoLegacyMedidas(item)) {
+            return item.nombre + " (Largo, Ancho y Alto)";
+        }
         if (esAtributoDimensionTecnica(item)) {
             return item.nombre + " (medida)";
         }
@@ -111,6 +114,18 @@
         return (catalogosDisponibles.atributos || []).filter(function (item) {
             return String(item.es_variante || "0") !== "1" || esAtributoDimensionTecnica(item);
         });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-29
+     * Proposito: oculta el atributo legacy `Medidas` del flujo operativo actual de atributos.
+     * Impacto: Catalogo ERP > Productos > Atributos; evita duplicar Medidas junto a Largo/Ancho/Alto.
+     * Contrato: no borra datos legacy; solo impide seleccionarlos/renderizarlos en la captura actual.
+     */
+    function esAtributoLegacyMedidas(item) {
+        var nombre = String((item && item.nombre) || "").trim().toLowerCase();
+        var codigo = String((item && item.codigo) || "").trim().toUpperCase();
+        return nombre === "medidas" || nombre === "medida" || codigo === "ATR-MEDIDAS" || codigo === "ATR-MEDIDA";
     }
 
     /**
@@ -1012,7 +1027,6 @@
             renderReclasificaciones(response.depurar.reclasificaciones || {esquema_disponible: false, items: []});
             renderVariantes(response.depurar.skus || [], response.depurar.variantes || {});
             renderAtributosTecnicos(response.depurar.skus || [], response.depurar.atributos_tecnicos || {});
-            renderMedidasTecnicas(response.depurar.skus || [], response.depurar.atributos_tecnicos || {});
             precargarSkuBase(response.depurar.skus || []);
             var skusOperativosDetalle = skusOperativos(response.depurar.skus || []);
             var skusOrigenApertura = skusCandidatosOrigenApertura(skusOperativosDetalle);
@@ -2244,7 +2258,9 @@
      * Contrato: espera `atributos_tecnicos.atributos` y `atributos_tecnicos.valores` desde `/catalogoerp/consultar`.
      */
     function renderAtributosTecnicos(skus, atributosTecnicos) {
-        var atributos = atributosTecnicos.atributos || [];
+        var atributos = (atributosTecnicos.atributos || []).filter(function (atributo) {
+            return !esAtributoLegacyMedidas(atributo);
+        });
         var valores = atributosTecnicos.valores || {};
         var encabezado = document.getElementById("catalogo_atributos_tecnicos_encabezado");
         var lista = document.getElementById("catalogo_atributos_tecnicos_lista");
@@ -2276,85 +2292,6 @@
     }
 
     /**
-     * IA: Codex GPT-5 | Fecha: 2026-09-27
-     * Proposito: muestra captura rapida de largo, ancho y alto usando atributos canonicos existentes.
-     * Impacto: Catalogo ERP > Productos > Atributos; evita capturar medidas como texto libre ambiguo.
-     * Contrato: usa valores por SKU de `atributos_tecnicos`; guarda en cm mediante atributos ATR-LARGO/ANCHO/ALTO.
-     */
-    function renderMedidasTecnicas(skus, atributosTecnicos) {
-        var lista = document.getElementById("catalogo_medidas_tecnicas_lista");
-        var estado = document.getElementById("catalogo_medidas_tecnicas_estado");
-        var boton = document.getElementById("catalogo_guardar_medidas_tecnicas");
-        if (!lista || !estado || !boton) {
-            return;
-        }
-        var valores = atributosTecnicos.valores || {};
-        var dimensiones = atributosDimensionTecnica.map(function (dimension) {
-            return Object.assign({}, dimension, {atributo: buscarAtributoDimension(dimension.codigo)});
-        });
-        var faltantes = dimensiones.filter(function (dimension) { return !dimension.atributo; });
-        estado.classList.toggle("d-none", !faltantes.length);
-        estado.textContent = faltantes.length
-            ? "Faltan atributos canonicos de medidas: " + faltantes.map(function (dimension) { return dimension.etiqueta; }).join(", ") + ". Configuralos antes de guardar medidas."
-            : "";
-        boton.disabled = !!faltantes.length || !(skus || []).length;
-        lista.innerHTML = (skus || []).map(function (sku) {
-            return "<tr><td class=\"fw-bold\">" + escapeHtml(sku.sku) + "</td><td>" + escapeHtml(sku.nombre) + "</td>" +
-                dimensiones.map(function (dimension) {
-                    var atributo = dimension.atributo;
-                    var actual = atributo && valores[sku.id_sku] && valores[sku.id_sku][atributo.id_atributo_erp]
-                        ? valores[sku.id_sku][atributo.id_atributo_erp]
-                        : "";
-                    return "<td><div class=\"input-group input-group-sm\"><input class=\"form-control\" type=\"number\" step=\"any\" min=\"0\" value=\"" +
-                        escapeHtml(actual) + "\" data-medida-tecnica=\"" + escapeHtml(dimension.codigo) + "\" data-id-sku=\"" +
-                        escapeHtml(sku.id_sku) + "\"><span class=\"input-group-text\">cm</span></div></td>";
-                }).join("") + "</tr>";
-        }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-7\">Sin SKU registrados</td></tr>";
-    }
-
-    function guardarMedidasTecnicas() {
-        var errorBox = document.getElementById("catalogo_atributos_tecnicos_error");
-        var boton = document.getElementById("catalogo_guardar_medidas_tecnicas");
-        if (errorBox) {
-            errorBox.classList.add("d-none");
-        }
-        var dimensiones = atributosDimensionTecnica.map(function (dimension) {
-            return Object.assign({}, dimension, {atributo: buscarAtributoDimension(dimension.codigo)});
-        }).filter(function (dimension) {
-            return !!dimension.atributo;
-        });
-        if (!productoActualId || !dimensiones.length) {
-            mostrarError(errorBox, new Error("No hay atributos canonicos de medidas disponibles"));
-            return;
-        }
-        boton.disabled = true;
-        dimensiones.reduce(function (promesa, dimension) {
-            return promesa.then(function () {
-                var data = {
-                    id_producto_erp: productoActualId,
-                    id_atributo_erp: dimension.atributo.id_atributo_erp
-                };
-                document.querySelectorAll("[data-medida-tecnica='" + dimension.codigo + "']").forEach(function (input) {
-                    data["valores[" + input.getAttribute("data-id-sku") + "]"] = input.value.trim();
-                });
-                return request("/catalogoerp/guardar_atributos_tecnicos", data).then(function (response) {
-                    if (response.error) {
-                        throw new Error(response.mensaje);
-                    }
-                });
-            });
-        }, Promise.resolve()).then(function () {
-            Swal.fire({text: "Medidas guardadas", icon: "success", confirmButtonText: "Aceptar"});
-            cargar();
-            abrirDetalle(productoActualId, "catalogo_detalle_atributos");
-        }).catch(function (error) {
-            mostrarError(errorBox, error);
-        }).finally(function () {
-            boton.disabled = false;
-        });
-    }
-
-    /**
      * IA: Codex GPT-5 | Fecha: 2026-08-27
      * Proposito: prepara captura masiva de un atributo tecnico para los SKUs del producto.
      * Impacto: UX de Catalogo ERP; acelera captura sin mezclarla con variantes.
@@ -2364,6 +2301,7 @@
         if (!form) {
             return;
         }
+        form.dataset.modoAtributo = "normal";
         var atributoId = form.querySelector("[name='id_atributo_erp']").value;
         var nombreNuevo = form.querySelector("[name='nuevo_atributo']").value.trim();
         if (nombreNuevo) {
@@ -2377,6 +2315,10 @@
             mostrarError(error, new Error("Selecciona o escribe un atributo tecnico"));
             return;
         }
+        if (atributo && esAtributoLegacyMedidas(atributo)) {
+            prepararMedidasTecnicasDesdeSelector(form, error);
+            return;
+        }
         error.classList.add("d-none");
         var valores = detalleActual.atributos_tecnicos && detalleActual.atributos_tecnicos.valores ? detalleActual.atributos_tecnicos.valores : {};
         document.getElementById("catalogo_atributo_tecnico_valores").innerHTML =
@@ -2386,6 +2328,42 @@
                 return "<div class=\"col-md-6\"><label class=\"form-label\">" + escapeHtml(sku.sku + " - " + sku.nombre) +
                     "</label>" + campoValorAtributo(sku.id_sku, actual, atributo || {tipo_dato: "texto"}) + "</div>";
             }).join("") + "</div>";
+        document.getElementById("catalogo_atributo_tecnico_guardar_contenedor").classList.remove("d-none");
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-30
+     * Proposito: mantiene `Medidas` como selector operativo, pero captura datos normalizados Largo/Ancho/Alto.
+     * Impacto: Catalogo ERP > Productos > Atributos; evita duplicar el atributo legacy y conserva una entrada familiar para el operador.
+     * Contrato: requiere atributos canonicos ATR-LARGO, ATR-ANCHO y ATR-ALTO; no guarda valores en el atributo legacy Medidas.
+     */
+    function prepararMedidasTecnicasDesdeSelector(form, error) {
+        var dimensiones = atributosDimensionTecnica.map(function (dimension) {
+            return Object.assign({}, dimension, {atributo: buscarAtributoDimension(dimension.codigo)});
+        });
+        var faltantes = dimensiones.filter(function (dimension) { return !dimension.atributo; });
+        if (faltantes.length) {
+            mostrarError(error, new Error("Faltan atributos canonicos para medidas: " + faltantes.map(function (dimension) { return dimension.etiqueta; }).join(", ")));
+            return;
+        }
+        error.classList.add("d-none");
+        form.dataset.modoAtributo = "medidas";
+        var valores = detalleActual.atributos_tecnicos && detalleActual.atributos_tecnicos.valores ? detalleActual.atributos_tecnicos.valores : {};
+        document.getElementById("catalogo_atributo_tecnico_valores").innerHTML =
+            "<div class=\"fw-bold mb-2\">Medidas</div>" +
+            "<div class=\"text-muted fs-7 mb-4\">Captura Largo, Ancho y Alto por SKU. Se guardan como atributos separados para poder comparar y filtrar productos.</div>" +
+            "<div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3 mb-0\">" +
+            "<thead><tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>SKU</th><th>Nombre</th><th>Largo</th><th>Ancho</th><th>Alto</th></tr></thead><tbody>" +
+            (detalleActual.skus || []).map(function (sku) {
+                return "<tr><td class=\"fw-bold\">" + escapeHtml(sku.sku) + "</td><td>" + escapeHtml(sku.nombre) + "</td>" +
+                    dimensiones.map(function (dimension) {
+                        var atributo = dimension.atributo;
+                        var actual = valores[sku.id_sku] && valores[sku.id_sku][atributo.id_atributo_erp] ? valores[sku.id_sku][atributo.id_atributo_erp] : "";
+                        return "<td><div class=\"input-group input-group-sm\"><input class=\"form-control\" type=\"number\" step=\"any\" min=\"0\" value=\"" +
+                            escapeHtml(actual) + "\" data-medida-tecnica=\"" + escapeHtml(dimension.codigo) + "\" data-id-sku=\"" +
+                            escapeHtml(sku.id_sku) + "\"><span class=\"input-group-text\">cm</span></div></td>";
+                    }).join("") + "</tr>";
+            }).join("") + "</tbody></table></div>";
         document.getElementById("catalogo_atributo_tecnico_guardar_contenedor").classList.remove("d-none");
     }
 
@@ -3111,13 +3089,64 @@
     function guardarAtributosTecnicos(event) {
         event.preventDefault();
         var currentForm = event.currentTarget;
+        if (currentForm.dataset.modoAtributo === "medidas") {
+            guardarMedidasTecnicasDesdeSelector(currentForm);
+            return;
+        }
         enviarFormulario(currentForm, "/catalogoerp/guardar_atributos_tecnicos", document.getElementById("catalogo_atributos_tecnicos_error"), function () {
             currentForm.reset();
+            currentForm.dataset.modoAtributo = "normal";
             setValor(currentForm, "id_producto_erp", productoActualId);
             document.getElementById("catalogo_atributo_tecnico_valores").innerHTML = "";
             document.getElementById("catalogo_atributo_tecnico_guardar_contenedor").classList.add("d-none");
             cargar();
             abrirDetalle(productoActualId, "catalogo_detalle_atributos");
+        });
+    }
+
+    function guardarMedidasTecnicasDesdeSelector(currentForm) {
+        var errorBox = document.getElementById("catalogo_atributos_tecnicos_error");
+        if (errorBox) {
+            errorBox.classList.add("d-none");
+        }
+        var button = currentForm.querySelector("[type='submit']");
+        var dimensiones = atributosDimensionTecnica.map(function (dimension) {
+            return Object.assign({}, dimension, {atributo: buscarAtributoDimension(dimension.codigo)});
+        }).filter(function (dimension) {
+            return !!dimension.atributo;
+        });
+        if (dimensiones.length !== atributosDimensionTecnica.length) {
+            mostrarError(errorBox, new Error("Faltan atributos canonicos para guardar medidas"));
+            return;
+        }
+        button.disabled = true;
+        dimensiones.reduce(function (promesa, dimension) {
+            return promesa.then(function () {
+                var data = {
+                    id_producto_erp: productoActualId,
+                    id_atributo_erp: dimension.atributo.id_atributo_erp
+                };
+                document.querySelectorAll("[data-medida-tecnica='" + dimension.codigo + "']").forEach(function (input) {
+                    data["valores[" + input.getAttribute("data-id-sku") + "]"] = input.value.trim();
+                });
+                return request("/catalogoerp/guardar_atributos_tecnicos", data).then(function (response) {
+                    if (response.error) {
+                        throw new Error(response.mensaje);
+                    }
+                });
+            });
+        }, Promise.resolve()).then(function () {
+            currentForm.reset();
+            currentForm.dataset.modoAtributo = "normal";
+            setValor(currentForm, "id_producto_erp", productoActualId);
+            document.getElementById("catalogo_atributo_tecnico_valores").innerHTML = "";
+            document.getElementById("catalogo_atributo_tecnico_guardar_contenedor").classList.add("d-none");
+            cargar();
+            abrirDetalle(productoActualId, "catalogo_detalle_atributos");
+        }).catch(function (error) {
+            mostrarError(errorBox, error);
+        }).finally(function () {
+            button.disabled = false;
         });
     }
 
@@ -3970,10 +3999,6 @@
         var prepararAtributoTecnicoBtn = document.getElementById("catalogo_preparar_atributo_tecnico");
         if (prepararAtributoTecnicoBtn) {
             prepararAtributoTecnicoBtn.addEventListener("click", prepararAtributoTecnico);
-        }
-        var guardarMedidasTecnicasBtn = document.getElementById("catalogo_guardar_medidas_tecnicas");
-        if (guardarMedidasTecnicasBtn) {
-            guardarMedidasTecnicasBtn.addEventListener("click", guardarMedidasTecnicas);
         }
         /**
          * IA: Codex GPT-5 | Fecha: 2026-07-22

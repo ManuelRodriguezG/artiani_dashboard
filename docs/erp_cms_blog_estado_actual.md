@@ -38,7 +38,10 @@ El blog debe servir para SEO, educacion del cliente, venta asistida, contenido r
 - `GET /ecommercePublico/blog_manifest`
 - `GET /ecommercePublico/blog?pagina=1&limite=12&q=pecera`
 - `GET /ecommercePublico/blog/{slug}`
+- `GET /ecommercePublico/blog?demo=1`
+- `GET /ecommercePublico/blog/guia-acuario-comunitario-artiani?demo=1`
 - `GET /ecommercePublico/buscar?q=pecera`
+- `GET /ecommercePublico/buscar?q=acuario&demo=1`
 - `GET /ecommercePublico/producto/{slug}/contenido_relacionado`
 - `GET /ecommercePublico/categoria/{path_slug}/contenido_relacionado`
 - `POST /ecommercePublico/analytics_evento`
@@ -98,6 +101,16 @@ GET /ecommercePublico/esquema_auditar_cms_blog
 - validar contratos con UAT read-only: `senal_cms_blog=verde_contrato_blog_readonly`.
 
 Mientras no exista el esquema, el backend responde `requiere_ddl` y no escribe BD.
+
+## Muestra read-only para frontend
+
+Fecha: 2026-09-29
+
+- Listado demo: `/ecommercePublico/blog?demo=1`.
+- Detalle demo: `/ecommercePublico/blog/guia-acuario-comunitario-artiani?demo=1`.
+- Busqueda global demo: `/ecommercePublico/buscar?q=acuario&demo=1`.
+- La muestra no consulta ni escribe BD; existe para maquetar listado, detalle, portada, SEO, categorias, productos relacionados y bloque interactivo de imagen/productos.
+- El SEO demo usa `robots=noindex,nofollow` para que frontend lo trate como fixture de maquetacion, no como contenido indexable real.
 
 ## Pendientes priorizados
 

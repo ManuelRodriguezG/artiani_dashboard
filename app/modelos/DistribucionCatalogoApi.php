@@ -23,7 +23,14 @@ class DistribucionCatalogoApi extends CRUD {
         "catalogo_no_muestra_existencia" => true,
         "ruta" => "/DistribucionApi/pedido/registrar",
         "estatus_inicial" => "pedido_solicitado",
-        "revision_erp_requerida" => true
+        "revision_erp_requerida" => true,
+        "cliente_acepta_respuesta_erp" => true,
+        "metodos_entrega" => array("por_definir", "envio", "recoger_tienda"),
+        "facturacion" => array(
+          "captura_frontend" => true,
+          "no_genera_factura_automaticamente" => true,
+          "campos" => array("requiere_factura", "facturacion.rfc", "facturacion.razon_social", "facturacion.regimen_fiscal", "facturacion.uso_cfdi", "facturacion.codigo_postal_fiscal", "facturacion.correo_facturacion", "facturacion.comentarios_facturacion")
+        )
       ),
       "reglas_precio" => array(
         "orden" => array("lista_asignada", "publico_autorizado", "mayoreo_erp", "solicitar_precio"),
@@ -31,6 +38,9 @@ class DistribucionCatalogoApi extends CRUD {
         "no_exponer" => array("costos", "margenes", "proveedores", "costo_promedio", "utilidad")
       ),
       "endpoints" => $this->endpointsContrato(),
+      "payloads" => array(
+        "pedido_facturacion" => $this->payloadFacturacionPedido()
+      ),
       "guardrails" => $this->guardrails()
     ));
   }
@@ -63,6 +73,10 @@ class DistribucionCatalogoApi extends CRUD {
         "cotizacion_dryrun" => "/DistribucionApi/cotizacion/dryrun",
         "cotizacion_registrar" => "/DistribucionApi/cotizacion/registrar",
         "pedido_registrar" => "/DistribucionApi/pedido/registrar",
+        "pedido_listar" => "/DistribucionApi/pedido/listar",
+        "pedido_detalle" => "/DistribucionApi/pedido/detalle?id_cotizacion_distribucion={id}",
+        "pedido_responder" => "/DistribucionApi/pedido/responder",
+        "pedido_facturacion_payload" => $this->payloadFacturacionPedido(),
         "mi_catalogo_listar" => "/DistribucionApi/mi_catalogo/listar",
         "mi_catalogo_guardar" => "/DistribucionApi/mi_catalogo/guardar",
         "inventario_cliente_listar" => "/DistribucionApi/inventario_cliente/listar",
@@ -202,6 +216,8 @@ class DistribucionCatalogoApi extends CRUD {
         return $this->respuesta(false, "warning", "Catalogo ERP no disponible", array("configurado" => false, "items" => array()));
       }
       $limite = max(1, min(300, intval($this->valor($filtros, "limite", 30))));
+      $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
+      $offset = ($pagina - 1) * $limite;
       $q = trim((string) $this->valor($filtros, "q", ""));
       $idMarca = intval($this->valor($filtros, "id_marca_erp", $this->valor($filtros, "marca", 0)));
       $idCategoria = intval($this->valor($filtros, "id_categoria_erp", $this->valor($filtros, "categoria", 0)));
@@ -283,6 +299,15 @@ class DistribucionCatalogoApi extends CRUD {
       $joinProveedor = $this->tablaExiste($db, "erp_catalogo_sku_proveedores") && $this->tablaExiste($db, "erp_proveedores") ? "LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku=s.id_sku AND sp.estatus='activo' AND sp.es_preferido=1 LEFT JOIN erp_proveedores pr ON pr.id_proveedor=sp.id_proveedor" : "LEFT JOIN (SELECT NULL proveedor) pr ON 1=0";
       $selectPrecio = $this->tablaExiste($db, "erp_listas_precios") && $this->tablaExiste($db, "erp_listas_precios_detalle") ? "CASE WHEN " . $precioSql . " THEN 1 ELSE 0 END" : "0";
       $selectImagen = $this->tablaExiste($db, "erp_catalogo_imagenes") ? "CASE WHEN " . $imagenSql . " THEN 1 ELSE 0 END" : "0";
+      $stmtTotal = $db->prepare("SELECT COUNT(DISTINCT s.id_sku)
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        LEFT JOIN erp_catalogo_canales_vinculos cv ON cv.id_sku=s.id_sku AND cv.canal='distribucion'
+        WHERE " . implode(" AND ", $where));
+      $stmtTotal->execute($params);
+      $total = intval($stmtTotal->fetchColumn());
+      $totalPaginas = max(1, (int) ceil($total / $limite));
+
       $stmt = $db->prepare("SELECT p.id_producto_erp, p.nombre producto, p.descripcion, s.id_sku, s.sku, s.nombre sku_nombre,
           m.nombre marca, COALESCE(cat.ruta, cat.nombre) categoria, pr.proveedor proveedor_principal,
           " . $selectPrecio . " tiene_precio, " . $selectImagen . " tiene_imagen,
@@ -296,9 +321,21 @@ class DistribucionCatalogoApi extends CRUD {
         " . $joinProveedor . "
         WHERE " . implode(" AND ", $where) . "
         ORDER BY CASE WHEN cv.id_canal_vinculo IS NULL THEN 1 ELSE 0 END, p.nombre ASC, s.sku ASC
-        LIMIT " . intval($limite));
+        LIMIT " . intval($limite) . " OFFSET " . intval($offset));
       $stmt->execute($params);
-      return $this->respuesta(false, "success", "SKUs publicables consultados", array("configurado" => true, "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)));
+      return $this->respuesta(false, "success", "SKUs publicables consultados", array(
+        "configurado" => true,
+        "items" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        "paginacion" => array(
+          "pagina" => $pagina,
+          "limite" => $limite,
+          "total" => $total,
+          "total_paginas" => $totalPaginas,
+          "offset" => $offset,
+          "tiene_anterior" => $pagina > 1,
+          "tiene_siguiente" => $pagina < $totalPaginas
+        )
+      ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudieron consultar SKUs publicables", array("detalle" => "error_controlado"));
     }
@@ -440,12 +477,30 @@ class DistribucionCatalogoApi extends CRUD {
       array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/dryrun"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/registrar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/pedido/registrar"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/pedido/listar"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/pedido/detalle?id_cotizacion_distribucion={id}"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/pedido/responder"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/mi_catalogo/listar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/mi_catalogo/guardar"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/listar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/guardar_conteo"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/sugerido"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/pedido_sugerido")
+    );
+  }
+
+  private function payloadFacturacionPedido() {
+    return array(
+      "requiere_factura" => 1,
+      "facturacion" => array(
+        "rfc" => "RFC",
+        "razon_social" => "Razon social",
+        "regimen_fiscal" => "Regimen fiscal SAT",
+        "uso_cfdi" => "G03",
+        "codigo_postal_fiscal" => "00000",
+        "correo_facturacion" => "facturas@dominio.com",
+        "comentarios_facturacion" => "Notas fiscales del cliente"
+      )
     );
   }
 
@@ -460,6 +515,8 @@ class DistribucionCatalogoApi extends CRUD {
       "no_stock_exacto_mvp" => true,
       "catalogo_no_muestra_existencia" => true,
       "pedido_requiere_revision_surtido" => true,
+      "cliente_debe_aceptar_confirmacion" => true,
+      "factura_no_automatica" => true,
       "no_crea_venta" => true,
       "no_crea_pedido_automatico" => true,
       "no_aparta_inventario" => true

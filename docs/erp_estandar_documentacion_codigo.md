@@ -92,6 +92,16 @@ Fecha: AAAA-MM-DD
 
 No usar el chat como unica fuente de contexto. Si una respuesta del chat aclara una regla reusable, debe migrarse al documento vivo correspondiente.
 
+## Nomenclatura de archivos nuevos
+
+Fecha: 2026-09-29
+
+Para evitar fallas en productivo por sensibilidad a mayusculas/minusculas, el codigo nuevo no debe crear archivos de controladores o modelos con mayusculas intermedias en el nombre del archivo.
+
+- Preferir nombres de archivo en minusculas para nuevos controladores/modelos y validar que la ruta, clase, router/autoload e includes queden compatibles.
+- Si un flujo legacy obliga a usar una convencion tipo CamelCase, confirmar con el dueno antes de crear el archivo y dejar documentada la excepcion.
+- No renombrar archivos existentes solo por normalizacion sin revisar impacto, porque puede romper referencias ya desplegadas.
+
 ## Criterio de calidad
 
 Un comentario es util si responde al menos una de estas preguntas:
