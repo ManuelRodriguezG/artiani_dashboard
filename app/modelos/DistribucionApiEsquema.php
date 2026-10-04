@@ -14,6 +14,8 @@ class DistribucionApiEsquema extends DBSchema {
       "erp_distribucion_solicitudes",
       "erp_distribucion_cliente_permisos",
       "erp_distribucion_cliente_listas",
+      "erp_distribucion_cliente_catalogo_reglas",
+      "erp_distribucion_cliente_solicitudes_cambio",
       "erp_distribucion_cliente_productos",
       "erp_distribucion_cliente_inventario",
       "erp_distribucion_cliente_inventario_movimientos",
@@ -69,10 +71,33 @@ class DistribucionApiEsquema extends DBSchema {
       "`empresa` VARCHAR(180) NULL",
       "`correo` VARCHAR(180) NOT NULL",
       "`telefono` VARCHAR(40) NULL",
+      "`whatsapp` VARCHAR(40) NULL",
+      "`correo_alterno` VARCHAR(180) NULL",
+      "`contacto_principal` VARCHAR(160) NULL",
+      "`nombre_negocio` VARCHAR(180) NULL",
+      "`tipo_negocio` VARCHAR(60) NULL",
+      "`ciudad` VARCHAR(120) NULL",
+      "`estado` VARCHAR(120) NULL",
+      "`calle` VARCHAR(180) NULL",
+      "`numero_exterior` VARCHAR(40) NULL",
+      "`numero_interior` VARCHAR(40) NULL",
+      "`colonia` VARCHAR(120) NULL",
+      "`codigo_postal` VARCHAR(20) NULL",
+      "`referencias` TEXT NULL",
+      "`requiere_factura` TINYINT(1) NOT NULL DEFAULT 0",
+      "`rfc` VARCHAR(20) NULL",
+      "`razon_social` VARCHAR(220) NULL",
+      "`regimen_fiscal` VARCHAR(120) NULL",
+      "`uso_cfdi` VARCHAR(20) NULL",
+      "`codigo_postal_fiscal` VARCHAR(20) NULL",
+      "`correo_facturacion` VARCHAR(180) NULL",
+      "`comentarios_facturacion` TEXT NULL",
       "`tipo_cliente` VARCHAR(40) NOT NULL DEFAULT 'registrado'",
       "`estatus` VARCHAR(30) NOT NULL DEFAULT 'pendiente'",
       "`contrasenia_hash` VARCHAR(255) NULL",
       "`id_lista_precio` INT NULL",
+      "`catalogo_modo` VARCHAR(30) NOT NULL DEFAULT 'general'",
+      "`categorias_interes_json` LONGTEXT NULL",
       "`metodo_entrega_default` VARCHAR(30) NOT NULL DEFAULT 'por_definir'",
       "`entrega_habilitar_envio` TINYINT(1) NOT NULL DEFAULT 1",
       "`entrega_habilitar_recoger_tienda` TINYINT(1) NOT NULL DEFAULT 1",
@@ -86,6 +111,34 @@ class DistribucionApiEsquema extends DBSchema {
       "KEY `idx_dist_cliente_estatus` (`estatus`, `tipo_cliente`)",
       "KEY `idx_dist_cliente_lista` (`id_lista_precio`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $columnasClientePerfil = array(
+      "whatsapp" => "VARCHAR(40) NULL AFTER `telefono`",
+      "correo_alterno" => "VARCHAR(180) NULL AFTER `correo`",
+      "contacto_principal" => "VARCHAR(160) NULL AFTER `correo_alterno`",
+      "nombre_negocio" => "VARCHAR(180) NULL AFTER `empresa`",
+      "tipo_negocio" => "VARCHAR(60) NULL AFTER `nombre_negocio`",
+      "ciudad" => "VARCHAR(120) NULL AFTER `tipo_negocio`",
+      "estado" => "VARCHAR(120) NULL AFTER `ciudad`",
+      "calle" => "VARCHAR(180) NULL AFTER `estado`",
+      "numero_exterior" => "VARCHAR(40) NULL AFTER `calle`",
+      "numero_interior" => "VARCHAR(40) NULL AFTER `numero_exterior`",
+      "colonia" => "VARCHAR(120) NULL AFTER `numero_interior`",
+      "codigo_postal" => "VARCHAR(20) NULL AFTER `colonia`",
+      "referencias" => "TEXT NULL AFTER `codigo_postal`",
+      "requiere_factura" => "TINYINT(1) NOT NULL DEFAULT 0 AFTER `referencias`",
+      "rfc" => "VARCHAR(20) NULL AFTER `requiere_factura`",
+      "razon_social" => "VARCHAR(220) NULL AFTER `rfc`",
+      "regimen_fiscal" => "VARCHAR(120) NULL AFTER `razon_social`",
+      "uso_cfdi" => "VARCHAR(20) NULL AFTER `regimen_fiscal`",
+      "codigo_postal_fiscal" => "VARCHAR(20) NULL AFTER `uso_cfdi`",
+      "correo_facturacion" => "VARCHAR(180) NULL AFTER `codigo_postal_fiscal`",
+      "comentarios_facturacion" => "TEXT NULL AFTER `correo_facturacion`"
+    );
+    foreach ($columnasClientePerfil as $columna => $definicion) {
+      $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", $columna, $definicion, $ejecutar);
+    }
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "catalogo_modo", "VARCHAR(30) NOT NULL DEFAULT 'general' AFTER `id_lista_precio`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "categorias_interes_json", "LONGTEXT NULL AFTER `catalogo_modo`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "metodo_entrega_default", "VARCHAR(30) NOT NULL DEFAULT 'por_definir' AFTER `id_lista_precio`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "entrega_habilitar_envio", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `metodo_entrega_default`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_clientes", "entrega_habilitar_recoger_tienda", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `entrega_habilitar_envio`", $ejecutar);
@@ -112,6 +165,7 @@ class DistribucionApiEsquema extends DBSchema {
       "`codigo_postal` VARCHAR(20) NULL",
       "`referencias` TEXT NULL",
       "`intereses_comerciales` TEXT NULL",
+      "`categorias_interes_json` LONGTEXT NULL",
       "`mensaje` TEXT NULL",
       "`datos_comerciales_json` LONGTEXT NULL",
       "`ip_registro` VARCHAR(80) NULL",
@@ -143,6 +197,7 @@ class DistribucionApiEsquema extends DBSchema {
       "codigo_postal" => "VARCHAR(20) NULL AFTER `colonia`",
       "referencias" => "TEXT NULL AFTER `codigo_postal`",
       "intereses_comerciales" => "TEXT NULL AFTER `referencias`",
+      "categorias_interes_json" => "LONGTEXT NULL AFTER `intereses_comerciales`",
       "datos_comerciales_json" => "LONGTEXT NULL AFTER `mensaje`",
       "ip_registro" => "VARCHAR(80) NULL AFTER `datos_comerciales_json`",
       "user_agent" => "VARCHAR(255) NULL AFTER `ip_registro`"
@@ -179,6 +234,47 @@ class DistribucionApiEsquema extends DBSchema {
       "PRIMARY KEY (`id_cliente_lista`)",
       "KEY `idx_dist_cliente_lista_cliente` (`id_cliente_distribucion`, `estatus`, `prioridad`)",
       "KEY `idx_dist_cliente_lista_lista` (`id_lista_precio`, `estatus`)"
+    ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_catalogo_reglas", array(
+      "`id_cliente_catalogo_regla` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`tipo_regla` VARCHAR(30) NOT NULL",
+      "`objeto_clave` VARCHAR(80) NOT NULL",
+      "`id_sku` BIGINT NULL",
+      "`id_categoria_erp` INT NULL",
+      "`id_marca_erp` INT NULL",
+      "`accion` VARCHAR(30) NOT NULL DEFAULT 'permitir'",
+      "`prioridad` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`origen` VARCHAR(40) NOT NULL DEFAULT 'admin'",
+      "`notas` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_cliente_catalogo_regla`)",
+      "UNIQUE KEY `idx_dist_catalogo_regla_unica` (`id_cliente_distribucion`, `tipo_regla`, `objeto_clave`, `accion`)",
+      "KEY `idx_dist_catalogo_regla_cliente` (`id_cliente_distribucion`, `estatus`, `accion`, `tipo_regla`)",
+      "KEY `idx_dist_catalogo_regla_sku` (`id_sku`, `estatus`, `accion`)",
+      "KEY `idx_dist_catalogo_regla_categoria` (`id_categoria_erp`, `estatus`, `accion`)",
+      "KEY `idx_dist_catalogo_regla_marca` (`id_marca_erp`, `estatus`, `accion`)"
+    ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_solicitudes_cambio", array(
+      "`id_solicitud_cambio` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`tipo` VARCHAR(60) NOT NULL",
+      "`resumen` VARCHAR(255) NULL",
+      "`datos_json` LONGTEXT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'pendiente'",
+      "`ip_registro` VARCHAR(80) NULL",
+      "`user_agent` VARCHAR(255) NULL",
+      "`id_usuario_resolucion` INT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_resolucion` DATETIME NULL",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_solicitud_cambio`)",
+      "KEY `idx_dist_cambio_cliente` (`id_cliente_distribucion`, `estatus`, `fecha_registro`)",
+      "KEY `idx_dist_cambio_tipo` (`tipo`, `estatus`, `fecha_registro`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_productos", array(
@@ -261,7 +357,11 @@ class DistribucionApiEsquema extends DBSchema {
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cotizaciones", array(
       "`id_cotizacion_distribucion` BIGINT NOT NULL AUTO_INCREMENT",
       "`folio` VARCHAR(40) NOT NULL",
+      "`nombre_documento` VARCHAR(180) NULL",
       "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`tipo_documento` VARCHAR(30) NOT NULL DEFAULT 'cotizacion'",
+      "`id_cotizacion_origen` BIGINT NULL",
+      "`id_pedido_relacionado` BIGINT NULL",
       "`estatus` VARCHAR(30) NOT NULL DEFAULT 'recibida'",
       "`moneda` VARCHAR(10) NOT NULL DEFAULT 'MXN'",
       "`subtotal` DECIMAL(18,6) NULL",
@@ -286,8 +386,15 @@ class DistribucionApiEsquema extends DBSchema {
       "PRIMARY KEY (`id_cotizacion_distribucion`)",
       "UNIQUE KEY `idx_dist_cotizacion_folio` (`folio`)",
       "KEY `idx_dist_cotizacion_cliente` (`id_cliente_distribucion`, `estatus`)",
+      "KEY `idx_dist_cotizacion_tipo` (`tipo_documento`, `estatus`, `fecha_registro`)",
+      "KEY `idx_dist_cotizacion_origen` (`id_cotizacion_origen`)",
+      "KEY `idx_dist_cotizacion_pedido` (`id_pedido_relacionado`)",
       "KEY `idx_dist_cotizacion_estatus` (`estatus`, `fecha_registro`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "nombre_documento", "VARCHAR(180) NULL AFTER `folio`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "tipo_documento", "VARCHAR(30) NOT NULL DEFAULT 'cotizacion' AFTER `id_cliente_distribucion`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "id_cotizacion_origen", "BIGINT NULL AFTER `tipo_documento`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "id_pedido_relacionado", "BIGINT NULL AFTER `id_cotizacion_origen`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "total_confirmado", "DECIMAL(18,6) NULL AFTER `total_estimado`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "tipo_entrega", "VARCHAR(30) NOT NULL DEFAULT 'por_definir' AFTER `total_confirmado`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "entrega_habilitar_envio", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `tipo_entrega`", $ejecutar);
@@ -301,6 +408,9 @@ class DistribucionApiEsquema extends DBSchema {
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "fecha_respuesta_cliente", "DATETIME NULL AFTER `respuesta_cliente_comentario`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "fecha_respuesta_erp", "DATETIME NULL AFTER `fecha_respuesta_cliente`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizaciones", "id_usuario_respuesta_erp", "INT NULL AFTER `fecha_respuesta_erp`", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_cotizaciones", "idx_dist_cotizacion_tipo", "KEY `idx_dist_cotizacion_tipo` (`tipo_documento`, `estatus`, `fecha_registro`)", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_cotizaciones", "idx_dist_cotizacion_origen", "KEY `idx_dist_cotizacion_origen` (`id_cotizacion_origen`)", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_cotizaciones", "idx_dist_cotizacion_pedido", "KEY `idx_dist_cotizacion_pedido` (`id_pedido_relacionado`)", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cotizacion_items", array(
       "`id_cotizacion_item` BIGINT NOT NULL AUTO_INCREMENT",

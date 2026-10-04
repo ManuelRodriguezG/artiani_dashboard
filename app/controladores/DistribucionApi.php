@@ -30,10 +30,16 @@ class DistribucionApi extends Controlador {
    * Impacto: Clientes Distribucion; registro, login y activacion de contrasenia por token.
    * Contrato: POST /auth/registro, /auth/login, /auth/activar_consultar, /auth/activar_contrasenia y GET/POST /auth/perfil.
    */
-  public function auth($accion = "") {
+  public function auth($accion = "", $subaccion = "") {
     if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
     if ($accion === "perfil") {
       $contexto = $this->contextoCliente();
+      if ($subaccion === "solicitar_cambio") {
+        if (!$this->esPostDistribucion()) {
+          return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("auth/perfil/solicitar_cambio"));
+        }
+        return $this->responderApiDistribucion($this->modelo("DistribucionClientesApi")->solicitarCambioPerfil($this->entradaJsonDistribucion(), $contexto));
+      }
       if (empty($contexto["autenticado"])) {
         return $this->responderApiDistribucion(array(
           "error" => true,
@@ -170,23 +176,40 @@ class DistribucionApi extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
-   * Proposito: enrutar dry-run y registro de cotizaciones Distribucion.
-   * Impacto: Cotizaciones Distribucion; valida sin crear pedidos, ventas ni apartados de inventario.
-   * Contrato: POST /cotizacion/dryrun o /cotizacion/registrar; recalculo futuro siempre en ERP.
+   * Proposito: enrutar historial, borradores y conversion de cotizaciones Distribucion.
+   * Impacto: Portal Distribucion; separa cotizaciones de pedidos sin crear ventas ni apartados de inventario.
+   * Contrato: GET listar/detalle y POST dryrun/registrar/guardar_borrador/cancelar/duplicar/enviar_pedido.
    */
   public function cotizacion($accion = "") {
     if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    $cotizaciones = $this->modelo("DistribucionCotizacionesApi");
+    if ($accion === "" || $accion === "listar") {
+      return $this->responderApiDistribucion($cotizaciones->cotizacionesCliente($_GET, $this->contextoCliente()));
+    }
+    if ($accion === "detalle") {
+      return $this->responderApiDistribucion($cotizaciones->cotizacionDetalleCliente($_GET, $this->contextoCliente()));
+    }
     if (!$this->esPostDistribucion()) {
       return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("cotizacion/" . $accion));
     }
-
-    $cotizaciones = $this->modelo("DistribucionCotizacionesApi");
     $datos = $this->entradaJsonDistribucion();
     if ($accion === "dryrun") {
       return $this->responderApiDistribucion($cotizaciones->dryRun($datos, $this->contextoCliente()));
     }
     if ($accion === "registrar") {
       return $this->responderApiDistribucion($cotizaciones->registrar($datos, $this->contextoCliente()));
+    }
+    if ($accion === "guardar_borrador") {
+      return $this->responderApiDistribucion($cotizaciones->guardarBorradorCliente($datos, $this->contextoCliente()));
+    }
+    if ($accion === "cancelar") {
+      return $this->responderApiDistribucion($cotizaciones->cancelarCotizacionCliente($datos, $this->contextoCliente()));
+    }
+    if ($accion === "duplicar") {
+      return $this->responderApiDistribucion($cotizaciones->duplicarCotizacionCliente($datos, $this->contextoCliente()));
+    }
+    if ($accion === "enviar_pedido") {
+      return $this->responderApiDistribucion($cotizaciones->enviarCotizacionComoPedido($datos, $this->contextoCliente()));
     }
     return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("cotizacion/" . $accion));
   }

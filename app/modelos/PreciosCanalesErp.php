@@ -26,7 +26,7 @@ class PreciosCanalesErp extends CRUD {
 
       $ids = array();
       foreach ($items as $item) { $ids[] = intval($item["id_sku"]); }
-      $visibles = $this->skusVisiblesCanal($db, $canal, $ids);
+      $visibles = $this->skusVisiblesCanal($db, $canal, $ids, $contexto);
       $precios = $this->preciosPorSku($db, $canal, array_keys($visibles), $contexto);
       $tipoPrecio = $this->tipoPrecioContexto($contexto);
 
@@ -128,7 +128,7 @@ class PreciosCanalesErp extends CRUD {
     return $mapa;
   }
 
-  private function skusVisiblesCanal($db, $canal, $idsSku) {
+  private function skusVisiblesCanal($db, $canal, $idsSku, $contexto = array()) {
     $idsSku = array_values(array_unique(array_map("intval", $idsSku)));
     if (empty($idsSku)) { return array(); }
     $params = array(":canal" => $canal);
@@ -149,6 +149,11 @@ class PreciosCanalesErp extends CRUD {
         AND p.estatus='activo'
         AND s.estatus='activo'
         AND s.id_sku IN (" . implode(",", $placeholders) . ")";
+    $visibilidadCliente = $this->condicionesVisibilidadCliente($db, $contexto);
+    if (!empty($visibilidadCliente["where"])) {
+      $sql .= " AND " . implode(" AND ", $visibilidadCliente["where"]);
+    }
+    foreach ($visibilidadCliente["params"] as $clave => $valor) { $params[$clave] = $valor; }
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     $mapa = array();
@@ -156,6 +161,45 @@ class PreciosCanalesErp extends CRUD {
       $mapa[intval($fila["id_sku"])] = true;
     }
     return $mapa;
+  }
+
+  private function condicionesVisibilidadCliente($db, $contexto) {
+    $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+    if ($idCliente <= 0 || !$this->tablaExiste($db, "erp_distribucion_cliente_catalogo_reglas")) {
+      return array("where" => array(), "params" => array());
+    }
+    $match = "((r.tipo_regla='sku' AND r.id_sku=s.id_sku)
+      OR (r.tipo_regla='marca' AND r.id_marca_erp=p.id_marca_erp)
+      OR (r.tipo_regla='categoria' AND EXISTS (
+        SELECT 1 FROM erp_catalogo_producto_categorias rpc
+        WHERE rpc.id_producto_erp=p.id_producto_erp AND rpc.id_categoria_erp=r.id_categoria_erp
+      )))";
+    $where = array(
+      "NOT EXISTS (
+        SELECT 1 FROM erp_distribucion_cliente_catalogo_reglas r
+        WHERE r.id_cliente_distribucion=:vis_cliente_ocultar
+          AND r.estatus='activo'
+          AND r.accion='ocultar'
+          AND " . $match . "
+      )"
+    );
+    $params = array(":vis_cliente_ocultar" => $idCliente);
+    if ($this->catalogoModoContexto($contexto) === "personalizado") {
+      $where[] = "EXISTS (
+        SELECT 1 FROM erp_distribucion_cliente_catalogo_reglas r
+        WHERE r.id_cliente_distribucion=:vis_cliente_permitir
+          AND r.estatus='activo'
+          AND r.accion='permitir'
+          AND " . $match . "
+      )";
+      $params[":vis_cliente_permitir"] = $idCliente;
+    }
+    return array("where" => $where, "params" => $params);
+  }
+
+  private function catalogoModoContexto($contexto) {
+    $modo = trim((string) $this->valor($contexto, "catalogo_modo", "general"));
+    return in_array($modo, array("general", "personalizado"), true) ? $modo : "general";
   }
 
   private function tipoPrecioContexto($contexto) {

@@ -598,6 +598,10 @@
                                                 <button class="btn btn-sm btn-light-success" id="contabilidad_ver_ventas" type="button"><i class="bi bi-cash-coin"></i> Ver ventas</button>
                                                 <button class="btn btn-sm btn-light-warning" id="contabilidad_ver_compras" type="button"><i class="bi bi-bag-check"></i> Ver compras</button>
                                                 <button class="btn btn-sm btn-light-danger" id="contabilidad_ver_gastos" type="button"><i class="bi bi-receipt"></i> Ver gastos</button>
+                                                <button class="btn btn-sm btn-light-danger" id="contabilidad_ver_gastos_operativos" type="button"><i class="bi bi-clipboard2-pulse"></i> Gastos operativos</button>
+                                                <button class="btn btn-sm btn-light-dark" id="contabilidad_ver_inversiones" type="button"><i class="bi bi-graph-up-arrow"></i> Ver inversiones</button>
+                                                <button class="btn btn-sm btn-light-dark" id="contabilidad_ver_inversiones_entradas" type="button"><i class="bi bi-arrow-down-right-circle"></i> Inv. entradas</button>
+                                                <button class="btn btn-sm btn-light-dark" id="contabilidad_ver_inversiones_salidas" type="button"><i class="bi bi-arrow-up-right-circle"></i> Inv. salidas</button>
                                                 <button class="btn btn-sm btn-light-info" id="contabilidad_ver_traspasos" type="button"><i class="bi bi-arrow-left-right"></i> Ver traspasos</button>
                                                 <button class="btn btn-sm btn-light-primary" id="contabilidad_detectar_traspasos" type="button"><i class="bi bi-magic"></i> Sugerir traspasos</button>
                                                 <span class="badge badge-light" id="contabilidad_conciliacion_total">0 cuentas</span>

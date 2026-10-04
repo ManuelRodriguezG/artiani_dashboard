@@ -181,7 +181,7 @@ El MVP mantiene un borrador activo en `localStorage` que se actualiza automatica
 
 Los movimientos bancarios trabajan con monto firmado: ingresos positivos y egresos negativos. Los cargos/abonos internos se conservan como auxiliares para conciliacion y sugerencias de CFDI, pero el reporte final expone el monto con signo.
 
-Para el cierre operativo del dueno, los campos principales de movimientos bancarios son `movimiento`, `actividad` y `monto`. La categoria queda como apoyo, especialmente para CFDI; en ingresos y transpasos se asigna `no_aplica`.
+Para el cierre operativo del dueno, los campos principales de movimientos bancarios son `movimiento`, `actividad`, `categoria` y `monto`. La categoria es una clasificacion operativa editable: un ingreso de negocio puede marcarse como `venta`, un egreso puede marcarse como compra/gasto y un traspaso puede conservar `no_aplica` o la categoria que el usuario necesite para revisar.
 
 ## Ajuste operativo 2026-09-03 CFDI auxiliares de plataforma
 
@@ -259,13 +259,29 @@ Las compras operativas del mes se extraen como movimientos con `categoria = comp
 
 Los gastos operativos del mes se extraen como egresos con categorias de gasto, por ejemplo `gasto_operativo`, `comision_plataforma`, `servicio`, `nomina`, `impuestos`, `renta`, `publicidad`, `software` y `banco_comision`. No deben mezclarse con `compra_mercancia` ni con `transpaso`.
 
+La vista rapida `Gastos operativos` debe filtrar exclusivamente `categoria = gasto_operativo`. Sirve para obtener esa bolsa contable sin mezclar publicidad, software, impuestos, comisiones bancarias u otras categorias de gasto.
+
+La conciliacion debe separar `Egresos compras` de `Egresos operativos`. `Egresos compras` toma egresos con `categoria = compra_mercancia`; `Egresos operativos` toma egresos no traspaso, no inversion y no compra de mercancia. Esto evita mezclar compra para inventario/mercancia con gastos reales de operacion.
+
+Las inversiones deben separarse de ingresos y egresos operativos. Un movimiento con `actividad = inversion` o `categoria = inversion` puede ser entrada o salida de banco, pero no debe inflar ventas ni gastos reales del negocio. Conciliacion debe mostrar inversiones como bolsa independiente y, cuando sea util, separarlas en `Inv. entradas` e `Inv. salidas`.
+
+Los ingresos operativos/ventas deben excluir entradas de inversion. Para ventas del negocio se toma `movimiento = ingreso`, `actividad = negocio` y no inversion.
+
 La conciliacion debe permitir elegir un ambito antes de revisar: todo el mes, un estado de cuenta cargado o una cuenta auxiliar/generada. Las vistas rapidas de ventas, compras, gastos y traspasos deben respetar ese ambito para que el usuario pueda aislar una cuenta sin perder las descargas por tipo.
 
 El detalle de conciliacion debe mostrar la cuenta y el estado de cuenta de origen en una columna propia. En vistas transversales como compras o gastos, esto evita confundir registros de Santander, Mercado Pago, efectivo, tarjeta de credito o CFDI auxiliares dentro de una sola lista.
 
+Los controles masivos de `Clasificacion` y `CFDI` deben usar los mismos catalogos que los selects de cada renglon. Si el usuario cambia de periodo o aplica filtros, la seleccion masiva solo debe afectar registros visibles del periodo/filtro actual; no debe conservar selecciones ocultas de otros meses.
+
+Cuando el usuario aplica categoria masiva, la categoria debe conservarse aunque el movimiento sea ingreso o traspaso. La regla fiscal de CFDI esperado puede quedar como `no_aplica`, pero no debe pisar la categoria operativa elegida por el usuario.
+
+Las listas operativas de estados de cuenta y CFDI deben respetar el periodo activo. Por ejemplo, al trabajar septiembre no deben aparecer estados de cuenta ni XML de agosto en las mesas de carga, clasificacion o conciliacion, salvo que el usuario cambie explicitamente el periodo.
+
+Al importar estados de cuenta, si el archivo trae una columna unica de monto con signo, el signo debe respetarse: valores negativos son egresos y valores positivos son ingresos. El parser debe aceptar formatos comunes de bancos, como `-123.45`, `123.45-`, `(123.45)` o signo unicode. Una columna de tipo/movimiento puede ayudar solo cuando dice claramente ingreso, deposito, egreso, cargo, retiro o pago; si trae otro texto ambiguo, no debe forzar todos los registros a egreso.
+
 Los traspasos entre cuentas propias se identifican por `actividad = transpaso`. Para ayudar a relacionarlos, el MVP sugiere pares cuando existe un egreso y un ingreso con el mismo monto absoluto, cuentas distintas y fechas cercanas. La relacion se guarda localmente en `traspaso_grupo` y `traspaso_relacionado`; no cambia el monto ni crea un movimiento nuevo.
 
-Los traspasos relacionados deben quedar con `categoria = no_aplica` y `cfdi = no_aplica`, porque no representan ingreso gravable ni gasto deducible por si mismos. Siguen apareciendo en conciliacion para comprobar que la salida de una cuenta corresponde con la entrada de otra.
+Los traspasos sugeridos automaticamente pueden quedar con `categoria = no_aplica` y `cfdi = no_aplica`, porque no representan ingreso gravable ni gasto deducible por si mismos. Si el usuario cambia la categoria despues, el sistema debe respetarla como clasificacion operativa.
 
 ## Ajuste operativo 2026-09-05 relacion CFDI-banco
 
@@ -274,6 +290,8 @@ La relacion entre CFDI y movimiento bancario no debe crearse automaticamente por
 Una coincidencia operativa fuerte requiere monto igual o compatible por redondeo entre el CFDI, o su complemento de pago cuando aplique, y el movimiento bancario. La fecha ayuda a ordenar candidatos y explicar la sugerencia, pero no debe ser requisito de relacion porque puede variar por corte, aplicacion bancaria, tarjeta o plataforma. Si no existe monto compatible, la mesa de relacion debe permitir busqueda manual por fecha, descripcion, cuenta, monto, emisor, RFC, folio o UUID.
 
 Al confirmar una relacion, el sistema marca el movimiento como `cfdi = ligado`, guarda el UUID en el movimiento y registra `movimiento_relacionado` en el CFDI. Si alguno de los dos ya esta ligado con otro registro, primero debe deshacerse la relacion anterior para evitar sustituciones silenciosas.
+
+Las alertas de pendientes del contador deben calcularse por relacion real, no solo por la etiqueta historica del movimiento. Si un movimiento tiene `cfdi_uuid` o existe un CFDI con `movimiento_relacionado` apuntando a ese movimiento, no debe contarse como pendiente aunque el campo legacy `cfdi` siga diciendo `pendiente`.
 
 La accion de reparacion `Deshacer montos no exactos` quita las relaciones CFDI-banco del mes activo cuando el monto no coincide o no cuadra por redondeo. Esta accion deja el movimiento y el CFDI como pendientes para volver a revisarlos, sin eliminar estados de cuenta ni movimientos auxiliares creados desde CFDI.
 

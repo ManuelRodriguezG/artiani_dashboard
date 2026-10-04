@@ -29,6 +29,7 @@ class DistribucionClientesApi extends CRUD {
     $codigoPostal = trim((string) $this->valor($datos, "codigo_postal", ""));
     $referencias = trim((string) $this->valor($datos, "referencias", ""));
     $interesesComerciales = trim((string) $this->valor($datos, "intereses_comerciales", ""));
+    $categoriasInteres = $this->normalizarCategoriasInteres($this->valor($datos, "categorias_interes", $this->valor($datos, "categorias", array())));
     $mensaje = trim((string) $this->valor($datos, "mensaje", ""));
     $facturacionEntrada = $this->valor($datos, "facturacion", array());
     if (!is_array($facturacionEntrada)) { $facturacionEntrada = array(); }
@@ -107,13 +108,14 @@ class DistribucionClientesApi extends CRUD {
         "referencias" => $referencias,
         "requiere_factura" => $facturacion["requiere_factura"],
         "facturacion" => $facturacion,
+        "categorias_interes" => $categoriasInteres,
         "intereses_comerciales" => $interesesComerciales,
         "mensaje" => $mensaje,
         "pendiente_permitir_registro_sin_correo" => true
       );
       $stmt = $db->prepare("INSERT INTO erp_distribucion_solicitudes
-        (folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, calle, numero_exterior, numero_interior, colonia, codigo_postal, referencias, intereses_comerciales, mensaje, datos_comerciales_json, ip_registro, user_agent, estatus, fecha_registro)
-        VALUES (:folio, :nombre, :nombre_negocio, :empresa, :correo, :telefono, :whatsapp, :rfc, :ciudad, :estado, :tipo_interes, :tipo_negocio, :calle, :numero_exterior, :numero_interior, :colonia, :codigo_postal, :referencias, :intereses_comerciales, :mensaje, :datos_comerciales_json, :ip_registro, :user_agent, 'pendiente', NOW())");
+        (folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, calle, numero_exterior, numero_interior, colonia, codigo_postal, referencias, intereses_comerciales, categorias_interes_json, mensaje, datos_comerciales_json, ip_registro, user_agent, estatus, fecha_registro)
+        VALUES (:folio, :nombre, :nombre_negocio, :empresa, :correo, :telefono, :whatsapp, :rfc, :ciudad, :estado, :tipo_interes, :tipo_negocio, :calle, :numero_exterior, :numero_interior, :colonia, :codigo_postal, :referencias, :intereses_comerciales, :categorias_interes_json, :mensaje, :datos_comerciales_json, :ip_registro, :user_agent, 'pendiente', NOW())");
       $stmt->execute(array(
         ":folio" => $folio,
         ":nombre" => $nombre,
@@ -134,6 +136,7 @@ class DistribucionClientesApi extends CRUD {
         ":codigo_postal" => $codigoPostal,
         ":referencias" => $referencias,
         ":intereses_comerciales" => $interesesComerciales,
+        ":categorias_interes_json" => json_encode($categoriasInteres, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ":mensaje" => $mensaje,
         ":datos_comerciales_json" => json_encode($datosComerciales, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ":ip_registro" => $this->ipContexto($contexto),
@@ -180,7 +183,7 @@ class DistribucionClientesApi extends CRUD {
     }
 
     try {
-      $stmt = $db->prepare("SELECT id_cliente_distribucion, nombre, correo, tipo_cliente, estatus, contrasenia_hash, id_lista_precio
+      $stmt = $db->prepare("SELECT *
         FROM erp_distribucion_clientes
         WHERE correo=:correo
         LIMIT 1");
@@ -224,17 +227,10 @@ class DistribucionClientesApi extends CRUD {
 
       $permisos = $this->permisosCliente($db, intval($cliente["id_cliente_distribucion"]));
       $acciones = $this->accionesPermitidasCliente($permisos);
+      $perfil = $this->formatearPerfilCliente($db, $cliente, $permisos, $acciones);
       return $this->respuesta(false, "success", "Sesion Distribucion iniciada", array(
         "token" => $token,
-        "perfil" => array(
-          "id_cliente_distribucion" => intval($cliente["id_cliente_distribucion"]),
-          "nombre" => $cliente["nombre"],
-          "tipo_cliente" => $cliente["tipo_cliente"],
-          "estatus" => $cliente["estatus"],
-          "id_lista_precio" => intval($cliente["id_lista_precio"]),
-          "permisos" => $permisos,
-          "acciones" => $acciones
-        ),
+        "perfil" => $perfil,
         "permisos" => $permisos,
         "acciones" => $acciones,
         "configurado" => true,
@@ -259,7 +255,7 @@ class DistribucionClientesApi extends CRUD {
       return null;
     }
     try {
-      $stmt = $db->prepare("SELECT c.id_cliente_distribucion, c.nombre, c.tipo_cliente, c.estatus, c.id_lista_precio
+      $stmt = $db->prepare("SELECT c.*
         FROM erp_distribucion_tokens t
         INNER JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=t.id_cliente_distribucion
         WHERE t.token_hash=:token_hash
@@ -271,15 +267,8 @@ class DistribucionClientesApi extends CRUD {
       $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$cliente) { return null; }
       $permisos = $this->permisosCliente($db, intval($cliente["id_cliente_distribucion"]));
-      return array(
-        "id_cliente_distribucion" => intval($cliente["id_cliente_distribucion"]),
-        "nombre" => $cliente["nombre"],
-        "tipo_cliente" => $cliente["tipo_cliente"],
-        "estatus" => $cliente["estatus"],
-        "id_lista_precio" => intval($cliente["id_lista_precio"]),
-        "permisos" => $permisos,
-        "acciones" => $this->accionesPermitidasCliente($permisos)
-      );
+      $acciones = $this->accionesPermitidasCliente($permisos);
+      return $this->formatearPerfilCliente($db, $cliente, $permisos, $acciones);
     } catch (Exception $e) {
       return null;
     }
@@ -305,7 +294,8 @@ class DistribucionClientesApi extends CRUD {
         $where[] = "estatus=:estatus";
         $params[":estatus"] = $estatus;
       }
-      $stmt = $db->prepare("SELECT id_solicitud_distribucion, id_cliente_distribucion, folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, estatus, fecha_registro
+      $extraSolicitud = $this->columnaExiste($db, "erp_distribucion_solicitudes", "categorias_interes_json") ? "categorias_interes_json," : "NULL categorias_interes_json,";
+      $stmt = $db->prepare("SELECT id_solicitud_distribucion, id_cliente_distribucion, folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, intereses_comerciales, " . $extraSolicitud . " estatus, fecha_registro
         FROM erp_distribucion_solicitudes
         WHERE " . implode(" AND ", $where) . "
         ORDER BY id_solicitud_distribucion DESC
@@ -370,8 +360,11 @@ class DistribucionClientesApi extends CRUD {
       $extraEntrega = $this->columnasEntregaClienteDisponibles($db)
         ? "c.metodo_entrega_default, c.entrega_habilitar_envio, c.entrega_habilitar_recoger_tienda, c.costo_envio_default,"
         : "NULL metodo_entrega_default, NULL entrega_habilitar_envio, NULL entrega_habilitar_recoger_tienda, NULL costo_envio_default,";
+      $extraCatalogo = $this->columnasCatalogoClienteDisponibles($db)
+        ? "c.catalogo_modo, c.categorias_interes_json,"
+        : "'general' catalogo_modo, NULL categorias_interes_json,";
       $stmt = $db->prepare("SELECT c.id_cliente_distribucion, c.nombre, c.empresa, c.correo, c.telefono, c.tipo_cliente, c.estatus,
-          c.id_lista_precio, " . $extraEntrega . " l.nombre lista_precio, c.fecha_aprobacion, c.fecha_ultimo_login, c.fecha_registro,
+          c.id_lista_precio, " . $extraCatalogo . " " . $extraEntrega . " l.nombre lista_precio, c.fecha_aprobacion, c.fecha_ultimo_login, c.fecha_registro,
           (SELECT COUNT(*) FROM erp_distribucion_cliente_permisos cp WHERE cp.id_cliente_distribucion=c.id_cliente_distribucion AND cp.estatus='activo') permisos_activos,
           (SELECT GROUP_CONCAT(cp.permiso ORDER BY cp.permiso SEPARATOR ',') FROM erp_distribucion_cliente_permisos cp WHERE cp.id_cliente_distribucion=c.id_cliente_distribucion AND cp.estatus='activo') permisos
         FROM erp_distribucion_clientes c
@@ -380,7 +373,12 @@ class DistribucionClientesApi extends CRUD {
         ORDER BY c.id_cliente_distribucion DESC
         LIMIT " . intval($limite));
       $stmt->execute($params);
-      return $this->respuesta(false, "success", "Clientes Distribucion consultados", array("configurado" => true, "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)));
+      $items = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $fila["categorias_interes"] = $this->jsonArray($this->valor($fila, "categorias_interes_json", ""));
+        $items[] = $fila;
+      }
+      return $this->respuesta(false, "success", "Clientes Distribucion consultados", array("configurado" => true, "items" => $items));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudieron consultar clientes Distribucion", array("detalle" => "error_controlado"));
     }
@@ -465,6 +463,10 @@ class DistribucionClientesApi extends CRUD {
       }
       $tipo = "mayorista";
       $empresa = trim((string) (isset($solicitud["nombre_negocio"]) && $solicitud["nombre_negocio"] !== "" ? $solicitud["nombre_negocio"] : $solicitud["empresa"]));
+      $categoriasInteres = $this->jsonArray($this->valor($solicitud, "categorias_interes_json", ""));
+      $datosSolicitud = $this->jsonArray($this->valor($solicitud, "datos_comerciales_json", ""));
+      $facturacionSolicitud = $this->valor($datosSolicitud, "facturacion", array());
+      if (!is_array($facturacionSolicitud)) { $facturacionSolicitud = array(); }
       $contrasenia = (string) $this->valor($datos, "contrasenia", "");
       $hash = $contrasenia !== "" ? password_hash($contrasenia, PASSWORD_DEFAULT) : null;
       $idLista = intval($this->valor($datos, "id_lista_precio", 0));
@@ -484,17 +486,46 @@ class DistribucionClientesApi extends CRUD {
       }
       $db->beginTransaction();
       $stmt = $db->prepare("INSERT INTO erp_distribucion_clientes
-        (nombre, empresa, correo, telefono, tipo_cliente, estatus, contrasenia_hash, fecha_aprobacion, fecha_registro, fecha_actualizacion)
-        VALUES (:nombre, :empresa, :correo, :telefono, :tipo, 'aprobado', :hash, NOW(), NOW(), NOW())
-        ON DUPLICATE KEY UPDATE nombre=VALUES(nombre), empresa=VALUES(empresa), telefono=VALUES(telefono), tipo_cliente=VALUES(tipo_cliente),
-          estatus='aprobado', contrasenia_hash=COALESCE(VALUES(contrasenia_hash), contrasenia_hash), fecha_aprobacion=COALESCE(fecha_aprobacion, NOW()), fecha_actualizacion=NOW()");
+        (nombre, empresa, nombre_negocio, correo, telefono, whatsapp, tipo_cliente, estatus, contrasenia_hash, tipo_negocio, ciudad, estado,
+          calle, numero_exterior, numero_interior, colonia, codigo_postal, referencias, requiere_factura, rfc, razon_social, regimen_fiscal,
+          uso_cfdi, codigo_postal_fiscal, correo_facturacion, comentarios_facturacion, catalogo_modo, categorias_interes_json, fecha_aprobacion, fecha_registro, fecha_actualizacion)
+        VALUES (:nombre, :empresa, :nombre_negocio, :correo, :telefono, :whatsapp, :tipo, 'aprobado', :hash, :tipo_negocio, :ciudad, :estado,
+          :calle, :numero_exterior, :numero_interior, :colonia, :codigo_postal, :referencias, :requiere_factura, :rfc, :razon_social, :regimen_fiscal,
+          :uso_cfdi, :codigo_postal_fiscal, :correo_facturacion, :comentarios_facturacion, 'general', :categorias_interes_json, NOW(), NOW(), NOW())
+        ON DUPLICATE KEY UPDATE nombre=VALUES(nombre), empresa=VALUES(empresa), nombre_negocio=VALUES(nombre_negocio), telefono=VALUES(telefono), whatsapp=VALUES(whatsapp), tipo_cliente=VALUES(tipo_cliente),
+          tipo_negocio=VALUES(tipo_negocio), ciudad=VALUES(ciudad), estado=VALUES(estado), calle=VALUES(calle), numero_exterior=VALUES(numero_exterior),
+          numero_interior=VALUES(numero_interior), colonia=VALUES(colonia), codigo_postal=VALUES(codigo_postal), referencias=VALUES(referencias),
+          requiere_factura=VALUES(requiere_factura), rfc=VALUES(rfc), razon_social=VALUES(razon_social), regimen_fiscal=VALUES(regimen_fiscal),
+          uso_cfdi=VALUES(uso_cfdi), codigo_postal_fiscal=VALUES(codigo_postal_fiscal), correo_facturacion=VALUES(correo_facturacion),
+          comentarios_facturacion=VALUES(comentarios_facturacion),
+          estatus='aprobado', contrasenia_hash=COALESCE(VALUES(contrasenia_hash), contrasenia_hash), categorias_interes_json=VALUES(categorias_interes_json), fecha_aprobacion=COALESCE(fecha_aprobacion, NOW()), fecha_actualizacion=NOW()");
       $stmt->execute(array(
         ":nombre" => $solicitud["nombre"],
         ":empresa" => $empresa,
+        ":nombre_negocio" => $this->textoNullable($this->valor($solicitud, "nombre_negocio", $empresa), 180),
         ":correo" => strtolower($solicitud["correo"]),
         ":telefono" => $solicitud["telefono"],
+        ":whatsapp" => $this->textoNullable($this->valor($solicitud, "whatsapp", ""), 40),
         ":tipo" => $tipo,
-        ":hash" => $hash
+        ":hash" => $hash,
+        ":tipo_negocio" => $this->textoNullable($this->valor($solicitud, "tipo_negocio", ""), 60),
+        ":ciudad" => $this->textoNullable($this->valor($solicitud, "ciudad", ""), 120),
+        ":estado" => $this->textoNullable($this->valor($solicitud, "estado", ""), 120),
+        ":calle" => $this->textoNullable($this->valor($solicitud, "calle", ""), 180),
+        ":numero_exterior" => $this->textoNullable($this->valor($solicitud, "numero_exterior", ""), 40),
+        ":numero_interior" => $this->textoNullable($this->valor($solicitud, "numero_interior", ""), 40),
+        ":colonia" => $this->textoNullable($this->valor($solicitud, "colonia", ""), 120),
+        ":codigo_postal" => $this->textoNullable($this->valor($solicitud, "codigo_postal", ""), 20),
+        ":referencias" => $this->textoNullable($this->valor($solicitud, "referencias", ""), 2000),
+        ":requiere_factura" => intval($this->valor($facturacionSolicitud, "requiere_factura", $this->valor($datosSolicitud, "requiere_factura", 0))) === 1 ? 1 : 0,
+        ":rfc" => $this->textoNullable(strtoupper((string) $this->valor($solicitud, "rfc", $this->valor($facturacionSolicitud, "rfc", ""))), 20),
+        ":razon_social" => $this->textoNullable($this->valor($facturacionSolicitud, "razon_social", ""), 220),
+        ":regimen_fiscal" => $this->textoNullable($this->valor($facturacionSolicitud, "regimen_fiscal", ""), 120),
+        ":uso_cfdi" => $this->textoNullable(strtoupper((string) $this->valor($facturacionSolicitud, "uso_cfdi", "")), 20),
+        ":codigo_postal_fiscal" => $this->textoNullable($this->valor($facturacionSolicitud, "codigo_postal_fiscal", ""), 20),
+        ":correo_facturacion" => $this->textoNullable(strtolower((string) $this->valor($facturacionSolicitud, "correo_facturacion", "")), 180),
+        ":comentarios_facturacion" => $this->textoNullable($this->valor($facturacionSolicitud, "comentarios_facturacion", ""), 2000),
+        ":categorias_interes_json" => json_encode($categoriasInteres, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
       ));
       $stmtCliente = $db->prepare("SELECT id_cliente_distribucion FROM erp_distribucion_clientes WHERE correo=:correo LIMIT 1");
       $stmtCliente->execute(array(":correo" => strtolower($solicitud["correo"])));
@@ -879,6 +910,348 @@ class DistribucionClientesApi extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: guardar modo de catalogo e intereses por cliente Distribucion.
+   * Impacto: Admin ERP; habilita catalogos generales o personalizados sin tocar productos globales.
+   * Contrato: escritura auditada sobre cliente externo.
+   */
+  public function catalogoPreferenciasPlanInterno($datos = array(), $idUsuario = null) {
+    $idCliente = intval($this->valor($datos, "id_cliente_distribucion", 0));
+    if ($idCliente <= 0) {
+      return $this->respuesta(true, "warning", "Cliente requerido");
+    }
+    $modo = $this->catalogoModoNormalizado($this->valor($datos, "catalogo_modo", $this->valor($datos, "modo", "general")));
+    $categorias = $this->normalizarCategoriasInteres($this->valor($datos, "categorias_interes", $this->valor($datos, "categorias", array())));
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->columnasCatalogoClienteDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Preferencias de catalogo pendientes de esquema", array("configurado" => false));
+    }
+    try {
+      $db->beginTransaction();
+      $cliente = $this->buscarCliente($db, $idCliente);
+      if (!$cliente) { throw new Exception("cliente_no_encontrado"); }
+      $db->prepare("UPDATE erp_distribucion_clientes
+        SET catalogo_modo=:modo, categorias_interes_json=:categorias, fecha_actualizacion=NOW()
+        WHERE id_cliente_distribucion=:cliente")
+        ->execute(array(
+          ":modo" => $modo,
+          ":categorias" => json_encode($categorias, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+          ":cliente" => $idCliente
+        ));
+      $this->registrarAuditoria($db, "cliente_catalogo", $idCliente, "configurar_preferencias", "ok", "Preferencias de catalogo Distribucion actualizadas", array(
+        "catalogo_modo" => $modo,
+        "categorias_interes" => $categorias
+      ), $idUsuario, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Preferencias de catalogo actualizadas", array(
+        "ejecutado" => true,
+        "id_cliente_distribucion" => $idCliente,
+        "catalogo_modo" => $modo,
+        "categorias_interes" => $categorias
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudieron actualizar preferencias de catalogo", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: consultar reglas de visibilidad por cliente Distribucion.
+   * Impacto: Admin ERP; permite revisar permitidos y ocultos por SKU/categoria/marca.
+   */
+  public function catalogoReglasInternas($filtros = array()) {
+    $idCliente = intval($this->valor($filtros, "id_cliente_distribucion", 0));
+    if ($idCliente <= 0) {
+      return $this->respuesta(true, "warning", "Cliente requerido", array("items" => array()));
+    }
+    $db = $this->getConexion();
+    if (!$this->tablaExiste($db, "erp_distribucion_cliente_catalogo_reglas")) {
+      return $this->respuesta(false, "warning", "Reglas de catalogo pendientes de esquema", array("configurado" => false, "items" => array()));
+    }
+    try {
+      $stmt = $db->prepare("SELECT r.id_cliente_catalogo_regla, r.id_cliente_distribucion, r.tipo_regla, r.objeto_clave,
+          r.id_sku, r.id_categoria_erp, r.id_marca_erp, r.accion, r.prioridad, r.estatus, r.origen, r.notas,
+          r.fecha_registro, r.fecha_actualizacion,
+          s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) sku_nombre,
+          c.nombre categoria_nombre, c.ruta categoria_ruta,
+          m.nombre marca_nombre
+        FROM erp_distribucion_cliente_catalogo_reglas r
+        LEFT JOIN erp_catalogo_skus s ON s.id_sku=r.id_sku
+        LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=r.id_categoria_erp
+        LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=r.id_marca_erp
+        WHERE r.id_cliente_distribucion=:cliente
+        ORDER BY r.estatus ASC, r.accion ASC, r.tipo_regla ASC, r.prioridad DESC, r.id_cliente_catalogo_regla DESC
+        LIMIT 500");
+      $stmt->execute(array(":cliente" => $idCliente));
+      return $this->respuesta(false, "success", "Reglas de catalogo consultadas", array(
+        "configurado" => true,
+        "id_cliente_distribucion" => $idCliente,
+        "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudieron consultar reglas de catalogo", array("detalle" => "error_controlado", "items" => array()));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: guardar regla de permitir/ocultar catalogo por cliente.
+   * Impacto: Admin ERP; no afecta catalogo global ni otros clientes.
+   */
+  public function catalogoReglaGuardarInterna($datos = array(), $idUsuario = null) {
+    $idCliente = intval($this->valor($datos, "id_cliente_distribucion", 0));
+    if ($idCliente <= 0) {
+      return $this->respuesta(true, "warning", "Cliente requerido");
+    }
+    $tipo = trim((string) $this->valor($datos, "tipo_regla", $this->valor($datos, "tipo", "")));
+    $tipo = in_array($tipo, array("sku", "categoria", "marca"), true) ? $tipo : "";
+    $accion = trim((string) $this->valor($datos, "accion", "permitir"));
+    $accion = in_array($accion, array("permitir", "ocultar"), true) ? $accion : "permitir";
+    $estatus = trim((string) $this->valor($datos, "estatus", "activo"));
+    $estatus = in_array($estatus, array("activo", "inactivo"), true) ? $estatus : "activo";
+    $idSku = intval($this->valor($datos, "id_sku", 0));
+    $idCategoria = intval($this->valor($datos, "id_categoria_erp", $this->valor($datos, "id_categoria", 0)));
+    $idMarca = intval($this->valor($datos, "id_marca_erp", $this->valor($datos, "id_marca", 0)));
+    if ($tipo === "" || ($tipo === "sku" && $idSku <= 0) || ($tipo === "categoria" && $idCategoria <= 0) || ($tipo === "marca" && $idMarca <= 0)) {
+      return $this->respuesta(true, "warning", "Regla de catalogo incompleta");
+    }
+    $objetoClave = $tipo . ":" . ($tipo === "sku" ? $idSku : ($tipo === "categoria" ? $idCategoria : $idMarca));
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->tablaExiste($db, "erp_distribucion_cliente_catalogo_reglas")) {
+      return $this->respuesta(true, "warning", "Reglas de catalogo pendientes de esquema", array("configurado" => false));
+    }
+    try {
+      $db->beginTransaction();
+      $cliente = $this->buscarCliente($db, $idCliente);
+      if (!$cliente) { throw new Exception("cliente_no_encontrado"); }
+      $db->prepare("INSERT INTO erp_distribucion_cliente_catalogo_reglas
+        (id_cliente_distribucion, tipo_regla, objeto_clave, id_sku, id_categoria_erp, id_marca_erp, accion, prioridad, estatus, origen, notas, fecha_registro, fecha_actualizacion)
+        VALUES (:cliente, :tipo, :objeto, :sku, :categoria, :marca, :accion, :prioridad, :estatus, :origen, :notas, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE id_sku=VALUES(id_sku), id_categoria_erp=VALUES(id_categoria_erp), id_marca_erp=VALUES(id_marca_erp),
+          prioridad=VALUES(prioridad), estatus=VALUES(estatus), origen=VALUES(origen), notas=VALUES(notas), fecha_actualizacion=NOW()")
+        ->execute(array(
+          ":cliente" => $idCliente,
+          ":tipo" => $tipo,
+          ":objeto" => $objetoClave,
+          ":sku" => $tipo === "sku" ? $idSku : null,
+          ":categoria" => $tipo === "categoria" ? $idCategoria : null,
+          ":marca" => $tipo === "marca" ? $idMarca : null,
+          ":accion" => $accion,
+          ":prioridad" => max(0, min(999, intval($this->valor($datos, "prioridad", 0)))),
+          ":estatus" => $estatus,
+          ":origen" => substr(trim((string) $this->valor($datos, "origen", "admin")), 0, 40),
+          ":notas" => $this->textoNullable($this->valor($datos, "notas", null), 2000)
+        ));
+      $this->registrarAuditoria($db, "cliente_catalogo", $idCliente, "guardar_regla", "ok", "Regla de catalogo Distribucion guardada", array(
+        "tipo_regla" => $tipo,
+        "objeto_clave" => $objetoClave,
+        "accion" => $accion,
+        "estatus" => $estatus
+      ), $idUsuario, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Regla de catalogo guardada", array(
+        "ejecutado" => true,
+        "id_cliente_distribucion" => $idCliente,
+        "tipo_regla" => $tipo,
+        "objeto_clave" => $objetoClave,
+        "accion" => $accion,
+        "estatus" => $estatus
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo guardar regla de catalogo", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: recibir cambios de perfil desde el portal externo separando simples y sensibles.
+   * Impacto: Mi cuenta Distribucion; aplica contacto basico con auditoria y deja datos comerciales/fiscales en revision.
+   * Contrato: POST autenticado; no permite cambiar lista, permisos, tipo_cliente ni estatus.
+   */
+  public function solicitarCambioPerfil($datos = array(), $contexto = array()) {
+    if (empty($contexto["autenticado"]) || intval($this->valor($contexto, "id_cliente_distribucion", 0)) <= 0) {
+      return $this->respuesta(true, "warning", "Debes iniciar sesion para solicitar cambios", array("requiere_autenticacion" => true));
+    }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->tablaExiste($db, "erp_distribucion_cliente_solicitudes_cambio") || !$this->columnasPerfilClienteDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Mi cuenta Distribucion pendiente de esquema", array("configurado" => false));
+    }
+    $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+    $simplesPermitidos = array("telefono", "whatsapp", "correo_alterno", "contacto_principal");
+    $sensiblesPermitidos = array("empresa", "nombre_negocio", "tipo_negocio", "ciudad", "estado", "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal", "referencias", "requiere_factura", "rfc", "razon_social", "regimen_fiscal", "uso_cfdi", "codigo_postal_fiscal", "correo_facturacion", "comentarios_facturacion");
+    $simples = array();
+    $sensibles = array();
+
+    foreach ($simplesPermitidos as $campo) {
+      if (array_key_exists($campo, $datos)) {
+        $simples[$campo] = $this->normalizarCampoPerfil($campo, $datos[$campo]);
+      }
+    }
+    $datosComerciales = $this->valor($datos, "datos_comerciales", array());
+    $entrega = $this->valor($datos, "entrega", array());
+    $facturacion = $this->valor($datos, "facturacion", array());
+    $fuentesSensibles = array(is_array($datos) ? $datos : array(), is_array($datosComerciales) ? $datosComerciales : array(), is_array($entrega) ? $entrega : array(), is_array($facturacion) ? $facturacion : array());
+    foreach ($sensiblesPermitidos as $campo) {
+      foreach ($fuentesSensibles as $fuente) {
+        if (array_key_exists($campo, $fuente)) {
+          $sensibles[$campo] = $this->normalizarCampoPerfil($campo, $fuente[$campo]);
+          break;
+        }
+      }
+    }
+    foreach (array("id_lista_precio", "permisos", "tipo_cliente", "estatus", "catalogo_modo") as $bloqueado) {
+      unset($simples[$bloqueado], $sensibles[$bloqueado]);
+    }
+    if (empty($simples) && empty($sensibles)) {
+      return $this->respuesta(true, "warning", "No hay cambios validos para procesar");
+    }
+
+    try {
+      $db->beginTransaction();
+      $cliente = $this->buscarCliente($db, $idCliente);
+      if (!$cliente) { throw new Exception("cliente_no_encontrado"); }
+      if (!empty($simples)) {
+        $sets = array();
+        $params = array(":cliente" => $idCliente);
+        foreach ($simples as $campo => $valor) {
+          $sets[] = $campo . "=:" . $campo;
+          $params[":" . $campo] = $valor;
+        }
+        $sets[] = "fecha_actualizacion=NOW()";
+        $db->prepare("UPDATE erp_distribucion_clientes SET " . implode(", ", $sets) . " WHERE id_cliente_distribucion=:cliente")
+          ->execute($params);
+        $this->registrarAuditoria($db, "cliente", $idCliente, "perfil_contacto_actualizar", "ok", "Contacto Distribucion actualizado desde portal", array(
+          "campos" => array_keys($simples)
+        ), null, $idCliente);
+      }
+      $idSolicitud = null;
+      if (!empty($sensibles)) {
+        $resumen = $this->resumenSolicitudCambio($sensibles);
+        $stmt = $db->prepare("INSERT INTO erp_distribucion_cliente_solicitudes_cambio
+          (id_cliente_distribucion, tipo, resumen, datos_json, estatus, ip_registro, user_agent, fecha_registro)
+          VALUES (:cliente, :tipo, :resumen, :datos, 'pendiente', :ip, :ua, NOW())");
+        $stmt->execute(array(
+          ":cliente" => $idCliente,
+          ":tipo" => "perfil_comercial",
+          ":resumen" => $resumen,
+          ":datos" => json_encode(array("campos" => $sensibles), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+          ":ip" => $this->ipContexto($contexto),
+          ":ua" => $this->userAgentContexto($contexto)
+        ));
+        $idSolicitud = intval($db->lastInsertId());
+        $this->registrarAuditoria($db, "cliente", $idCliente, "perfil_solicitar_cambio", "pendiente", "Solicitud de cambio sensible recibida", array(
+          "id_solicitud_cambio" => $idSolicitud,
+          "campos" => array_keys($sensibles)
+        ), null, $idCliente);
+      }
+      $db->commit();
+      return $this->respuesta(false, "success", empty($sensibles) ? "Datos de contacto actualizados" : "Solicitud de cambio recibida", array(
+        "ejecutado" => true,
+        "cambios_aplicados" => array_keys($simples),
+        "requiere_revision" => !empty($sensibles),
+        "id_solicitud" => $idSolicitud,
+        "estatus" => $idSolicitud ? "pendiente" : "aplicado"
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo procesar la solicitud de cambio", array("detalle" => "error_controlado"));
+    }
+  }
+
+  private function formatearPerfilCliente($db, $cliente, $permisos, $acciones) {
+    $idCliente = intval($this->valor($cliente, "id_cliente_distribucion", 0));
+    return array(
+      "id_cliente_distribucion" => $idCliente,
+      "nombre" => $this->valor($cliente, "nombre", ""),
+      "tipo_cliente" => $this->valor($cliente, "tipo_cliente", ""),
+      "estatus" => $this->valor($cliente, "estatus", ""),
+      "id_lista_precio" => intval($this->valor($cliente, "id_lista_precio", 0)),
+      "catalogo_modo" => $this->catalogoModoNormalizado($this->valor($cliente, "catalogo_modo", "general")),
+      "categorias_interes" => $this->jsonArray($this->valor($cliente, "categorias_interes_json", "")),
+      "contacto" => array(
+        "telefono" => $this->valor($cliente, "telefono", ""),
+        "whatsapp" => $this->valor($cliente, "whatsapp", ""),
+        "correo" => $this->valor($cliente, "correo", ""),
+        "correo_alterno" => $this->valor($cliente, "correo_alterno", ""),
+        "contacto_principal" => $this->valor($cliente, "contacto_principal", $this->valor($cliente, "nombre", ""))
+      ),
+      "datos_comerciales" => array(
+        "empresa" => $this->valor($cliente, "empresa", ""),
+        "nombre_negocio" => $this->valor($cliente, "nombre_negocio", $this->valor($cliente, "empresa", "")),
+        "tipo_negocio" => $this->valor($cliente, "tipo_negocio", ""),
+        "ciudad" => $this->valor($cliente, "ciudad", ""),
+        "estado" => $this->valor($cliente, "estado", "")
+      ),
+      "entrega" => array(
+        "calle" => $this->valor($cliente, "calle", ""),
+        "numero_exterior" => $this->valor($cliente, "numero_exterior", ""),
+        "numero_interior" => $this->valor($cliente, "numero_interior", ""),
+        "colonia" => $this->valor($cliente, "colonia", ""),
+        "ciudad" => $this->valor($cliente, "ciudad", ""),
+        "estado" => $this->valor($cliente, "estado", ""),
+        "codigo_postal" => $this->valor($cliente, "codigo_postal", ""),
+        "referencias" => $this->valor($cliente, "referencias", "")
+      ),
+      "facturacion" => array(
+        "requiere_factura" => intval($this->valor($cliente, "requiere_factura", 0)),
+        "rfc" => $this->valor($cliente, "rfc", ""),
+        "razon_social" => $this->valor($cliente, "razon_social", ""),
+        "regimen_fiscal" => $this->valor($cliente, "regimen_fiscal", ""),
+        "uso_cfdi" => $this->valor($cliente, "uso_cfdi", ""),
+        "codigo_postal_fiscal" => $this->valor($cliente, "codigo_postal_fiscal", ""),
+        "correo_facturacion" => $this->valor($cliente, "correo_facturacion", ""),
+        "comentarios_facturacion" => $this->valor($cliente, "comentarios_facturacion", "")
+      ),
+      "solicitudes_cambio" => $this->solicitudesCambioCliente($db, $idCliente),
+      "permisos" => $permisos,
+      "acciones" => $acciones
+    );
+  }
+
+  private function solicitudesCambioCliente($db, $idCliente) {
+    if (!$this->tablaExiste($db, "erp_distribucion_cliente_solicitudes_cambio")) { return array(); }
+    $stmt = $db->prepare("SELECT id_solicitud_cambio id_solicitud, tipo, resumen, estatus, fecha_registro
+      FROM erp_distribucion_cliente_solicitudes_cambio
+      WHERE id_cliente_distribucion=:cliente
+      ORDER BY id_solicitud_cambio DESC
+      LIMIT 10");
+    $stmt->execute(array(":cliente" => intval($idCliente)));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function normalizarCampoPerfil($campo, $valor) {
+    if ($campo === "requiere_factura") { return intval($valor) === 1 ? 1 : 0; }
+    $valor = trim((string) $valor);
+    if (in_array($campo, array("correo_alterno", "correo_facturacion"), true)) {
+      $valor = strtolower($valor);
+      return filter_var($valor, FILTER_VALIDATE_EMAIL) ? substr($valor, 0, 180) : "";
+    }
+    if (in_array($campo, array("rfc", "uso_cfdi"), true)) {
+      $valor = strtoupper($valor);
+    }
+    $maximos = array(
+      "telefono" => 40, "whatsapp" => 40, "contacto_principal" => 160, "empresa" => 180, "nombre_negocio" => 180,
+      "tipo_negocio" => 60, "ciudad" => 120, "estado" => 120, "calle" => 180, "numero_exterior" => 40,
+      "numero_interior" => 40, "colonia" => 120, "codigo_postal" => 20, "rfc" => 20, "razon_social" => 220,
+      "regimen_fiscal" => 120, "uso_cfdi" => 20, "codigo_postal_fiscal" => 20
+    );
+    $max = isset($maximos[$campo]) ? $maximos[$campo] : 2000;
+    return substr($valor, 0, $max);
+  }
+
+  private function resumenSolicitudCambio($campos) {
+    $nombres = array_keys($campos);
+    return substr("Cambio de " . implode(", ", array_slice($nombres, 0, 8)) . (count($nombres) > 8 ? " y otros datos" : ""), 0, 255);
+  }
+
   private function permisosCliente($db, $idCliente) {
     if (!$this->tablaExiste($db, "erp_distribucion_cliente_permisos")) {
       return array();
@@ -1024,6 +1397,56 @@ class DistribucionClientesApi extends CRUD {
     }
   }
 
+  private function normalizarCategoriasInteres($entrada) {
+    if (is_string($entrada)) {
+      $decodificada = json_decode($entrada, true);
+      if (is_array($decodificada)) {
+        $entrada = $decodificada;
+      } else {
+        $entrada = array_filter(array_map("trim", explode(",", $entrada)));
+      }
+    }
+    if (!is_array($entrada)) { return array(); }
+    $salida = array();
+    foreach (array_slice($entrada, 0, 40) as $item) {
+      if (is_array($item)) {
+        $id = intval($this->valor($item, "id_categoria_erp", $this->valor($item, "id", 0)));
+        $nombre = substr(trim((string) $this->valor($item, "nombre", $this->valor($item, "categoria", ""))), 0, 180);
+        $ruta = substr(trim((string) $this->valor($item, "ruta", "")), 0, 240);
+      } else {
+        $id = is_numeric($item) ? intval($item) : 0;
+        $nombre = is_numeric($item) ? "" : substr(trim((string) $item), 0, 180);
+        $ruta = "";
+      }
+      if ($id <= 0 && $nombre === "") { continue; }
+      $clave = $id > 0 ? "id:" . $id : "nombre:" . strtolower($nombre);
+      $salida[$clave] = array(
+        "id_categoria_erp" => $id > 0 ? $id : null,
+        "nombre" => $nombre,
+        "ruta" => $ruta
+      );
+    }
+    return array_values($salida);
+  }
+
+  private function jsonArray($valor) {
+    if (is_array($valor)) { return $valor; }
+    $valor = trim((string) $valor);
+    if ($valor === "") { return array(); }
+    $json = json_decode($valor, true);
+    return is_array($json) ? $json : array();
+  }
+
+  private function catalogoModoNormalizado($modo) {
+    $modo = trim((string) $modo);
+    return in_array($modo, array("general", "personalizado"), true) ? $modo : "general";
+  }
+
+  private function textoNullable($valor, $max) {
+    $valor = trim((string) $valor);
+    return $valor === "" ? null : substr($valor, 0, intval($max));
+  }
+
   private function actualizarClienteCampo($datos, $campo, $valor, $accion, $idUsuario) {
     $idCliente = intval($this->valor($datos, "id_cliente_distribucion", 0));
     if ($idCliente <= 0) {
@@ -1054,6 +1477,8 @@ class DistribucionClientesApi extends CRUD {
       && $this->tablaExiste($db, "erp_distribucion_solicitudes")
       && $this->tablaExiste($db, "erp_distribucion_cliente_permisos")
       && $this->tablaExiste($db, "erp_distribucion_cliente_listas")
+      && $this->tablaExiste($db, "erp_distribucion_cliente_catalogo_reglas")
+      && $this->tablaExiste($db, "erp_distribucion_cliente_solicitudes_cambio")
       && $this->tablaExiste($db, "erp_distribucion_tokens")
       && $this->tablaExiste($db, "erp_distribucion_auditoria");
   }
@@ -1142,7 +1567,7 @@ class DistribucionClientesApi extends CRUD {
   }
 
   private function columnasSolicitudComercialListas($db) {
-    $columnas = array("nombre_negocio", "whatsapp", "rfc", "ciudad", "estado", "tipo_negocio", "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal", "referencias", "intereses_comerciales", "datos_comerciales_json", "ip_registro", "user_agent");
+    $columnas = array("nombre_negocio", "whatsapp", "rfc", "ciudad", "estado", "tipo_negocio", "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal", "referencias", "intereses_comerciales", "categorias_interes_json", "datos_comerciales_json", "ip_registro", "user_agent");
     foreach ($columnas as $columna) {
       if (!$this->columnaExiste($db, "erp_distribucion_solicitudes", $columna)) {
         return false;
@@ -1153,6 +1578,24 @@ class DistribucionClientesApi extends CRUD {
 
   private function columnasEntregaClienteDisponibles($db) {
     foreach (array("metodo_entrega_default", "entrega_habilitar_envio", "entrega_habilitar_recoger_tienda", "costo_envio_default") as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_clientes", $columna)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private function columnasCatalogoClienteDisponibles($db) {
+    foreach (array("catalogo_modo", "categorias_interes_json") as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_clientes", $columna)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private function columnasPerfilClienteDisponibles($db) {
+    foreach (array("whatsapp", "correo_alterno", "contacto_principal", "nombre_negocio", "tipo_negocio", "ciudad", "estado", "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal", "referencias", "requiere_factura", "rfc", "razon_social", "regimen_fiscal", "uso_cfdi", "codigo_postal_fiscal", "correo_facturacion", "comentarios_facturacion") as $columna) {
       if (!$this->columnaExiste($db, "erp_distribucion_clientes", $columna)) {
         return false;
       }

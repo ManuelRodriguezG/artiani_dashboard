@@ -99,6 +99,10 @@ class CatalogoCanalesErp extends CRUD {
         )";
       }
 
+      $visibilidadCliente = $this->condicionesVisibilidadCliente($db, $contexto);
+      foreach ($visibilidadCliente["where"] as $condicionCliente) { $where[] = $condicionCliente; }
+      foreach ($visibilidadCliente["params"] as $clave => $valor) { $params[$clave] = $valor; }
+
       $sqlBase = $this->sqlBase($where);
       $stmtTotal = $db->prepare("SELECT COUNT(*) FROM (" . $sqlBase . ") t");
       $stmtTotal->execute($params);
@@ -137,12 +141,12 @@ class CatalogoCanalesErp extends CRUD {
    * Impacto: Catalogo multi-canal; evita usar slugs locales en Distribucion como fuente de verdad.
    * Contrato: read-only; devuelve un item sanitizado o null.
    */
-  public function productoCanal($canal, $slug) {
+  public function productoCanal($canal, $slug, $contexto = array()) {
     $slug = trim((string) $slug);
     if ($slug === "") {
       return $this->respuesta(true, "warning", "Slug requerido", array("item" => null));
     }
-    $respuesta = $this->catalogoCanal($canal, array("limite" => 1, "id_externo" => $slug));
+    $respuesta = $this->catalogoCanal($canal, array("limite" => 1, "id_externo" => $slug), $contexto);
     $depurar = $this->valor($respuesta, "depurar", array());
     $items = $this->valor($depurar, "items", array());
     return $this->respuesta(false, empty($items) ? "info" : "success", empty($items) ? "Producto no disponible para canal" : "Producto de canal consultado", array(
@@ -158,8 +162,8 @@ class CatalogoCanalesErp extends CRUD {
    * Impacto: Navegacion multi-canal; evita filtros que no tengan productos autorizados.
    * Contrato: read-only; solo conteos comerciales, sin costos ni stock.
    */
-  public function categoriasCanal($canal) {
-    return $this->facetaCanal($canal, "categorias");
+  public function categoriasCanal($canal, $contexto = array()) {
+    return $this->facetaCanal($canal, "categorias", $contexto);
   }
 
   /**
@@ -168,8 +172,8 @@ class CatalogoCanalesErp extends CRUD {
    * Impacto: Navegacion multi-canal; evita exponer marcas sin producto autorizado.
    * Contrato: read-only; solo conteos comerciales.
    */
-  public function marcasCanal($canal) {
-    return $this->facetaCanal($canal, "marcas");
+  public function marcasCanal($canal, $contexto = array()) {
+    return $this->facetaCanal($canal, "marcas", $contexto);
   }
 
   /**
@@ -178,7 +182,7 @@ class CatalogoCanalesErp extends CRUD {
    * Impacto: Inventario multi-canal; permite cotizacion externa con estados seguros.
    * Contrato: read-only; valida que el SKU este vinculado al canal y no aparta inventario.
    */
-  public function disponibilidadCanal($canal, $items = array()) {
+  public function disponibilidadCanal($canal, $items = array(), $contexto = array()) {
     try {
       $db = $this->getConexion();
       $readiness = $this->readiness($db);
@@ -218,6 +222,11 @@ class CatalogoCanalesErp extends CRUD {
           AND p.estatus='activo'
           AND s.estatus='activo'
           AND s.id_sku IN (" . implode(",", $placeholders) . ")";
+      $visibilidadCliente = $this->condicionesVisibilidadCliente($db, $contexto);
+      if (!empty($visibilidadCliente["where"])) {
+        $sql .= " AND " . implode(" AND ", $visibilidadCliente["where"]);
+      }
+      foreach ($visibilidadCliente["params"] as $clave => $valor) { $params[$clave] = $valor; }
       $stmt = $db->prepare($sql);
       $stmt->execute($params);
       $mapa = array();
@@ -257,7 +266,7 @@ class CatalogoCanalesErp extends CRUD {
     }
   }
 
-  private function facetaCanal($canal, $tipo) {
+  private function facetaCanal($canal, $tipo, $contexto = array()) {
     try {
       $db = $this->getConexion();
       $readiness = $this->readiness($db);
@@ -265,13 +274,18 @@ class CatalogoCanalesErp extends CRUD {
         return $this->respuesta(false, "info", "Facetas de canal pendientes de esquema ERP", array("configurado" => false, "items" => array(), "readiness" => $readiness));
       }
 
+      $visibilidadCliente = $this->condicionesVisibilidadCliente($db, $contexto);
+      $whereCliente = empty($visibilidadCliente["where"]) ? "" : " AND " . implode(" AND ", $visibilidadCliente["where"]);
+      $params = array(":canal" => $canal);
+      foreach ($visibilidadCliente["params"] as $clave => $valor) { $params[$clave] = $valor; }
+
       if ($tipo === "marcas") {
         $sql = "SELECT m.id_marca_erp id, m.nombre, COUNT(DISTINCT s.id_sku) total
           FROM erp_catalogo_canales_vinculos cv
           INNER JOIN erp_catalogo_skus s ON s.id_sku=cv.id_sku
           INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
           INNER JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
-          WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND m.estatus IN ('activo','activa')
+          WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND m.estatus IN ('activo','activa')" . $whereCliente . "
           GROUP BY m.id_marca_erp, m.nombre
           ORDER BY m.nombre ASC";
       } else {
@@ -281,12 +295,12 @@ class CatalogoCanalesErp extends CRUD {
           INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
           INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp
           INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
-          WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND c.estatus IN ('activo','activa')
+          WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND c.estatus IN ('activo','activa')" . $whereCliente . "
           GROUP BY c.id_categoria_erp, c.nombre, c.ruta, c.id_categoria_padre
           ORDER BY COALESCE(c.ruta, c.nombre) ASC";
       }
       $stmt = $db->prepare($sql);
-      $stmt->execute(array(":canal" => $canal));
+      $stmt->execute($params);
       $items = array();
       foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
         $items[] = array(
@@ -335,6 +349,46 @@ class CatalogoCanalesErp extends CRUD {
         GROUP BY id_sku_erp
       ) inv ON inv.id_sku_erp=s.id_sku
       WHERE " . implode(" AND ", $where);
+  }
+
+  private function condicionesVisibilidadCliente($db, $contexto) {
+    $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+    if ($idCliente <= 0 || !$this->tablaExiste($db, "erp_distribucion_cliente_catalogo_reglas")) {
+      return array("where" => array(), "params" => array());
+    }
+    $match = "((r.tipo_regla='sku' AND r.id_sku=s.id_sku)
+      OR (r.tipo_regla='marca' AND r.id_marca_erp=p.id_marca_erp)
+      OR (r.tipo_regla='categoria' AND EXISTS (
+        SELECT 1 FROM erp_catalogo_producto_categorias rpc
+        WHERE rpc.id_producto_erp=p.id_producto_erp AND rpc.id_categoria_erp=r.id_categoria_erp
+      )))";
+    $params = array(":vis_cliente_ocultar" => $idCliente);
+    $where = array(
+      "NOT EXISTS (
+        SELECT 1 FROM erp_distribucion_cliente_catalogo_reglas r
+        WHERE r.id_cliente_distribucion=:vis_cliente_ocultar
+          AND r.estatus='activo'
+          AND r.accion='ocultar'
+          AND " . $match . "
+      )"
+    );
+    $modo = $this->catalogoModoContexto($contexto);
+    if ($modo === "personalizado") {
+      $where[] = "EXISTS (
+        SELECT 1 FROM erp_distribucion_cliente_catalogo_reglas r
+        WHERE r.id_cliente_distribucion=:vis_cliente_permitir
+          AND r.estatus='activo'
+          AND r.accion='permitir'
+          AND " . $match . "
+      )";
+      $params[":vis_cliente_permitir"] = $idCliente;
+    }
+    return array("where" => $where, "params" => $params);
+  }
+
+  private function catalogoModoContexto($contexto) {
+    $modo = trim((string) $this->valor($contexto, "catalogo_modo", "general"));
+    return in_array($modo, array("general", "personalizado"), true) ? $modo : "general";
   }
 
   private function formatearItem($fila) {

@@ -725,3 +725,78 @@ Alcance:
 - Agrega campos para conservar si el cliente solicita factura en pedidos/cotizaciones Distribucion.
 - Guarda datos fiscales capturados por el frontend en `facturacion_json`.
 - No genera factura automaticamente, no crea venta, no aparta inventario y no modifica pedidos ERP internos.
+
+## Distribucion - historial separado de cotizaciones y pedidos
+
+Fecha: 2026-10-02
+
+Respaldo previo focalizado:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20261002_antes_distribucion_cotizaciones_pedidos_historial_tablas.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+tamano_bytes=327241
+base=artianicom_sys
+```
+
+Alcance:
+
+- Agrega campos para distinguir cotizaciones de pedidos en `erp_distribucion_cotizaciones`.
+- Permite relacionar una cotizacion enviada con el pedido formal generado.
+- No aparta inventario, no crea venta, no genera factura y no modifica pedidos ERP internos.
+
+## Distribucion - catalogo personalizado por cliente
+
+Fecha: 2026-10-04
+
+Respaldo previo focalizado:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20261004_antes_distribucion_catalogo_personalizado_tablas.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+tamano_bytes=331119
+base=artianicom_sys
+```
+
+Alcance:
+
+- Agrega preferencias de catalogo por cliente Distribucion.
+- Guarda categorias de interes capturadas en la solicitud comercial.
+- Agrega reglas por cliente para permitir u ocultar categorias, marcas o SKUs.
+- No modifica catalogo global, inventario, ventas, ecommerce ni listas de precios ERP.
+
+## Distribucion - Mi cuenta y solicitudes de cambio
+
+Fecha: 2026-10-04
+
+Respaldo previo focalizado:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20261004_antes_distribucion_mi_cuenta_tablas.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+tamano_bytes=331061
+base=artianicom_sys
+```
+
+Alcance:
+
+- Agrega datos de contacto, comerciales, entrega y facturacion en clientes Distribucion.
+- Agrega tabla de solicitudes de cambio de perfil para revision interna.
+- Los cambios simples de contacto pueden aplicarse directo con auditoria.
+- Los cambios sensibles quedan pendientes de revision ERP.
+- No modifica lista de precios, permisos, tipo de cliente ni estatus desde frontend.

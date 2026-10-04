@@ -332,6 +332,42 @@ class DistribucionAdmin extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: configurar modo e intereses de catalogo visible por cliente Distribucion.
+   * Impacto: Admin ERP Distribucion; permite abrir catalogo general o restringido sin tocar catalogo global.
+   * Contrato: POST protegido por `distribucion.editar`.
+   */
+  public function cliente_catalogo_preferencias() {
+    $this->requerirPermiso("distribucion.editar");
+    return json_encode($this->modelo("DistribucionClientesApi")->catalogoPreferenciasPlanInterno($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: listar reglas de catalogo personalizado por cliente Distribucion.
+   * Impacto: Admin ERP Distribucion; muestra categorias/SKUs/marcas permitidos u ocultos por cliente.
+   * Contrato: GET protegido por `distribucion.ver`.
+   */
+  public function cliente_catalogo_reglas() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionClientesApi")->catalogoReglasInternas($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: guardar una regla de visibilidad de catalogo para un cliente Distribucion.
+   * Impacto: Admin ERP Distribucion; permite habilitar u ocultar productos sin afectar otros clientes.
+   * Contrato: POST protegido por `distribucion.editar`.
+   */
+  public function cliente_catalogo_regla_guardar() {
+    $this->requerirPermiso("distribucion.editar");
+    return json_encode($this->modelo("DistribucionClientesApi")->catalogoReglaGuardarInterna($_POST, $this->usuarioActualId()));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: consultar cotizaciones recibidas desde Distribucion.
    * Impacto: Admin ERP Distribucion; prepara seguimiento interno sin convertir a venta.

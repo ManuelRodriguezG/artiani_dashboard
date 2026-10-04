@@ -25,12 +25,27 @@ class DistribucionCatalogoApi extends CRUD {
         "estatus_inicial" => "pedido_solicitado",
         "revision_erp_requerida" => true,
         "cliente_acepta_respuesta_erp" => true,
+        "cotizaciones_y_pedidos_separados" => true,
+        "pedido_adicional_crea_documento_nuevo" => true,
         "metodos_entrega" => array("por_definir", "envio", "recoger_tienda"),
         "facturacion" => array(
           "captura_frontend" => true,
           "no_genera_factura_automaticamente" => true,
           "campos" => array("requiere_factura", "facturacion.rfc", "facturacion.razon_social", "facturacion.regimen_fiscal", "facturacion.uso_cfdi", "facturacion.codigo_postal_fiscal", "facturacion.correo_facturacion", "facturacion.comentarios_facturacion")
         )
+      ),
+      "catalogo_personalizado" => array(
+        "captura_intereses_registro" => true,
+        "modos_cliente" => array("general", "personalizado"),
+        "reglas_admin" => array("permitir", "ocultar"),
+        "alcances" => array("categoria", "marca", "sku"),
+        "ocultar_sku_bloquea_precio_cotizacion_pedido" => true
+      ),
+      "mi_cuenta" => array(
+        "perfil_estructurado" => true,
+        "cambios_contacto_aplicacion_directa" => array("telefono", "whatsapp", "correo_alterno", "contacto_principal"),
+        "cambios_sensibles_requieren_revision" => array("empresa", "nombre_negocio", "tipo_negocio", "direccion", "rfc", "datos_fiscales"),
+        "frontend_no_puede_cambiar" => array("id_lista_precio", "permisos", "tipo_cliente", "estatus")
       ),
       "reglas_precio" => array(
         "orden" => array("lista_asignada", "publico_autorizado", "mayoreo_erp", "solicitar_precio"),
@@ -70,8 +85,16 @@ class DistribucionCatalogoApi extends CRUD {
         "manifest" => "/DistribucionApi/contratos",
         "catalogo" => "/DistribucionApi/catalogo",
         "producto" => "/DistribucionApi/producto/{slug}",
+        "perfil" => "/DistribucionApi/auth/perfil",
+        "perfil_solicitar_cambio" => "/DistribucionApi/auth/perfil/solicitar_cambio",
         "cotizacion_dryrun" => "/DistribucionApi/cotizacion/dryrun",
         "cotizacion_registrar" => "/DistribucionApi/cotizacion/registrar",
+        "cotizacion_listar" => "/DistribucionApi/cotizacion/listar",
+        "cotizacion_detalle" => "/DistribucionApi/cotizacion/detalle?id_cotizacion_distribucion={id}",
+        "cotizacion_guardar_borrador" => "/DistribucionApi/cotizacion/guardar_borrador",
+        "cotizacion_cancelar" => "/DistribucionApi/cotizacion/cancelar",
+        "cotizacion_duplicar" => "/DistribucionApi/cotizacion/duplicar",
+        "cotizacion_enviar_pedido" => "/DistribucionApi/cotizacion/enviar_pedido",
         "pedido_registrar" => "/DistribucionApi/pedido/registrar",
         "pedido_listar" => "/DistribucionApi/pedido/listar",
         "pedido_detalle" => "/DistribucionApi/pedido/detalle?id_cotizacion_distribucion={id}",
@@ -79,6 +102,9 @@ class DistribucionCatalogoApi extends CRUD {
         "pedido_facturacion_payload" => $this->payloadFacturacionPedido(),
         "mi_catalogo_listar" => "/DistribucionApi/mi_catalogo/listar",
         "mi_catalogo_guardar" => "/DistribucionApi/mi_catalogo/guardar",
+        "admin_cliente_catalogo_preferencias" => "/DistribucionAdmin/cliente_catalogo_preferencias",
+        "admin_cliente_catalogo_reglas" => "/DistribucionAdmin/cliente_catalogo_reglas?id_cliente_distribucion={id}",
+        "admin_cliente_catalogo_regla_guardar" => "/DistribucionAdmin/cliente_catalogo_regla_guardar",
         "inventario_cliente_listar" => "/DistribucionApi/inventario_cliente/listar",
         "inventario_cliente_guardar_conteo" => "/DistribucionApi/inventario_cliente/guardar_conteo",
         "inventario_cliente_sugerido" => "/DistribucionApi/inventario_cliente/sugerido",
@@ -117,7 +143,7 @@ class DistribucionCatalogoApi extends CRUD {
       return $this->respuesta(true, "warning", "Slug de producto requerido", array("item" => null));
     }
     require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
-    $respuesta = (new CatalogoCanalesErp())->productoCanal("distribucion", $slug);
+    $respuesta = (new CatalogoCanalesErp())->productoCanal("distribucion", $slug, $contexto);
     $respuesta = $this->anexarPreciosCatalogo($respuesta, $contexto);
     return $this->conSesionYGuardrails($respuesta, $contexto);
   }
@@ -132,7 +158,7 @@ class DistribucionCatalogoApi extends CRUD {
     $permiso = $this->requierePermiso($contexto, "distribucion.catalogo.ver", "No tienes permiso para ver categorias Distribucion");
     if ($permiso) { return $permiso; }
     require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
-    $respuesta = (new CatalogoCanalesErp())->categoriasCanal("distribucion");
+    $respuesta = (new CatalogoCanalesErp())->categoriasCanal("distribucion", $contexto);
     return $this->conSesionYGuardrails($respuesta, $contexto);
   }
 
@@ -146,7 +172,7 @@ class DistribucionCatalogoApi extends CRUD {
     $permiso = $this->requierePermiso($contexto, "distribucion.catalogo.ver", "No tienes permiso para ver marcas Distribucion");
     if ($permiso) { return $permiso; }
     require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
-    $respuesta = (new CatalogoCanalesErp())->marcasCanal("distribucion");
+    $respuesta = (new CatalogoCanalesErp())->marcasCanal("distribucion", $contexto);
     return $this->conSesionYGuardrails($respuesta, $contexto);
   }
 
@@ -161,8 +187,8 @@ class DistribucionCatalogoApi extends CRUD {
     if ($permiso) { return $permiso; }
     require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
     $servicio = new CatalogoCanalesErp();
-    $categorias = $servicio->categoriasCanal("distribucion");
-    $marcas = $servicio->marcasCanal("distribucion");
+    $categorias = $servicio->categoriasCanal("distribucion", $contexto);
+    $marcas = $servicio->marcasCanal("distribucion", $contexto);
     return $this->respuesta(false, "success", "Filtros Distribucion consultados", array(
       "configurado" => $this->valor($this->valor($categorias, "depurar", array()), "configurado", false) && $this->valor($this->valor($marcas, "depurar", array()), "configurado", false),
       "categorias" => $this->valor($this->valor($categorias, "depurar", array()), "items", array()),
@@ -199,7 +225,7 @@ class DistribucionCatalogoApi extends CRUD {
     $permiso = $this->requierePermiso($contexto, "distribucion.inventario.ver_disponibilidad", "No tienes permiso para ver disponibilidad Distribucion");
     if ($permiso) { return $permiso; }
     require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
-    $respuesta = (new CatalogoCanalesErp())->disponibilidadCanal("distribucion", $this->valor($datos, "items", array()));
+    $respuesta = (new CatalogoCanalesErp())->disponibilidadCanal("distribucion", $this->valor($datos, "items", array()), $contexto);
     return $this->conSesionYGuardrails($respuesta, $contexto);
   }
 
@@ -467,6 +493,8 @@ class DistribucionCatalogoApi extends CRUD {
       array("metodo" => "GET", "ruta" => "/DistribucionApi/configuracion_inicial"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/auth/registro"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/auth/login"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/auth/perfil"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/auth/perfil/solicitar_cambio"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/catalogo"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/producto/{slug}"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/categorias"),
@@ -476,12 +504,21 @@ class DistribucionCatalogoApi extends CRUD {
       array("metodo" => "POST", "ruta" => "/DistribucionApi/disponibilidad/resolver"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/dryrun"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/registrar"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/cotizacion/listar"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/cotizacion/detalle?id_cotizacion_distribucion={id}"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/guardar_borrador"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/cancelar"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/duplicar"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/cotizacion/enviar_pedido"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/pedido/registrar"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/pedido/listar"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/pedido/detalle?id_cotizacion_distribucion={id}"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/pedido/responder"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/mi_catalogo/listar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/mi_catalogo/guardar"),
+      array("metodo" => "POST", "ruta" => "/DistribucionAdmin/cliente_catalogo_preferencias"),
+      array("metodo" => "GET", "ruta" => "/DistribucionAdmin/cliente_catalogo_reglas?id_cliente_distribucion={id}"),
+      array("metodo" => "POST", "ruta" => "/DistribucionAdmin/cliente_catalogo_regla_guardar"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/listar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/guardar_conteo"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/sugerido"),

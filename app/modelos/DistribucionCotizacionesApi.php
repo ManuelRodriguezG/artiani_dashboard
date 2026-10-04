@@ -190,6 +190,291 @@ class DistribucionCotizacionesApi extends CRUD {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-02
+   * Proposito: listar cotizaciones propias del cliente externo separadas de pedidos.
+   * Impacto: Portal Distribucion; permite historial comercial sin mezclar solicitudes formales.
+   * Contrato: GET autenticado; no expone datos de otros clientes ni crea documentos.
+   */
+  public function cotizacionesCliente($filtros = array(), $contexto = array()) {
+    $permiso = $this->validarClienteCotizacion($contexto);
+    if ($permiso) { return $permiso; }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db)) {
+      return $this->respuesta(false, "warning", "Cotizaciones Distribucion pendientes de esquema", array("configurado" => false, "items" => array()));
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $limite = max(1, min(100, intval($this->valor($filtros, "limite", 50))));
+      $tieneTipo = $this->columnasDocumentoDisponibles($db);
+      $whereTipo = $this->condicionDocumentoCotizacion($db, "co");
+      $extra = $tieneTipo ? "nombre_documento, tipo_documento, id_pedido_relacionado," : "NULL nombre_documento, 'cotizacion' tipo_documento, NULL id_pedido_relacionado,";
+      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, folio, " . $extra . " estatus, moneda, subtotal, total_estimado, comentarios, fecha_registro, fecha_actualizacion,
+          (SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) partidas,
+          (SELECT COALESCE(SUM(i.cantidad),0) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) cantidad_total
+        FROM erp_distribucion_cotizaciones co
+        WHERE id_cliente_distribucion=:cliente
+          AND " . $whereTipo . "
+        ORDER BY id_cotizacion_distribucion DESC
+        LIMIT " . intval($limite));
+      $stmt->execute(array(":cliente" => $idCliente));
+      $items = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $fila["pedido_generado"] = intval($this->valor($fila, "id_pedido_relacionado", 0)) > 0 || (string) $fila["estatus"] === "enviada_como_pedido" ? 1 : 0;
+        $fila["id_pedido_distribucion"] = intval($this->valor($fila, "id_pedido_relacionado", 0)) > 0 ? intval($fila["id_pedido_relacionado"]) : null;
+        $fila["acciones"] = $this->accionesCotizacionCliente($fila["estatus"]);
+        $items[] = $fila;
+      }
+      return $this->respuesta(false, "success", "Cotizaciones Distribucion consultadas", array("configurado" => true, "items" => $items));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudieron consultar cotizaciones", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-02
+   * Proposito: consultar detalle de cotizacion propia separada de pedido.
+   * Impacto: Portal Distribucion; permite editar/duplicar/enviar borradores sin tocar pedidos previos.
+   */
+  public function cotizacionDetalleCliente($filtros = array(), $contexto = array()) {
+    $permiso = $this->validarClienteCotizacion($contexto);
+    if ($permiso) { return $permiso; }
+    $id = intval($this->valor($filtros, "id_cotizacion_distribucion", $this->valor($filtros, "id", 0)));
+    if ($id <= 0) {
+      return $this->respuesta(true, "warning", "Cotizacion requerida");
+    }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->tablaExiste($db, "erp_distribucion_cotizacion_items")) {
+      return $this->respuesta(false, "warning", "Detalle de cotizacion pendiente de esquema", array("configurado" => false, "cotizacion" => null, "items" => array()));
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $whereTipo = "AND " . $this->condicionDocumentoCotizacion($db);
+      $stmt = $db->prepare("SELECT * FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente " . $whereTipo . " LIMIT 1");
+      $stmt->execute(array(":id" => $id, ":cliente" => $idCliente));
+      $cotizacion = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$cotizacion) {
+        return $this->respuesta(true, "warning", "Cotizacion no encontrada");
+      }
+      $stmtItems = $db->prepare("SELECT i.id_cotizacion_item, i.id_sku, i.sku_snapshot, i.nombre_snapshot, i.cantidad,
+          i.precio_unitario_snapshot, i.subtotal_snapshot, i.disponibilidad_snapshot, i.snapshot_json,
+          s.sku sku_actual, COALESCE(NULLIF(s.nombre,''), p.nombre, i.nombre_snapshot) producto_actual
+        FROM erp_distribucion_cotizacion_items i
+        LEFT JOIN erp_catalogo_skus s ON s.id_sku=i.id_sku
+        LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE i.id_cotizacion_distribucion=:id
+        ORDER BY i.id_cotizacion_item ASC");
+      $stmtItems->execute(array(":id" => $id));
+      $items = array();
+      foreach ($stmtItems->fetchAll(PDO::FETCH_ASSOC) as $item) {
+        $snapshot = json_decode((string) $this->valor($item, "snapshot_json", ""), true);
+        $item["comentario_cliente"] = is_array($snapshot) ? $this->valor($snapshot, "comentario", "") : "";
+        unset($item["snapshot_json"]);
+        $items[] = $item;
+      }
+      $cotizacion["pedido_generado"] = intval($this->valor($cotizacion, "id_pedido_relacionado", 0)) > 0 || (string) $cotizacion["estatus"] === "enviada_como_pedido" ? 1 : 0;
+      $cotizacion["id_pedido_distribucion"] = intval($this->valor($cotizacion, "id_pedido_relacionado", 0)) > 0 ? intval($cotizacion["id_pedido_relacionado"]) : null;
+      $cotizacion["acciones"] = $this->accionesCotizacionCliente($cotizacion["estatus"]);
+      return $this->respuesta(false, "success", "Cotizacion Distribucion consultada", array("configurado" => true, "cotizacion" => $cotizacion, "items" => $items));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo consultar cotizacion", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-02
+   * Proposito: crear o actualizar borrador de cotizacion del cliente recalculando precios ERP.
+   * Impacto: Portal Distribucion; conserva snapshot comercial sin apartar inventario ni crear pedido.
+   */
+  public function guardarBorradorCliente($datos = array(), $contexto = array()) {
+    $permiso = $this->validarClienteCotizacion($contexto);
+    if ($permiso) { return $permiso; }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->columnasDocumentoDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Borradores de cotizacion pendientes de esquema", array("configurado" => false));
+    }
+    $itemsEntrada = $this->itemsNormalizados($this->valor($datos, "items", array()));
+    if (empty($itemsEntrada)) {
+      return $this->respuesta(true, "warning", "Agrega partidas para guardar cotizacion");
+    }
+    $dry = $this->dryRun($datos, $contexto);
+    $depurarDry = $this->valor($dry, "depurar", array());
+    $items = $this->valor($depurarDry, "items", array());
+    if (empty($items)) {
+      return $this->respuesta(true, "warning", "No hay partidas validas para cotizar");
+    }
+    $comentariosEntrada = array();
+    foreach ($this->valor($datos, "items", array()) as $entradaItem) {
+      $idSkuComentario = intval($this->valor($entradaItem, "id_sku", 0));
+      if ($idSkuComentario > 0) {
+        $comentariosEntrada[$idSkuComentario] = trim((string) $this->valor($entradaItem, "comentario", ""));
+      }
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $id = intval($this->valor($datos, "id_cotizacion_distribucion", 0));
+      $nombre = substr(trim((string) $this->valor($datos, "nombre", "")), 0, 180);
+      $comentarios = trim((string) $this->valor($datos, "comentarios", ""));
+      $totales = $this->valor($depurarDry, "totales", array());
+      $skuInfo = $this->skuInfo($db, $items);
+      $db->beginTransaction();
+      if ($id > 0) {
+        $stmtExiste = $db->prepare("SELECT id_cotizacion_distribucion, estatus FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente AND " . $this->condicionDocumentoCotizacion($db) . " LIMIT 1");
+        $stmtExiste->execute(array(":id" => $id, ":cliente" => $idCliente));
+        $actual = $stmtExiste->fetch(PDO::FETCH_ASSOC);
+        if (!$actual) { throw new Exception("cotizacion_no_encontrada"); }
+        if ((string) $actual["estatus"] !== "borrador") { throw new Exception("cotizacion_no_editable"); }
+        $db->prepare("UPDATE erp_distribucion_cotizaciones
+          SET nombre_documento=:nombre, comentarios=:comentarios, subtotal=:subtotal, total_estimado=:total, snapshot_json=:snapshot, fecha_actualizacion=NOW()
+          WHERE id_cotizacion_distribucion=:id")
+          ->execute(array(
+            ":nombre" => $nombre,
+            ":comentarios" => $comentarios,
+            ":subtotal" => $this->decimalONull($this->valor($totales, "subtotal", null)),
+            ":total" => $this->decimalONull($this->valor($totales, "total_estimado", null)),
+            ":snapshot" => json_encode(array("tipo" => "cotizacion_borrador", "entrada" => $datos, "dry_run" => $depurarDry, "contexto" => $this->contextoAuditable($contexto)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ":id" => $id
+          ));
+        $db->prepare("DELETE FROM erp_distribucion_cotizacion_items WHERE id_cotizacion_distribucion=:id")->execute(array(":id" => $id));
+      } else {
+        $folio = $this->folioCotizacion($db);
+        $db->prepare("INSERT INTO erp_distribucion_cotizaciones
+          (folio, nombre_documento, id_cliente_distribucion, tipo_documento, estatus, moneda, subtotal, total_estimado, comentarios, snapshot_json, fecha_registro, fecha_actualizacion)
+          VALUES (:folio, :nombre, :cliente, 'cotizacion', 'borrador', 'MXN', :subtotal, :total, :comentarios, :snapshot, NOW(), NOW())")
+          ->execute(array(
+            ":folio" => $folio,
+            ":nombre" => $nombre,
+            ":cliente" => $idCliente,
+            ":subtotal" => $this->decimalONull($this->valor($totales, "subtotal", null)),
+            ":total" => $this->decimalONull($this->valor($totales, "total_estimado", null)),
+            ":comentarios" => $comentarios,
+            ":snapshot" => json_encode(array("tipo" => "cotizacion_borrador", "entrada" => $datos, "dry_run" => $depurarDry, "contexto" => $this->contextoAuditable($contexto)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+          ));
+        $id = intval($db->lastInsertId());
+      }
+      $this->insertarItemsSnapshot($db, $id, $items, $skuInfo, $comentariosEntrada);
+      $this->registrarAuditoria($db, "cotizacion", $id, "guardar_borrador", "ok", "Borrador Distribucion guardado", array("items" => count($items)), null, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Cotizacion guardada como borrador", array(
+        "id_cotizacion_distribucion" => $id,
+        "folio" => isset($folio) ? $folio : null,
+        "estatus" => "borrador",
+        "total_estimado" => $this->valor($totales, "total_estimado", null),
+        "items" => $items
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      $mensaje = $e->getMessage() === "cotizacion_no_editable" ? "Solo se pueden editar cotizaciones en borrador" : "No se pudo guardar cotizacion";
+      return $this->respuesta(true, "danger", $mensaje, array("detalle" => "error_controlado"));
+    }
+  }
+
+  public function cancelarCotizacionCliente($datos = array(), $contexto = array()) {
+    $permiso = $this->validarClienteCotizacion($contexto);
+    if ($permiso) { return $permiso; }
+    return $this->actualizarCotizacionClienteEstatus($datos, $contexto, "cancelada", "cancelar");
+  }
+
+  public function duplicarCotizacionCliente($datos = array(), $contexto = array()) {
+    $permiso = $this->validarClienteCotizacion($contexto);
+    if ($permiso) { return $permiso; }
+    $id = intval($this->valor($datos, "id_cotizacion_distribucion", 0));
+    if ($id <= 0) { return $this->respuesta(true, "warning", "Cotizacion requerida"); }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db)) {
+      return $this->respuesta(true, "warning", "Esquema de cotizaciones Distribucion no disponible");
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $stmt = $db->prepare("SELECT * FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente AND " . $this->condicionDocumentoCotizacion($db) . " LIMIT 1");
+      $stmt->execute(array(":id" => $id, ":cliente" => $idCliente));
+      $cotizacion = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$cotizacion) { return $this->respuesta(true, "warning", "Cotizacion no encontrada"); }
+      $stmtItems = $db->prepare("SELECT id_sku, cantidad, snapshot_json FROM erp_distribucion_cotizacion_items WHERE id_cotizacion_distribucion=:id ORDER BY id_cotizacion_item ASC");
+      $stmtItems->execute(array(":id" => $id));
+      $items = array();
+      foreach ($stmtItems->fetchAll(PDO::FETCH_ASSOC) as $item) {
+        $snapshot = json_decode((string) $this->valor($item, "snapshot_json", ""), true);
+        $items[] = array(
+          "id_sku" => intval($item["id_sku"]),
+          "cantidad" => floatval($item["cantidad"]),
+          "comentario" => is_array($snapshot) ? $this->valor($snapshot, "comentario", "") : ""
+        );
+      }
+      return $this->guardarBorradorCliente(array(
+        "nombre" => trim((string) $this->valor($cotizacion, "nombre_documento", "")),
+        "comentarios" => trim((string) $this->valor($cotizacion, "comentarios", "")),
+        "items" => $items
+      ), $contexto);
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo duplicar cotizacion", array("detalle" => "error_controlado"));
+    }
+  }
+
+  public function enviarCotizacionComoPedido($datos = array(), $contexto = array()) {
+    $permiso = $this->validarClienteCotizacion($contexto);
+    if ($permiso) { return $permiso; }
+    $id = intval($this->valor($datos, "id_cotizacion_distribucion", 0));
+    if ($id <= 0) { return $this->respuesta(true, "warning", "Cotizacion requerida"); }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->columnasDocumentoDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Envio de cotizacion pendiente de esquema", array("configurado" => false));
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $stmt = $db->prepare("SELECT * FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente AND " . $this->condicionDocumentoCotizacion($db) . " LIMIT 1");
+      $stmt->execute(array(":id" => $id, ":cliente" => $idCliente));
+      $cotizacion = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$cotizacion) { return $this->respuesta(true, "warning", "Cotizacion no encontrada"); }
+      if ((string) $cotizacion["estatus"] !== "borrador") {
+        return $this->respuesta(true, "warning", "Solo se pueden enviar cotizaciones en borrador");
+      }
+      $stmtItems = $db->prepare("SELECT id_sku, cantidad, snapshot_json FROM erp_distribucion_cotizacion_items WHERE id_cotizacion_distribucion=:id ORDER BY id_cotizacion_item ASC");
+      $stmtItems->execute(array(":id" => $id));
+      $items = array();
+      foreach ($stmtItems->fetchAll(PDO::FETCH_ASSOC) as $item) {
+        $snapshot = json_decode((string) $this->valor($item, "snapshot_json", ""), true);
+        $items[] = array(
+          "id_sku" => intval($item["id_sku"]),
+          "cantidad" => floatval($item["cantidad"]),
+          "comentario" => is_array($snapshot) ? $this->valor($snapshot, "comentario", "") : ""
+        );
+      }
+      $entrega = $this->valor($datos, "entrega", array());
+      $pedidoDatos = array(
+        "items" => $items,
+        "comentarios" => trim((string) $this->valor($cotizacion, "comentarios", "")),
+        "id_cotizacion_origen" => $id,
+        "tipo_entrega" => is_array($entrega) ? $this->valor($entrega, "tipo_entrega", $this->valor($datos, "tipo_entrega", "por_definir")) : $this->valor($datos, "tipo_entrega", "por_definir"),
+        "direccion_envio" => is_array($entrega) ? $this->valor($entrega, "direccion_envio", array()) : array(),
+        "requiere_factura" => $this->valor($datos, "requiere_factura", 0),
+        "facturacion" => $this->valor($datos, "facturacion", array())
+      );
+      $pedido = $this->registrarPedidoPreliminar($pedidoDatos, $contexto);
+      if (!empty($pedido["error"])) { return $pedido; }
+      $idPedido = intval($this->valor($this->valor($pedido, "depurar", array()), "id_cotizacion_distribucion", 0));
+      if ($idPedido > 0) {
+        $db->beginTransaction();
+        $db->prepare("UPDATE erp_distribucion_cotizaciones SET estatus='enviada_como_pedido', id_pedido_relacionado=:pedido, fecha_actualizacion=NOW() WHERE id_cotizacion_distribucion=:id")
+          ->execute(array(":pedido" => $idPedido, ":id" => $id));
+        $this->registrarAuditoria($db, "cotizacion", $id, "enviar_como_pedido", "ok", "Cotizacion enviada como pedido", array("id_pedido_distribucion" => $idPedido), null, $idCliente);
+        $db->commit();
+      }
+      return $this->respuesta(false, "success", "Cotizacion enviada como pedido", array(
+        "id_cotizacion_distribucion" => $id,
+        "id_pedido_distribucion" => $idPedido,
+        "folio_pedido" => $this->valor($this->valor($pedido, "depurar", array()), "folio", null),
+        "estatus_pedido" => $this->valor($this->valor($pedido, "depurar", array()), "estatus", "pedido_solicitado")
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo enviar cotizacion como pedido", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
    * Proposito: registrar solicitud de pedido Distribucion para revision interna de existencias y surtido.
    * Impacto: Distribucion; permite pedir sin exponer existencia, apartar inventario, crear venta o crear pedido ERP.
@@ -232,6 +517,14 @@ class DistribucionCotizacionesApi extends CRUD {
     $precios = (new DistribucionCatalogoApi())->resolverPrecios($datos, $contexto);
     $depurarPrecios = $this->valor($precios, "depurar", array());
     $itemsPrecio = $this->valor($depurarPrecios, "items", array());
+    foreach ($itemsPrecio as $itemPrecioCanal) {
+      if (empty($itemPrecioCanal["visible_canal"])) {
+        $bloqueos[] = "sku_no_visible_cliente_" . intval($this->valor($itemPrecioCanal, "id_sku", 0));
+      }
+    }
+    if (!empty($bloqueos)) {
+      return $this->respuesta(true, "warning", "La solicitud contiene SKUs no disponibles para este cliente", array("bloqueos" => array_values(array_unique($bloqueos))));
+    }
     $preciosSnapshot = array();
     $totalEstimado = 0.0;
     $totalCompleto = empty($precios["error"]) && !empty($itemsPrecio);
@@ -299,6 +592,11 @@ class DistribucionCotizacionesApi extends CRUD {
           "guardrails" => array("existencia_no_expuesta" => true, "requiere_revision_interna" => true)
         ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
       );
+      if ($this->columnasDocumentoDisponibles($db)) {
+        $columnas = array_merge($columnas, array("tipo_documento", "id_cotizacion_origen"));
+        $valores = array_merge($valores, array("'pedido'", ":cotizacion_origen"));
+        $paramsPedido[":cotizacion_origen"] = intval($this->valor($datos, "id_cotizacion_origen", 0)) > 0 ? intval($this->valor($datos, "id_cotizacion_origen", 0)) : null;
+      }
       if ($columnasEntrega) {
         $columnas = array_merge($columnas, array("tipo_entrega", "entrega_habilitar_envio", "entrega_habilitar_recoger_tienda", "costo_envio", "direccion_envio_json"));
         $valores = array_merge($valores, array(":tipo_entrega", ":habilitar_envio", ":habilitar_recoger", ":costo_envio", ":direccion_envio"));
@@ -631,12 +929,14 @@ class DistribucionCotizacionesApi extends CRUD {
       $limite = max(1, min(100, intval($this->valor($filtros, "limite", 50))));
       $extra = $this->columnasEntregaPedidoDisponibles($db) ? "total_confirmado, tipo_entrega, entrega_habilitar_envio, entrega_habilitar_recoger_tienda, costo_envio, respuesta_cliente_estatus, fecha_respuesta_cliente, fecha_respuesta_erp," : "NULL total_confirmado, NULL tipo_entrega, NULL entrega_habilitar_envio, NULL entrega_habilitar_recoger_tienda, NULL costo_envio, NULL respuesta_cliente_estatus, NULL fecha_respuesta_cliente, NULL fecha_respuesta_erp,";
       $extra .= $this->columnasFacturacionPedidoDisponibles($db) ? "requiere_factura, facturacion_json," : "NULL requiere_factura, NULL facturacion_json,";
-      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, folio, estatus, moneda, subtotal, total_estimado, " . $extra . " comentarios, fecha_registro, fecha_actualizacion,
+      $extraDocumento = $this->columnasDocumentoDisponibles($db) ? "tipo_documento, id_cotizacion_origen," : "'pedido' tipo_documento, NULL id_cotizacion_origen,";
+      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, id_cotizacion_distribucion id_pedido_distribucion, folio, " . $extraDocumento . " estatus, moneda, subtotal, total_estimado, " . $extra . " comentarios, fecha_registro, fecha_actualizacion,
           (SELECT COUNT(*) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) partidas,
           (SELECT COALESCE(SUM(i.cantidad),0) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) cantidad_solicitada,
           (SELECT COALESCE(SUM(i.cantidad_confirmada),0) FROM erp_distribucion_cotizacion_items i WHERE i.id_cotizacion_distribucion=co.id_cotizacion_distribucion) cantidad_confirmada
         FROM erp_distribucion_cotizaciones co
         WHERE id_cliente_distribucion=:cliente
+          AND " . $this->condicionDocumentoPedido($db, "co") . "
         ORDER BY id_cotizacion_distribucion DESC
         LIMIT " . intval($limite));
       $stmt->execute(array(":cliente" => $idCliente));
@@ -665,11 +965,15 @@ class DistribucionCotizacionesApi extends CRUD {
     }
     try {
       $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
-      $stmt = $db->prepare("SELECT * FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente LIMIT 1");
+      $stmt = $db->prepare("SELECT * FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente AND " . $this->condicionDocumentoPedido($db) . " LIMIT 1");
       $stmt->execute(array(":id" => $id, ":cliente" => $idCliente));
       $pedido = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$pedido) {
         return $this->respuesta(true, "warning", "Pedido no encontrado");
+      }
+      $pedido["id_pedido_distribucion"] = intval($pedido["id_cotizacion_distribucion"]);
+      if (!isset($pedido["tipo_documento"]) || $pedido["tipo_documento"] === null || $pedido["tipo_documento"] === "") {
+        $pedido["tipo_documento"] = "pedido";
       }
       $stmtItems = $db->prepare("SELECT i.id_cotizacion_item, i.id_sku, i.sku_snapshot, i.nombre_snapshot, i.cantidad,
           i.precio_unitario_snapshot, i.subtotal_snapshot, i.disponibilidad_snapshot,
@@ -715,11 +1019,14 @@ class DistribucionCotizacionesApi extends CRUD {
     }
     try {
       $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
-      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, id_cliente_distribucion, estatus FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente LIMIT 1");
+      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, id_cliente_distribucion, estatus FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente AND " . $this->condicionDocumentoPedido($db) . " LIMIT 1");
       $stmt->execute(array(":id" => $id, ":cliente" => $idCliente));
       $pedido = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$pedido) {
         return $this->respuesta(true, "warning", "Pedido no encontrado");
+      }
+      if (!in_array((string) $pedido["estatus"], array("en_revision", "respondida", "respondido_por_erp"), true)) {
+        return $this->respuesta(true, "warning", "El pedido aun no tiene respuesta del ERP");
       }
       $estatusNuevo = $respuesta === "aceptado" ? "cliente_acepto" : ($respuesta === "rechazado" ? "cliente_rechazo" : "requiere_ajuste_cliente");
       $comentario = substr(trim((string) $this->valor($datos, "comentario", "")), 0, 2000);
@@ -1021,6 +1328,118 @@ class DistribucionCotizacionesApi extends CRUD {
       }
     }
     return true;
+  }
+
+  private function columnasDocumentoDisponibles($db) {
+    foreach (array("tipo_documento", "id_cotizacion_origen", "id_pedido_relacionado", "nombre_documento") as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_cotizaciones", $columna)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private function condicionDocumentoPedido($db, $alias = "") {
+    $prefijo = $alias !== "" ? $alias . "." : "";
+    $estatusPedido = "('pedido_solicitado','en_revision','respondida','respondido_por_erp','cliente_acepto','requiere_ajuste_cliente','cliente_rechazo','cancelado','cerrado')";
+    $condicionLegacy = "(" . $prefijo . "folio LIKE 'DPED-%' OR " . $prefijo . "estatus IN " . $estatusPedido . ")";
+    if ($this->columnasDocumentoDisponibles($db)) {
+      return "(" . $prefijo . "tipo_documento='pedido' OR " . $condicionLegacy . ")";
+    }
+    return $condicionLegacy;
+  }
+
+  private function condicionDocumentoCotizacion($db, $alias = "") {
+    $prefijo = $alias !== "" ? $alias . "." : "";
+    $noPedido = "NOT " . $this->condicionDocumentoPedido($db, $alias);
+    if ($this->columnasDocumentoDisponibles($db)) {
+      return "(" . $prefijo . "tipo_documento='cotizacion' AND " . $noPedido . ")";
+    }
+    return "(((" . $prefijo . "folio LIKE 'DCOT-%') OR " . $prefijo . "estatus IN ('borrador','enviada_como_pedido','cancelada','vencida','recibida','recibida_revision')) AND " . $noPedido . ")";
+  }
+
+  private function insertarItemsSnapshot($db, $idCotizacion, $items, $skuInfo, $comentariosEntrada = array()) {
+    $stmtItem = $db->prepare("INSERT INTO erp_distribucion_cotizacion_items
+      (id_cotizacion_distribucion, id_sku, sku_snapshot, nombre_snapshot, cantidad, precio_unitario_snapshot, subtotal_snapshot, disponibilidad_snapshot, snapshot_json, fecha_registro)
+      VALUES (:cotizacion, :sku, :sku_snapshot, :nombre, :cantidad, :precio, :subtotal, :disponibilidad, :snapshot, NOW())");
+    foreach ($items as $item) {
+      $idSku = intval($this->valor($item, "id_sku", 0));
+      if ($idSku <= 0) { continue; }
+      $info = isset($skuInfo[$idSku]) ? $skuInfo[$idSku] : array("sku" => null, "nombre" => null);
+      $comentario = $this->valor($comentariosEntrada, $idSku, $this->valor($item, "comentario", ""));
+      $snapshot = $item;
+      $snapshot["comentario"] = $comentario;
+      $stmtItem->execute(array(
+        ":cotizacion" => intval($idCotizacion),
+        ":sku" => $idSku,
+        ":sku_snapshot" => $this->valor($info, "sku", null),
+        ":nombre" => $this->valor($info, "nombre", null),
+        ":cantidad" => floatval($this->valor($item, "cantidad", 1)),
+        ":precio" => $this->decimalONull($this->valor($item, "precio_unitario", null)),
+        ":subtotal" => $this->decimalONull($this->valor($item, "subtotal", null)),
+        ":disponibilidad" => $this->valor($item, "disponibilidad", null),
+        ":snapshot" => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+      ));
+    }
+  }
+
+  private function actualizarCotizacionClienteEstatus($datos, $contexto, $estatus, $accion) {
+    $id = intval($this->valor($datos, "id_cotizacion_distribucion", 0));
+    if ($id <= 0) { return $this->respuesta(true, "warning", "Cotizacion requerida"); }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->columnasDocumentoDisponibles($db)) {
+      return $this->respuesta(true, "warning", "Cotizaciones Distribucion pendientes de esquema", array("configurado" => false));
+    }
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $stmt = $db->prepare("SELECT id_cotizacion_distribucion, estatus FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id AND id_cliente_distribucion=:cliente AND " . $this->condicionDocumentoCotizacion($db) . " LIMIT 1");
+      $stmt->execute(array(":id" => $id, ":cliente" => $idCliente));
+      $cotizacion = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$cotizacion) { return $this->respuesta(true, "warning", "Cotizacion no encontrada"); }
+      if ((string) $cotizacion["estatus"] !== "borrador") {
+        return $this->respuesta(true, "warning", "Solo se pueden cancelar cotizaciones en borrador");
+      }
+      $db->beginTransaction();
+      $db->prepare("UPDATE erp_distribucion_cotizaciones SET estatus=:estatus, fecha_actualizacion=NOW() WHERE id_cotizacion_distribucion=:id")
+        ->execute(array(":estatus" => $estatus, ":id" => $id));
+      $this->registrarAuditoria($db, "cotizacion", $id, $accion, "ok", "Cotizacion Distribucion actualizada", array(
+        "estatus_anterior" => $cotizacion["estatus"],
+        "estatus" => $estatus,
+        "comentario" => trim((string) $this->valor($datos, "comentario", ""))
+      ), null, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Cotizacion actualizada", array("id_cotizacion_distribucion" => $id, "estatus" => $estatus));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo actualizar cotizacion", array("detalle" => "error_controlado"));
+    }
+  }
+
+  private function validarClienteCotizacion($contexto) {
+    if (empty($contexto["autenticado"])) {
+      return $this->respuesta(true, "warning", "Debes iniciar sesion para consultar cotizaciones", array("requiere_autenticacion" => true));
+    }
+    $permisos = $this->valor($contexto, "permisos", array());
+    if (!is_array($permisos) || !in_array("distribucion.cotizacion.solicitar", $permisos, true)) {
+      return $this->respuesta(true, "warning", "No tienes permiso para cotizaciones", array("requiere_permiso" => "distribucion.cotizacion.solicitar"));
+    }
+    if (intval($this->valor($contexto, "id_cliente_distribucion", 0)) <= 0) {
+      return $this->respuesta(true, "warning", "Cliente Distribucion requerido");
+    }
+    return null;
+  }
+
+  private function accionesCotizacionCliente($estatus) {
+    if ($estatus === "borrador") {
+      return array("ver", "editar", "imprimir", "enviar_como_pedido", "cancelar", "duplicar");
+    }
+    if ($estatus === "enviada_como_pedido") {
+      return array("ver", "imprimir", "duplicar", "ver_pedido");
+    }
+    if (in_array($estatus, array("cancelada", "vencida"), true)) {
+      return array("ver", "duplicar");
+    }
+    return array("ver", "imprimir", "duplicar");
   }
 
   private function normalizarEntregaPedido($datos, $base = array()) {
