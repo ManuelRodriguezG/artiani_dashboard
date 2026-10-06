@@ -596,6 +596,7 @@
                                                     <option value="">Todo el mes</option>
                                                 </select>
                                                 <button class="btn btn-sm btn-light-success" id="contabilidad_ver_ventas" type="button"><i class="bi bi-cash-coin"></i> Ver ventas</button>
+                                                <button class="btn btn-sm btn-light-info" id="contabilidad_ver_otros_ingresos" type="button"><i class="bi bi-journal-arrow-down"></i> Otros ingresos</button>
                                                 <button class="btn btn-sm btn-light-warning" id="contabilidad_ver_compras" type="button"><i class="bi bi-bag-check"></i> Ver compras</button>
                                                 <button class="btn btn-sm btn-light-danger" id="contabilidad_ver_gastos" type="button"><i class="bi bi-receipt"></i> Ver gastos</button>
                                                 <button class="btn btn-sm btn-light-danger" id="contabilidad_ver_gastos_operativos" type="button"><i class="bi bi-clipboard2-pulse"></i> Gastos operativos</button>
@@ -646,21 +647,52 @@
             </div>
             <div class="modal-body">
                 <div class="row g-4 mb-5" id="contabilidad_conciliacion_modal_resumen"></div>
+                <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+                    <div class="w-100 w-md-300px">
+                        <label class="form-label text-muted fs-8 mb-1" for="contabilidad_conciliacion_modal_buscar">Buscar</label>
+                        <input class="form-control form-control-sm form-control-solid" id="contabilidad_conciliacion_modal_buscar" type="search" placeholder="Descripcion, cuenta, monto, categoria">
+                    </div>
+                    <div class="d-flex flex-wrap align-items-end gap-2">
+                        <div>
+                            <label class="form-label text-muted fs-8 mb-1" for="contabilidad_conciliacion_modal_orden">Ordenar por</label>
+                            <select class="form-select form-select-sm w-auto" id="contabilidad_conciliacion_modal_orden">
+                                <option value="fecha">Fecha</option>
+                                <option value="monto">Monto</option>
+                                <option value="descripcion">Descripcion</option>
+                                <option value="cuenta">Cuenta</option>
+                                <option value="origen">Origen</option>
+                                <option value="archivo">Archivo estado</option>
+                                <option value="hoja">Hoja</option>
+                                <option value="categoria">Categoria</option>
+                                <option value="actividad">Actividad</option>
+                                <option value="movimiento">Movimiento</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label text-muted fs-8 mb-1" for="contabilidad_conciliacion_modal_direccion">Direccion</label>
+                            <select class="form-select form-select-sm w-auto" id="contabilidad_conciliacion_modal_direccion">
+                                <option value="asc">Menor a mayor</option>
+                                <option value="desc">Mayor a menor</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-3 mb-4" id="contabilidad_conciliacion_modal_excluir">
+                    <span class="text-muted fs-8 fw-semibold">Excluir de la descarga:</span>
+                    <div class="d-flex flex-wrap gap-3" id="contabilidad_conciliacion_modal_excluir_cuentas"></div>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                    <span class="text-muted fs-8 fw-semibold">Formato de descarga:</span>
+                    <label class="form-check form-check-sm form-check-custom form-check-solid">
+                        <input class="form-check-input" id="contabilidad_conciliacion_modal_monto_absoluto" type="checkbox">
+                        <span class="form-check-label text-muted fs-8">Monto absoluto sin negativos</span>
+                    </label>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mb-4" id="contabilidad_conciliacion_modal_columnas"></div>
+                <div class="text-muted fs-8 mb-3" id="contabilidad_conciliacion_modal_estado_tabla"></div>
                 <div class="table-responsive">
                     <table class="table table-row-dashed align-middle">
-                        <thead>
-                        <tr class="fw-bold text-muted">
-                            <th>Fecha</th>
-                            <th>Cuenta / estado</th>
-                            <th>Descripcion</th>
-                            <th>Movimiento</th>
-                            <th>Actividad</th>
-                            <th>Categoria</th>
-                            <th>Pago</th>
-                            <th>CFDI</th>
-                            <th class="text-end">Monto</th>
-                        </tr>
-                        </thead>
+                        <thead id="contabilidad_conciliacion_modal_head"></thead>
                         <tbody id="contabilidad_conciliacion_modal_movimientos"></tbody>
                     </table>
                 </div>

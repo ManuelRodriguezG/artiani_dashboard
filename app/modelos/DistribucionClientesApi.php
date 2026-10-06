@@ -34,9 +34,11 @@ class DistribucionClientesApi extends CRUD {
     $facturacionEntrada = $this->valor($datos, "facturacion", array());
     if (!is_array($facturacionEntrada)) { $facturacionEntrada = array(); }
     $requiereFactura = intval($this->valor($datos, "requiere_factura", $this->valor($facturacionEntrada, "requiere_factura", 0))) === 1 ? 1 : 0;
+    $rfcFiscal = strtoupper(trim((string) $this->valor($facturacionEntrada, "rfc", $rfc)));
+    if ($rfc === "" && $rfcFiscal !== "") { $rfc = $rfcFiscal; }
     $facturacion = array(
       "requiere_factura" => $requiereFactura,
-      "rfc" => $requiereFactura ? $rfc : "",
+      "rfc" => $requiereFactura ? $rfcFiscal : "",
       "razon_social" => $requiereFactura ? trim((string) $this->valor($facturacionEntrada, "razon_social", $this->valor($datos, "razon_social", ""))) : "",
       "regimen_fiscal" => $requiereFactura ? trim((string) $this->valor($facturacionEntrada, "regimen_fiscal", $this->valor($datos, "regimen_fiscal", ""))) : "",
       "uso_cfdi" => $requiereFactura ? strtoupper(trim((string) $this->valor($facturacionEntrada, "uso_cfdi", $this->valor($datos, "uso_cfdi", "")))) : "",
@@ -46,25 +48,39 @@ class DistribucionClientesApi extends CRUD {
     );
     $tiposNegocio = array("venta_internet", "veterinaria", "petshop", "acuario", "acuario_petshop", "estetica_canina", "criador", "vendedor_mercado", "vendedor_ambulante", "otro");
     $errores = array();
-    if ($nombre === "") { $errores[] = "nombre_requerido"; }
-    if ($nombreNegocio === "") { $errores[] = "nombre_negocio_requerido"; }
-    if ($correo === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL)) { $errores[] = "correo_invalido"; }
-    if ($telefono === "") { $errores[] = "telefono_requerido"; }
-    if ($ciudad === "") { $errores[] = "ciudad_requerida"; }
-    if ($estado === "") { $errores[] = "estado_requerido"; }
-    if (!in_array($tipoNegocio, $tiposNegocio, true)) { $errores[] = "tipo_negocio_invalido"; }
+    $camposFaltantes = array();
+    $erroresCampos = array();
+    if ($nombre === "") { $errores[] = "nombre_requerido"; $camposFaltantes[] = "nombre"; }
+    if ($nombreNegocio === "") { $errores[] = "nombre_negocio_requerido"; $camposFaltantes[] = "nombre_negocio"; }
+    if ($correo === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL)) { $errores[] = "correo_invalido"; $camposFaltantes[] = "correo"; $erroresCampos["correo"] = "Ingresa un correo valido."; }
+    if ($telefono === "") { $errores[] = "telefono_requerido"; $camposFaltantes[] = "telefono"; $erroresCampos["telefono"] = "Ingresa un telefono de contacto."; }
+    if ($ciudad === "") { $errores[] = "ciudad_requerida"; $camposFaltantes[] = "ciudad"; }
+    if ($estado === "") { $errores[] = "estado_requerido"; $camposFaltantes[] = "estado"; }
+    if (!in_array($tipoNegocio, $tiposNegocio, true)) { $errores[] = "tipo_negocio_invalido"; $camposFaltantes[] = "tipo_negocio"; $erroresCampos["tipo_negocio"] = "Selecciona un tipo de negocio valido."; }
     if ($facturacion["requiere_factura"] === 1) {
       foreach (array("rfc", "razon_social", "regimen_fiscal", "uso_cfdi", "codigo_postal_fiscal", "correo_facturacion") as $campoFiscal) {
         if (trim((string) $facturacion[$campoFiscal]) === "") {
           $errores[] = "facturacion_" . $campoFiscal . "_requerido";
+          $camposFaltantes[] = "facturacion." . $campoFiscal;
+          $erroresCampos["facturacion." . $campoFiscal] = "Campo fiscal requerido.";
         }
       }
       if ($facturacion["correo_facturacion"] !== "" && !filter_var($facturacion["correo_facturacion"], FILTER_VALIDATE_EMAIL)) {
         $errores[] = "correo_facturacion_invalido";
+        $erroresCampos["facturacion.correo_facturacion"] = "Ingresa un correo de facturacion valido.";
       }
     }
     if (!empty($errores)) {
-      return $this->respuesta(true, "warning", "Solicitud de acceso incompleta", array("errores" => $errores));
+      $respuesta = $this->respuesta(true, "warning", "Completa los campos requeridos para enviar tu solicitud.", array(
+        "codigo" => "solicitud_incompleta",
+        "campos_faltantes" => array_values(array_unique($camposFaltantes)),
+        "errores_campos" => $erroresCampos,
+        "errores" => $errores
+      ));
+      $respuesta["codigo"] = "solicitud_incompleta";
+      $respuesta["campos_faltantes"] = array_values(array_unique($camposFaltantes));
+      $respuesta["errores_campos"] = $erroresCampos;
+      return $respuesta;
     }
 
     $db = $this->getConexion();
@@ -142,9 +158,10 @@ class DistribucionClientesApi extends CRUD {
         ":ip_registro" => $this->ipContexto($contexto),
         ":user_agent" => $this->userAgentContexto($contexto)
       ));
-      $respuesta = $this->respuesta(false, "success", "Solicitud recibida. Tu acceso sera revisado.", array(
+      $respuesta = $this->respuesta(false, "success", "Solicitud recibida. Tu acceso sera revisado por Artiani.", array(
         "folio" => $folio,
         "estatus" => "pendiente",
+        "siguiente_paso" => "Te contactaremos cuando la revision comercial avance.",
         "configurado" => true,
         "no_aprueba_automaticamente" => true,
         "no_asigna_lista_automaticamente" => true,
@@ -153,6 +170,7 @@ class DistribucionClientesApi extends CRUD {
       ));
       $respuesta["folio"] = $folio;
       $respuesta["estatus"] = "pendiente";
+      $respuesta["siguiente_paso"] = "Te contactaremos cuando la revision comercial avance.";
       return $respuesta;
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudo registrar la solicitud", array("detalle" => "error_controlado"));
@@ -169,7 +187,7 @@ class DistribucionClientesApi extends CRUD {
     $correo = trim((string) $this->valor($datos, "correo", ""));
     $contrasenia = (string) $this->valor($datos, "contrasenia", "");
     if ($correo === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL) || $contrasenia === "") {
-      return $this->respuesta(true, "warning", "Credenciales incompletas", array("token" => null));
+      return $this->respuestaLoginError("credenciales_invalidas", "No pudimos iniciar sesion. Revisa tu correo y contrasenia. Si aun no tienes acceso aprobado o contrasenia activa, solicita acceso comercial o contacta a Artiani.", array("token" => null));
     }
 
     $db = $this->getConexion();
@@ -189,21 +207,43 @@ class DistribucionClientesApi extends CRUD {
         LIMIT 1");
       $stmt->execute(array(":correo" => strtolower($correo)));
       $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
-      if (!$cliente || empty($cliente["contrasenia_hash"]) || !password_verify($contrasenia, $cliente["contrasenia_hash"])) {
+      if (!$cliente) {
         $this->registrarAuditoria($db, "auth", null, "login", "error", "Credenciales Distribucion invalidas", $this->detalleAcceso($contexto, array(
           "correo" => strtolower($correo),
           "motivo" => "credenciales_invalidas"
-        )), null, $cliente ? intval($cliente["id_cliente_distribucion"]) : null);
-        return $this->respuesta(true, "warning", "Credenciales invalidas", array("token" => null));
+        )), null, null);
+        return $this->respuestaLoginError("credenciales_invalidas", "No pudimos iniciar sesion. Revisa tu correo y contrasenia. Si aun no tienes acceso aprobado o contrasenia activa, solicita acceso comercial o contacta a Artiani.", array("token" => null));
       }
-      if ((string) $cliente["estatus"] !== "aprobado") {
+      if (empty($cliente["contrasenia_hash"])) {
+        $codigoActivacion = $this->tieneTokenActivacionActivo($db, intval($cliente["id_cliente_distribucion"])) ? "requiere_activacion" : "contrasenia_no_creada";
+        $this->registrarAuditoria($db, "cliente", intval($cliente["id_cliente_distribucion"]), "login", "bloqueado", "Login Distribucion requiere activacion", $this->detalleAcceso($contexto, array(
+          "correo" => strtolower($correo),
+          "motivo" => $codigoActivacion
+        )), null, intval($cliente["id_cliente_distribucion"]));
+        return $this->respuestaLoginError($codigoActivacion, "Tu cuenta aun necesita activar o crear contrasenia antes de iniciar sesion.", array(
+          "token" => null,
+          "estatus" => $this->valor($cliente, "estatus", ""),
+          "siguiente_paso" => "Usa el link de activacion enviado por Artiani o solicita que te lo reenviemos."
+        ));
+      }
+      if (!password_verify($contrasenia, $cliente["contrasenia_hash"])) {
+        $this->registrarAuditoria($db, "cliente", intval($cliente["id_cliente_distribucion"]), "login", "error", "Credenciales Distribucion invalidas", $this->detalleAcceso($contexto, array(
+          "correo" => strtolower($correo),
+          "motivo" => "credenciales_invalidas"
+        )), null, intval($cliente["id_cliente_distribucion"]));
+        return $this->respuestaLoginError("credenciales_invalidas", "No pudimos iniciar sesion. Revisa tu correo y contrasenia. Si aun no tienes acceso aprobado o contrasenia activa, solicita acceso comercial o contacta a Artiani.", array("token" => null));
+      }
+      $estatusCliente = (string) $cliente["estatus"];
+      if ($estatusCliente !== "aprobado") {
         $this->registrarAuditoria($db, "cliente", intval($cliente["id_cliente_distribucion"]), "login", "bloqueado", "Login Distribucion bloqueado por estatus", $this->detalleAcceso($contexto, array(
           "correo" => strtolower($correo),
-          "estatus" => $cliente["estatus"]
+          "estatus" => $estatusCliente
         )), null, intval($cliente["id_cliente_distribucion"]));
-        return $this->respuesta(true, "warning", "Tu acceso comercial aun no esta aprobado", array(
+        $estado = $this->estadoAccesoCliente($estatusCliente, array());
+        return $this->respuestaLoginError($this->codigoLoginPorEstatus($estatusCliente), $estado["mensaje"], array(
           "token" => null,
-          "estatus" => $cliente["estatus"]
+          "estatus" => $estatusCliente,
+          "siguiente_paso" => $estado["siguiente_paso"]
         ));
       }
 
@@ -228,7 +268,8 @@ class DistribucionClientesApi extends CRUD {
       $permisos = $this->permisosCliente($db, intval($cliente["id_cliente_distribucion"]));
       $acciones = $this->accionesPermitidasCliente($permisos);
       $perfil = $this->formatearPerfilCliente($db, $cliente, $permisos, $acciones);
-      return $this->respuesta(false, "success", "Sesion Distribucion iniciada", array(
+      $mensajeLogin = $estatusCliente === "aprobado" ? "Inicio de sesion correcto." : "Acceso en revision consultado.";
+      $respuesta = $this->respuesta(false, "success", $mensajeLogin, array(
         "token" => $token,
         "perfil" => $perfil,
         "permisos" => $permisos,
@@ -236,6 +277,14 @@ class DistribucionClientesApi extends CRUD {
         "configurado" => true,
         "no_usa_sesion_erp" => true
       ));
+      $respuesta["token"] = $token;
+      $respuesta["perfil"] = $perfil;
+      $respuesta["permisos"] = $permisos;
+      $respuesta["acciones"] = $acciones;
+      if (empty($permisos)) {
+        $respuesta["codigo"] = "sin_permisos_comerciales";
+      }
+      return $respuesta;
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudo iniciar sesion", array("detalle" => "error_controlado"));
     }
@@ -272,6 +321,63 @@ class DistribucionClientesApi extends CRUD {
     } catch (Exception $e) {
       return null;
     }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-06
+   * Proposito: reconstruir perfil completo para `/auth/perfil` desde un cliente autenticado.
+   * Impacto: Portal Distribucion; entrega Mi cuenta, estado de acceso y acciones sin usar sesion ERP.
+   * Contrato: read-only; no expone hashes, tokens, costos, margenes, proveedores ni stock.
+   */
+  public function perfilPorId($idCliente) {
+    $idCliente = intval($idCliente);
+    if ($idCliente <= 0) { return null; }
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_distribucion_clientes")) {
+      return null;
+    }
+    try {
+      $stmt = $db->prepare("SELECT * FROM erp_distribucion_clientes WHERE id_cliente_distribucion=:cliente LIMIT 1");
+      $stmt->execute(array(":cliente" => $idCliente));
+      $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$cliente) { return null; }
+      $permisos = $this->permisosCliente($db, $idCliente);
+      $acciones = $this->accionesPermitidasCliente($permisos);
+      return $this->formatearPerfilCliente($db, $cliente, $permisos, $acciones);
+    } catch (Exception $e) {
+      return null;
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-06
+   * Proposito: responder recuperacion de acceso sin enumerar cuentas ni enviar correos desde este contrato.
+   * Impacto: Login Distribucion; permite al frontend mostrar guia segura.
+   * Contrato: POST seguro; respuesta uniforme exista o no exista el correo.
+   */
+  public function recuperarAcceso($datos = array(), $contexto = array()) {
+    return $this->respuesta(false, "success", "Si el correo esta registrado y habilitado, enviaremos instrucciones para recuperar tu acceso.", array(
+      "codigo" => "recuperacion_recibida",
+      "no_enumera_cuentas" => true,
+      "envio_automatico_pendiente" => true
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-06
+   * Proposito: responder solicitud de reenvio de activacion sin exponer existencia o estatus de cuenta.
+   * Impacto: Login Distribucion; mantiene aprobacion y activacion bajo control del ERP.
+   * Contrato: POST seguro; no asigna permisos, listas ni aprueba clientes.
+   */
+  public function reenviarActivacion($datos = array(), $contexto = array()) {
+    return $this->respuesta(false, "success", "Si tu cuenta requiere activacion, enviaremos nuevamente las instrucciones disponibles.", array(
+      "codigo" => "reenviar_activacion_recibido",
+      "no_enumera_cuentas" => true,
+      "envio_automatico_pendiente" => true
+    ));
   }
 
   /**
@@ -1171,9 +1277,12 @@ class DistribucionClientesApi extends CRUD {
     return array(
       "id_cliente_distribucion" => $idCliente,
       "nombre" => $this->valor($cliente, "nombre", ""),
+      "correo" => $this->valor($cliente, "correo", ""),
       "tipo_cliente" => $this->valor($cliente, "tipo_cliente", ""),
       "estatus" => $this->valor($cliente, "estatus", ""),
       "id_lista_precio" => intval($this->valor($cliente, "id_lista_precio", 0)),
+      "campos_pendientes" => $this->camposPendientesCliente($cliente),
+      "estado_acceso" => $this->estadoAccesoCliente($this->valor($cliente, "estatus", ""), $acciones),
       "catalogo_modo" => $this->catalogoModoNormalizado($this->valor($cliente, "catalogo_modo", "general")),
       "categorias_interes" => $this->jsonArray($this->valor($cliente, "categorias_interes_json", "")),
       "contacto" => array(
@@ -1214,6 +1323,79 @@ class DistribucionClientesApi extends CRUD {
       "permisos" => $permisos,
       "acciones" => $acciones
     );
+  }
+
+  private function estadoAccesoCliente($estatus, $acciones = array()) {
+    $estatus = trim((string) $estatus);
+    $estados = array(
+      "pendiente" => array(
+        "titulo" => "Solicitud recibida",
+        "mensaje" => "Tu solicitud esta registrada y pendiente de revision comercial por Artiani.",
+        "siguiente_paso" => "Espera la validacion comercial o contacta a Artiani si necesitas actualizar tus datos."
+      ),
+      "en_revision" => array(
+        "titulo" => "Acceso en revision",
+        "mensaje" => "Tu solicitud esta en revision. El equipo Artiani debe habilitar tu acceso antes de ver catalogo o precios.",
+        "siguiente_paso" => "Espera la aprobacion o completa los datos pendientes."
+      ),
+      "aprobado" => array(
+        "titulo" => "Acceso aprobado",
+        "mensaje" => empty($acciones["ver_catalogo"]) ? "Tu cuenta esta aprobada, pero aun no tiene permisos comerciales de catalogo." : "Tu acceso comercial esta activo.",
+        "siguiente_paso" => empty($acciones["ver_catalogo"]) ? "Contacta a Artiani para habilitar permisos comerciales." : "Ya puedes usar las acciones disponibles en el portal."
+      ),
+      "rechazado" => array(
+        "titulo" => "Solicitud rechazada",
+        "mensaje" => "Por ahora tu solicitud comercial no fue aprobada.",
+        "siguiente_paso" => "Contacta a Artiani si necesitas aclarar o actualizar tus datos."
+      ),
+      "suspendido" => array(
+        "titulo" => "Acceso suspendido",
+        "mensaje" => "Tu acceso comercial esta suspendido temporalmente.",
+        "siguiente_paso" => "Contacta a Artiani para revisar tu cuenta."
+      )
+    );
+    $estado = isset($estados[$estatus]) ? $estados[$estatus] : $estados["pendiente"];
+    $estado["contacto_soporte"] = "ventas@artiani.com.mx";
+    return $estado;
+  }
+
+  private function camposPendientesCliente($cliente) {
+    $pendientes = array();
+    foreach (array("nombre", "correo", "telefono", "empresa", "ciudad", "estado") as $campo) {
+      if (trim((string) $this->valor($cliente, $campo, "")) === "") {
+        $pendientes[] = $campo;
+      }
+    }
+    return $pendientes;
+  }
+
+  private function codigoLoginPorEstatus($estatus) {
+    $mapa = array(
+      "pendiente" => "cuenta_pendiente",
+      "en_revision" => "cuenta_en_revision",
+      "rechazado" => "cuenta_rechazada",
+      "suspendido" => "cuenta_suspendida"
+    );
+    return isset($mapa[$estatus]) ? $mapa[$estatus] : "cuenta_en_revision";
+  }
+
+  private function tieneTokenActivacionActivo($db, $idCliente) {
+    if (!$this->tablaExiste($db, "erp_distribucion_tokens")) { return false; }
+    try {
+      $stmt = $db->prepare("SELECT 1 FROM erp_distribucion_tokens WHERE id_cliente_distribucion=:cliente AND tipo_token='activacion_contrasenia' AND estatus='activo' AND fecha_expiracion>=NOW() LIMIT 1");
+      $stmt->execute(array(":cliente" => intval($idCliente)));
+      return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+      return false;
+    }
+  }
+
+  private function respuestaLoginError($codigo, $mensaje, $depurar = array()) {
+    $respuesta = $this->respuesta(true, "warning", $mensaje, array_merge(array("codigo" => $codigo), is_array($depurar) ? $depurar : array()));
+    $respuesta["codigo"] = $codigo;
+    if (isset($depurar["estatus"])) { $respuesta["estatus"] = $depurar["estatus"]; }
+    if (isset($depurar["siguiente_paso"])) { $respuesta["siguiente_paso"] = $depurar["siguiente_paso"]; }
+    return $respuesta;
   }
 
   private function solicitudesCambioCliente($db, $idCliente) {
@@ -1413,17 +1595,20 @@ class DistribucionClientesApi extends CRUD {
         $id = intval($this->valor($item, "id_categoria_erp", $this->valor($item, "id", 0)));
         $nombre = substr(trim((string) $this->valor($item, "nombre", $this->valor($item, "categoria", ""))), 0, 180);
         $ruta = substr(trim((string) $this->valor($item, "ruta", "")), 0, 240);
+        $incluyeDescendientes = intval($this->valor($item, "incluye_descendientes", $this->valor($item, "seleccion_incluye_descendientes", 1))) === 1;
       } else {
         $id = is_numeric($item) ? intval($item) : 0;
         $nombre = is_numeric($item) ? "" : substr(trim((string) $item), 0, 180);
         $ruta = "";
+        $incluyeDescendientes = true;
       }
       if ($id <= 0 && $nombre === "") { continue; }
       $clave = $id > 0 ? "id:" . $id : "nombre:" . strtolower($nombre);
       $salida[$clave] = array(
         "id_categoria_erp" => $id > 0 ? $id : null,
         "nombre" => $nombre,
-        "ruta" => $ruta
+        "ruta" => $ruta,
+        "incluye_descendientes" => $incluyeDescendientes
       );
     }
     return array_values($salida);
@@ -1616,7 +1801,15 @@ class DistribucionClientesApi extends CRUD {
   }
 
   private function respuesta($error, $tipo, $mensaje, $depurar = array()) {
-    return array("error" => $error, "tipo" => $tipo, "mensaje" => $mensaje, "depurar" => $depurar);
+    $respuesta = array("error" => $error, "tipo" => $tipo, "mensaje" => $mensaje, "depurar" => $depurar);
+    if (is_array($depurar)) {
+      foreach ($depurar as $clave => $valor) {
+        if (!array_key_exists($clave, $respuesta)) {
+          $respuesta[$clave] = $valor;
+        }
+      }
+    }
+    return $respuesta;
   }
 
   private function valor($datos, $clave, $default = null) {

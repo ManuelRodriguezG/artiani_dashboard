@@ -270,6 +270,44 @@ La pantalla de Listas de precios debe evolucionar a tres formas de alcance:
 
 La asignacion por cliente debe presentarse visualmente como excepcion, no como el mecanismo principal.
 
+## Grupos comerciales de productos
+
+Fecha: 2026-10-04
+
+Decision operativa:
+
+- Fase actual sin DDL: Listas de precios puede filtrar productos por categoria, proveedor y marca usando catalogos existentes.
+- Estos filtros son agrupadores operativos temporales, no grupos persistentes.
+- Sirven para revisar y actualizar precios por conjunto sin seleccionar SKU por SKU.
+- La pantalla debe mostrar el grupo activo para evitar aplicar acciones masivas con filtros invisibles.
+
+Implementado en fase read-only:
+
+- Endpoint `/comercial/listas_precios_grupos_catalogos_erp`.
+- Endpoint `/comercial/listas_precios_grupos_schema_erp` para diagnosticar preparacion de grupos persistentes sin ejecutar DDL.
+- Filtros de productos: `id_categoria_erp`, `id_proveedor`, `id_marca_erp`.
+- UI con selects de categoria/proveedor/marca, resumen de grupo activo y boton limpiar.
+- UI en Herramientas con tarjeta de grupos guardados pendientes/listos.
+- No escribe BD, no crea tablas y no modifica listas.
+
+Siguiente fase con autorizacion DDL:
+
+- Crear grupos comerciales persistentes configurables.
+- Soportar grupos manuales y dinamicos por reglas.
+- Auditar altas, ediciones, pausas y uso de grupos en cambios masivos.
+- Permitir que incidencias de proveedor/rentabilidad generen grupos temporales revisables.
+- Solicitud preparada: `docs/erp_listas_precios_grupos_schema_solicitud_autorizacion.md`.
+- UAT read-only preparado: `storage/uat/uat_listas_precios_grupos_schema_readonly.php`.
+
+Tablas propuestas para fase futura:
+
+- `erp_comercial_grupos_productos`
+- `erp_comercial_grupos_productos_reglas`
+- `erp_comercial_grupos_productos_items`
+- `erp_comercial_grupos_productos_eventos`
+
+No ejecutar esta fase sin respaldo externo productivo y autorizacion explicita.
+
 ## UAT futuro
 
 Casos minimos:

@@ -53,11 +53,10 @@ class CatalogoCanalesErp extends CRUD {
 
       $categoria = intval($this->valor($filtros, "categoria", 0));
       if ($categoria > 0) {
-        $where[] = "EXISTS (
-          SELECT 1 FROM erp_catalogo_producto_categorias pcf
-          WHERE pcf.id_producto_erp=p.id_producto_erp AND pcf.id_categoria_erp=:categoria
-        )";
-        $params[":categoria"] = $categoria;
+        $where[] = $this->condicionCategoriaConDescendientes(":categoria_base", ":categoria_exacta", ":categoria_padre");
+        $params[":categoria_base"] = $categoria;
+        $params[":categoria_exacta"] = $categoria;
+        $params[":categoria_padre"] = $categoria;
       }
 
       $precioMin = trim((string) $this->valor($filtros, "precio_min", ""));
@@ -289,14 +288,14 @@ class CatalogoCanalesErp extends CRUD {
           GROUP BY m.id_marca_erp, m.nombre
           ORDER BY m.nombre ASC";
       } else {
-        $sql = "SELECT c.id_categoria_erp id, c.nombre, COALESCE(c.ruta, c.nombre) ruta, c.id_categoria_padre, COUNT(DISTINCT s.id_sku) total
+        $sql = "SELECT c.id_categoria_erp id, c.nombre, COALESCE(c.ruta, c.nombre) ruta, c.id_categoria_padre, c.nivel, COUNT(DISTINCT s.id_sku) total
           FROM erp_catalogo_canales_vinculos cv
           INNER JOIN erp_catalogo_skus s ON s.id_sku=cv.id_sku
           INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
           INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp
           INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
           WHERE cv.canal=:canal AND cv.sincronizar_catalogo=1 AND cv.estatus IN ('activo','publicado','aprobado') AND p.estatus='activo' AND s.estatus='activo' AND c.estatus IN ('activo','activa')" . $whereCliente . "
-          GROUP BY c.id_categoria_erp, c.nombre, c.ruta, c.id_categoria_padre
+          GROUP BY c.id_categoria_erp, c.nombre, c.ruta, c.id_categoria_padre, c.nivel
           ORDER BY COALESCE(c.ruta, c.nombre) ASC";
       }
       $stmt = $db->prepare($sql);
@@ -308,14 +307,122 @@ class CatalogoCanalesErp extends CRUD {
           "nombre" => $fila["nombre"],
           "slug" => $this->slugificar($fila["nombre"]),
           "ruta" => $this->valor($fila, "ruta", $fila["nombre"]),
-          "id_padre" => isset($fila["id_categoria_padre"]) ? intval($fila["id_categoria_padre"]) : null,
+          "id_padre" => intval($this->valor($fila, "id_categoria_padre", 0)) > 0 ? intval($fila["id_categoria_padre"]) : null,
+          "nivel" => isset($fila["nivel"]) ? intval($fila["nivel"]) : 0,
+          "seleccion_incluye_descendientes" => $tipo === "marcas" ? false : true,
           "total" => intval($fila["total"])
         );
       }
-      return $this->respuesta(false, "success", "Facetas de canal consultadas", array("configurado" => true, "items" => $items, "readiness" => $readiness));
+      $depurar = array("configurado" => true, "items" => $items, "readiness" => $readiness);
+      if ($tipo !== "marcas") {
+        $items = $this->completarAncestrosCategorias($db, $items);
+        $depurar["items"] = $items;
+        $depurar["jerarquia"] = $this->jerarquiaCategorias($items);
+        $depurar["seleccion_multiple"] = true;
+        $depurar["seleccion_padre_incluye_descendientes"] = true;
+      }
+      return $this->respuesta(false, "success", "Facetas de canal consultadas", $depurar);
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudieron consultar facetas de canal", array("detalle" => "error_controlado"));
     }
+  }
+
+  private function condicionCategoriaConDescendientes($phBase, $phExacta, $phPadre) {
+    return "EXISTS (
+      SELECT 1
+      FROM erp_catalogo_producto_categorias pcf
+      INNER JOIN erp_catalogo_categorias cf ON cf.id_categoria_erp=pcf.id_categoria_erp
+      INNER JOIN erp_catalogo_categorias cb ON cb.id_categoria_erp=" . $phBase . "
+      WHERE pcf.id_producto_erp=p.id_producto_erp
+        AND (
+          pcf.id_categoria_erp=" . $phExacta . "
+          OR cf.id_categoria_padre=" . $phPadre . "
+          OR (TRIM(COALESCE(cb.ruta,''))<>'' AND (
+            cf.ruta LIKE CONCAT(cb.ruta, ' / %')
+            OR cf.ruta LIKE CONCAT(cb.ruta, '/%')
+            OR cf.ruta LIKE CONCAT(cb.ruta, ' > %')
+          ))
+        )
+    )";
+  }
+
+  private function completarAncestrosCategorias($db, $items) {
+    $porId = array();
+    foreach ($items as $item) {
+      $id = intval($this->valor($item, "id", 0));
+      if ($id > 0) { $porId[$id] = $item; }
+    }
+    for ($paso = 0; $paso < 10; $paso++) {
+      $faltantes = array();
+      foreach ($porId as $item) {
+        $idPadre = intval($this->valor($item, "id_padre", 0));
+        if ($idPadre > 0 && !isset($porId[$idPadre])) {
+          $faltantes[$idPadre] = $idPadre;
+        }
+      }
+      if (empty($faltantes)) { break; }
+      $placeholders = array();
+      $params = array();
+      foreach (array_values($faltantes) as $i => $idCategoria) {
+        $ph = ":cat_padre_" . $paso . "_" . $i;
+        $placeholders[] = $ph;
+        $params[$ph] = $idCategoria;
+      }
+      $stmt = $db->prepare("SELECT id_categoria_erp id, nombre, COALESCE(ruta, nombre) ruta, id_categoria_padre, nivel
+        FROM erp_catalogo_categorias
+        WHERE id_categoria_erp IN (" . implode(",", $placeholders) . ")
+          AND estatus IN ('activo','activa')");
+      $stmt->execute($params);
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $id = intval($fila["id"]);
+        $porId[$id] = array(
+          "id" => $id,
+          "nombre" => $fila["nombre"],
+          "slug" => $this->slugificar($fila["nombre"]),
+          "ruta" => $this->valor($fila, "ruta", $fila["nombre"]),
+          "id_padre" => intval($this->valor($fila, "id_categoria_padre", 0)) > 0 ? intval($fila["id_categoria_padre"]) : null,
+          "nivel" => isset($fila["nivel"]) ? intval($fila["nivel"]) : 0,
+          "seleccion_incluye_descendientes" => true,
+          "total" => 0
+        );
+      }
+    }
+    $salida = array_values($porId);
+    usort($salida, function($a, $b) {
+      return strcmp((string) $this->valor($a, "ruta", ""), (string) $this->valor($b, "ruta", ""));
+    });
+    return $salida;
+  }
+
+  private function jerarquiaCategorias($items) {
+    $nodos = array();
+    foreach ($items as $item) {
+      $id = intval($this->valor($item, "id", 0));
+      if ($id <= 0) { continue; }
+      $nodos[$id] = array(
+        "id" => $id,
+        "id_categoria_erp" => $id,
+        "id_padre" => $this->valor($item, "id_padre", null),
+        "nombre" => $this->valor($item, "nombre", ""),
+        "ruta" => $this->valor($item, "ruta", $this->valor($item, "nombre", "")),
+        "slug" => $this->valor($item, "slug", ""),
+        "nivel" => intval($this->valor($item, "nivel", 0)),
+        "total" => intval($this->valor($item, "total", 0)),
+        "seleccion_incluye_descendientes" => true,
+        "children" => array()
+      );
+    }
+    $raices = array();
+    foreach ($nodos as $id => &$nodo) {
+      $idPadre = intval($this->valor($nodo, "id_padre", 0));
+      if ($idPadre > 0 && isset($nodos[$idPadre])) {
+        $nodos[$idPadre]["children"][] = &$nodo;
+      } else {
+        $raices[] = &$nodo;
+      }
+    }
+    unset($nodo);
+    return $raices;
   }
 
   private function sqlBase($where) {
@@ -359,8 +466,20 @@ class CatalogoCanalesErp extends CRUD {
     $match = "((r.tipo_regla='sku' AND r.id_sku=s.id_sku)
       OR (r.tipo_regla='marca' AND r.id_marca_erp=p.id_marca_erp)
       OR (r.tipo_regla='categoria' AND EXISTS (
-        SELECT 1 FROM erp_catalogo_producto_categorias rpc
-        WHERE rpc.id_producto_erp=p.id_producto_erp AND rpc.id_categoria_erp=r.id_categoria_erp
+        SELECT 1
+        FROM erp_catalogo_producto_categorias rpc
+        INNER JOIN erp_catalogo_categorias rcc ON rcc.id_categoria_erp=rpc.id_categoria_erp
+        INNER JOIN erp_catalogo_categorias rbase ON rbase.id_categoria_erp=r.id_categoria_erp
+        WHERE rpc.id_producto_erp=p.id_producto_erp
+          AND (
+            rpc.id_categoria_erp=r.id_categoria_erp
+            OR rcc.id_categoria_padre=r.id_categoria_erp
+            OR (TRIM(COALESCE(rbase.ruta,''))<>'' AND (
+              rcc.ruta LIKE CONCAT(rbase.ruta, ' / %')
+              OR rcc.ruta LIKE CONCAT(rbase.ruta, '/%')
+              OR rcc.ruta LIKE CONCAT(rbase.ruta, ' > %')
+            ))
+          )
       )))";
     $params = array(":vis_cliente_ocultar" => $idCliente);
     $where = array(

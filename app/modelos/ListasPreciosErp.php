@@ -256,6 +256,138 @@ class ListasPreciosErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-10-04.
+     * Proposito: cargar agrupadores comerciales base para operar precios por conjuntos de productos.
+     * Impacto: Listas de precios puede filtrar por categoria, proveedor y marca sin crear aun grupos persistentes.
+     * Contrato: solo lectura; no crea categorias, marcas, proveedores ni listas.
+     */
+    public function gruposCatalogosReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $limite = max(20, min(500, intval($this->valor($filtros, "limite", 250))));
+            $datos = array(
+                "categorias" => array(),
+                "proveedores" => array(),
+                "marcas" => array(),
+                "modo" => "filtros_base"
+            );
+
+            if ($this->tablaExiste($db, "erp_catalogo_categorias") && $this->tablaExiste($db, "erp_catalogo_producto_categorias")) {
+                $stmt = $db->query("SELECT c.id_categoria_erp, c.codigo, c.nombre, COALESCE(c.ruta, c.nombre) ruta,
+                        COUNT(DISTINCT s.id_sku) total_skus
+                    FROM erp_catalogo_categorias c
+                    INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_categoria_erp=c.id_categoria_erp
+                    INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pc.id_producto_erp AND p.estatus='activo'
+                    INNER JOIN erp_catalogo_skus s ON s.id_producto_erp=p.id_producto_erp AND s.estatus='activo'
+                    WHERE COALESCE(c.estatus,'activa')='activa'
+                    GROUP BY c.id_categoria_erp, c.codigo, c.nombre, c.ruta
+                    HAVING total_skus > 0
+                    ORDER BY COALESCE(c.ruta, c.nombre), c.nombre
+                    LIMIT " . intval($limite));
+                $datos["categorias"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            if ($this->tablaExiste($db, "erp_proveedores")) {
+                $joinRelacion = $this->tablaExiste($db, "erp_catalogo_sku_proveedores")
+                    ? "LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_proveedor=pr.id_proveedor AND sp.estatus='activo'"
+                    : "LEFT JOIN (SELECT NULL id_proveedor, NULL id_sku) sp ON 1=0";
+                $joinCostos = $this->tablaExiste($db, "erp_proveedores_sku_costos")
+                    ? "LEFT JOIN erp_proveedores_sku_costos pc ON pc.id_proveedor=pr.id_proveedor AND pc.estatus='vigente'"
+                    : "LEFT JOIN (SELECT NULL id_proveedor, NULL id_sku) pc ON 1=0";
+                $stmt = $db->query("SELECT pr.id_proveedor, pr.proveedor,
+                        COUNT(DISTINCT COALESCE(sp.id_sku, pc.id_sku)) total_skus
+                    FROM erp_proveedores pr
+                    $joinRelacion
+                    $joinCostos
+                    GROUP BY pr.id_proveedor, pr.proveedor
+                    HAVING total_skus > 0
+                    ORDER BY pr.proveedor
+                    LIMIT " . intval($limite));
+                $datos["proveedores"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            if ($this->tablaExiste($db, "erp_catalogo_marcas")) {
+                $stmt = $db->query("SELECT m.id_marca_erp, m.codigo, m.nombre,
+                        COUNT(DISTINCT s.id_sku) total_skus
+                    FROM erp_catalogo_marcas m
+                    INNER JOIN erp_catalogo_productos p ON p.id_marca_erp=m.id_marca_erp AND p.estatus='activo'
+                    INNER JOIN erp_catalogo_skus s ON s.id_producto_erp=p.id_producto_erp AND s.estatus='activo'
+                    WHERE COALESCE(m.estatus,'activa')='activa'
+                    GROUP BY m.id_marca_erp, m.codigo, m.nombre
+                    HAVING total_skus > 0
+                    ORDER BY m.nombre
+                    LIMIT " . intval($limite));
+                $datos["marcas"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            return $this->respuesta(false, "success", "Agrupadores comerciales consultados", $datos);
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-04.
+     * Proposito: auditar preparacion de grupos comerciales persistentes sin modificar esquema.
+     * Impacto: Listas de precios puede mostrar el estado antes de solicitar DDL autorizado.
+     * Contrato: solo lectura; devuelve tablas propuestas y faltantes.
+     */
+    public function gruposComercialesSchemaReadOnly() {
+        try {
+            $db = $this->getConexion();
+            $tablas = array(
+                "erp_comercial_grupos_productos" => array(
+                    "id_grupo_producto", "codigo", "nombre", "tipo_grupo", "descripcion", "estatus", "creado_por", "fecha_creacion", "fecha_actualizacion"
+                ),
+                "erp_comercial_grupos_productos_reglas" => array(
+                    "id_grupo_regla", "id_grupo_producto", "tipo_regla", "operador", "valor", "estatus", "fecha_creacion"
+                ),
+                "erp_comercial_grupos_productos_items" => array(
+                    "id_grupo_item", "id_grupo_producto", "id_sku", "id_producto_erp", "estatus", "fecha_creacion"
+                ),
+                "erp_comercial_grupos_productos_eventos" => array(
+                    "id_evento", "id_grupo_producto", "accion", "entidad", "datos_antes", "datos_despues", "id_usuario", "fecha_evento"
+                )
+            );
+            $estado = array();
+            $faltantes = array();
+            foreach ($tablas as $tabla => $columnas) {
+                $existe = $this->tablaExiste($db, $tabla);
+                $faltanColumnas = array();
+                if ($existe) {
+                    foreach ($columnas as $columna) {
+                        if (!$this->columnaExiste($db, $tabla, $columna)) {
+                            $faltanColumnas[] = $columna;
+                        }
+                    }
+                }
+                if (!$existe || !empty($faltanColumnas)) {
+                    $faltantes[] = array("tabla" => $tabla, "columnas" => $existe ? $faltanColumnas : $columnas);
+                }
+                $estado[] = array(
+                    "tabla" => $tabla,
+                    "existe" => $existe,
+                    "columnas_faltantes" => $faltanColumnas,
+                    "lista" => $existe && empty($faltanColumnas)
+                );
+            }
+
+            return $this->respuesta(false, empty($faltantes) ? "success" : "info", empty($faltantes) ? "Grupos comerciales persistentes preparados" : "Grupos comerciales persistentes pendientes de DDL", array(
+                "preparado" => empty($faltantes),
+                "estado" => $estado,
+                "faltantes" => $faltantes,
+                "fase_actual" => "filtros_base_readonly",
+                "requiere_respaldo" => true,
+                "requiere_autorizacion" => true,
+                "tablas_propuestas" => array_keys($tablas),
+                "nota" => "Los filtros por categoria, proveedor y marca ya operan sin DDL; guardar grupos con nombre requiere esquema nuevo."
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-15.
      * Proposito: listar SKUs candidatos para construir una lista de precios con costo, precio base, margen y contexto de venta fraccionaria.
      * Impacto: habilita una mesa comercial editable sin que POS/JS decidan precios finales y muestra si el precio aplica por unidad base/granel.
@@ -271,6 +403,9 @@ class ListasPreciosErp extends CRUD {
             $idLista = intval($this->valor($filtros, "id_lista_precio", 0));
             $q = trim((string) $this->valor($filtros, "q", ""));
             $solo = trim((string) $this->valor($filtros, "solo", "todos"));
+            $idCategoria = intval($this->valor($filtros, "id_categoria_erp", 0));
+            $idProveedor = intval($this->valor($filtros, "id_proveedor", 0));
+            $idMarca = intval($this->valor($filtros, "id_marca_erp", 0));
             $umbralMargen = floatval($this->valor($filtros, "margen_minimo", 15));
             if ($umbralMargen <= 0 || $umbralMargen > 95) {
                 $umbralMargen = 15;
@@ -288,6 +423,38 @@ class ListasPreciosErp extends CRUD {
                 $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q OR p.codigo_producto LIKE :q OR (:q_id > 0 AND s.id_sku=:q_id))";
                 $params[":q"] = "%" . $q . "%";
                 $params[":q_id"] = ctype_digit($q) ? intval($q) : 0;
+            }
+            if ($idCategoria > 0 && $this->tablaExiste($db, "erp_catalogo_producto_categorias")) {
+                $where[] = "EXISTS (
+                    SELECT 1
+                    FROM erp_catalogo_producto_categorias pcf
+                    WHERE pcf.id_producto_erp=p.id_producto_erp AND pcf.id_categoria_erp=:id_categoria_erp
+                )";
+                $params[":id_categoria_erp"] = $idCategoria;
+            }
+            if ($idMarca > 0) {
+                $where[] = "p.id_marca_erp=:id_marca_erp";
+                $params[":id_marca_erp"] = $idMarca;
+            }
+            if ($idProveedor > 0) {
+                $proveedorWhere = array();
+                if ($this->tablaExiste($db, "erp_catalogo_sku_proveedores")) {
+                    $proveedorWhere[] = "EXISTS (
+                        SELECT 1
+                        FROM erp_catalogo_sku_proveedores spf
+                        WHERE spf.id_sku=s.id_sku AND spf.id_proveedor=:id_proveedor_rel AND spf.estatus='activo'
+                    )";
+                    $params[":id_proveedor_rel"] = $idProveedor;
+                }
+                if ($this->tablaExiste($db, "erp_proveedores_sku_costos")) {
+                    $proveedorWhere[] = "EXISTS (
+                        SELECT 1
+                        FROM erp_proveedores_sku_costos pcf
+                        WHERE pcf.id_sku=s.id_sku AND pcf.id_proveedor=:id_proveedor_costo AND pcf.estatus='vigente'
+                    )";
+                    $params[":id_proveedor_costo"] = $idProveedor;
+                }
+                $where[] = $proveedorWhere ? "(" . implode(" OR ", $proveedorWhere) . ")" : "1=0";
             }
 
             $joinDetalle = "LEFT JOIN (SELECT NULL id_lista_precio_detalle, NULL id_sku, NULL precio, NULL moneda, NULL estatus) d ON 1=0";
@@ -476,7 +643,7 @@ class ListasPreciosErp extends CRUD {
                 "pagina" => $pagina,
                 "por_pagina" => $porPagina,
                 "total_paginas" => $totalPaginas,
-                "filtros" => array("id_lista_precio" => $idLista, "q" => $q, "solo" => $solo, "pagina" => $pagina, "por_pagina" => $porPagina, "margen_minimo" => $umbralMargen),
+                "filtros" => array("id_lista_precio" => $idLista, "q" => $q, "solo" => $solo, "pagina" => $pagina, "por_pagina" => $porPagina, "margen_minimo" => $umbralMargen, "id_categoria_erp" => $idCategoria, "id_proveedor" => $idProveedor, "id_marca_erp" => $idMarca),
                 "fuente_costo" => "RentabilidadErp::resolverCostoVigenteSku read-only; costo_referencia solo se conserva como fallback historico auditado"
             ));
         } catch (Exception $e) {

@@ -129,6 +129,66 @@ class Ventas extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: abrir la vista operativa para cotizar envios foraneos desde interesados de venta.
+   * Impacto: Ventas/Pedidos; captura borradores comerciales sin descontar inventario ni crear servicios TMS.
+   * Contrato: pantalla de captura y seguimiento; la persistencia formal requiere esquema autorizado posterior.
+   */
+  public function envios_foraneos() {
+    $this->requerirPermiso("ventas.ver");
+    $this->vista("apps/erp/ventas/envios_foraneos");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: consultar SKUs para cotizacion de envios foraneos reutilizando el contrato POS/Catalogo.
+   * Impacto: Ventas/Envios foraneos; permite detectar pendientes logisticos del catalogo sin escribir BD.
+   * Contrato: GET protegido por ventas.ver/catalogo.ver; no reserva, no cobra y no modifica productos.
+   */
+  public function envios_foraneos_buscar_skus_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    return json_encode($this->modelo("VentasErp")->buscarSkusPos($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: listar cotizaciones de envios foraneos persistidas.
+   * Impacto: Ventas/Envios foraneos; consulta bandeja multiusuario sin crear pedidos ni TMS.
+   * Contrato: GET protegido por ventas.ver.
+   */
+  public function envios_foraneos_listar_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->enviosForaneosListar($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: consultar una cotizacion de envio foraneo con partidas y eventos.
+   * Impacto: Ventas/Envios foraneos; alimenta edicion sin afectar inventario.
+   * Contrato: GET protegido por ventas.ver.
+   */
+  public function envios_foraneos_consultar_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->enviosForaneosConsultar($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: guardar cotizacion de envio foraneo en BD.
+   * Impacto: Ventas/Envios foraneos; no crea pedido, venta real, TMS ni movimiento de inventario.
+   * Contrato: POST con CSRF y ventas.operar; backend recalcula importes.
+   */
+  public function envios_foraneos_guardar_erp() {
+    $this->requerirPermiso("ventas.operar");
+    return json_encode($this->modelo("VentasErp")->enviosForaneosGuardar($_POST, $this->usuarioActualId()));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-07-01.
    * Proposito: abrir modulo dedicado de devoluciones/cancelaciones POS.
    * Impacto: separa reversas, reembolsos y decisiones fisicas del tablero de ventas.
@@ -1539,6 +1599,55 @@ class Ventas extends Controlador {
       }
     }
     return json_encode($this->modelo("VentasErpEsquema")->planActualizarVentasPos($ejecutar, $alcance));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: auditar estructura para cotizaciones de envios foraneos sin ejecutar DDL.
+   * Impacto: Ventas/Envios foraneos; prepara persistencia multiusuario sin tocar pedidos, inventario ni TMS.
+   * Contrato: endpoint read-only protegido por ventas.ver.
+   */
+  public function esquema_auditar_envios_foraneos() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarEnviosForaneos());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: generar o aplicar DDL de cotizaciones de envios foraneos con autorizacion explicita.
+   * Impacto: crea estructura documental de cotizaciones; no crea pedidos, ventas reales, TMS ni movimientos de inventario.
+   * Contrato: con ejecutar=0 solo genera plan; con ejecutar=1 requiere token y respaldo externo valido.
+   */
+  public function esquema_actualizar_envios_foraneos() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_ENVIOS_FORANEOS_DDL" || !$validacionRespaldo["ok"]) {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se ejecuto DDL de envios foraneos. Falta autorizacion explicita o respaldo valido.",
+          "depurar" => array(
+            "requerido" => array(
+              "autorizar" => "VENTAS_ENVIOS_FORANEOS_DDL",
+              "respaldo" => "RUTA_O_REFERENCIA"
+            ),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array(
+              "No ejecutar sin respaldo externo verificado.",
+              "No ejecutar sin autorizacion textual del dueno.",
+              "No crea pedidos, ventas reales, TMS ni movimientos de inventario."
+            )
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarEnviosForaneos($ejecutar));
   }
 
   /**

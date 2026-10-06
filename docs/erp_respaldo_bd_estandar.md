@@ -52,6 +52,18 @@ C:\xampp\panel_db_backups\artianilocal_panel_20260717_153000_antes_ecommerce_pub
 - Estado operativo actual, 2026-09-26: `panel_de_control` usa base productiva. Los ejemplos historicos con `artianilocal` no deben copiarse automaticamente para nuevos respaldos; antes de respaldar o aplicar cambios, confirmar la base real configurada por el entorno y nombrar el archivo como productivo cuando corresponda.
 - Para Compras y modulos conectados, toda escritura directa, DDL, truncado, limpieza o recalculo masivo requiere respaldo externo nuevo y autorizacion explicita del dueno.
 
+## Conservacion y limpieza
+
+Fecha: 2026-10-04
+
+Para evitar que los respaldos llenen disco:
+
+- Conservar respaldos asociados a DDL, migraciones, escrituras masivas o cambios productivos durante al menos 90 dias.
+- Conservar por mas tiempo los respaldos ligados a activaciones mayores, cierres de modulo, cambios fiscales/financieros, inventario o recuperaciones reales.
+- No borrar respaldos documentados si el cambio relacionado sigue en observacion, pendiente de UAT o sin cierre operativo.
+- Antes de borrar respaldos antiguos, generar un listado con archivo, fecha, tamano y motivo documentado; el dueno debe autorizar la limpieza si incluye respaldos productivos.
+- Los archivos fallidos de 0 bytes pueden eliminarse despues de confirmar que existe un respaldo valido del mismo intento.
+
 ## Respaldo productivo post-activacion
 
 Fecha: 2026-08-25
@@ -108,6 +120,18 @@ archivo_legible=true
 tamano_bytes=57932482
 aplicacion_posterior=DistribucionApiEsquema::planActualizarDistribucionApi(true)
 resultado_aplicacion=success
+```
+
+Ventas Envios Foraneos:
+
+```text
+archivo=C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20261004_223346_antes_ventas_envios_foraneos.sql
+tamano_bytes=131205837
+sha256=E47FE8857D1258C9905C27E44524D6EFFFDBC255C1E1EFBDE9807F4A2FD58B65
+base=artianicom_sys
+generado_con=PDO export, porque mysqldump fallo con socket TCP 2004 en esta estacion
+dentro_repo=no
+motivo=antes de DDL Ventas Envios Foraneos
 ```
 
 Ecommerce publico Fase 1:

@@ -18,7 +18,19 @@ class DistribucionCatalogoApi extends CRUD {
       "tipos_cliente" => array("publico", "registrado", "revendedor", "mayorista", "distribuidor_autorizado", "administrador_interno"),
       "estatus_cliente" => array("pendiente", "en_revision", "aprobado", "rechazado", "suspendido"),
       "permisos_comerciales" => $permisos->permisosComerciales(),
+      "acciones_perfil" => $permisos->accionesPermitidas($permisos->permisosComerciales()),
+      "codigos_login" => array("credenciales_invalidas", "cuenta_pendiente", "cuenta_en_revision", "cuenta_rechazada", "cuenta_suspendida", "requiere_activacion", "contrasenia_no_creada", "sin_permisos_comerciales"),
       "disponibilidad_estados" => $this->estadosDisponibilidad(),
+      "registro" => array(
+        "campos_requeridos" => array("nombre", "nombre_negocio", "correo", "telefono", "ciudad", "estado", "tipo_negocio"),
+        "tipos_negocio" => array("venta_internet", "veterinaria", "petshop", "acuario", "acuario_petshop", "estetica_canina", "criador", "vendedor_mercado", "vendedor_ambulante", "otro"),
+        "facturacion_requerida_si_requiere_factura" => array("facturacion.rfc", "facturacion.razon_social", "facturacion.regimen_fiscal", "facturacion.uso_cfdi", "facturacion.codigo_postal_fiscal", "facturacion.correo_facturacion"),
+        "categorias_interes" => array(
+          "seleccion_multiple" => true,
+          "seleccion_padre_incluye_descendientes" => true,
+          "campos" => array("id_categoria_erp", "nombre", "ruta", "incluye_descendientes")
+        )
+      ),
       "flujo_pedido" => array(
         "catalogo_no_muestra_existencia" => true,
         "ruta" => "/DistribucionApi/pedido/registrar",
@@ -36,6 +48,8 @@ class DistribucionCatalogoApi extends CRUD {
       ),
       "catalogo_personalizado" => array(
         "captura_intereses_registro" => true,
+        "categorias_interes_endpoint" => "/DistribucionApi/categorias_interes",
+        "seleccion_categoria_padre_incluye_descendientes" => true,
         "modos_cliente" => array("general", "personalizado"),
         "reglas_admin" => array("permitir", "ocultar"),
         "alcances" => array("categoria", "marca", "sku"),
@@ -54,6 +68,7 @@ class DistribucionCatalogoApi extends CRUD {
       ),
       "endpoints" => $this->endpointsContrato(),
       "payloads" => array(
+        "registro" => $this->payloadRegistro(),
         "pedido_facturacion" => $this->payloadFacturacionPedido()
       ),
       "guardrails" => $this->guardrails()
@@ -85,8 +100,11 @@ class DistribucionCatalogoApi extends CRUD {
         "manifest" => "/DistribucionApi/contratos",
         "catalogo" => "/DistribucionApi/catalogo",
         "producto" => "/DistribucionApi/producto/{slug}",
+        "categorias_interes" => "/DistribucionApi/categorias_interes",
         "perfil" => "/DistribucionApi/auth/perfil",
         "perfil_solicitar_cambio" => "/DistribucionApi/auth/perfil/solicitar_cambio",
+        "recuperar_acceso" => "/DistribucionApi/auth/recuperar",
+        "reenviar_activacion" => "/DistribucionApi/auth/reenviar_activacion",
         "cotizacion_dryrun" => "/DistribucionApi/cotizacion/dryrun",
         "cotizacion_registrar" => "/DistribucionApi/cotizacion/registrar",
         "cotizacion_listar" => "/DistribucionApi/cotizacion/listar",
@@ -163,6 +181,39 @@ class DistribucionCatalogoApi extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-10-04
+   * Proposito: entregar jerarquia publica de categorias para intereses comerciales de prospectos.
+   * Impacto: Registro Distribucion; permite seleccion multiple y categorias padre con descendientes.
+   * Contrato: GET publico read-only; no requiere sesion externa.
+   */
+  public function categoriasInteres($filtros = array()) {
+    require_once RUTA_APP . "/modelos/CatalogoCanalesErp.php";
+    $respuesta = (new CatalogoCanalesErp())->categoriasCanal("distribucion", array());
+    if (!isset($respuesta["depurar"]) || !is_array($respuesta["depurar"])) {
+      $respuesta["depurar"] = array();
+    }
+    $respuesta["depurar"]["seleccion_multiple"] = true;
+    $respuesta["depurar"]["seleccion_padre_incluye_descendientes"] = true;
+    $respuesta["depurar"]["payload_recomendado"] = array(
+      "categorias_interes" => array(
+        array(
+          "id_categoria_erp" => 0,
+          "nombre" => "Categoria",
+          "ruta" => "Categoria / Subcategoria",
+          "incluye_descendientes" => true
+        )
+      )
+    );
+    $items = $this->valor($respuesta["depurar"], "items", array());
+    $jerarquia = $this->valor($respuesta["depurar"], "jerarquia", array());
+    $respuesta["mensaje"] = "Categorias de interes disponibles.";
+    $respuesta["seleccion_padre_incluye_descendientes"] = true;
+    $respuesta["items"] = $items;
+    $respuesta["jerarquia"] = $jerarquia;
+    return $respuesta;
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: reservar marcas visibles para Distribucion.
    * Impacto: Navegacion Distribucion; mantiene contrato separado de tablas internas.
@@ -192,6 +243,8 @@ class DistribucionCatalogoApi extends CRUD {
     return $this->respuesta(false, "success", "Filtros Distribucion consultados", array(
       "configurado" => $this->valor($this->valor($categorias, "depurar", array()), "configurado", false) && $this->valor($this->valor($marcas, "depurar", array()), "configurado", false),
       "categorias" => $this->valor($this->valor($categorias, "depurar", array()), "items", array()),
+      "categorias_jerarquia" => $this->valor($this->valor($categorias, "depurar", array()), "jerarquia", array()),
+      "seleccion_categoria_padre_incluye_descendientes" => true,
       "marcas" => $this->valor($this->valor($marcas, "depurar", array()), "items", array()),
       "atributos" => array(),
       "disponibilidad" => $this->estadosDisponibilidad(),
@@ -270,8 +323,30 @@ class DistribucionCatalogoApi extends CRUD {
         $params[":marca"] = $idMarca;
       }
       if ($idCategoria > 0 && $this->tablaExiste($db, "erp_catalogo_producto_categorias")) {
-        $where[] = "EXISTS (SELECT 1 FROM erp_catalogo_producto_categorias pcf WHERE pcf.id_producto_erp=p.id_producto_erp AND pcf.id_categoria_erp=:categoria)";
-        $params[":categoria"] = $idCategoria;
+        if ($this->tablaExiste($db, "erp_catalogo_categorias")) {
+          $where[] = "EXISTS (
+            SELECT 1
+            FROM erp_catalogo_producto_categorias pcf
+            INNER JOIN erp_catalogo_categorias cf ON cf.id_categoria_erp=pcf.id_categoria_erp
+            INNER JOIN erp_catalogo_categorias cb ON cb.id_categoria_erp=:categoria_base
+            WHERE pcf.id_producto_erp=p.id_producto_erp
+              AND (
+                pcf.id_categoria_erp=:categoria_exacta
+                OR cf.id_categoria_padre=:categoria_padre
+                OR (TRIM(COALESCE(cb.ruta,''))<>'' AND (
+                  cf.ruta LIKE CONCAT(cb.ruta, ' / %')
+                  OR cf.ruta LIKE CONCAT(cb.ruta, '/%')
+                  OR cf.ruta LIKE CONCAT(cb.ruta, ' > %')
+                ))
+              )
+          )";
+          $params[":categoria_base"] = $idCategoria;
+          $params[":categoria_exacta"] = $idCategoria;
+          $params[":categoria_padre"] = $idCategoria;
+        } else {
+          $where[] = "EXISTS (SELECT 1 FROM erp_catalogo_producto_categorias pcf WHERE pcf.id_producto_erp=p.id_producto_erp AND pcf.id_categoria_erp=:categoria)";
+          $params[":categoria"] = $idCategoria;
+        }
       }
       if ($idProveedor > 0 && $this->tablaExiste($db, "erp_catalogo_sku_proveedores")) {
         $where[] = "EXISTS (SELECT 1 FROM erp_catalogo_sku_proveedores spf WHERE spf.id_sku=s.id_sku AND spf.id_proveedor=:proveedor AND spf.estatus='activo')";
@@ -493,11 +568,14 @@ class DistribucionCatalogoApi extends CRUD {
       array("metodo" => "GET", "ruta" => "/DistribucionApi/configuracion_inicial"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/auth/registro"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/auth/login"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/auth/recuperar"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/auth/reenviar_activacion"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/auth/perfil"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/auth/perfil/solicitar_cambio"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/catalogo"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/producto/{slug}"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/categorias"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/categorias_interes"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/marcas"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/filtros"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/precios/resolver"),
@@ -541,6 +619,48 @@ class DistribucionCatalogoApi extends CRUD {
     );
   }
 
+  private function payloadRegistro() {
+    return array(
+      "nombre" => "Nombre del contacto",
+      "nombre_negocio" => "Nombre comercial",
+      "empresa" => "Nombre comercial",
+      "correo" => "cliente@dominio.com",
+      "telefono" => "5555555555",
+      "whatsapp" => "5555555555",
+      "rfc" => "RFCOPCIONAL",
+      "ciudad" => "Guadalajara",
+      "estado" => "Jalisco",
+      "tipo_interes" => "mayorista",
+      "tipo_negocio" => "petshop",
+      "calle" => "Calle",
+      "numero_exterior" => "123",
+      "numero_interior" => "",
+      "colonia" => "Colonia",
+      "codigo_postal" => "00000",
+      "referencias" => "Zona o local",
+      "requiere_factura" => true,
+      "facturacion" => array(
+        "rfc" => "RFC123456XXX",
+        "razon_social" => "RAZON SOCIAL",
+        "regimen_fiscal" => "601",
+        "uso_cfdi" => "G03",
+        "codigo_postal_fiscal" => "00000",
+        "correo_facturacion" => "facturas@dominio.com",
+        "comentarios_facturacion" => "Notas fiscales"
+      ),
+      "categorias_interes" => array(
+        array(
+          "id_categoria_erp" => 10,
+          "nombre" => "Acuario y peces",
+          "ruta" => "Mascotas / Acuario y peces",
+          "incluye_descendientes" => true
+        )
+      ),
+      "intereses_comerciales" => "Productos o marcas de interes",
+      "mensaje" => "Comentarios adicionales"
+    );
+  }
+
   private function guardrails() {
     return array(
       "erp_es_fuente_de_verdad" => true,
@@ -575,7 +695,15 @@ class DistribucionCatalogoApi extends CRUD {
   }
 
   private function respuesta($error, $tipo, $mensaje, $depurar = array()) {
-    return array("error" => $error, "tipo" => $tipo, "mensaje" => $mensaje, "depurar" => $depurar);
+    $respuesta = array("error" => $error, "tipo" => $tipo, "mensaje" => $mensaje, "depurar" => $depurar);
+    if (is_array($depurar)) {
+      foreach ($depurar as $clave => $valor) {
+        if (!array_key_exists($clave, $respuesta)) {
+          $respuesta[$clave] = $valor;
+        }
+      }
+    }
+    return $respuesta;
   }
 
   private function conSesionYGuardrails($respuesta, $contexto) {

@@ -4245,9 +4245,9 @@ class VentasErp extends CRUD {
 
     /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
-     * Proposito: buscar SKUs ERP vendibles para POS con imagen, precio, reglas de inventario y disponibilidad.
-     * Impacto: reemplaza la busqueda legacy basada en `ecom_productos` para el nuevo POS.
-     * Contrato: solo lectura; `existencia_disponible` es informativa y backend debe revalidar antes de cobrar.
+     * Proposito: buscar SKUs ERP vendibles para POS/envios con imagen, precio, reglas de inventario, disponibilidad y atributos logisticos.
+     * Impacto: reemplaza la busqueda legacy basada en `ecom_productos` y permite detectar pendientes de catalogo para envios foraneos.
+     * Contrato: solo lectura; `existencia_disponible` es informativa y backend debe revalidar antes de cobrar o reservar.
      */
     public function buscarSkusPos($filtros = array()) {
         try {
@@ -4277,6 +4277,7 @@ class VentasErp extends CRUD {
                     COALESCE(r.requiere_caducidad, 0) requiere_caducidad,
                     COALESCE(r.requiere_escaneo_venta, 0) requiere_escaneo_venta,
                     COALESCE(img_sku.url_imagen, img_producto.url_imagen, '') url_imagen,
+                    dim.largo_cm, dim.ancho_cm, dim.alto_cm, dim.peso_kg,
                     COALESCE(inv.existencia_disponible, 0) existencia_disponible,
                     COALESCE(inv.cantidad_apartada, 0) cantidad_apartada,
                     COALESCE(inv.unidades_cerradas, 0) unidades_cerradas,
@@ -4308,6 +4309,19 @@ class VentasErp extends CRUD {
                         GROUP BY id_producto_erp
                     ) x ON x.id_imagen_erp=i.id_imagen_erp
                 ) img_producto ON img_producto.id_producto_erp=s.id_producto_erp
+                LEFT JOIN (
+                    SELECT sa.id_sku,
+                           MAX(CASE WHEN UPPER(a.codigo)='ATR-LARGO' OR LOWER(TRIM(a.nombre))='largo' THEN sa.valor END) largo_cm,
+                           MAX(CASE WHEN UPPER(a.codigo)='ATR-ANCHO' OR LOWER(TRIM(a.nombre))='ancho' THEN sa.valor END) ancho_cm,
+                           MAX(CASE WHEN UPPER(a.codigo)='ATR-ALTO' OR LOWER(TRIM(a.nombre))='alto' THEN sa.valor END) alto_cm,
+                           MAX(CASE WHEN UPPER(a.codigo) IN ('ATR-PESO','ATR-PESO-PRODUCTO','ATR-PESO-CONTENIDO')
+                                     OR LOWER(TRIM(a.nombre)) IN ('peso','peso producto','peso_producto','peso contenido','peso_contenido')
+                                    THEN sa.valor END) peso_kg
+                    FROM erp_catalogo_sku_atributos sa
+                    INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp AND a.estatus='activo'
+                    WHERE TRIM(COALESCE(sa.valor,''))<>''
+                    GROUP BY sa.id_sku
+                ) dim ON dim.id_sku=s.id_sku
                 LEFT JOIN (
                     SELECT e.id_sku_erp,
                            SUM(CASE WHEN (:almacen=0 OR e.id_almacen_clave=:almacen_filtro) THEN e.cantidad_disponible ELSE 0 END) existencia_disponible,
@@ -4349,6 +4363,198 @@ class VentasErp extends CRUD {
             $stmt->execute($params);
             return $this->respuesta(false, "success", "SKUs POS consultados", $stmt->fetchAll(PDO::FETCH_ASSOC));
         } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-04
+     * Proposito: listar cotizaciones de envios foraneos persistidas para bandeja multiusuario.
+     * Impacto: Ventas/Envios foraneos; consulta sin crear pedidos, ventas, TMS ni movimientos de inventario.
+     * Contrato: read-only; filtra por texto/estatus y devuelve resumen calculado desde tablas propias.
+     */
+    public function enviosForaneosListar($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_ventas_envios_foraneos")) {
+                return $this->respuesta(true, "warning", "Falta aplicar esquema de envios foraneos");
+            }
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $estatus = trim((string) $this->valor($filtros, "estatus", ""));
+            $limite = max(20, min(200, intval($this->valor($filtros, "limite", 80))));
+            $where = array("1=1");
+            $params = array();
+            if ($estatus !== "") {
+                $where[] = "e.estatus=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            if ($q !== "") {
+                $where[] = "(e.folio LIKE :q OR e.cliente_nombre LIKE :q OR e.cliente_telefono LIKE :q OR e.destino_cp LIKE :q OR e.destino_estado LIKE :q OR e.destino_ciudad LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            $sql = "SELECT e.*, COUNT(d.id_envio_foraneo_detalle) partidas,
+                       SUM(CASE WHEN d.calidad_logistica<>'completa' OR d.producto_no_identificado=1 THEN 1 ELSE 0 END) pendientes_catalogo
+                    FROM erp_ventas_envios_foraneos e
+                    LEFT JOIN erp_ventas_envios_foraneos_detalle d ON d.id_envio_foraneo=e.id_envio_foraneo
+                    WHERE " . implode(" AND ", $where) . "
+                    GROUP BY e.id_envio_foraneo
+                    ORDER BY e.fecha_actualizacion DESC, e.fecha_registro DESC
+                    LIMIT " . intval($limite);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            return $this->respuesta(false, "success", "Envios foraneos consultados", array(
+                "cotizaciones" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-04
+     * Proposito: consultar una cotizacion de envio foraneo con detalle y eventos.
+     * Impacto: Ventas/Envios foraneos; alimenta edicion operativa sin afectar inventario.
+     * Contrato: read-only por id o folio.
+     */
+    public function enviosForaneosConsultar($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $id = intval($this->valor($filtros, "id_envio_foraneo", 0));
+            $folio = trim((string) $this->valor($filtros, "folio", ""));
+            if ($id <= 0 && $folio === "") {
+                return $this->respuesta(true, "warning", "Folio o id obligatorio");
+            }
+            $where = $id > 0 ? "id_envio_foraneo=:id" : "folio=:folio";
+            $stmt = $db->prepare("SELECT * FROM erp_ventas_envios_foraneos WHERE " . $where . " LIMIT 1");
+            $stmt->execute($id > 0 ? array(":id" => $id) : array(":folio" => $folio));
+            $envio = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$envio) {
+                return $this->respuesta(true, "warning", "Cotizacion no encontrada");
+            }
+            $stmt = $db->prepare("SELECT * FROM erp_ventas_envios_foraneos_detalle WHERE id_envio_foraneo=:id ORDER BY renglon ASC");
+            $stmt->execute(array(":id" => intval($envio["id_envio_foraneo"])));
+            $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt = $db->prepare("SELECT * FROM erp_ventas_envios_foraneos_eventos WHERE id_envio_foraneo=:id ORDER BY fecha_registro DESC, id_envio_foraneo_evento DESC LIMIT 80");
+            $stmt->execute(array(":id" => intval($envio["id_envio_foraneo"])));
+            return $this->respuesta(false, "success", "Cotizacion consultada", array(
+                "cotizacion" => $envio,
+                "detalle" => $detalle,
+                "eventos" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-04
+     * Proposito: guardar cotizacion operativa de envio foraneo con snapshot de productos y paquete.
+     * Impacto: Ventas/Envios foraneos; crea/actualiza documento comercial previo sin crear pedido, TMS ni inventario.
+     * Contrato: POST real protegido; recalcula importes y registra evento de alta/actualizacion/cambio de estatus.
+     */
+    public function enviosForaneosGuardar($datos = array(), $idUsuario = null) {
+        $db = null;
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_ventas_envios_foraneos") || !$this->tablaExiste($db, "erp_ventas_envios_foraneos_detalle")) {
+                return $this->respuesta(true, "warning", "Falta aplicar esquema de envios foraneos");
+            }
+            $payload = $this->decodificarItems($this->valor($datos, "payload", array()));
+            if (empty($payload)) {
+                return $this->respuesta(true, "warning", "Payload obligatorio");
+            }
+            $id = intval($this->valor($payload, "id_envio_foraneo", $this->valor($datos, "id_envio_foraneo", 0)));
+            $estatus = $this->normalizarEstatusEnvioForaneo($this->valor($payload, "estatus", "borrador"));
+            $cliente = $this->valor($payload, "cliente", array());
+            $destino = $this->valor($payload, "destino", array());
+            $paquete = $this->valor($payload, "paquete", array());
+            $envio = $this->valor($payload, "envio", array());
+            $partidas = $this->decodificarItems($this->valor($payload, "partidas", array()));
+            $totales = $this->calcularTotalesEnvioForaneo($partidas, $envio);
+
+            $db->beginTransaction();
+            $anterior = null;
+            if ($id > 0) {
+                $stmt = $db->prepare("SELECT * FROM erp_ventas_envios_foraneos WHERE id_envio_foraneo=:id FOR UPDATE");
+                $stmt->execute(array(":id" => $id));
+                $anterior = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$anterior) {
+                    throw new Exception("Cotizacion no encontrada para actualizar");
+                }
+            }
+            $folio = $anterior ? $anterior["folio"] : $this->generarFolioEnvioForaneo($db);
+            $params = array(
+                ":folio" => $folio,
+                ":estatus" => $estatus,
+                ":origen" => $this->textoCortoEnvioForaneo($this->valor($payload, "origen", ""), 120),
+                ":cliente_crm" => intval($this->valor($payload, "id_cliente_crm", 0)) ?: null,
+                ":cliente_nombre" => $this->textoCortoEnvioForaneo($this->valor($cliente, "nombre", ""), 255),
+                ":cliente_telefono" => $this->textoCortoEnvioForaneo($this->valor($cliente, "telefono", ""), 80),
+                ":cliente_correo" => $this->textoCortoEnvioForaneo($this->valor($cliente, "correo", ""), 180),
+                ":destino_cp" => $this->textoCortoEnvioForaneo($this->valor($destino, "cp", ""), 20),
+                ":destino_estado" => $this->textoCortoEnvioForaneo($this->valor($destino, "estado", ""), 120),
+                ":destino_ciudad" => $this->textoCortoEnvioForaneo($this->valor($destino, "ciudad", ""), 120),
+                ":destino_direccion" => trim((string) $this->valor($destino, "direccion", "")),
+                ":largo" => $this->numeroEnvioForaneo($this->valor($paquete, "largo", 0)),
+                ":ancho" => $this->numeroEnvioForaneo($this->valor($paquete, "ancho", 0)),
+                ":alto" => $this->numeroEnvioForaneo($this->valor($paquete, "alto", 0)),
+                ":peso" => $this->numeroEnvioForaneo($this->valor($paquete, "peso", 0)),
+                ":paquetes" => max(1, intval($this->valor($paquete, "cantidad", 1))),
+                ":paqueteria" => $this->textoCortoEnvioForaneo($this->valor($envio, "paqueteria", ""), 120),
+                ":servicio" => $this->textoCortoEnvioForaneo($this->valor($envio, "servicio", ""), 120),
+                ":costo_envio" => $this->numeroEnvioForaneo($this->valor($envio, "costo", 0)),
+                ":precio_envio" => $this->numeroEnvioForaneo($this->valor($envio, "precio", 0)),
+                ":vigencia" => $this->fechaEnvioForaneo($this->valor($envio, "vigencia", "")),
+                ":guia" => $this->textoCortoEnvioForaneo($this->valor($envio, "guia", ""), 180),
+                ":subtotal" => $totales["subtotal_productos"],
+                ":total" => $totales["total_estimado"],
+                ":snapshot" => json_encode($payload, JSON_UNESCAPED_UNICODE),
+                ":observaciones" => trim((string) $this->valor($payload, "notas", "")),
+                ":usuario" => intval($idUsuario) ?: null
+            );
+            if ($anterior) {
+                $params[":id"] = $id;
+                $db->prepare("UPDATE erp_ventas_envios_foraneos SET
+                    estatus=:estatus, origen_contacto=:origen, id_cliente_crm=:cliente_crm,
+                    cliente_nombre=:cliente_nombre, cliente_telefono=:cliente_telefono, cliente_correo=:cliente_correo,
+                    destino_cp=:destino_cp, destino_estado=:destino_estado, destino_ciudad=:destino_ciudad, destino_direccion=:destino_direccion,
+                    paquete_largo_cm=:largo, paquete_ancho_cm=:ancho, paquete_alto_cm=:alto, paquete_peso_kg=:peso, paquete_cantidad=:paquetes,
+                    paqueteria=:paqueteria, servicio_envio=:servicio, costo_envio=:costo_envio, precio_envio_cliente=:precio_envio,
+                    vigencia_cotizacion=:vigencia, guia_referencia=:guia, subtotal_productos=:subtotal, total_estimado=:total,
+                    datos_snapshot=:snapshot, observaciones=:observaciones, actualizado_por=:usuario, fecha_actualizacion=NOW()
+                    WHERE id_envio_foraneo=:id")->execute($params);
+            } else {
+                $db->prepare("INSERT INTO erp_ventas_envios_foraneos
+                    (folio, estatus, origen_contacto, id_cliente_crm, cliente_nombre, cliente_telefono, cliente_correo,
+                     destino_cp, destino_estado, destino_ciudad, destino_direccion,
+                     paquete_largo_cm, paquete_ancho_cm, paquete_alto_cm, paquete_peso_kg, paquete_cantidad,
+                     paqueteria, servicio_envio, costo_envio, precio_envio_cliente, vigencia_cotizacion, guia_referencia,
+                     subtotal_productos, total_estimado, datos_snapshot, observaciones, creado_por, actualizado_por, fecha_actualizacion)
+                    VALUES (:folio, :estatus, :origen, :cliente_crm, :cliente_nombre, :cliente_telefono, :cliente_correo,
+                     :destino_cp, :destino_estado, :destino_ciudad, :destino_direccion,
+                     :largo, :ancho, :alto, :peso, :paquetes,
+                     :paqueteria, :servicio, :costo_envio, :precio_envio, :vigencia, :guia,
+                     :subtotal, :total, :snapshot, :observaciones, :usuario, :usuario, NOW())")->execute($params);
+                $id = intval($db->lastInsertId());
+            }
+
+            $db->prepare("DELETE FROM erp_ventas_envios_foraneos_detalle WHERE id_envio_foraneo=:id")->execute(array(":id" => $id));
+            $this->insertarDetalleEnvioForaneo($db, $id, $partidas);
+            $this->registrarEventoEnvioForaneo($db, $id, $anterior ? "actualizacion" : "alta", $anterior ? $anterior["estatus"] : null, $estatus, $anterior ? "Cotizacion actualizada" : "Cotizacion creada", $payload, $idUsuario);
+            $db->commit();
+            return $this->respuesta(false, "success", "Cotizacion de envio guardada", array(
+                "id_envio_foraneo" => $id,
+                "folio" => $folio,
+                "estatus" => $estatus,
+                "totales" => $totales
+            ));
+        } catch (Exception $e) {
+            if ($db instanceof PDO && $db->inTransaction()) {
+                $db->rollBack();
+            }
             return $this->respuesta(true, "danger", $e->getMessage());
         }
     }
@@ -13494,6 +13700,116 @@ class VentasErp extends CRUD {
         $stmt = $db->prepare("SELECT COUNT(*) FROM erp_inventario_reservas WHERE folio LIKE :prefijo");
         $stmt->execute(array(":prefijo" => $prefijo . "%"));
         return $prefijo . str_pad((string) (intval($stmt->fetchColumn()) + 1), 6, "0", STR_PAD_LEFT);
+    }
+
+    private function generarFolioEnvioForaneo($db) {
+        $prefijo = "ENV-FOR-" . date("Ymd") . "-";
+        $stmt = $db->prepare("SELECT COUNT(*) FROM erp_ventas_envios_foraneos WHERE folio LIKE :prefijo");
+        $stmt->execute(array(":prefijo" => $prefijo . "%"));
+        return $prefijo . str_pad((string) (intval($stmt->fetchColumn()) + 1), 5, "0", STR_PAD_LEFT);
+    }
+
+    private function normalizarEstatusEnvioForaneo($estatus) {
+        $estatus = trim((string) $estatus);
+        $permitidos = array("borrador", "datos_incompletos", "cotizando_envio", "cotizacion_enviada", "aceptada", "convertida_pedido", "descartada");
+        return in_array($estatus, $permitidos, true) ? $estatus : "borrador";
+    }
+
+    private function textoCortoEnvioForaneo($valor, $limite) {
+        $valor = trim((string) $valor);
+        return strlen($valor) > $limite ? substr($valor, 0, $limite) : $valor;
+    }
+
+    private function numeroEnvioForaneo($valor) {
+        if (is_string($valor) && preg_match('/-?\d+([.,]\d+)?/', $valor, $match)) {
+            $valor = str_replace(",", ".", $match[0]);
+        }
+        return round(floatval($valor), 6);
+    }
+
+    private function fechaEnvioForaneo($valor) {
+        $valor = trim((string) $valor);
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor) ? $valor : null;
+    }
+
+    private function calcularTotalesEnvioForaneo($partidas, $envio) {
+        $subtotal = 0;
+        foreach ($partidas as $partida) {
+            $subtotal += $this->numeroEnvioForaneo($this->valor($partida, "cantidad", 0)) * $this->numeroEnvioForaneo($this->valor($partida, "precio", $this->valor($partida, "precio_unitario", 0)));
+        }
+        $precioEnvio = $this->numeroEnvioForaneo($this->valor($envio, "precio", $this->valor($envio, "precio_envio_cliente", 0)));
+        return array(
+            "subtotal_productos" => round($subtotal, 6),
+            "total_estimado" => round($subtotal + $precioEnvio, 6)
+        );
+    }
+
+    private function insertarDetalleEnvioForaneo($db, $idEnvio, $partidas) {
+        $stmt = $db->prepare("INSERT INTO erp_ventas_envios_foraneos_detalle
+            (id_envio_foraneo, renglon, id_producto_erp, id_sku_erp, sku, descripcion, cantidad,
+             precio_unitario, importe, existencia_disponible_snapshot, largo_cm_snapshot,
+             ancho_cm_snapshot, alto_cm_snapshot, peso_kg_snapshot, calidad_logistica,
+             pendientes_json, producto_no_identificado, datos_snapshot)
+            VALUES (:envio, :renglon, :producto, :sku_id, :sku, :descripcion, :cantidad,
+             :precio, :importe, :existencia, :largo, :ancho, :alto, :peso, :calidad,
+             :pendientes, :manual, :snapshot)");
+        $renglon = 1;
+        foreach ($partidas as $partida) {
+            $cantidad = $this->numeroEnvioForaneo($this->valor($partida, "cantidad", 0));
+            $precio = $this->numeroEnvioForaneo($this->valor($partida, "precio", $this->valor($partida, "precio_unitario", 0)));
+            $pendientes = $this->pendientesLogisticosEnvioForaneo($partida);
+            $stmt->execute(array(
+                ":envio" => intval($idEnvio),
+                ":renglon" => $renglon++,
+                ":producto" => intval($this->valor($partida, "id_producto_erp", 0)) ?: null,
+                ":sku_id" => intval($this->valor($partida, "id_sku", $this->valor($partida, "id_sku_erp", 0))) ?: null,
+                ":sku" => $this->textoCortoEnvioForaneo($this->valor($partida, "sku", ""), 150),
+                ":descripcion" => $this->textoCortoEnvioForaneo($this->valor($partida, "nombre", $this->valor($partida, "descripcion", "Producto")), 500),
+                ":cantidad" => $cantidad,
+                ":precio" => $precio,
+                ":importe" => round($cantidad * $precio, 6),
+                ":existencia" => $this->numeroEnvioForaneo($this->valor($partida, "existencia_disponible", 0)),
+                ":largo" => $this->textoCortoEnvioForaneo($this->valor($partida, "largo_cm", ""), 80),
+                ":ancho" => $this->textoCortoEnvioForaneo($this->valor($partida, "ancho_cm", ""), 80),
+                ":alto" => $this->textoCortoEnvioForaneo($this->valor($partida, "alto_cm", ""), 80),
+                ":peso" => $this->textoCortoEnvioForaneo($this->valor($partida, "peso_kg", ""), 80),
+                ":calidad" => empty($pendientes) ? "completa" : "pendiente",
+                ":pendientes" => json_encode($pendientes, JSON_UNESCAPED_UNICODE),
+                ":manual" => !empty($partida["manual"]) ? 1 : 0,
+                ":snapshot" => json_encode($partida, JSON_UNESCAPED_UNICODE)
+            ));
+        }
+    }
+
+    private function pendientesLogisticosEnvioForaneo($partida) {
+        $pendientes = array();
+        if (!empty($partida["manual"])) {
+            $pendientes[] = "producto_no_identificado";
+        }
+        if ($this->numeroEnvioForaneo($this->valor($partida, "largo_cm", 0)) <= 0
+            || $this->numeroEnvioForaneo($this->valor($partida, "ancho_cm", 0)) <= 0
+            || $this->numeroEnvioForaneo($this->valor($partida, "alto_cm", 0)) <= 0) {
+            $pendientes[] = "faltan_medidas_producto";
+        }
+        if ($this->numeroEnvioForaneo($this->valor($partida, "peso_kg", 0)) <= 0) {
+            $pendientes[] = "falta_peso_producto";
+        }
+        return array_values(array_unique($pendientes));
+    }
+
+    private function registrarEventoEnvioForaneo($db, $idEnvio, $tipo, $anterior, $nuevo, $resumen, $payload, $idUsuario) {
+        $stmt = $db->prepare("INSERT INTO erp_ventas_envios_foraneos_eventos
+            (id_envio_foraneo, tipo_evento, estatus_anterior, estatus_nuevo, resumen, datos_snapshot, creado_por)
+            VALUES (:envio, :tipo, :anterior, :nuevo, :resumen, :snapshot, :usuario)");
+        $stmt->execute(array(
+            ":envio" => intval($idEnvio),
+            ":tipo" => $tipo,
+            ":anterior" => $anterior,
+            ":nuevo" => $nuevo,
+            ":resumen" => $this->textoCortoEnvioForaneo($resumen, 255),
+            ":snapshot" => json_encode($payload, JSON_UNESCAPED_UNICODE),
+            ":usuario" => intval($idUsuario) ?: null
+        ));
     }
 
     private function siguienteFolioTurnoPos($db, $idCaja) {

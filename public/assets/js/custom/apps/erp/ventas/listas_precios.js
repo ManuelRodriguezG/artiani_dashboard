@@ -637,9 +637,153 @@
             q: document.getElementById("lp_producto_q").value.trim(),
             solo: solo === "modificados" ? "todos" : solo,
             margen_minimo: margenMinimoOperativo(),
+            id_categoria_erp: document.getElementById("lp_producto_categoria").value || "",
+            id_proveedor: document.getElementById("lp_producto_proveedor").value || "",
+            id_marca_erp: document.getElementById("lp_producto_marca").value || "",
             pagina: String(estado.productosPagina || 1),
             por_pagina: productosPorPaginaOperativo()
         };
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-04
+     * Proposito: cargar agrupadores comerciales base para filtrar productos por categoria, proveedor o marca.
+     * Impacto: Listas de precios puede operar lotes comerciales sin crear grupos persistentes todavia.
+     */
+    function cargarGruposCatalogos() {
+        request("/comercial/listas_precios_grupos_catalogos_erp?limite=500").then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            var data = response.depurar || {};
+            llenarSelectGrupo("lp_producto_categoria", data.categorias || [], "id_categoria_erp", function (item) {
+                return (item.ruta || item.nombre || "Categoria") + " (" + (item.total_skus || 0) + ")";
+            }, "Categoria");
+            llenarSelectGrupo("lp_producto_proveedor", data.proveedores || [], "id_proveedor", function (item) {
+                return (item.proveedor || "Proveedor") + " (" + (item.total_skus || 0) + ")";
+            }, "Proveedor");
+            llenarSelectGrupo("lp_producto_marca", data.marcas || [], "id_marca_erp", function (item) {
+                return (item.nombre || "Marca") + " (" + (item.total_skus || 0) + ")";
+            }, "Marca");
+        }).catch(function (error) {
+            mostrarAlerta("warning", "No se pudieron cargar los filtros comerciales: " + (error.message || String(error)));
+        });
+    }
+
+    function llenarSelectGrupo(id, items, campoId, labelFn, placeholder) {
+        var select = document.getElementById(id);
+        if (!select) {
+            return;
+        }
+        var valor = select.value || "";
+        select.innerHTML = "<option value=\"\">" + escapeHtml(placeholder || "Todos") + "</option>" + (items || []).map(function (item) {
+            return "<option value=\"" + escapeAttr(item[campoId] || "") + "\">" + escapeHtml(labelFn(item)) + "</option>";
+        }).join("");
+        select.value = valor;
+        renderFiltrosComercialesActivos();
+    }
+
+    function textoOpcionSeleccionada(id) {
+        var select = document.getElementById(id);
+        if (!select || !select.value) {
+            return "";
+        }
+        var opcion = select.options[select.selectedIndex];
+        return opcion ? opcion.text : "";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-04
+     * Proposito: mostrar el grupo comercial activo para evitar aplicar precios con filtros invisibles.
+     * Impacto: mejora operativa en Listas de precios sin tocar datos ni reglas de precio.
+     */
+    function renderFiltrosComercialesActivos() {
+        var nodo = document.getElementById("lp_filtros_comerciales");
+        if (!nodo) {
+            return;
+        }
+        var filtros = [
+            {tipo: "Categoria", texto: textoOpcionSeleccionada("lp_producto_categoria"), clase: "badge-light-primary"},
+            {tipo: "Proveedor", texto: textoOpcionSeleccionada("lp_producto_proveedor"), clase: "badge-light-success"},
+            {tipo: "Marca", texto: textoOpcionSeleccionada("lp_producto_marca"), clase: "badge-light-info"}
+        ].filter(function (item) { return !!item.texto; });
+        if (!filtros.length) {
+            nodo.className = "alert alert-light py-3 mb-4";
+            nodo.innerHTML = "<div class=\"fw-semibold\">Grupo comercial activo</div><div class=\"text-muted fs-8\">Sin filtro comercial. Puedes trabajar por categoria, proveedor o marca.</div>";
+            return;
+        }
+        nodo.className = "alert alert-light-primary py-3 mb-4";
+        nodo.innerHTML = "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2\">" +
+            "<div><div class=\"fw-semibold\">Grupo comercial activo</div><div class=\"d-flex flex-wrap gap-2 mt-2\">" +
+                filtros.map(function (item) {
+                    return "<span class=\"badge " + item.clase + "\">" + escapeHtml(item.tipo + ": " + item.texto) + "</span>";
+                }).join("") +
+            "</div></div>" +
+            "<button class=\"btn btn-sm btn-light\" type=\"button\" data-lp-limpiar-filtros-comerciales=\"1\"><i class=\"bi bi-x-circle\"></i> Limpiar</button>" +
+        "</div>";
+        var limpiar = nodo.querySelector("[data-lp-limpiar-filtros-comerciales]");
+        if (limpiar) {
+            limpiar.addEventListener("click", limpiarFiltrosComerciales);
+        }
+    }
+
+    function limpiarFiltrosComerciales() {
+        ["lp_producto_categoria", "lp_producto_proveedor", "lp_producto_marca"].forEach(function (id) {
+            var select = document.getElementById(id);
+            if (select) {
+                select.value = "";
+            }
+        });
+        renderFiltrosComercialesActivos();
+        resetearPaginaProductos();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-04
+     * Proposito: mostrar preparacion de grupos comerciales persistentes sin ejecutar DDL.
+     * Impacto: deja claro que los filtros base operan y que guardar grupos requiere autorizacion posterior.
+     */
+    function cargarGruposPersistentesSchema() {
+        request("/comercial/listas_precios_grupos_schema_erp").then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            renderGruposPersistentesSchema(response.depurar || {}, response.mensaje || "");
+        }).catch(function (error) {
+            var nodo = document.getElementById("lp_grupos_persistentes");
+            if (nodo) {
+                nodo.innerHTML = "<div class=\"alert alert-light-warning py-3 mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
+            }
+        });
+    }
+
+    function renderGruposPersistentesSchema(data, mensaje) {
+        var nodo = document.getElementById("lp_grupos_persistentes");
+        if (!nodo) {
+            return;
+        }
+        var preparado = !!data.preparado;
+        var faltantes = data.faltantes || [];
+        var tipo = preparado ? "success" : "warning";
+        var html = "<div class=\"alert alert-light-" + tipo + " py-3 mb-3\">" +
+            "<div class=\"fw-semibold\">" + escapeHtml(mensaje || (preparado ? "Grupos guardados preparados" : "Grupos guardados pendientes")) + "</div>" +
+            "<div class=\"fs-8 text-muted\">" + escapeHtml(data.nota || "Los filtros base ya operan por categoria, proveedor y marca.") + "</div>" +
+        "</div>";
+        html += "<div class=\"d-flex flex-wrap gap-2 mb-3\">" +
+            "<span class=\"badge badge-light-primary\">Fase actual: " + escapeHtml(data.fase_actual || "filtros_base") + "</span>" +
+            "<span class=\"badge " + (preparado ? "badge-light-success" : "badge-light-warning") + "\">DDL " + (preparado ? "listo" : "pendiente") + "</span>" +
+            "<span class=\"badge badge-light-danger\">Requiere respaldo</span>" +
+            "<span class=\"badge badge-light-danger\">Requiere autorizacion</span>" +
+        "</div>";
+        if (faltantes.length) {
+            html += "<div class=\"fw-semibold fs-8 text-uppercase text-muted mb-2\">Tablas pendientes</div>";
+            html += "<div class=\"d-flex flex-column gap-2\">" + faltantes.map(function (item) {
+                return "<div class=\"border rounded p-2\"><div class=\"fw-semibold fs-8\">" + escapeHtml(item.tabla || "") + "</div><div class=\"text-muted fs-9\">" + escapeHtml((item.columnas || []).length + " columna(s) propuestas") + "</div></div>";
+            }).join("") + "</div>";
+        } else {
+            html += "<div class=\"text-muted fs-8\">Cuando esta fase este autorizada, aqui podran listarse grupos manuales y dinamicos.</div>";
+        }
+        nodo.innerHTML = html;
     }
 
     function productosPorPaginaOperativo() {
@@ -2888,6 +3032,13 @@
         document.getElementById("lp_producto_q").addEventListener("keyup", function (event) {
             if (event.key === "Enter") { resetearPaginaProductos(); }
         });
+        ["lp_producto_categoria", "lp_producto_proveedor", "lp_producto_marca"].forEach(function (id) {
+            document.getElementById(id).addEventListener("change", function () {
+                renderFiltrosComercialesActivos();
+                resetearPaginaProductos();
+            });
+        });
+        document.getElementById("lp_producto_limpiar_grupos").addEventListener("click", limpiarFiltrosComerciales);
         document.getElementById("lp_producto_solo").addEventListener("change", resetearPaginaProductos);
         document.getElementById("lp_producto_por_pagina").addEventListener("change", resetearPaginaProductos);
         document.getElementById("lp_margen_minimo").addEventListener("input", function () {
@@ -2909,6 +3060,8 @@
         document.getElementById("lp_cliente_q").addEventListener("keyup", function (event) {
             if (event.key === "Enter") { buscarClientesCrm(); }
         });
+        cargarGruposCatalogos();
+        cargarGruposPersistentesSchema();
         cargarFase1Readiness();
         cargarResumen();
         var idInicial = params.get("id_lista_precio") || params.get("id");

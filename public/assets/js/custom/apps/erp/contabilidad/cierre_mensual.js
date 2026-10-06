@@ -18,7 +18,9 @@
     var autosaveTimer = null;
     var cuentaConciliacionActual = "";
     var conciliacionModalRows = [];
+    var conciliacionModalVistaRows = [];
     var conciliacionModalNombre = "";
+    var conciliacionModalConfig = {busqueda: "", orden: "fecha", direccion: "asc", columnas: {}, excluirCuentas: {}, montoAbsoluto: false};
     var relacionContexto = {tipo: "", movId: "", cfdiId: "", busqueda: ""};
     var conciliacionSeleccionada = "";
 
@@ -221,6 +223,59 @@
     }
     function label(value) { return String(value || "").replace(/_/g, " "); }
     function slug(value) { return String(value || "archivo").replace(/[^a-z0-9]+/gi, "_").toLowerCase(); }
+    var columnasConciliacion = [
+        {id: "fecha", label: "Fecha", align: "", sort: function (m) { return m.fecha || ""; }, text: function (m) { return m.fecha || ""; }, html: function (m) { return escapeHtml(m.fecha || "-"); }},
+        {id: "cuenta", label: "Cuenta", align: "", sort: function (m) { return origenDetalleMovimiento(m).cuenta || ""; }, text: function (m) { return origenDetalleMovimiento(m).cuenta || ""; }, html: function (m) { return escapeHtml(origenDetalleMovimiento(m).cuenta || "Cuenta sin nombre"); }},
+        {id: "origen", label: "Origen", align: "", sort: function (m) { return origenDetalleMovimiento(m).tipo || ""; }, text: function (m) { return origenDetalleMovimiento(m).tipo || ""; }, html: function (m) { return escapeHtml(origenDetalleMovimiento(m).tipo || ""); }},
+        {id: "archivo", label: "Archivo estado", align: "", sort: function (m) { return origenDetalleMovimiento(m).archivo || ""; }, text: function (m) { return origenDetalleMovimiento(m).archivo || ""; }, html: function (m) { return escapeHtml(origenDetalleMovimiento(m).archivo || ""); }},
+        {id: "hoja", label: "Hoja", align: "", sort: function (m) { return origenDetalleMovimiento(m).hoja || ""; }, text: function (m) { return origenDetalleMovimiento(m).hoja || ""; }, html: function (m) { return escapeHtml(origenDetalleMovimiento(m).hoja || ""); }},
+        {id: "descripcion", label: "Descripcion", align: "", sort: function (m) { return m.concepto || ""; }, text: function (m) { return [m.concepto, m.referencia].filter(Boolean).join(" | "); }, html: function (m, extra) { var aviso = m.origen === "cfdi_sin_movimiento" ? "<div class=\"badge badge-light-info mt-1\">CFDI sin movimiento</div>" : ""; return "<div class=\"fw-semibold\">" + escapeHtml(m.concepto || "") + "</div><div class=\"text-muted fs-9\">" + escapeHtml(m.referencia || "") + "</div>" + aviso + (extra || ""); }},
+        {id: "movimiento", label: "Movimiento", align: "", sort: function (m) { return m.tipo_movimiento || ""; }, text: function (m) { return label(m.tipo_movimiento); }, html: function (m) { return badge(label(m.tipo_movimiento), m.tipo_movimiento === "ingreso" ? "success" : "danger"); }},
+        {id: "actividad", label: "Actividad", align: "", sort: function (m) { return m.actividad || ""; }, text: function (m) { return label(m.actividad); }, html: function (m) { return escapeHtml(label(m.actividad)); }},
+        {id: "categoria", label: "Categoria", align: "", sort: function (m) { return m.categoria || ""; }, text: function (m) { return label(m.categoria); }, html: function (m) { return escapeHtml(label(m.categoria)); }},
+        {id: "pago", label: "Pago", align: "", sort: function (m) { return m.forma_pago || ""; }, text: function (m) { return label(m.forma_pago); }, html: function (m) { return escapeHtml(label(m.forma_pago)); }},
+        {id: "cfdi", label: "CFDI", align: "", sort: function (m) { return m.cfdi_uuid || m.cfdi || ""; }, text: function (m) { var cfdi = cfdiLigadoMovimiento(m); return [m.cfdi_uuid || m.cfdi || "", cfdi.emisor || ""].filter(Boolean).join(" | "); }, html: function (m) { var cfdi = cfdiLigadoMovimiento(m); var cfdiTexto = m.cfdi_uuid || m.cfdi || ""; var fiscal = cfdi.emisor ? "<div class=\"text-muted fs-9\">" + escapeHtml(cfdi.emisor) + "</div>" : ""; return "<div class=\"fs-8\">" + escapeHtml(cfdiTexto) + "</div>" + fiscal; }},
+        {id: "monto", label: "Monto", align: "text-end", sort: function (m) { return Number(m.monto || 0); }, text: function (m) { return m.monto || 0; }, html: function (m) { return money(m.monto || 0); }}
+    ];
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-04
+     * Proposito: permitir revisar y exportar conciliaciones con busqueda, orden y columnas visibles.
+     * Impacto: Contabilidad cierre mensual; todas las vistas de conciliacion comparten la misma mesa flexible.
+     * Contrato: el CSV completo respeta busqueda/orden; la descarga simple respeta busqueda/orden/columnas visibles.
+     */
+    function columnasConciliacionVisibles() {
+        var columnas = columnasConciliacion.filter(function (col) { return conciliacionModalConfig.columnas[col.id] !== false; });
+        return columnas.length ? columnas : columnasConciliacion;
+    }
+    function textoBusquedaConciliacion(mov) {
+        return normalizar(columnasConciliacion.map(function (col) { return col.text(mov); }).join(" "));
+    }
+    function valorOrdenConciliacion(mov, campo) {
+        var col = columnasConciliacion.find(function (item) { return item.id === campo; }) || columnasConciliacion[0];
+        return col.sort(mov);
+    }
+    function compararConciliacion(a, b) {
+        var campo = conciliacionModalConfig.orden || "fecha";
+        var dir = conciliacionModalConfig.direccion === "desc" ? -1 : 1;
+        var va = valorOrdenConciliacion(a, campo);
+        var vb = valorOrdenConciliacion(b, campo);
+        if (typeof va === "number" || typeof vb === "number") {
+            return ((Number(va || 0) > Number(vb || 0)) ? 1 : (Number(va || 0) < Number(vb || 0) ? -1 : 0)) * dir;
+        }
+        return String(va || "").localeCompare(String(vb || ""), "es", {numeric: true, sensitivity: "base"}) * dir;
+    }
+    function filasConciliacionModalProcesadas() {
+        var filtro = normalizar(conciliacionModalConfig.busqueda || "");
+        return (conciliacionModalRows || []).filter(function (mov) {
+            return (!filtro || textoBusquedaConciliacion(mov).indexOf(filtro) >= 0) && !movimientoExcluidoConciliacion(mov);
+        }).slice().sort(compararConciliacion);
+    }
+    function movimientoExcluidoConciliacion(mov) {
+        return !!(conciliacionModalConfig.excluirCuentas || {})[claveCuentaConciliacion(mov)];
+    }
+    function claveCuentaConciliacion(mov) {
+        return normalizar(origenDetalleMovimiento(mov).cuenta || mov.cuenta || "Cuenta sin nombre");
+    }
     function satFormaPagoOperativa(clave) {
         var mapa = {
             "01": "efectivo",
@@ -239,6 +294,12 @@
         if (forma === "tarjeta_debito") { return "Tarjeta debito"; }
         if (forma === "transferencia") { return fallback || "Transferencia"; }
         return fallback || "Efectivo";
+    }
+    function cuentaAuxiliarCfdi(cfdi) {
+        var forma = cfdi.forma_pago || "";
+        var fallback = cfdi.cuenta_pago && cfdi.cuenta_pago !== "Por relacionar" ? cfdi.cuenta_pago : "";
+        if (cfdi.categoria === "comision_plataforma" || forma === "retencion_plataforma") { return "Mercado Pago - comisiones"; }
+        return cuentaPorFormaPago(forma, fallback || "");
     }
     function tratamientoCfdiDefault() {
         return $("contabilidad_cfdi_tratamiento_default") ? $("contabilidad_cfdi_tratamiento_default").value : "conciliar_banco";
@@ -636,7 +697,10 @@
         if (cfdi.categoria === "comision_plataforma") {
             cfdi.forma_pago = "retencion_plataforma";
         }
-        cfdi.cuenta_pago = cfdi.cuenta_pago || (cfdi.tratamiento === "crear_auxiliar" ? cuentaPorFormaPago(cfdi.forma_pago, cuentaCfdiDefault()) : cuentaCfdiDefault());
+        cfdi.cuenta_pago = cfdi.cuenta_pago || (cfdi.tratamiento === "crear_auxiliar" ? cuentaAuxiliarCfdi(cfdi) : cuentaCfdiDefault());
+        if (cfdi.tratamiento === "crear_auxiliar" && cfdi.cuenta_pago === "Por relacionar") {
+            cfdi.cuenta_pago = cuentaAuxiliarCfdi(cfdi);
+        }
         cfdi.movimiento_relacionado = cfdi.movimiento_relacionado || "";
         cfdi.estatus_relacion = cfdi.movimiento_relacionado ? "ligado" : (cfdi.estatus_relacion || "pendiente");
         return cfdi;
@@ -1237,7 +1301,7 @@
             metodo_pago: comprobante ? (comprobante.getAttribute("MetodoPago") || "") : "",
             forma_pago_sat: formaSat,
             forma_pago: forma,
-            cuenta_pago: tratamientoDefault === "crear_auxiliar" ? cuentaPorFormaPago(forma, cuentaCfdiDefault()) : cuentaCfdiDefault(),
+            cuenta_pago: tratamientoDefault === "crear_auxiliar" ? cuentaAuxiliarCfdi({forma_pago: forma, categoria: categoriaDefault, cuenta_pago: cuentaCfdiDefault()}) : cuentaCfdiDefault(),
             tratamiento: tratamientoDefault,
             origen: tratamientoDefault === "crear_auxiliar" ? "cfdi_auxiliar" : "cfdi",
             categoria: categoriaDefault,
@@ -1473,7 +1537,7 @@
             id: "mov-cfdi-" + Date.now() + "-" + movimientos.length,
             fecha: cfdi.fecha || "",
             periodo: cfdi.periodo || periodoCierreActual(),
-            cuenta: cfdi.cuenta_pago || "Efectivo",
+            cuenta: cuentaAuxiliarCfdi(cfdi),
             concepto: cfdi.emisor || cfdi.rfc_emisor || cfdi.archivo || "CFDI sin emisor",
             referencia: [cfdi.serie, cfdi.folio].filter(Boolean).join("-") || cfdi.uuid,
             cargo: Number(cfdi.total || 0),
@@ -1539,7 +1603,7 @@
                 cfdi.forma_pago = "retencion_plataforma";
             }
             if (!cambios.cuenta_pago) {
-                cfdi.cuenta_pago = cuentaPorFormaPago(cfdi.forma_pago, cfdi.cuenta_pago || cuentaCfdiDefault());
+                cfdi.cuenta_pago = cfdi.tratamiento === "crear_auxiliar" ? cuentaAuxiliarCfdi(cfdi) : cuentaPorFormaPago(cfdi.forma_pago, cfdi.cuenta_pago || cuentaCfdiDefault());
             }
             cfdi.origen = cfdi.tratamiento === "crear_auxiliar" ? "cfdi_auxiliar" : "cfdi";
             normalizarCfdiLegacy(cfdi);
@@ -1562,6 +1626,7 @@
             if (cfdi && !ligado) {
                 cfdi.tratamiento = "crear_auxiliar";
                 cfdi.origen = "cfdi_auxiliar";
+                cfdi.cuenta_pago = cuentaAuxiliarCfdi(cfdi);
                 crearMovimientoDesdeCfdi(id, true);
                 creados++;
             }
@@ -1834,6 +1899,11 @@
             return esIngresoOperativo(m) && m.actividad === "negocio";
         });
     }
+    function movimientosOtrosIngresosPeriodo() {
+        return movimientosParaConciliacionFiltrados().filter(function (m) {
+            return esIngresoOperativo(m) && m.actividad !== "negocio";
+        });
+    }
     function movimientosComprasPeriodo() {
         return movimientosParaConciliacionFiltrados().filter(function (m) {
             return esCompraOperativa(m) && (m.periodo || periodoEstadoPorId(m.estado_cuenta_id)) === periodoCierreActual();
@@ -2013,6 +2083,8 @@
     function renderKpis() {
         var rows = movimientosPeriodoActual();
         var totalIngresos = rows.reduce(function (s, m) { return s + (esIngresoOperativo(m) ? Number(m.monto || 0) : 0); }, 0);
+        var totalVentas = rows.reduce(function (s, m) { return s + (esIngresoOperativo(m) && m.actividad === "negocio" ? Number(m.monto || 0) : 0); }, 0);
+        var totalOtrosIngresos = rows.reduce(function (s, m) { return s + (esIngresoOperativo(m) && m.actividad !== "negocio" ? Number(m.monto || 0) : 0); }, 0);
         var totalCompras = rows.reduce(function (s, m) { return s + (esCompraOperativa(m) ? Math.abs(Number(m.monto || 0)) : 0); }, 0);
         var totalEgresos = rows.reduce(function (s, m) { return s + (esEgresoOperativo(m) ? Math.abs(Number(m.monto || 0)) : 0); }, 0);
         var inversionesEntrada = rows.reduce(function (s, m) { return s + (esInversion(m) && m.tipo_movimiento === "ingreso" ? Math.abs(Number(m.monto || 0)) : 0); }, 0);
@@ -2021,6 +2093,8 @@
         var pendientes = rows.filter(movimientoPendienteContador).length;
         var data = [
             ["Ingresos operativos", money(totalIngresos), "badge-light-success", "bi-arrow-down-circle"],
+            ["Ventas", money(totalVentas), "badge-light-success", "bi-cash-coin"],
+            ["Otros ingresos", money(totalOtrosIngresos), "badge-light-info", "bi-journal-arrow-down"],
             ["Egresos compras", money(totalCompras), "badge-light-warning", "bi-bag-check"],
             ["Egresos operativos", money(totalEgresos), "badge-light-danger", "bi-arrow-up-circle"],
             ["Inv. entradas", money(inversionesEntrada), "badge-light-dark", "bi-arrow-down-right-circle"],
@@ -2283,17 +2357,87 @@
                 "</div></div>";
         }).join("");
     }
+    function resetConciliacionModalConfig() {
+        conciliacionModalConfig.busqueda = "";
+        conciliacionModalConfig.orden = "fecha";
+        conciliacionModalConfig.direccion = "asc";
+        conciliacionModalConfig.excluirCuentas = {};
+        conciliacionModalConfig.montoAbsoluto = false;
+        columnasConciliacion.forEach(function (col) {
+            if (typeof conciliacionModalConfig.columnas[col.id] === "undefined") {
+                conciliacionModalConfig.columnas[col.id] = true;
+            }
+        });
+        if ($("contabilidad_conciliacion_modal_buscar")) { $("contabilidad_conciliacion_modal_buscar").value = ""; }
+        if ($("contabilidad_conciliacion_modal_orden")) { $("contabilidad_conciliacion_modal_orden").value = conciliacionModalConfig.orden; }
+        if ($("contabilidad_conciliacion_modal_direccion")) { $("contabilidad_conciliacion_modal_direccion").value = conciliacionModalConfig.direccion; }
+        if ($("contabilidad_conciliacion_modal_monto_absoluto")) { $("contabilidad_conciliacion_modal_monto_absoluto").checked = false; }
+        renderExclusionesCuentasConciliacion();
+    }
+    function renderColumnasConciliacionModal() {
+        var contenedor = $("contabilidad_conciliacion_modal_columnas");
+        if (!contenedor) { return; }
+        contenedor.innerHTML = columnasConciliacion.map(function (col) {
+            var checked = conciliacionModalConfig.columnas[col.id] !== false ? " checked" : "";
+            return "<label class=\"form-check form-check-sm form-check-custom form-check-solid me-2\">" +
+                "<input class=\"form-check-input\" type=\"checkbox\" data-columna-conciliacion=\"" + escapeHtml(col.id) + "\"" + checked + ">" +
+                "<span class=\"form-check-label text-muted fs-8\">" + escapeHtml(col.label) + "</span></label>";
+        }).join("");
+    }
+    function cuentasConciliacionModal() {
+        var map = {};
+        (conciliacionModalRows || []).forEach(function (mov) {
+            var origen = origenDetalleMovimiento(mov);
+            var cuenta = origen.cuenta || mov.cuenta || "Cuenta sin nombre";
+            map[claveCuentaConciliacion(mov)] = cuenta;
+        });
+        return Object.keys(map).sort(function (a, b) {
+            return map[a].localeCompare(map[b], "es", {numeric: true, sensitivity: "base"});
+        }).map(function (clave) {
+            return {clave: clave, cuenta: map[clave]};
+        });
+    }
+    function renderExclusionesCuentasConciliacion() {
+        var contenedor = $("contabilidad_conciliacion_modal_excluir_cuentas");
+        if (!contenedor) { return; }
+        var cuentas = cuentasConciliacionModal();
+        contenedor.innerHTML = cuentas.map(function (item) {
+            var checked = conciliacionModalConfig.excluirCuentas[item.clave] ? " checked" : "";
+            return "<label class=\"form-check form-check-sm form-check-custom form-check-solid\">" +
+                "<input class=\"form-check-input\" type=\"checkbox\" data-excluir-cuenta-conciliacion=\"" + escapeHtml(item.clave) + "\"" + checked + ">" +
+                "<span class=\"form-check-label text-muted fs-8\">" + escapeHtml(item.cuenta) + "</span></label>";
+        }).join("") || "<span class=\"text-muted fs-8\">Sin cuentas para excluir</span>";
+    }
+    function renderTablaConciliacionModal(mensajeVacio) {
+        conciliacionModalVistaRows = filasConciliacionModalProcesadas();
+        var columnas = columnasConciliacionVisibles();
+        if ($("contabilidad_conciliacion_modal_head")) {
+            $("contabilidad_conciliacion_modal_head").innerHTML = "<tr class=\"fw-bold text-muted\">" + columnas.map(function (col) {
+                return "<th class=\"" + escapeHtml(col.align || "") + "\">" + escapeHtml(col.label) + "</th>";
+            }).join("") + "</tr>";
+        }
+        if ($("contabilidad_conciliacion_modal_estado_tabla")) {
+            $("contabilidad_conciliacion_modal_estado_tabla").textContent = conciliacionModalVistaRows.length + " de " + conciliacionModalRows.length + " movimientos visibles";
+        }
+        $("contabilidad_conciliacion_modal_movimientos").innerHTML = conciliacionModalVistaRows.map(function (m) {
+            var relacionado = m.traspaso_grupo ? "<div class=\"text-info fs-9 mt-1\">Traspaso " + escapeHtml(m.traspaso_grupo) + "</div>" : "";
+            return filaDetalleConciliacion(m, relacionado, columnas);
+        }).join("") || "<tr><td colspan=\"" + columnas.length + "\" class=\"text-center text-muted py-8\">" + escapeHtml(mensajeVacio || "No hay movimientos para revisar.") + "</td></tr>";
+    }
+    function renderConciliacionModalCompleto(mensajeVacio) {
+        $("contabilidad_conciliacion_modal_subtitulo").textContent = periodoCierreActual() + " | " + conciliacionModalRows.length + " movimientos para revisar";
+        $("contabilidad_conciliacion_modal_resumen").innerHTML = renderResumenConciliacion(conciliacionModalRows);
+        renderExclusionesCuentasConciliacion();
+        renderColumnasConciliacionModal();
+        renderTablaConciliacionModal(mensajeVacio);
+    }
     function abrirDetalleConciliacion(titulo, rows, nombreArchivo) {
         cuentaConciliacionActual = "";
         conciliacionModalRows = rows || [];
         conciliacionModalNombre = nombreArchivo || titulo || "conciliacion";
+        resetConciliacionModalConfig();
         $("contabilidad_conciliacion_modal_titulo").textContent = titulo;
-        $("contabilidad_conciliacion_modal_subtitulo").textContent = periodoCierreActual() + " | " + conciliacionModalRows.length + " movimientos para revisar";
-        $("contabilidad_conciliacion_modal_resumen").innerHTML = renderResumenConciliacion(conciliacionModalRows);
-        $("contabilidad_conciliacion_modal_movimientos").innerHTML = conciliacionModalRows.map(function (m) {
-            var relacionado = m.traspaso_grupo ? "<div class=\"text-info fs-9 mt-1\">Traspaso " + escapeHtml(m.traspaso_grupo) + "</div>" : "";
-            return filaDetalleConciliacion(m, relacionado);
-        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">No hay movimientos para revisar.</td></tr>";
+        renderConciliacionModalCompleto("No hay movimientos para revisar.");
         bootstrap.Modal.getOrCreateInstance($("contabilidad_conciliacion_modal")).show();
     }
     function estadoCuentaMovimiento(mov) {
@@ -2306,7 +2450,7 @@
         var edo = estadoCuentaMovimiento(mov);
         var cuenta = mov.cuenta || edo.cuenta || "Cuenta sin nombre";
         var archivo = edo.archivo || mov.archivo_estado_cuenta || "";
-        var hoja = edo.hoja ? " | Hoja: " + edo.hoja : "";
+        var hoja = edo.hoja || "";
         var tipo = "";
         if (mov.origen === "cfdi_auxiliar") { tipo = "CFDI auxiliar"; }
         else if (mov.origen === "cfdi_sin_movimiento") { tipo = "CFDI sin movimiento"; }
@@ -2314,44 +2458,32 @@
         else { tipo = "Captura manual"; }
         return {
             cuenta: cuenta,
-            detalle: [tipo, archivo].filter(Boolean).join(" | ") + hoja
+            tipo: tipo,
+            archivo: archivo,
+            hoja: hoja,
+            detalle: [tipo, archivo, hoja ? "Hoja: " + hoja : ""].filter(Boolean).join(" | ")
         };
     }
-    function filaDetalleConciliacion(m, extra) {
-        var cfdi = cfdiLigadoMovimiento(m);
-        var cfdiTexto = m.cfdi_uuid || m.cfdi || "";
-        var fiscal = cfdi.emisor ? "<div class=\"text-muted fs-9\">" + escapeHtml(cfdi.emisor) + "</div>" : "";
-        var aviso = m.origen === "cfdi_sin_movimiento" ? "<div class=\"badge badge-light-info mt-1\">CFDI sin movimiento</div>" : "";
-        var origen = origenDetalleMovimiento(m);
-        return "<tr>" +
-            "<td class=\"text-nowrap\">" + escapeHtml(m.fecha || "-") + "</td>" +
-            "<td><div class=\"fw-semibold\">" + escapeHtml(origen.cuenta) + "</div><div class=\"text-muted fs-9\">" + escapeHtml(origen.detalle) + "</div></td>" +
-            "<td><div class=\"fw-semibold\">" + escapeHtml(m.concepto || "") + "</div>" +
-            "<div class=\"text-muted fs-9\">" + escapeHtml(m.referencia || "") + "</div>" + aviso + (extra || "") + "</td>" +
-            "<td>" + badge(label(m.tipo_movimiento), m.tipo_movimiento === "ingreso" ? "success" : "danger") + "</td>" +
-            "<td>" + escapeHtml(label(m.actividad)) + "</td>" +
-            "<td>" + escapeHtml(label(m.categoria)) + "</td>" +
-            "<td>" + escapeHtml(label(m.forma_pago)) + "</td>" +
-            "<td><div class=\"fs-8\">" + escapeHtml(cfdiTexto) + "</div>" + fiscal + "</td>" +
-            "<td class=\"text-end fw-bold\">" + money(m.monto || 0) + "</td>" +
-            "</tr>";
+    function filaDetalleConciliacion(m, extra, columnas) {
+        return "<tr>" + (columnas || columnasConciliacionVisibles()).map(function (col) {
+            return "<td class=\"" + escapeHtml((col.align || "") + (col.id === "fecha" ? " text-nowrap" : "") + (col.id === "monto" ? " fw-bold" : "")) + "\">" + col.html(m, extra) + "</td>";
+        }).join("") + "</tr>";
     }
     function verConciliacionCuenta(cuentaSeleccionada) {
         var rows = movimientosConciliacionCuenta(cuentaSeleccionada);
         cuentaConciliacionActual = cuentaSeleccionada;
         conciliacionModalRows = rows;
         conciliacionModalNombre = cuentaSeleccionada;
+        resetConciliacionModalConfig();
         $("contabilidad_conciliacion_modal_titulo").textContent = cuentaSeleccionada;
-        $("contabilidad_conciliacion_modal_subtitulo").textContent = periodoCierreActual() + " | " + rows.length + " movimientos para revisar";
-        $("contabilidad_conciliacion_modal_resumen").innerHTML = renderResumenConciliacion(rows);
-        $("contabilidad_conciliacion_modal_movimientos").innerHTML = rows.map(function (m) {
-            var relacionado = m.traspaso_grupo ? "<div class=\"text-info fs-9 mt-1\">Traspaso " + escapeHtml(m.traspaso_grupo) + "</div>" : "";
-            return filaDetalleConciliacion(m, relacionado);
-        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">No hay movimientos para esta cuenta.</td></tr>";
+        renderConciliacionModalCompleto("No hay movimientos para esta cuenta.");
         bootstrap.Modal.getOrCreateInstance($("contabilidad_conciliacion_modal")).show();
     }
     function verVentasConciliacion() {
         abrirDetalleConciliacion("Ventas del mes", movimientosVentasPeriodo(), "ventas");
+    }
+    function verOtrosIngresosConciliacion() {
+        abrirDetalleConciliacion("Otros ingresos operativos", movimientosOtrosIngresosPeriodo(), "otros_ingresos");
     }
     function verComprasConciliacion() {
         abrirDetalleConciliacion("Compras del mes", movimientosComprasPeriodo(), "compras");
@@ -2374,6 +2506,25 @@
     function verTraspasosConciliacion() {
         abrirDetalleConciliacion("Traspasos entre cuentas", movimientosTraspasosPeriodo(), "traspasos");
     }
+    function rowsConciliacionModalActuales() {
+        if (cuentaConciliacionActual) { return movimientosConciliacionCuenta(cuentaConciliacionActual); }
+        if (conciliacionModalNombre === "ventas") { return movimientosVentasPeriodo(); }
+        if (conciliacionModalNombre === "otros_ingresos") { return movimientosOtrosIngresosPeriodo(); }
+        if (conciliacionModalNombre === "compras") { return movimientosComprasPeriodo(); }
+        if (conciliacionModalNombre === "gastos") { return movimientosGastosPeriodo(); }
+        if (conciliacionModalNombre === "gastos_operativos") { return movimientosGastosOperativosPeriodo(); }
+        if (conciliacionModalNombre === "inversiones") { return movimientosInversionesPeriodo(); }
+        if (conciliacionModalNombre === "inversiones_entradas") { return movimientosInversionesEntradasPeriodo(); }
+        if (conciliacionModalNombre === "inversiones_salidas") { return movimientosInversionesSalidasPeriodo(); }
+        if (conciliacionModalNombre === "traspasos") { return movimientosTraspasosPeriodo(); }
+        return conciliacionModalRows;
+    }
+    function refrescarConciliacionModalAbierta() {
+        var modal = $("contabilidad_conciliacion_modal");
+        if (!modal || !modal.classList.contains("show") || !conciliacionModalNombre) { return; }
+        conciliacionModalRows = rowsConciliacionModalActuales();
+        renderConciliacionModalCompleto(cuentaConciliacionActual ? "No hay movimientos para esta cuenta." : "No hay movimientos para revisar.");
+    }
     function render() {
         renderEstadosCuenta();
         renderGuardados();
@@ -2389,6 +2540,7 @@
         renderCfdis();
         renderPendientes();
         renderConciliacion();
+        refrescarConciliacionModalAbierta();
         if ($("contabilidad_reporte_texto")) { generarReporteContador(); }
         programarAutosave();
     }
@@ -2436,6 +2588,13 @@
             m.notas
         ];
     }
+    function filaReporteMovimientoExportacion(m, periodoFallback, cuentaFallback, opciones) {
+        var fila = filaReporteMovimiento(m, periodoFallback, cuentaFallback);
+        if (opciones && opciones.montoAbsoluto) {
+            fila[9] = Math.abs(Number(fila[9] || 0));
+        }
+        return fila;
+    }
     function exportarCsv() {
         var periodo = periodoCierreActual();
         var cuenta = $("contabilidad_cuenta").value || "";
@@ -2452,11 +2611,11 @@
         var rows = movimientosConciliacionCuenta(cuentaSeleccionada);
         exportarRowsCsv("clasificacion_" + slug(cuentaSeleccionada) + "_" + periodo + ".csv", rows, cuentaSeleccionada);
     }
-    function exportarRowsCsv(nombre, rows, cuentaFallback) {
+    function exportarRowsCsv(nombre, rows, cuentaFallback, opciones) {
         var periodo = periodoCierreActual();
         var headers = headersReporteMovimientos();
         var lines = [headers.join(",")].concat((rows || []).map(function (m) {
-            return filaReporteMovimiento(m, periodo, cuentaFallback || "").map(csvEscape).join(",");
+            return filaReporteMovimientoExportacion(m, periodo, cuentaFallback || "", opciones || {}).map(csvEscape).join(",");
         }));
         descargar(nombre, lines.join("\n"), "text/csv;charset=utf-8");
     }
@@ -2483,6 +2642,18 @@
                 m.origen || (m.estado_cuenta_id ? "estado_cuenta" : "manual"),
                 m.notas
             ].map(csvEscape).join(",");
+        }));
+        descargar(nombre, lines.join("\n"), "text/csv;charset=utf-8");
+    }
+    function exportarRowsVistaConciliacion(nombre, rows, opciones) {
+        var columnas = columnasConciliacionVisibles();
+        var lines = [columnas.map(function (col) { return csvEscape(col.label); }).join(",")].concat((rows || []).map(function (m) {
+            return columnas.map(function (col) {
+                if (col.id === "monto" && opciones && opciones.montoAbsoluto) {
+                    return csvEscape(Math.abs(Number(m.monto || 0)));
+                }
+                return csvEscape(col.text(m));
+            }).join(",");
         }));
         descargar(nombre, lines.join("\n"), "text/csv;charset=utf-8");
     }
@@ -2718,10 +2889,13 @@
             cfdi[campo] = e.target.value;
             if (campo === "categoria" && cfdi.categoria === "comision_plataforma") {
                 cfdi.forma_pago = "retencion_plataforma";
-                cfdi.cuenta_pago = cfdi.cuenta_pago || "Mercado Pago - comisiones";
+                cfdi.cuenta_pago = "Mercado Pago - comisiones";
             }
-            if (campo === "forma_pago") {
-                cfdi.cuenta_pago = cuentaPorFormaPago(cfdi.forma_pago, cfdi.cuenta_pago);
+            if (campo === "forma_pago" || campo === "tratamiento") {
+                cfdi.cuenta_pago = cfdi.tratamiento === "crear_auxiliar" ? cuentaAuxiliarCfdi(cfdi) : cuentaPorFormaPago(cfdi.forma_pago, cfdi.cuenta_pago);
+            }
+            if (cfdi.tratamiento === "crear_auxiliar" && cfdi.cuenta_pago === "Por relacionar") {
+                cfdi.cuenta_pago = cuentaAuxiliarCfdi(cfdi);
             }
             render();
         });
@@ -2840,16 +3014,48 @@
             if (btn) { exportarCsvCuenta(btn.getAttribute("data-export-cuenta")); }
         });
         $("contabilidad_conciliacion_modal_exportar").addEventListener("click", function () {
-            if (conciliacionModalRows.length) {
-                exportarRowsCsv("conciliacion_" + slug(conciliacionModalNombre) + "_" + periodoCierreActual() + ".csv", conciliacionModalRows, cuentaConciliacionActual);
+            if (conciliacionModalVistaRows.length) {
+                exportarRowsCsv("conciliacion_" + slug(conciliacionModalNombre) + "_" + periodoCierreActual() + ".csv", conciliacionModalVistaRows, cuentaConciliacionActual, {montoAbsoluto: conciliacionModalConfig.montoAbsoluto});
             }
         });
         $("contabilidad_conciliacion_modal_simple").addEventListener("click", function () {
-            if (conciliacionModalRows.length) {
-                exportarRowsSimple("conciliacion_simple_" + slug(conciliacionModalNombre) + "_" + periodoCierreActual() + ".csv", conciliacionModalRows, cuentaConciliacionActual);
+            if (conciliacionModalVistaRows.length) {
+                exportarRowsVistaConciliacion("conciliacion_simple_" + slug(conciliacionModalNombre) + "_" + periodoCierreActual() + ".csv", conciliacionModalVistaRows, {montoAbsoluto: conciliacionModalConfig.montoAbsoluto});
             }
         });
+        $("contabilidad_conciliacion_modal_monto_absoluto").addEventListener("change", function (e) {
+            conciliacionModalConfig.montoAbsoluto = !!e.target.checked;
+        });
+        $("contabilidad_conciliacion_modal_buscar").addEventListener("input", function (e) {
+            conciliacionModalConfig.busqueda = e.target.value || "";
+            renderTablaConciliacionModal("No hay movimientos con esos filtros.");
+        });
+        $("contabilidad_conciliacion_modal_orden").addEventListener("change", function (e) {
+            conciliacionModalConfig.orden = e.target.value || "fecha";
+            renderTablaConciliacionModal("No hay movimientos con esos filtros.");
+        });
+        $("contabilidad_conciliacion_modal_direccion").addEventListener("change", function (e) {
+            conciliacionModalConfig.direccion = e.target.value || "asc";
+            renderTablaConciliacionModal("No hay movimientos con esos filtros.");
+        });
+        $("contabilidad_conciliacion_modal_columnas").addEventListener("change", function (e) {
+            var input = e.target.closest("[data-columna-conciliacion]");
+            if (!input) { return; }
+            conciliacionModalConfig.columnas[input.getAttribute("data-columna-conciliacion")] = input.checked;
+            if (!columnasConciliacion.some(function (col) { return conciliacionModalConfig.columnas[col.id] !== false; })) {
+                conciliacionModalConfig.columnas[input.getAttribute("data-columna-conciliacion")] = true;
+                input.checked = true;
+            }
+            renderTablaConciliacionModal("No hay movimientos con esos filtros.");
+        });
+        $("contabilidad_conciliacion_modal_excluir").addEventListener("change", function (e) {
+            var input = e.target.closest("[data-excluir-cuenta-conciliacion]");
+            if (!input) { return; }
+            conciliacionModalConfig.excluirCuentas[input.getAttribute("data-excluir-cuenta-conciliacion")] = input.checked;
+            renderTablaConciliacionModal("No hay movimientos con esos filtros.");
+        });
         $("contabilidad_ver_ventas").addEventListener("click", verVentasConciliacion);
+        $("contabilidad_ver_otros_ingresos").addEventListener("click", verOtrosIngresosConciliacion);
         $("contabilidad_ver_compras").addEventListener("click", verComprasConciliacion);
         $("contabilidad_ver_gastos").addEventListener("click", verGastosConciliacion);
         $("contabilidad_ver_gastos_operativos").addEventListener("click", verGastosOperativosConciliacion);

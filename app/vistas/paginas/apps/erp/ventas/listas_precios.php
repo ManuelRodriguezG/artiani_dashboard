@@ -244,6 +244,15 @@
                                                 </div>
                                                 <div class="d-flex flex-wrap gap-2">
                                                     <input class="form-control form-control-solid w-250px" id="lp_producto_q" placeholder="SKU o producto">
+                                                    <select class="form-select form-select-solid w-200px" id="lp_producto_categoria" title="Categoria">
+                                                        <option value="">Categoria</option>
+                                                    </select>
+                                                    <select class="form-select form-select-solid w-200px" id="lp_producto_proveedor" title="Proveedor">
+                                                        <option value="">Proveedor</option>
+                                                    </select>
+                                                    <select class="form-select form-select-solid w-175px" id="lp_producto_marca" title="Marca">
+                                                        <option value="">Marca</option>
+                                                    </select>
                                                     <select class="form-select form-select-solid w-175px" id="lp_producto_solo">
                                                         <option value="todos">Todos</option>
                                                         <option value="con_precio">Con precio</option>
@@ -265,8 +274,13 @@
                                                         <span class="input-group-text">%</span>
                                                     </div>
                                                     <button class="btn btn-light-primary" id="lp_productos_buscar" type="button"><i class="bi bi-search"></i></button>
+                                                    <button class="btn btn-light" id="lp_producto_limpiar_grupos" type="button" title="Limpiar filtros comerciales"><i class="bi bi-x-circle"></i></button>
                                                     <button class="btn btn-light" id="lp_exportar_csv" type="button"><i class="bi bi-download"></i></button>
                                                 </div>
+                                            </div>
+                                            <div class="alert alert-light py-3 mb-4" id="lp_filtros_comerciales" data-lp-product-panel="captura">
+                                                <div class="fw-semibold">Grupo comercial activo</div>
+                                                <div class="text-muted fs-8">Sin filtro comercial. Puedes trabajar por categoria, proveedor o marca.</div>
                                             </div>
                                             <div class="lp-product-tabs">
                                                 <button class="lp-product-tab is-active" type="button" data-lp-product-tab="captura"><i class="bi bi-table"></i> Captura</button>
@@ -357,6 +371,9 @@
                                             </div>
                                             <div class="border rounded p-3 mb-4" id="lp_comparacion_resultado" data-lp-product-panel="herramientas">
                                                 <div class="text-muted fs-7">Compara contra otra lista para revisar diferencias antes de copiar precios.</div>
+                                            </div>
+                                            <div class="border rounded p-3 mb-4" id="lp_grupos_persistentes" data-lp-product-panel="herramientas">
+                                                <div class="text-muted fs-7">Grupos guardados pendientes de revisar.</div>
                                             </div>
                                             <div class="border rounded p-3 mb-4" id="lp_lote_prevalidacion" data-lp-product-panel="prevalidacion">
                                                 <div class="text-muted fs-7">Los cambios pendientes se prevalidan antes de guardar.</div>
@@ -618,6 +635,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260821-filtro-sku-url-1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20261004-grupos-comerciales-3"></script>
 </body>
 </html>

@@ -59,6 +59,16 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - El JS carga solo los datos requeridos por la pagina activa para evitar que Pedidos, Clientes, Mi catalogo, Inventarios y Productos queden mezclados en una sola pantalla.
 - Pedidos queda como bandeja operativa separada para revisar partidas, cantidades solicitadas bloqueadas, cantidades confirmadas, valores e impresion de revision.
 
+## Cambios 2026-10-06 - autenticacion, registro y estados de acceso
+
+- `DistribucionApi/auth/login` mantiene mensaje generico para credenciales invalidas y devuelve codigos publicos cuando las credenciales son validas pero el estatus comercial impide acceso.
+- Login aprobado emite token aunque el cliente aun no tenga permisos comerciales; en ese caso las acciones regresan en falso y puede incluir `sin_permisos_comerciales` para que el portal muestre una pantalla de estado.
+- `DistribucionClientesApi::formatearPerfilCliente()` agrega correo, `campos_pendientes` y `estado_acceso` para que Mi cuenta y Acceso en revision no dupliquen reglas comerciales.
+- `DistribucionPermisosApi::accionesPermitidas()` conserva las claves existentes y agrega aliases de portal: `ver_inicio`, `ver_precios` y `solicitar_cotizacion`.
+- Registro acepta la estructura fiscal anidada y devuelve `solicitud_incompleta`, `campos_faltantes` y `errores_campos` cuando faltan datos obligatorios.
+- `DistribucionApi/auth/recuperar` y `auth/reenviar_activacion` quedan disponibles con respuesta uniforme segura; no enumeran cuentas ni envian correos automaticamente en esta etapa.
+- `DistribucionCatalogoApi::contratos()` publica campos requeridos de registro, facturacion, categorias de interes, codigos de login, estados publicos, acciones y endpoints de ayuda de acceso.
+
 ## Pendientes
 
 - Validar en UAT con un cliente aprobado que tenga solo `distribucion.catalogo.ver`.

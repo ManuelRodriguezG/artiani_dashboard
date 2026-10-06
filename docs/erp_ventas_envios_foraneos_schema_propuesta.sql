@@ -1,0 +1,93 @@
+-- Ventas - Envios foraneos: propuesta de esquema
+-- Documentacion IA: Codex GPT-5
+-- Fecha: 2026-10-04
+-- Estado: propuesta documental; no ejecutar directo sin respaldo externo y autorizacion.
+-- Token esperado en endpoint controlado: VENTAS_ENVIOS_FORANEOS_DDL
+
+CREATE TABLE `erp_ventas_envios_foraneos` (
+`id_envio_foraneo` BIGINT NOT NULL AUTO_INCREMENT,
+`folio` VARCHAR(40) NOT NULL,
+`estatus` VARCHAR(40) NOT NULL DEFAULT 'borrador',
+`origen_contacto` VARCHAR(120) NULL,
+`id_cliente_crm` BIGINT NULL,
+`cliente_nombre` VARCHAR(255) NULL,
+`cliente_telefono` VARCHAR(80) NULL,
+`cliente_correo` VARCHAR(180) NULL,
+`destino_cp` VARCHAR(20) NULL,
+`destino_estado` VARCHAR(120) NULL,
+`destino_ciudad` VARCHAR(120) NULL,
+`destino_direccion` TEXT NULL,
+`paquete_largo_cm` DECIMAL(12,4) NOT NULL DEFAULT 0,
+`paquete_ancho_cm` DECIMAL(12,4) NOT NULL DEFAULT 0,
+`paquete_alto_cm` DECIMAL(12,4) NOT NULL DEFAULT 0,
+`paquete_peso_kg` DECIMAL(12,4) NOT NULL DEFAULT 0,
+`paquete_cantidad` INT NOT NULL DEFAULT 1,
+`paqueteria` VARCHAR(120) NULL,
+`servicio_envio` VARCHAR(120) NULL,
+`costo_envio` DECIMAL(18,6) NOT NULL DEFAULT 0,
+`precio_envio_cliente` DECIMAL(18,6) NOT NULL DEFAULT 0,
+`vigencia_cotizacion` DATE NULL,
+`guia_referencia` VARCHAR(180) NULL,
+`subtotal_productos` DECIMAL(18,6) NOT NULL DEFAULT 0,
+`total_estimado` DECIMAL(18,6) NOT NULL DEFAULT 0,
+`id_venta_pedido` BIGINT NULL,
+`id_tms_servicio` BIGINT NULL,
+`datos_snapshot` TEXT NULL,
+`observaciones` TEXT NULL,
+`creado_por` INT NULL,
+`actualizado_por` INT NULL,
+`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+`fecha_actualizacion` DATETIME NULL,
+PRIMARY KEY (`id_envio_foraneo`),
+UNIQUE KEY `idx_envio_foraneo_folio` (`folio`),
+KEY `idx_envio_foraneo_estatus_fecha` (`estatus`, `fecha_registro`),
+KEY `idx_envio_foraneo_destino` (`destino_estado`, `destino_ciudad`, `destino_cp`),
+KEY `idx_envio_foraneo_cliente` (`id_cliente_crm`, `cliente_telefono`),
+KEY `idx_envio_foraneo_origen_pedido` (`id_venta_pedido`),
+KEY `idx_envio_foraneo_tms` (`id_tms_servicio`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `erp_ventas_envios_foraneos_detalle` (
+`id_envio_foraneo_detalle` BIGINT NOT NULL AUTO_INCREMENT,
+`id_envio_foraneo` BIGINT NOT NULL,
+`renglon` INT NOT NULL DEFAULT 1,
+`id_producto_erp` BIGINT NULL,
+`id_sku_erp` BIGINT NULL,
+`sku` VARCHAR(150) NULL,
+`descripcion` VARCHAR(500) NOT NULL,
+`cantidad` DECIMAL(18,6) NOT NULL DEFAULT 0,
+`precio_unitario` DECIMAL(18,6) NOT NULL DEFAULT 0,
+`importe` DECIMAL(18,6) NOT NULL DEFAULT 0,
+`existencia_disponible_snapshot` DECIMAL(18,6) NOT NULL DEFAULT 0,
+`largo_cm_snapshot` VARCHAR(80) NULL,
+`ancho_cm_snapshot` VARCHAR(80) NULL,
+`alto_cm_snapshot` VARCHAR(80) NULL,
+`peso_kg_snapshot` VARCHAR(80) NULL,
+`calidad_logistica` VARCHAR(40) NOT NULL DEFAULT 'pendiente',
+`pendientes_json` TEXT NULL,
+`producto_no_identificado` TINYINT(1) NOT NULL DEFAULT 0,
+`datos_snapshot` TEXT NULL,
+`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+PRIMARY KEY (`id_envio_foraneo_detalle`),
+KEY `idx_envio_foraneo_detalle_envio` (`id_envio_foraneo`, `renglon`),
+KEY `idx_envio_foraneo_detalle_sku` (`id_sku_erp`),
+KEY `idx_envio_foraneo_detalle_calidad` (`calidad_logistica`, `producto_no_identificado`),
+CONSTRAINT `fk_envio_foraneo_detalle_envio` FOREIGN KEY (`id_envio_foraneo`) REFERENCES `erp_ventas_envios_foraneos` (`id_envio_foraneo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `erp_ventas_envios_foraneos_eventos` (
+`id_envio_foraneo_evento` BIGINT NOT NULL AUTO_INCREMENT,
+`id_envio_foraneo` BIGINT NOT NULL,
+`tipo_evento` VARCHAR(60) NOT NULL,
+`estatus_anterior` VARCHAR(40) NULL,
+`estatus_nuevo` VARCHAR(40) NULL,
+`resumen` VARCHAR(255) NULL,
+`datos_snapshot` TEXT NULL,
+`observaciones` TEXT NULL,
+`creado_por` INT NULL,
+`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+PRIMARY KEY (`id_envio_foraneo_evento`),
+KEY `idx_envio_foraneo_evento_envio` (`id_envio_foraneo`, `fecha_registro`),
+KEY `idx_envio_foraneo_evento_tipo` (`tipo_evento`, `fecha_registro`),
+CONSTRAINT `fk_envio_foraneo_evento_envio` FOREIGN KEY (`id_envio_foraneo`) REFERENCES `erp_ventas_envios_foraneos` (`id_envio_foraneo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

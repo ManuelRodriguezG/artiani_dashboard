@@ -53,14 +53,19 @@ class DistribucionApi extends Controlador {
           )
         ));
       }
+      $perfil = $this->modelo("DistribucionClientesApi")->perfilPorId(intval($contexto["id_cliente_distribucion"]));
+      if (!is_array($perfil)) { $perfil = $contexto; }
       return $this->responderApiDistribucion(array(
         "error" => false,
         "tipo" => "success",
         "mensaje" => "Perfil Distribucion consultado",
+        "perfil" => $perfil,
+        "permisos" => isset($perfil["permisos"]) ? $perfil["permisos"] : (isset($contexto["permisos"]) ? $contexto["permisos"] : array()),
+        "acciones" => isset($perfil["acciones"]) ? $perfil["acciones"] : (isset($contexto["acciones"]) ? $contexto["acciones"] : array()),
         "depurar" => array(
-          "perfil" => $contexto,
-          "permisos" => isset($contexto["permisos"]) ? $contexto["permisos"] : array(),
-          "acciones" => isset($contexto["acciones"]) ? $contexto["acciones"] : array()
+          "perfil" => $perfil,
+          "permisos" => isset($perfil["permisos"]) ? $perfil["permisos"] : (isset($contexto["permisos"]) ? $contexto["permisos"] : array()),
+          "acciones" => isset($perfil["acciones"]) ? $perfil["acciones"] : (isset($contexto["acciones"]) ? $contexto["acciones"] : array())
         )
       ));
     }
@@ -81,6 +86,12 @@ class DistribucionApi extends Controlador {
     }
     if ($accion === "activar_contrasenia") {
       return $this->responderApiDistribucion($clientes->activarContrasenia($datos, $this->contextoCliente()));
+    }
+    if ($accion === "recuperar") {
+      return $this->responderApiDistribucion($clientes->recuperarAcceso($datos, $this->contextoCliente()));
+    }
+    if ($accion === "reenviar_activacion") {
+      return $this->responderApiDistribucion($clientes->reenviarActivacion($datos, $this->contextoCliente()));
     }
     return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("auth/" . $accion));
   }
@@ -116,6 +127,18 @@ class DistribucionApi extends Controlador {
   public function categorias() {
     if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
     return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->categorias($_GET, $this->contextoCliente()));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-04
+   * Proposito: entregar arbol publico de categorias de interes para registro Distribucion.
+   * Impacto: Registro Distribucion; permite elegir categorias padre/hijas sin iniciar sesion.
+   * Contrato: GET/OPTIONS read-only; no expone costos, margenes, proveedores ni stock.
+   */
+  public function categorias_interes() {
+    if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->categoriasInteres($_GET));
   }
 
   /**

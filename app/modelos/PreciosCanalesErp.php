@@ -171,8 +171,20 @@ class PreciosCanalesErp extends CRUD {
     $match = "((r.tipo_regla='sku' AND r.id_sku=s.id_sku)
       OR (r.tipo_regla='marca' AND r.id_marca_erp=p.id_marca_erp)
       OR (r.tipo_regla='categoria' AND EXISTS (
-        SELECT 1 FROM erp_catalogo_producto_categorias rpc
-        WHERE rpc.id_producto_erp=p.id_producto_erp AND rpc.id_categoria_erp=r.id_categoria_erp
+        SELECT 1
+        FROM erp_catalogo_producto_categorias rpc
+        INNER JOIN erp_catalogo_categorias rcc ON rcc.id_categoria_erp=rpc.id_categoria_erp
+        INNER JOIN erp_catalogo_categorias rbase ON rbase.id_categoria_erp=r.id_categoria_erp
+        WHERE rpc.id_producto_erp=p.id_producto_erp
+          AND (
+            rpc.id_categoria_erp=r.id_categoria_erp
+            OR rcc.id_categoria_padre=r.id_categoria_erp
+            OR (TRIM(COALESCE(rbase.ruta,''))<>'' AND (
+              rcc.ruta LIKE CONCAT(rbase.ruta, ' / %')
+              OR rcc.ruta LIKE CONCAT(rbase.ruta, '/%')
+              OR rcc.ruta LIKE CONCAT(rbase.ruta, ' > %')
+            ))
+          )
       )))";
     $where = array(
       "NOT EXISTS (

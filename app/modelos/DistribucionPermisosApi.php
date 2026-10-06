@@ -74,12 +74,18 @@ class DistribucionPermisosApi extends CRUD {
   public function accionesPermitidas($permisos) {
     $permisos = is_array($permisos) ? $permisos : array();
     $puedeVerCatalogo = in_array("distribucion.catalogo.ver", $permisos, true);
+    $puedeVerPrecio = in_array("distribucion.precio.ver_publico", $permisos, true) || in_array("distribucion.precio.ver_mayoreo", $permisos, true) || in_array("distribucion.precio.ver_lista_asignada", $permisos, true);
+    $puedeCotizar = in_array("distribucion.cotizacion.solicitar", $permisos, true);
+    $puedeEditarCuenta = in_array("distribucion.cuenta.editar", $permisos, true);
     return array(
+      "ver_inicio" => true,
       "ver_catalogo" => $puedeVerCatalogo,
       "ver_detalle" => $puedeVerCatalogo || in_array("distribucion.catalogo.ver_detalle", $permisos, true),
-      "ver_precio" => in_array("distribucion.precio.ver_publico", $permisos, true) || in_array("distribucion.precio.ver_mayoreo", $permisos, true) || in_array("distribucion.precio.ver_lista_asignada", $permisos, true),
+      "ver_precio" => $puedeVerPrecio,
+      "ver_precios" => $puedeVerPrecio,
       "ver_disponibilidad" => in_array("distribucion.inventario.ver_disponibilidad", $permisos, true),
-      "agregar_cotizacion" => in_array("distribucion.cotizacion.solicitar", $permisos, true),
+      "agregar_cotizacion" => $puedeCotizar,
+      "solicitar_cotizacion" => $puedeCotizar,
       "pedido_preliminar" => in_array("distribucion.pedido.preliminar", $permisos, true),
       "gestionar_mi_catalogo" => in_array("distribucion.mi_catalogo.gestionar", $permisos, true) || in_array("distribucion.surtido.gestionar", $permisos, true),
       "gestionar_surtido" => in_array("distribucion.surtido.gestionar", $permisos, true),
@@ -87,7 +93,7 @@ class DistribucionPermisosApi extends CRUD {
       "ver_sugerido_resurtido" => in_array("distribucion.resurtido.sugerido", $permisos, true),
       "ver_pedidos" => in_array("distribucion.pedido.ver", $permisos, true),
       "descargar_catalogo" => in_array("distribucion.catalogo.descargar", $permisos, true),
-      "editar_cuenta" => in_array("distribucion.cuenta.editar", $permisos, true)
+      "editar_cuenta" => $puedeEditarCuenta
     );
   }
 

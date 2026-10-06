@@ -267,9 +267,23 @@ Las inversiones deben separarse de ingresos y egresos operativos. Un movimiento 
 
 Los ingresos operativos/ventas deben excluir entradas de inversion. Para ventas del negocio se toma `movimiento = ingreso`, `actividad = negocio` y no inversion.
 
+`Ingresos operativos` es una bolsa amplia: ingresos que no son traspaso ni inversion. `Ventas` es el subconjunto de ingresos operativos con `actividad = negocio`. Los ingresos operativos con otra actividad deben revisarse en una vista separada de `Otros ingresos` para explicar diferencias contra ventas normales.
+
+Si el usuario reclasifica un movimiento mientras tiene abierta una vista de conciliacion, como `Ventas`, `Compras` o `Inversiones`, la vista abierta debe recalcular sus filas. Un ingreso cambiado a `actividad = inversion` o `categoria = inversion` debe salir inmediatamente de `Ventas` y pasar a las vistas de inversion.
+
 La conciliacion debe permitir elegir un ambito antes de revisar: todo el mes, un estado de cuenta cargado o una cuenta auxiliar/generada. Las vistas rapidas de ventas, compras, gastos y traspasos deben respetar ese ambito para que el usuario pueda aislar una cuenta sin perder las descargas por tipo.
 
 El detalle de conciliacion debe mostrar la cuenta y el estado de cuenta de origen en una columna propia. En vistas transversales como compras o gastos, esto evita confundir registros de Santander, Mercado Pago, efectivo, tarjeta de credito o CFDI auxiliares dentro de una sola lista.
+
+Las vistas de detalle de conciliacion, como ventas, compras, gastos, inversiones y cuentas, deben permitir busqueda, ordenamiento por columnas clave y seleccion de columnas visibles antes de descargar. La descarga completa respeta las filas filtradas y ordenadas; la descarga simple debe exportar la vista visible con las columnas seleccionadas por el usuario.
+
+Las vistas de detalle tambien deben permitir exclusiones temporales antes de descargar, sin modificar la clasificacion original. El sistema debe generar dinamicamente las cuentas presentes en la vista abierta para que el usuario pueda excluir cualquier cuenta antes de exportar, por ejemplo `Efectivo`, `Tarjeta de credito`, `Mercado Pago - comisiones` u otras cuentas futuras.
+
+Las descargas de detalle deben permitir exportar el `monto` como absoluto, sin negativos, cuando el usuario lo necesite para reportes propios. Esta opcion solo transforma el archivo descargado; no cambia el monto firmado usado internamente para conciliacion.
+
+En las descargas de detalle, los datos de origen no deben concatenarse dentro de `Cuenta`. La vista y el CSV deben separar `Cuenta`, `Origen`, `Archivo estado` y `Hoja` para que el usuario pueda ordenar, filtrar o copiar esos campos en Excel sin limpiar texto combinado.
+
+Cuando un CFDI se marca para `crear_auxiliar`, su cuenta no debe permanecer como `Por relacionar`. El sistema debe resolverla por forma de pago y categoria: efectivo a `Efectivo`, comision de plataforma a `Mercado Pago - comisiones`, tarjeta de credito/debito a sus cuentas auxiliares y transferencia a `Transferencia` o la cuenta elegida.
 
 Los controles masivos de `Clasificacion` y `CFDI` deben usar los mismos catalogos que los selects de cada renglon. Si el usuario cambia de periodo o aplica filtros, la seleccion masiva solo debe afectar registros visibles del periodo/filtro actual; no debe conservar selecciones ocultas de otros meses.
 

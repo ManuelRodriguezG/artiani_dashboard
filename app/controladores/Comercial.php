@@ -119,6 +119,30 @@ class Comercial extends Controlador
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-10-04.
+     * Proposito: exponer agrupadores comerciales read-only para filtrar productos en Listas de precios.
+     * Impacto: Comercial/Listas puede operar por categoria, proveedor o marca sin escribir BD.
+     * Contrato: solo lectura; los grupos guardados requieren DDL posterior autorizado.
+     */
+    public function listas_precios_grupos_catalogos_erp()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        return json_encode($this->modelo('ListasPreciosErp')->gruposCatalogosReadOnly($_GET));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-04.
+     * Proposito: reportar preparacion read-only para grupos comerciales persistentes.
+     * Impacto: Comercial/Listas muestra que falta DDL antes de guardar grupos con nombre.
+     * Contrato: no ejecuta DDL, no escribe BD y no crea grupos.
+     */
+    public function listas_precios_grupos_schema_erp()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        return json_encode($this->modelo('ListasPreciosErp')->gruposComercialesSchemaReadOnly());
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-15.
      * Proposito: alimentar la mesa operativa de productos/precios con costo y margen.
      * Impacto: permite editar listas desde Comercial sin depender de IDs sueltos ni vistas de POS.
