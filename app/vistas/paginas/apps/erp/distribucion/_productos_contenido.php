@@ -17,6 +17,7 @@
             <button type="button" id="dist_productos_buscar_btn" class="btn btn-light-primary"><i class="bi bi-search"></i> Buscar</button>
             <button type="button" id="dist_productos_publicar_lote" class="btn btn-light-success"><i class="bi bi-cloud-upload"></i> Publicar lote</button>
             <button type="button" id="dist_productos_publicar_filtrados" class="btn btn-success"><i class="bi bi-cloud-check"></i> Publicar todos filtrados</button>
+            <button type="button" id="dist_productos_asignar_cliente" class="btn btn-light-primary"><i class="bi bi-person-plus"></i> Asignar a cliente</button>
             <button type="button" id="dist_productos_desactivar_lote" class="btn btn-light-danger"><i class="bi bi-eye-slash"></i> Desactivar lote</button>
             <select id="dist_productos_limite" class="form-select form-select-solid w-100px">
                 <option value="50">50</option>

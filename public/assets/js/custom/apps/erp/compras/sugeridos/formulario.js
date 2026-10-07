@@ -787,10 +787,25 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-07
+     * Proposito: abrir el documento imprimible de Sugerido solo cuando ya existe folio guardado.
+     * Impacto: UX Compras/Sugerido; evita imprimir datos no persistidos que luego no coincidan con el sistema.
+     */
+    function imprimirSugerido(e) {
+        var id = Number(document.getElementById("sugerido_id").value || 0);
+        if (id > 0) { return; }
+        e.preventDefault();
+        Swal.fire({text: "Guarda el sugerido antes de imprimir o descargar PDF.", icon: "warning", confirmButtonText: "Aceptar"});
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         puedeCrear = Number(document.getElementById("sugerido_puede_crear").value || 0) === 1;
         puedeEditar = Number(document.getElementById("sugerido_puede_editar").value || 0) === 1;
         modoLectura = (document.getElementById("sugerido_modo").value || "editar") === "ver";
+        document.getElementById("sugerido_imprimir").classList.toggle("d-none", Number(document.getElementById("sugerido_id").value || 0) <= 0);
+        document.getElementById("sugerido_imprimir").addEventListener("click", imprimirSugerido);
         document.getElementById("sugerido_guardar_borrador").classList.toggle("d-none", modoLectura);
         document.getElementById("sugerido_marcar_lista").classList.toggle("d-none", modoLectura);
         document.getElementById("sugerido_generar_solicitud").classList.toggle("d-none", modoLectura);

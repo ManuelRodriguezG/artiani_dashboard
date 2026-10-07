@@ -141,6 +141,34 @@ class Compra extends Controlador {
         ));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-07
+     * Proposito: mostrar un documento imprimible de Sugerido de compra para surtido operativo.
+     * Impacto: Compras/Sugerido; solo lectura, no afecta inventario, kardex, solicitudes ni ordenes.
+     * Contrato: requiere compras.ver y permite imprimir/guardar como PDF desde el navegador.
+     */
+    public function sugerido_imprimir_erp($id = 0) {
+        $this->requerirPermiso("compras.ver");
+        $idSugerido = intval($id);
+        $respuesta = $this->modelo("ComprasSugeridosCompraErp")->consultar($idSugerido);
+        $mostrarCostos = isset($_GET["costos"]) && intval($_GET["costos"]) === 1;
+        if ($respuesta["error"]) {
+            $this->vista("apps/erp/compras/sugeridos/imprimir", array(
+                "error_imprimir" => $respuesta["mensaje"],
+                "id_sugerido_compra" => $idSugerido,
+                "mostrar_costos" => $mostrarCostos
+            ));
+            return;
+        }
+        $this->vista("apps/erp/compras/sugeridos/imprimir", array(
+            "id_sugerido_compra" => $idSugerido,
+            "sugerido" => isset($respuesta["depurar"]["sugerido"]) ? $respuesta["depurar"]["sugerido"] : null,
+            "detalle" => isset($respuesta["depurar"]["detalle"]) ? $respuesta["depurar"]["detalle"] : array(),
+            "mostrar_costos" => $mostrarCostos
+        ));
+    }
+
     public function sugeridos_catalogos_erp() {
         $this->requerirPermiso("compras.ver");
         return json_encode($this->modelo("ComprasSugeridosCompraErp")->catalogos());

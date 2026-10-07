@@ -19,6 +19,15 @@ class DistribucionCotizacionesApi extends CRUD {
     if (!is_array($permisos) || !in_array("distribucion.cotizacion.solicitar", $permisos, true)) {
       return $this->respuesta(true, "warning", "No tienes permiso para cotizar", array("requiere_permiso" => "distribucion.cotizacion.solicitar"));
     }
+    $itemsOriginales = $this->valor($datos, "items", array());
+    $itemsEntrada = $this->itemsNormalizados($itemsOriginales);
+    if (empty($itemsEntrada)) {
+      return $this->respuesta(true, "warning", "Agrega partidas con SKU y cantidad mayor a cero para cotizar", array(
+        "codigo" => "partidas_invalidas",
+        "no_crea_folio" => true
+      ));
+    }
+    $datos["items"] = $itemsEntrada;
     require_once RUTA_APP . "/modelos/DistribucionCatalogoApi.php";
     $catalogo = new DistribucionCatalogoApi();
     $precios = $catalogo->resolverPrecios($datos, $contexto);
@@ -26,7 +35,7 @@ class DistribucionCotizacionesApi extends CRUD {
     $itemsPrecio = $this->valor($this->valor($precios, "depurar", array()), "items", array());
     $itemsDisponibilidad = $this->valor($this->valor($disponibilidad, "depurar", array()), "items", array());
     $comentariosEntrada = array();
-    foreach ($this->valor($datos, "items", array()) as $entradaItem) {
+    foreach ($itemsOriginales as $entradaItem) {
       $idSkuComentario = intval($this->valor($entradaItem, "id_sku", 0));
       if ($idSkuComentario > 0) {
         $comentariosEntrada[$idSkuComentario] = trim((string) $this->valor($entradaItem, "comentario", ""));
@@ -64,7 +73,14 @@ class DistribucionCotizacionesApi extends CRUD {
       );
     }
     $bloqueos = array_values(array_unique($bloqueos));
-    return $this->respuesta(false, empty($bloqueos) ? "success" : "info", empty($bloqueos) ? "Cotizacion dry-run Distribucion validada" : "Cotizacion dry-run Distribucion con observaciones", array(
+    $bloqueaVisibilidadCliente = false;
+    foreach ($bloqueos as $bloqueo) {
+      if (strpos((string) $bloqueo, "sku_no_visible_canal_") === 0) {
+        $bloqueaVisibilidadCliente = true;
+        break;
+      }
+    }
+    return $this->respuesta($bloqueaVisibilidadCliente, $bloqueaVisibilidadCliente ? "warning" : (empty($bloqueos) ? "success" : "info"), $bloqueaVisibilidadCliente ? "La cotizacion contiene SKUs no disponibles para este cliente" : (empty($bloqueos) ? "Cotizacion dry-run Distribucion validada" : "Cotizacion dry-run Distribucion con observaciones"), array(
       "configurado" => !empty($this->valor($this->valor($precios, "depurar", array()), "configurado", false)) && !empty($this->valor($this->valor($disponibilidad, "depurar", array()), "configurado", false)),
       "totales" => array(
         "moneda" => "MXN",
@@ -73,6 +89,8 @@ class DistribucionCotizacionesApi extends CRUD {
       ),
       "items" => $items,
       "bloqueos" => $bloqueos,
+      "codigo" => $bloqueaVisibilidadCliente ? "sku_no_visible_cliente" : null,
+      "no_crea_folio" => $bloqueaVisibilidadCliente,
       "guardrails" => array(
         "no_aparta_inventario" => true,
         "no_crea_venta" => true,
@@ -686,6 +704,8 @@ class DistribucionCotizacionesApi extends CRUD {
       $limite = max(1, min(200, intval($this->valor($filtros, "limite", 50))));
       $estatus = trim((string) $this->valor($filtros, "estatus", ""));
       $q = trim((string) $this->valor($filtros, "q", ""));
+      $fechaDesde = trim((string) $this->valor($filtros, "fecha_desde", ""));
+      $fechaHasta = trim((string) $this->valor($filtros, "fecha_hasta", ""));
       $where = array("1=1");
       $params = array();
       if ($estatus !== "") {
@@ -695,6 +715,14 @@ class DistribucionCotizacionesApi extends CRUD {
       if ($q !== "") {
         $where[] = "(co.folio LIKE :q OR c.nombre LIKE :q OR c.empresa LIKE :q OR c.correo LIKE :q)";
         $params[":q"] = "%" . $q . "%";
+      }
+      if ($fechaDesde !== "" && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
+        $where[] = "co.fecha_registro>=:fecha_desde";
+        $params[":fecha_desde"] = $fechaDesde . " 00:00:00";
+      }
+      if ($fechaHasta !== "" && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+        $where[] = "co.fecha_registro<=:fecha_hasta";
+        $params[":fecha_hasta"] = $fechaHasta . " 23:59:59";
       }
       $joinCliente = $this->tablaExiste($db, "erp_distribucion_clientes") ? "LEFT JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=co.id_cliente_distribucion" : "LEFT JOIN (SELECT NULL id_cliente_distribucion, NULL nombre, NULL empresa, NULL correo) c ON 1=0";
       $tieneItems = $this->tablaExiste($db, "erp_distribucion_cotizacion_items");
@@ -1026,7 +1054,7 @@ class DistribucionCotizacionesApi extends CRUD {
         return $this->respuesta(true, "warning", "Pedido no encontrado");
       }
       if (!in_array((string) $pedido["estatus"], array("en_revision", "respondida", "respondido_por_erp"), true)) {
-        return $this->respuesta(true, "warning", "El pedido aun no tiene respuesta del ERP");
+        return $this->respuesta(true, "warning", "Este pedido aun no tiene una propuesta comercial para responder.");
       }
       $estatusNuevo = $respuesta === "aceptado" ? "cliente_acepto" : ($respuesta === "rechazado" ? "cliente_rechazo" : "requiere_ajuste_cliente");
       $comentario = substr(trim((string) $this->valor($datos, "comentario", "")), 0, 2000);
@@ -1258,9 +1286,11 @@ class DistribucionCotizacionesApi extends CRUD {
       if (!is_array($item)) { continue; }
       $idSku = intval($this->valor($item, "id_sku", 0));
       if ($idSku <= 0) { continue; }
+      $cantidad = floatval($this->valor($item, "cantidad", 1));
+      if ($cantidad <= 0) { continue; }
       $salida[] = array(
         "id_sku" => $idSku,
-        "cantidad" => max(0.001, min(9999, floatval($this->valor($item, "cantidad", 1))))
+        "cantidad" => min(9999, $cantidad)
       );
     }
     return $salida;

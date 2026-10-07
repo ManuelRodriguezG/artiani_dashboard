@@ -7446,3 +7446,35 @@ Prueba real pendiente:
 - Confirmar que el renglon queda sin SKU ERP/relacion proveedor-SKU y vuelve a poder matchearse.
 - Si la relacion tenia costo vigente o uso en compras, confirmar que el mensaje indique que la relacion formal se conservo.
 - Si la relacion no tenia uso operativo, confirmar que ya no aparezca como relacion activa comprable.
+
+## Proveedores - Ajuste responsive de modales de listas 2026-10-07
+
+Problema detectado:
+
+- En resoluciones pequenas, los componentes dentro de listas de proveedor se desbordaban hacia la izquierda o quedaban incomodos de revisar.
+- Afectaba principalmente vista previa de lista, renglones, matching, preview/aplicacion de relaciones, costos en lote, costo referencia e incidencias.
+
+Alcance aplicado:
+
+- Se agrego una clase comun de comportamiento responsive para modales de Proveedores.
+- Los modales ahora limitan su ancho al viewport disponible y centran el contenido.
+- Las tablas internas conservan lectura operativa con scroll horizontal controlado dentro del modal, sin empujar el modal fuera de pantalla.
+- Encabezados, pies, pestanas, botones, insignias y barras de filtros ahora pueden acomodarse en varias lineas cuando la pantalla es pequena.
+- Los filtros de renglones, matching e incidencias toman ancho completo en movil para evitar desbordes.
+
+Archivos tocados:
+
+- `app/vistas/paginas/apps/erp/proveedores/listado_erp.php`.
+
+Prueba real pendiente:
+
+- Abrir Proveedores > listas de proveedor en una pantalla pequena o con el navegador reducido.
+- Revisar `Vista previa`, `Ver renglones`, `Matching`, `Preview relaciones`, `Aplicar relaciones`, `Aplicar costos`, `Costo referencia` e `Incidencias`.
+- Confirmar que ningun modal se vaya hacia la izquierda fuera de pantalla.
+- Confirmar que las tablas se puedan desplazar horizontalmente dentro del modal cuando tengan muchas columnas.
+- Confirmar que botones/filtros no tapen informacion ni obliguen a usar el buscador del navegador.
+
+Nota tecnica:
+
+- Este ajuste fue solo visual/UX.
+- No se tocaron reglas de negocio, endpoints, datos ni base de datos.

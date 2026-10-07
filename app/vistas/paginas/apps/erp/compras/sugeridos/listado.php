@@ -121,6 +121,6 @@ $puedeEditar = !empty($datos["puede_editar"]);
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/listado.js?v=20260908-2"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/listado.js?v=20261007-1"></script>
 </body>
 </html>

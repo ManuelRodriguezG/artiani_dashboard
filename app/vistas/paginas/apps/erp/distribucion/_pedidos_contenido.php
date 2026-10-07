@@ -9,6 +9,8 @@
         <div class="card-toolbar dist-filter-row">
             <span id="dist_cotizaciones_total" class="badge badge-light-primary">0</span>
             <input type="text" id="dist_cotizaciones_buscar" class="form-control form-control-solid" placeholder="Buscar folio o cliente">
+            <input type="date" id="dist_cotizaciones_fecha_desde" class="form-control form-control-solid" title="Fecha desde">
+            <input type="date" id="dist_cotizaciones_fecha_hasta" class="form-control form-control-solid" title="Fecha hasta">
             <select id="dist_cotizaciones_estatus" class="form-select form-select-solid">
                 <option value="">Todos</option>
                 <option value="pedido_solicitado">Pedido solicitado</option>

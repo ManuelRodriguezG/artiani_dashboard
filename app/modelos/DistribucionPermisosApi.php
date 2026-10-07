@@ -22,6 +22,8 @@ class DistribucionPermisosApi extends CRUD {
         "tipo_cliente" => $this->valor($perfil, "tipo_cliente", "registrado"),
         "estatus" => $this->valor($perfil, "estatus", null),
         "id_lista_precio" => $this->valor($perfil, "id_lista_precio", null),
+        "catalogo_modo" => $this->valor($perfil, "catalogo_modo", "general"),
+        "categorias_interes" => $this->valor($perfil, "categorias_interes", array()),
         "permisos" => $permisos,
         "acciones" => $this->accionesPermitidas($permisos)
       );

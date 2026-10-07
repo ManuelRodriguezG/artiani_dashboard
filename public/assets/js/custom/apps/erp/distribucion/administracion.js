@@ -100,6 +100,22 @@
         }
     }
 
+    function arraySeguro(value) {
+        if (!value) { return []; }
+        if (Array.isArray(value)) { return value; }
+        if (typeof value === "object") { return Object.keys(value).map(function (key) { return value[key]; }); }
+        try {
+            var parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) { return parsed; }
+            if (parsed && typeof parsed === "object") {
+                return Object.keys(parsed).map(function (key) { return parsed[key]; });
+            }
+        } catch (e) {
+            return String(value).split(",").map(function (item) { return item.trim(); }).filter(Boolean);
+        }
+        return [];
+    }
+
     function selectValue(id) {
         var el = document.getElementById(id);
         return el ? (el.value || "") : "";
@@ -432,6 +448,7 @@
             if (permisosUi.editar) {
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Permisos\" data-cliente-permisos=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-sliders\"></i></button> ";
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-secondary\" title=\"Entrega\" data-cliente-entrega=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-truck\"></i></button> ";
+                acciones += "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"Catalogo\" data-cliente-catalogo=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-journal-check\"></i></button> ";
             }
             acciones += "<button class=\"btn btn-sm btn-icon btn-light-info\" title=\"Historial de acceso\" data-cliente-auditoria=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-clock-history\"></i></button> ";
             if (item.telefono) {
@@ -446,6 +463,7 @@
             var indicadores = "<span class=\"badge badge-light-primary me-1\">Mi catalogo " + escapeHtml(totalCatalogo) + "</span>" +
                 "<span class=\"badge badge-light-info me-1\">Pedidos " + escapeHtml(totalPedidos) + "</span>" +
                 "<span class=\"badge badge-light me-1\">Inv. " + escapeHtml(totalInventario) + "</span>" +
+                "<span class=\"badge " + (item.catalogo_modo === "personalizado" ? "badge-light-success" : "badge-light") + " me-1\">Catalogo " + escapeHtml(item.catalogo_modo || "general") + "</span>" +
                 (totalSugeridos > 0 ? "<span class=\"badge badge-light-warning\">Sugerido " + escapeHtml(totalSugeridos) + "</span>" : "") +
                 "<div class=\"text-muted fs-8 mt-1\">Permisos " + escapeHtml(item.permisos_activos || 0) + " / Entrega " + escapeHtml(item.metodo_entrega_default || "por_definir") + " / Ultimo acceso " + escapeHtml(item.fecha_ultimo_login || "sin acceso") + "</div>";
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.nombre) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.correo) + "</div></td>" +
@@ -563,6 +581,9 @@
                     ? "<button class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Desactivar\" data-sku-desactivar=\"" + escapeHtml(item.id_sku) + "\" data-vinculo=\"" + escapeHtml(item.id_canal_vinculo || "") + "\"><i class=\"bi bi-eye-slash\"></i></button>"
                     : "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"Publicar\" data-sku-publicar=\"" + escapeHtml(item.id_sku) + "\"><i class=\"bi bi-cloud-upload\"></i></button>")
                 : "";
+            if (permisosUi.editar) {
+                acciones += " <button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Asignar a cliente\" data-producto-asignar-cliente=\"" + escapeHtml(item.id_sku) + "\"><i class=\"bi bi-person-plus\"></i></button>";
+            }
             return "<tr><td><input class=\"form-check-input\" type=\"checkbox\" data-producto-seleccion=\"" + escapeHtml(item.id_sku) + "\"></td><td><div class=\"fw-bold\">" + escapeHtml(item.sku) + "</div><div class=\"text-muted fs-7\">ID " + escapeHtml(item.id_sku) + "</div></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_nombre || item.producto) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.producto || "") + "</div></td>" +
                 "<td><div class=\"fw-semibold\">" + escapeHtml(item.marca || "Sin marca") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.categoria || "Sin categoria") + "</div></td>" +
@@ -609,7 +630,7 @@
     }
 
     function cargarClientes() {
-        var estatus = document.getElementById("dist_clientes_estatus").value;
+        var estatus = selectValue("dist_clientes_estatus");
         return request("/DistribucionAdmin/clientes?limite=100&estatus=" + encodeURIComponent(estatus)).then(function (response) {
             clientes = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderClientes();
@@ -617,7 +638,13 @@
     }
 
     function cargarCotizaciones() {
-        return request("/DistribucionAdmin/cotizaciones?" + query({limite: 100, estatus: selectValue("dist_cotizaciones_estatus"), q: selectValue("dist_cotizaciones_buscar")})).then(function (response) {
+        return request("/DistribucionAdmin/cotizaciones?" + query({
+            limite: 100,
+            estatus: selectValue("dist_cotizaciones_estatus"),
+            q: selectValue("dist_cotizaciones_buscar"),
+            fecha_desde: selectValue("dist_cotizaciones_fecha_desde"),
+            fecha_hasta: selectValue("dist_cotizaciones_fecha_hasta")
+        })).then(function (response) {
             cotizaciones = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderCotizaciones();
         });
@@ -740,7 +767,7 @@
     }
 
     function cargarTodo() {
-        document.querySelectorAll("#dist_productos_publicar_lote, #dist_productos_publicar_filtrados, #dist_productos_desactivar_lote").forEach(function (button) {
+        document.querySelectorAll("#dist_productos_publicar_lote, #dist_productos_publicar_filtrados, #dist_productos_asignar_cliente, #dist_productos_desactivar_lote").forEach(function (button) {
             button.classList.toggle("d-none", !permisosUi.editar);
         });
         return cargarAuxiliares().then(function () {
@@ -763,7 +790,7 @@
                 return cargarSugeridos();
             }
             if (seccionActiva === "productos") {
-                return cargarProductos();
+                return Promise.all([cargarClientes(), cargarProductos()]);
             }
             if (seccionActiva === "demanda") {
                 return cargarDemanda();
@@ -863,6 +890,182 @@
 
     function detalleCampo(label, value, wide) {
         return "<div class=\"" + (wide ? "col-12" : "col-md-6") + "\"><div class=\"text-muted fs-8 text-uppercase\">" + escapeHtml(label) + "</div><div class=\"fw-semibold\">" + escapeHtml(value || "Por capturar") + "</div></div>";
+    }
+
+    function categoriasInteresTexto(cliente) {
+        var categorias = arraySeguro(cliente ? cliente.categorias_interes : []).map(function (item) {
+            if (item && typeof item === "object") {
+                return item.ruta || item.nombre || item.categoria || item.id_categoria_erp || item.id || "";
+            }
+            return item;
+        }).filter(Boolean);
+        return categorias.length ? categorias.join(", ") : "Sin categorias capturadas";
+    }
+
+    function opcionesCatalogoReglaHtml(tipo) {
+        var items = [];
+        if (tipo === "sku") {
+            items = productos.slice(0, 250).map(function (item) {
+                return {
+                    id: item.id_sku,
+                    nombre: (item.sku || ("SKU " + item.id_sku)) + (item.sku_nombre || item.producto ? " - " + (item.sku_nombre || item.producto) : "")
+                };
+            });
+        } else if (tipo === "categoria") {
+            items = (catalogosFiltros.categorias || []).map(function (item) {
+                return {id: item.id, nombre: item.nombre};
+            });
+        } else if (tipo === "marca") {
+            items = (catalogosFiltros.marcas || []).map(function (item) {
+                return {id: item.id, nombre: item.nombre};
+            });
+        }
+        return items.filter(function (item) { return item.id; }).map(function (item) {
+            return "<option value=\"" + escapeHtml(item.id) + "\">" + escapeHtml(item.nombre || item.id) + "</option>";
+        }).join("");
+    }
+
+    function actualizarAyudaReglaCatalogo() {
+        var tipo = selectValue("dist_catalogo_regla_tipo") || "sku";
+        var input = document.getElementById("dist_catalogo_regla_objeto");
+        var lista = document.getElementById("dist_catalogo_regla_opciones");
+        var ayuda = document.getElementById("dist_catalogo_regla_ayuda");
+        if (lista) { lista.innerHTML = opcionesCatalogoReglaHtml(tipo); }
+        if (input) {
+            input.placeholder = tipo === "sku" ? "ID SKU" : (tipo === "categoria" ? "ID categoria" : "ID marca");
+        }
+        if (ayuda) {
+            ayuda.textContent = tipo === "sku"
+                ? "Puedes elegir un SKU cargado en Productos o escribir el ID SKU."
+                : (tipo === "categoria" ? "Puedes elegir una categoria del catalogo o escribir su ID." : "Puedes elegir una marca del catalogo o escribir su ID.");
+        }
+    }
+
+    function reglaCatalogoNombre(regla) {
+        if (regla.tipo_regla === "sku") {
+            return (regla.sku || ("SKU " + regla.id_sku)) + (regla.sku_nombre ? " - " + regla.sku_nombre : "");
+        }
+        if (regla.tipo_regla === "categoria") {
+            return (regla.categoria_nombre || ("Categoria " + regla.id_categoria_erp)) + (regla.categoria_ruta ? " / " + regla.categoria_ruta : "");
+        }
+        if (regla.tipo_regla === "marca") {
+            return regla.marca_nombre || ("Marca " + regla.id_marca_erp);
+        }
+        return regla.objeto_clave || "Regla";
+    }
+
+    function renderReglasCatalogoCliente(reglas, accion) {
+        var filtradas = (reglas || []).filter(function (regla) { return regla.accion === accion; });
+        if (!filtradas.length) {
+            return "<div class=\"text-muted border rounded p-4\">Sin reglas " + escapeHtml(accion) + ".</div>";
+        }
+        return "<div class=\"table-responsive\"><table class=\"table table-sm align-middle mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Objeto</th><th>Estado</th><th>Prioridad</th><th>Notas</th></tr></thead><tbody>" +
+            filtradas.map(function (regla) {
+                return "<tr><td><div class=\"fw-semibold\">" + escapeHtml(reglaCatalogoNombre(regla)) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(regla.tipo_regla + " / " + (regla.objeto_clave || "")) + "</div></td>" +
+                    "<td>" + badge(regla.estatus || "activo") + "</td>" +
+                    "<td>" + escapeHtml(regla.prioridad || 0) + "</td>" +
+                    "<td class=\"text-muted fs-8\">" + escapeHtml(regla.notas || "") + "</td></tr>";
+            }).join("") + "</tbody></table></div>";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-07
+     * Proposito: administrar reglas de catalogo personalizado desde la ficha del cliente.
+     * Impacto: UI ERP Distribucion; separa permitidos/ocultos por cliente sin modificar catalogo global.
+     */
+    function verCatalogoCliente(idCliente) {
+        var cliente = clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(idCliente); });
+        if (!cliente) {
+            Swal.fire({text: "Cliente no encontrado en la lista actual.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        request("/DistribucionAdmin/cliente_catalogo_reglas?id_cliente_distribucion=" + encodeURIComponent(idCliente)).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var reglas = response.depurar && response.depurar.items ? response.depurar.items : [];
+            var permitidosActivos = reglas.filter(function (regla) { return regla.accion === "permitir" && regla.estatus === "activo"; }).length;
+            var aviso = cliente.catalogo_modo === "personalizado" && permitidosActivos === 0
+                ? "<div class=\"alert alert-warning py-3 mb-5\">Este cliente esta en modo personalizado y aun no tiene reglas activas para permitir productos.</div>"
+                : "";
+            var html = "<div class=\"text-start\">" +
+                "<div class=\"mb-5\"><div class=\"fw-bold fs-5\">" + escapeHtml(cliente.nombre || "Cliente") + "</div><div class=\"text-muted\">" + escapeHtml([cliente.empresa, cliente.correo].filter(Boolean).join(" / ")) + "</div></div>" +
+                aviso +
+                "<div class=\"row g-4 mb-5\">" +
+                "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Modo de catalogo</label><select id=\"dist_catalogo_cliente_modo\" class=\"form-select form-select-solid\"><option value=\"general\"" + (cliente.catalogo_modo !== "personalizado" ? " selected" : "") + ">General</option><option value=\"personalizado\"" + (cliente.catalogo_modo === "personalizado" ? " selected" : "") + ">Personalizado</option></select></div>" +
+                "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Categorias de interes</label><input class=\"form-control form-control-solid\" value=\"" + escapeHtml(categoriasInteresTexto(cliente)) + "\" readonly></div>" +
+                "</div>" +
+                "<div class=\"d-flex justify-content-end mb-6\"><button type=\"button\" class=\"btn btn-sm btn-primary\" data-cliente-catalogo-preferencias=\"" + escapeHtml(idCliente) + "\"><i class=\"bi bi-save\"></i> Guardar modo</button></div>" +
+                "<div class=\"row g-5 mb-6\"><div class=\"col-lg-6\"><div class=\"fw-semibold mb-3\">Permitidos</div>" + renderReglasCatalogoCliente(reglas, "permitir") + "</div><div class=\"col-lg-6\"><div class=\"fw-semibold mb-3\">Ocultos</div>" + renderReglasCatalogoCliente(reglas, "ocultar") + "</div></div>" +
+                "<div class=\"separator my-5\"></div><div class=\"fw-semibold mb-3\">Agregar o actualizar regla</div>" +
+                "<div class=\"row g-3\">" +
+                "<div class=\"col-md-3\"><label class=\"form-label\">Tipo</label><select id=\"dist_catalogo_regla_tipo\" class=\"form-select form-select-solid\"><option value=\"sku\">SKU</option><option value=\"categoria\">Categoria</option><option value=\"marca\">Marca</option></select></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label\">Accion</label><select id=\"dist_catalogo_regla_accion\" class=\"form-select form-select-solid\"><option value=\"permitir\">Permitir</option><option value=\"ocultar\">Ocultar</option></select></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label\">Objeto</label><input id=\"dist_catalogo_regla_objeto\" class=\"form-control form-control-solid\" inputmode=\"numeric\" list=\"dist_catalogo_regla_opciones\" placeholder=\"ID SKU\"><datalist id=\"dist_catalogo_regla_opciones\"></datalist><div id=\"dist_catalogo_regla_ayuda\" class=\"text-muted fs-8 mt-1\"></div></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label\">Prioridad</label><input id=\"dist_catalogo_regla_prioridad\" class=\"form-control form-control-solid\" inputmode=\"numeric\" value=\"10\"></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label\">Estatus</label><select id=\"dist_catalogo_regla_estatus\" class=\"form-select form-select-solid\"><option value=\"activo\">Activo</option><option value=\"inactivo\">Inactivo</option></select></div>" +
+                "<div class=\"col-md-9\"><label class=\"form-label\">Notas</label><input id=\"dist_catalogo_regla_notas\" class=\"form-control form-control-solid\" maxlength=\"250\" placeholder=\"Motivo o referencia interna\"></div>" +
+                "</div><div class=\"d-flex justify-content-end mt-5\"><button type=\"button\" class=\"btn btn-success\" data-cliente-catalogo-regla=\"" + escapeHtml(idCliente) + "\"><i class=\"bi bi-plus-circle\"></i> Guardar regla</button></div>" +
+                "</div>";
+            Swal.fire({
+                title: "Catalogo del cliente",
+                html: html,
+                width: 980,
+                showConfirmButton: false,
+                showCloseButton: true,
+                didOpen: function () {
+                    var btnPreferencias = document.querySelector("[data-cliente-catalogo-preferencias]");
+                    var btnRegla = document.querySelector("[data-cliente-catalogo-regla]");
+                    if (btnPreferencias) {
+                        btnPreferencias.addEventListener("click", function () { guardarCatalogoPreferenciasCliente(idCliente); });
+                    }
+                    if (btnRegla) {
+                        btnRegla.addEventListener("click", function () { guardarCatalogoReglaCliente(idCliente); });
+                    }
+                    var tipoRegla = document.getElementById("dist_catalogo_regla_tipo");
+                    if (tipoRegla) {
+                        tipoRegla.addEventListener("change", actualizarAyudaReglaCatalogo);
+                    }
+                    actualizarAyudaReglaCatalogo();
+                }
+            });
+        }).catch(showError);
+    }
+
+    function guardarCatalogoPreferenciasCliente(idCliente) {
+        var modo = selectValue("dist_catalogo_cliente_modo") || "general";
+        request("/DistribucionAdmin/cliente_catalogo_preferencias", {
+            id_cliente_distribucion: idCliente,
+            catalogo_modo: modo,
+            categorias_interes: JSON.stringify(arraySeguro((clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(idCliente); }) || {}).categorias_interes))
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            showOk(response.mensaje);
+            return cargarClientes().then(function () { verCatalogoCliente(idCliente); });
+        }).catch(showError);
+    }
+
+    function guardarCatalogoReglaCliente(idCliente) {
+        var tipo = selectValue("dist_catalogo_regla_tipo");
+        var accion = selectValue("dist_catalogo_regla_accion");
+        var objeto = Number((document.getElementById("dist_catalogo_regla_objeto") || {}).value || 0);
+        if (["sku", "categoria", "marca"].indexOf(tipo) === -1 || ["permitir", "ocultar"].indexOf(accion) === -1 || objeto <= 0) {
+            Swal.fire({text: "Selecciona tipo, accion y un ID valido para la regla.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        var data = {
+            id_cliente_distribucion: idCliente,
+            tipo_regla: tipo,
+            accion: accion,
+            prioridad: (document.getElementById("dist_catalogo_regla_prioridad") || {}).value || 0,
+            estatus: selectValue("dist_catalogo_regla_estatus") || "activo",
+            notas: (document.getElementById("dist_catalogo_regla_notas") || {}).value || "",
+            origen: "admin"
+        };
+        data[tipo === "sku" ? "id_sku" : (tipo === "categoria" ? "id_categoria_erp" : "id_marca_erp")] = objeto;
+        request("/DistribucionAdmin/cliente_catalogo_regla_guardar", data).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            showOk(response.mensaje);
+            verCatalogoCliente(idCliente);
+        }).catch(showError);
     }
 
     function accionSimple(url, data) {
@@ -1199,6 +1402,65 @@
         return seleccionados.length > 0 ? seleccionados : productos.slice();
     }
 
+    function clientesOptionsCatalogo() {
+        return clientes.map(function (cliente) {
+            return "<option value=\"" + escapeHtml(cliente.id_cliente_distribucion) + "\">" + escapeHtml((cliente.nombre || ("Cliente " + cliente.id_cliente_distribucion)) + (cliente.empresa ? " - " + cliente.empresa : "")) + "</option>";
+        }).join("");
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-07
+     * Proposito: crear reglas SKU por lote desde Productos hacia un cliente Distribucion.
+     * Impacto: UI ERP Distribucion; agiliza catalogo personalizado sin editar cada cliente manualmente.
+     */
+    function confirmarAsignarProductosCliente(itemsIniciales) {
+        if (!permisosUi.editar) { return; }
+        var items = itemsIniciales && itemsIniciales.length ? itemsIniciales : productosSeleccionados();
+        if (!items.length) {
+            Swal.fire({text: "Selecciona al menos un producto para asignarlo a un cliente.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        var abrir = function () {
+            if (!clientes.length) {
+                Swal.fire({text: "No hay clientes cargados para asignar catalogo.", icon: "warning", confirmButtonText: "Aceptar"});
+                return;
+            }
+            Swal.fire({
+                title: "Asignar productos a cliente",
+                html: "<div class=\"text-start\">" +
+                    "<div class=\"mb-4\">Se crearan reglas por SKU para <strong>" + escapeHtml(items.length) + "</strong> producto(s).</div>" +
+                    "<label class=\"form-label fw-semibold\">Cliente</label><select id=\"dist_asignar_cliente\" class=\"form-select form-select-solid mb-4\">" + clientesOptionsCatalogo() + "</select>" +
+                    "<label class=\"form-label fw-semibold\">Accion</label><select id=\"dist_asignar_accion\" class=\"form-select form-select-solid mb-4\"><option value=\"permitir\">Permitir en catalogo</option><option value=\"ocultar\">Ocultar en catalogo</option></select>" +
+                    "<label class=\"form-label fw-semibold\">Notas</label><input id=\"dist_asignar_notas\" class=\"form-control form-control-solid\" maxlength=\"250\" value=\"Regla creada desde Productos Distribucion\">" +
+                    "</div>",
+                width: 620,
+                showCancelButton: true,
+                confirmButtonText: "Guardar reglas",
+                cancelButtonText: "Cancelar",
+                preConfirm: function () {
+                    var idCliente = selectValue("dist_asignar_cliente");
+                    if (!idCliente) {
+                        Swal.showValidationMessage("Selecciona un cliente.");
+                        return false;
+                    }
+                    return {
+                        id_cliente_distribucion: idCliente,
+                        accion: selectValue("dist_asignar_accion") || "permitir",
+                        notas: (document.getElementById("dist_asignar_notas") || {}).value || ""
+                    };
+                }
+            }).then(function (result) {
+                if (!result.isConfirmed) { return; }
+                ejecutarAsignarProductosCliente(items, result.value);
+            });
+        };
+        if (!clientes.length) {
+            cargarClientes().then(abrir).catch(showError);
+        } else {
+            abrir();
+        }
+    }
+
     function resumenCalidadProductos(items) {
         return {
             total: items.length,
@@ -1335,6 +1597,43 @@
         });
     }
 
+    function ejecutarAsignarProductosCliente(items, config) {
+        var ok = 0;
+        var errores = [];
+        var secuencia = Promise.resolve();
+        items.forEach(function (item) {
+            secuencia = secuencia.then(function () {
+                return request("/DistribucionAdmin/cliente_catalogo_regla_guardar", {
+                    id_cliente_distribucion: config.id_cliente_distribucion,
+                    tipo_regla: "sku",
+                    id_sku: item.id_sku,
+                    accion: config.accion,
+                    prioridad: 10,
+                    estatus: "activo",
+                    origen: "productos",
+                    notas: config.notas || ""
+                }).then(function (response) {
+                    if (response.error) {
+                        errores.push((item.sku || item.id_sku) + ": " + response.mensaje);
+                    } else {
+                        ok++;
+                    }
+                }).catch(function (error) {
+                    errores.push((item.sku || item.id_sku) + ": " + (error.message || String(error)));
+                });
+            });
+        });
+        secuencia.then(function () {
+            Swal.fire({
+                title: "Reglas guardadas",
+                html: "<div class=\"text-start\"><div class=\"mb-2\">Correctas: <strong>" + escapeHtml(ok) + "</strong> de " + escapeHtml(items.length) + "</div>" +
+                    (errores.length ? "<div class=\"text-muted fs-8\">" + escapeHtml(errores.slice(0, 8).join("\n")) + "</div>" : "") + "</div>",
+                icon: errores.length ? "warning" : "success",
+                confirmButtonText: "Aceptar"
+            });
+        });
+    }
+
     document.addEventListener("click", function (event) {
         var button = event.target.closest("button");
         if (!button) { return; }
@@ -1352,6 +1651,8 @@
             confirmarPublicarProductosFiltrados();
         } else if (button.id === "dist_productos_desactivar_lote") {
             confirmarProductosLote("desactivar");
+        } else if (button.id === "dist_productos_asignar_cliente") {
+            confirmarAsignarProductosCliente();
         } else if (button.hasAttribute("data-solicitud-aprobar")) {
             aprobarSolicitud(button.getAttribute("data-solicitud-aprobar"));
         } else if (button.hasAttribute("data-solicitud-detalle")) {
@@ -1376,6 +1677,8 @@
             editarPermisos(button.getAttribute("data-cliente-permisos"));
         } else if (button.hasAttribute("data-cliente-entrega")) {
             editarEntregaCliente(button.getAttribute("data-cliente-entrega"));
+        } else if (button.hasAttribute("data-cliente-catalogo")) {
+            verCatalogoCliente(button.getAttribute("data-cliente-catalogo"));
         } else if (button.hasAttribute("data-cliente-auditoria")) {
             verAuditoriaCliente(button.getAttribute("data-cliente-auditoria"));
         } else if (button.hasAttribute("data-cliente-whatsapp")) {
@@ -1404,6 +1707,9 @@
                 id_sku: button.getAttribute("data-sku-desactivar"),
                 id_canal_vinculo: button.getAttribute("data-vinculo")
             });
+        } else if (button.hasAttribute("data-producto-asignar-cliente")) {
+            var productoAsignar = productos.find(function (item) { return String(item.id_sku) === String(button.getAttribute("data-producto-asignar-cliente")); });
+            confirmarAsignarProductosCliente(productoAsignar ? [productoAsignar] : []);
         }
     });
 
@@ -1414,7 +1720,7 @@
             cargarClientes().catch(showError);
         } else if (event.target.id === "dist_clientes_incompletos") {
             renderClientes();
-        } else if (event.target.id === "dist_cotizaciones_estatus") {
+        } else if (event.target.id === "dist_cotizaciones_estatus" || event.target.id === "dist_cotizaciones_fecha_desde" || event.target.id === "dist_cotizaciones_fecha_hasta") {
             cargarCotizaciones().catch(showError);
         } else if (event.target.id === "dist_productos_select_all") {
             document.querySelectorAll("[data-producto-seleccion]").forEach(function (input) {

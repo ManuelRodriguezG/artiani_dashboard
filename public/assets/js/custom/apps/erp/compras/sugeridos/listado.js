@@ -85,6 +85,7 @@
             ? "<a class=\"badge badge-light-success\" href=\"/compra/mostrar_solicitud/" + esc(x.id_solicitud_generada) + "\">" + esc(x.folio_solicitud || "Solicitud") + "</a>"
             : "<span class=\"badge badge-light-warning\">Sin solicitud</span>";
         var acciones = "<a class=\"btn btn-sm btn-light-success\" href=\"/compra/ver_sugerido_compra/" + esc(x.id_sugerido_compra) + "\"><i class=\"bi bi-eye me-1\"></i>Ver</a>";
+        acciones += " <a class=\"btn btn-sm btn-light\" target=\"_blank\" href=\"/compra/sugerido_imprimir_erp/" + esc(x.id_sugerido_compra) + "\"><i class=\"bi bi-printer me-1\"></i>Imprimir</a>";
         if (editable) {
             acciones += " <a class=\"btn btn-sm btn-light-info\" href=\"/compra/sugerido_compra/" + esc(x.id_sugerido_compra) + "\"><i class=\"bi bi-pencil-square me-1\"></i>Editar</a>";
         }

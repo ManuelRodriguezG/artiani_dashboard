@@ -8,6 +8,83 @@
     <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet">
     <link href="assets/css/style.bundle.css" rel="stylesheet">
+    <style>
+        .proveedores-erp-responsive-modal .modal-dialog {
+            max-width: min(1280px, calc(100vw - 1rem));
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .proveedores-erp-responsive-modal .modal-content,
+        .proveedores-erp-responsive-modal .modal-header,
+        .proveedores-erp-responsive-modal .modal-body,
+        .proveedores-erp-responsive-modal .modal-footer,
+        .proveedores-erp-responsive-modal .tab-content,
+        .proveedores-erp-responsive-modal .tab-pane {
+            min-width: 0;
+        }
+        .proveedores-erp-responsive-modal .modal-body {
+            overflow-x: hidden;
+        }
+        .proveedores-erp-responsive-modal .modal-header,
+        .proveedores-erp-responsive-modal .modal-footer {
+            flex-wrap: wrap;
+            gap: .75rem;
+        }
+        .proveedores-erp-responsive-modal .table-responsive {
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .proveedores-erp-responsive-modal table {
+            min-width: 760px;
+        }
+        .proveedores-erp-responsive-modal th,
+        .proveedores-erp-responsive-modal td {
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: normal;
+        }
+        .proveedores-erp-responsive-modal .btn,
+        .proveedores-erp-responsive-modal .badge {
+            white-space: normal;
+        }
+        .proveedores-erp-responsive-modal .nav-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+        .proveedores-erp-responsive-modal .nav-tabs .nav-link {
+            white-space: nowrap;
+        }
+        .proveedores-erp-toolbar-responsive > * {
+            min-width: 0;
+        }
+        @media (max-width: 767.98px) {
+            .proveedores-erp-responsive-modal .modal-dialog {
+                width: calc(100vw - 1rem);
+                margin: .5rem auto;
+            }
+            .proveedores-erp-responsive-modal .modal-body {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .proveedores-erp-responsive-modal .modal-footer .btn {
+                flex: 1 1 100%;
+            }
+            .proveedores-erp-toolbar-responsive {
+                align-items: stretch !important;
+            }
+            .proveedores-erp-toolbar-responsive .form-control,
+            .proveedores-erp-toolbar-responsive .form-select,
+            .proveedores-erp-toolbar-responsive .btn {
+                width: 100% !important;
+            }
+            .proveedores-erp-toolbar-responsive .text-muted {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
 <div class="d-flex flex-column flex-root app-root">
@@ -602,7 +679,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_lista_preview_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_lista_preview_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -644,7 +721,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_lista_detalle_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_lista_detalle_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -690,7 +767,7 @@
             </div>
             <div class="modal-body">
                 <div class="d-flex flex-wrap gap-2 mb-4" id="proveedores_erp_lista_detalle_revision"></div>
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-4 proveedores-erp-toolbar-responsive">
                     <div class="position-relative flex-grow-1 min-w-250px">
                         <i class="bi bi-search position-absolute top-50 translate-middle-y ms-4 text-muted"></i>
                         <input class="form-control form-control-sm ps-10" id="proveedores_erp_lista_detalle_buscar" placeholder="Buscar SKU, codigo, marca o descripcion del proveedor">
@@ -733,7 +810,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_catalogo_sugeridos_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_catalogo_sugeridos_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -777,7 +854,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_lista_detalle_form_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_lista_detalle_form_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <form id="proveedores_erp_lista_detalle_form" data-erp-ajax="true">
@@ -886,7 +963,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_compra_lote_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_compra_lote_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <form id="proveedores_erp_compra_lote_form" data-erp-ajax="true">
@@ -977,7 +1054,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_matching_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_matching_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -989,7 +1066,7 @@
             </div>
             <div class="modal-body">
                 <div class="d-flex flex-wrap gap-2 mb-5" id="proveedores_erp_matching_resumen"></div>
-                <div class="d-flex flex-wrap gap-2 mb-4">
+                <div class="d-flex flex-wrap gap-2 mb-4 proveedores-erp-toolbar-responsive">
                     <input class="form-control form-control-sm w-md-250px" id="proveedores_erp_matching_buscar" placeholder="Filtrar candidato o renglon">
                     <select class="form-select form-select-sm w-md-200px" id="proveedores_erp_matching_estado">
                         <option value="">Todos los estados</option>
@@ -1025,7 +1102,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_relaciones_lote_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_relaciones_lote_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -1088,7 +1165,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_costos_lote_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_costos_lote_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -1151,7 +1228,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_costo_referencia_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_costo_referencia_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -1193,7 +1270,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="proveedores_erp_incidencias_modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade proveedores-erp-responsive-modal" id="proveedores_erp_incidencias_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -1205,7 +1282,7 @@
             </div>
             <div class="modal-body">
                 <div class="d-flex flex-wrap gap-2 mb-5" id="proveedores_erp_incidencias_resumen"></div>
-                <div class="d-flex flex-wrap gap-2 mb-4">
+                <div class="d-flex flex-wrap gap-2 mb-4 proveedores-erp-toolbar-responsive">
                     <input class="form-control form-control-sm w-md-250px" id="proveedores_erp_incidencias_buscar" placeholder="Filtrar pendiente, SKU o texto">
                     <select class="form-select form-select-sm w-md-180px" id="proveedores_erp_incidencias_severidad">
                         <option value="">Todas las severidades</option>

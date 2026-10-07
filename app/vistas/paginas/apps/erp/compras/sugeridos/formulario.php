@@ -98,6 +98,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                         </div>
                         <div class="d-flex gap-2">
                             <a href="/compra/mostrar_sugeridos_compra" class="btn btn-light"><i class="bi bi-arrow-left"></i></a>
+                            <a href="/compra/sugerido_imprimir_erp/<?= $idSugerido ?>" target="_blank" class="btn btn-light" id="sugerido_imprimir"><i class="bi bi-printer"></i> Imprimir</a>
                             <button type="button" class="btn btn-light-primary" id="sugerido_guardar_borrador">Guardar borrador</button>
                             <button type="button" class="btn btn-light-success" id="sugerido_marcar_lista">Marcar lista</button>
                             <button type="button" class="btn btn-primary" id="sugerido_generar_solicitud">Generar solicitud</button>
@@ -251,7 +252,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260919-2"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20261007-1"></script>
 </body>
 </html>
 

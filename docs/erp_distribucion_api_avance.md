@@ -107,6 +107,31 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Se crearon datos UAT del flujo autenticado: Mi catalogo con SKU `1867`, inventario cliente con sugerido `3`, cotizacion `DCOT-20261006-0001` y pedido preliminar `DPED-20261006-0001`.
 - La lectura posterior confirma 1 item en Mi catalogo, 1 item en inventario, 1 sugerido, 1 cotizacion y 1 pedido visible para el cliente tester.
 
+## Cambios 2026-10-07 - validacion de pedidos y cotizaciones frontend
+
+- Se validaron los folios generados desde el frontend para el cliente `14`: `DPED-20261007-0001`, `DCOT-20261007-0001`, `DCOT-20261007-0003`, `DCOT-20261007-0004` y `DPED-20261007-0002`.
+- Todos los folios pertenecen a `artiani_tester@artiani.com.mx`, lista de precio `4`, SKU `1867`, cantidad `1` y precio snapshot `41.25`; el backend recalculo el precio y no acepto precio manipulado desde el frontend.
+- `DCOT-20261007-0003` quedo trazada hacia `DPED-20261007-0002` mediante `id_pedido_relacionado` / `id_cotizacion_origen`; `DCOT-20261007-0004` quedo cancelada.
+- Se confirmo que estos documentos viven solo en Distribucion: no crearon venta, pedido ERP final ni movimiento de inventario fuera del modulo.
+- Se preparo respuesta comercial UAT para `DPED-20261007-0002`: partida confirmada, entrega por definir, costo de envio `0`, total confirmado `41.25` y estatus `respondida`.
+- El detalle autenticado del cliente ya puede leer la propuesta comercial de `DPED-20261007-0002`; las respuestas invalidas del cliente se rechazan.
+- Cuando un pedido aun no tiene propuesta comercial, el mensaje publico ya no menciona ERP: `Este pedido aun no tiene una propuesta comercial para responder.`
+- Las cotizaciones/pedidos bloquean partidas vacias, cantidades cero, cantidades negativas y SKU invalidos sin crear folio nuevo.
+- El panel interno de Pedidos agrega filtros por fecha desde/hasta y los aplica en `DistribucionCotizacionesApi::cotizacionesInternas()`.
+- La auditoria interna registra eventos de guardar borrador, cancelar, pedido preliminar, enviar como pedido, revision de partida y configurar entrega para el flujo tester.
+- La evidencia UAT debe seguir evitando hashes y tokens completos; en reportes usar `token_len` o `token_emitido`.
+
+## Cambios 2026-10-07 - catalogo personalizado por cliente
+
+- `DistribucionPermisosApi::contextoDesdeRequest()` devuelve `catalogo_modo` y `categorias_interes` para que catalogo, precios y disponibilidad apliquen el perfil del cliente autenticado.
+- `CatalogoCanalesErp` y `PreciosCanalesErp` conservan el contrato de visibilidad por cliente: las reglas `ocultar` tienen prioridad, el modo `personalizado` requiere reglas `permitir` activas y las reglas por categoria cubren descendientes por ruta.
+- El panel interno de Clientes agrega accion `Catalogo` para revisar datos del cliente, modo general/personalizado, categorias de interes y reglas separadas entre permitidos y ocultos.
+- El modal de catalogo permite guardar el modo del cliente y crear/actualizar reglas por SKU, categoria o marca con accion, prioridad, notas y estatus, usando endpoints internos auditados.
+- La seccion Productos agrega accion masiva `Asignar a cliente` y accion individual por SKU; ambas crean reglas de catalogo por cliente sin modificar el catalogo global ni afectar otros clientes.
+- El dry-run de cotizacion ahora devuelve `error=true`, codigo `sku_no_visible_cliente` y `no_crea_folio=true` cuando el SKU no esta visible para el cliente; esto alinea la prevalidacion con registrar cotizacion y pedido preliminar.
+- El modal de reglas agrega sugerencias de objeto para SKU, categoria o marca segun los datos cargados en el panel, reduciendo captura manual de IDs.
+- No se ejecuto DDL ni escritura de datos durante esta implementacion; las escrituras quedan disponibles solo cuando el usuario opere los botones del panel ERP.
+
 ## Pendientes
 
 - Validar en UAT con un cliente aprobado que tenga solo `distribucion.catalogo.ver`.
@@ -114,5 +139,6 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Revisar el frontend Distribucion para que no muestre botones de solicitud de precio como registro cuando el usuario ya esta autenticado.
 - Autorizar respaldo y aplicacion del plan de esquema Distribucion antes de probar escritura real de surtido/inventario.
 - Asignar a clientes aprobados los nuevos permisos externos segun su alcance comercial.
-- Definir en ERP la pantalla de revision por partida para confirmar cantidades surtibles antes de enviar respuesta al cliente.
+- Terminar pruebas visuales del panel ERP en navegador para confirmar filtros, modales y estados con datos reales.
+- Decidir si la API externa debe cambiar codigos HTTP para errores de negocio (`422`, `404`, `409`) o conservar `200` con `error=true` por compatibilidad.
 
