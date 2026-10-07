@@ -50,36 +50,47 @@ class DistribucionClientesApi extends CRUD {
     $errores = array();
     $camposFaltantes = array();
     $erroresCampos = array();
-    if ($nombre === "") { $errores[] = "nombre_requerido"; $camposFaltantes[] = "nombre"; }
-    if ($nombreNegocio === "") { $errores[] = "nombre_negocio_requerido"; $camposFaltantes[] = "nombre_negocio"; }
-    if ($correo === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL)) { $errores[] = "correo_invalido"; $camposFaltantes[] = "correo"; $erroresCampos["correo"] = "Ingresa un correo valido."; }
-    if ($telefono === "") { $errores[] = "telefono_requerido"; $camposFaltantes[] = "telefono"; $erroresCampos["telefono"] = "Ingresa un telefono de contacto."; }
-    if ($ciudad === "") { $errores[] = "ciudad_requerida"; $camposFaltantes[] = "ciudad"; }
-    if ($estado === "") { $errores[] = "estado_requerido"; $camposFaltantes[] = "estado"; }
-    if (!in_array($tipoNegocio, $tiposNegocio, true)) { $errores[] = "tipo_negocio_invalido"; $camposFaltantes[] = "tipo_negocio"; $erroresCampos["tipo_negocio"] = "Selecciona un tipo de negocio valido."; }
+    $etiquetasCampos = array();
+    $camposFiscalesFaltantes = array();
+    if ($nombre === "") { $errores[] = "nombre_requerido"; $camposFaltantes[] = "nombre"; $etiquetasCampos["nombre"] = $this->etiquetaCampoRegistro("nombre"); }
+    if ($nombreNegocio === "") { $errores[] = "nombre_negocio_requerido"; $camposFaltantes[] = "nombre_negocio"; $etiquetasCampos["nombre_negocio"] = $this->etiquetaCampoRegistro("nombre_negocio"); }
+    if ($correo === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL)) { $errores[] = "correo_invalido"; $camposFaltantes[] = "correo"; $erroresCampos["correo"] = "Ingresa un correo valido."; $etiquetasCampos["correo"] = $this->etiquetaCampoRegistro("correo"); }
+    if ($telefono === "") { $errores[] = "telefono_requerido"; $camposFaltantes[] = "telefono"; $erroresCampos["telefono"] = "Ingresa un telefono de contacto."; $etiquetasCampos["telefono"] = $this->etiquetaCampoRegistro("telefono"); }
+    if ($ciudad === "") { $errores[] = "ciudad_requerida"; $camposFaltantes[] = "ciudad"; $etiquetasCampos["ciudad"] = $this->etiquetaCampoRegistro("ciudad"); }
+    if ($estado === "") { $errores[] = "estado_requerido"; $camposFaltantes[] = "estado"; $etiquetasCampos["estado"] = $this->etiquetaCampoRegistro("estado"); }
+    if (!in_array($tipoNegocio, $tiposNegocio, true)) { $errores[] = "tipo_negocio_invalido"; $camposFaltantes[] = "tipo_negocio"; $erroresCampos["tipo_negocio"] = "Selecciona un tipo de negocio valido."; $etiquetasCampos["tipo_negocio"] = $this->etiquetaCampoRegistro("tipo_negocio"); }
     if ($facturacion["requiere_factura"] === 1) {
       foreach (array("rfc", "razon_social", "regimen_fiscal", "uso_cfdi", "codigo_postal_fiscal", "correo_facturacion") as $campoFiscal) {
         if (trim((string) $facturacion[$campoFiscal]) === "") {
+          $campoContrato = "facturacion." . $campoFiscal;
           $errores[] = "facturacion_" . $campoFiscal . "_requerido";
-          $camposFaltantes[] = "facturacion." . $campoFiscal;
-          $erroresCampos["facturacion." . $campoFiscal] = "Campo fiscal requerido.";
+          $camposFaltantes[] = $campoContrato;
+          $camposFiscalesFaltantes[] = $campoContrato;
+          $erroresCampos[$campoContrato] = "Campo fiscal requerido.";
+          $etiquetasCampos[$campoContrato] = $this->etiquetaCampoRegistro($campoContrato);
         }
       }
       if ($facturacion["correo_facturacion"] !== "" && !filter_var($facturacion["correo_facturacion"], FILTER_VALIDATE_EMAIL)) {
         $errores[] = "correo_facturacion_invalido";
         $erroresCampos["facturacion.correo_facturacion"] = "Ingresa un correo de facturacion valido.";
+        $etiquetasCampos["facturacion.correo_facturacion"] = $this->etiquetaCampoRegistro("facturacion.correo_facturacion");
       }
     }
     if (!empty($errores)) {
-      $respuesta = $this->respuesta(true, "warning", "Completa los campos requeridos para enviar tu solicitud.", array(
-        "codigo" => "solicitud_incompleta",
+      $soloFiscales = !empty($camposFiscalesFaltantes) && count(array_diff(array_values(array_unique($camposFaltantes)), array_values(array_unique($camposFiscalesFaltantes)))) === 0;
+      $codigoRegistro = $soloFiscales ? "campos_fiscales_requeridos" : "solicitud_incompleta";
+      $mensajeRegistro = $soloFiscales ? "Completa los datos fiscales requeridos." : "Completa los campos requeridos para enviar tu solicitud.";
+      $respuesta = $this->respuesta(true, "warning", $mensajeRegistro, array(
+        "codigo" => $codigoRegistro,
         "campos_faltantes" => array_values(array_unique($camposFaltantes)),
         "errores_campos" => $erroresCampos,
+        "etiquetas_campos" => $etiquetasCampos,
         "errores" => $errores
       ));
-      $respuesta["codigo"] = "solicitud_incompleta";
+      $respuesta["codigo"] = $codigoRegistro;
       $respuesta["campos_faltantes"] = array_values(array_unique($camposFaltantes));
       $respuesta["errores_campos"] = $erroresCampos;
+      $respuesta["etiquetas_campos"] = $etiquetasCampos;
       return $respuesta;
     }
 
@@ -101,6 +112,14 @@ class DistribucionClientesApi extends CRUD {
           "requiere_actualizar_esquema" => true,
           "campos_busqueda_requeridos" => array("nombre_negocio", "whatsapp", "ciudad", "estado", "tipo_negocio", "datos_comerciales_json")
         ));
+      }
+      $clienteExistente = $this->clientePorCorreo($db, $correo);
+      if ($clienteExistente) {
+        return $this->respuestaRegistroExistente("cliente", $clienteExistente);
+      }
+      $solicitudExistente = $this->solicitudPorCorreo($db, $correo);
+      if ($solicitudExistente) {
+        return $this->respuestaRegistroExistente("solicitud", $solicitudExistente);
       }
       $folio = $this->folioSolicitud($db);
       $datosComerciales = array(
@@ -131,7 +150,7 @@ class DistribucionClientesApi extends CRUD {
       );
       $stmt = $db->prepare("INSERT INTO erp_distribucion_solicitudes
         (folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, calle, numero_exterior, numero_interior, colonia, codigo_postal, referencias, intereses_comerciales, categorias_interes_json, mensaje, datos_comerciales_json, ip_registro, user_agent, estatus, fecha_registro)
-        VALUES (:folio, :nombre, :nombre_negocio, :empresa, :correo, :telefono, :whatsapp, :rfc, :ciudad, :estado, :tipo_interes, :tipo_negocio, :calle, :numero_exterior, :numero_interior, :colonia, :codigo_postal, :referencias, :intereses_comerciales, :categorias_interes_json, :mensaje, :datos_comerciales_json, :ip_registro, :user_agent, 'pendiente', NOW())");
+        VALUES (:folio, :nombre, :nombre_negocio, :empresa, :correo, :telefono, :whatsapp, :rfc, :ciudad, :estado, :tipo_interes, :tipo_negocio, :calle, :numero_exterior, :numero_interior, :colonia, :codigo_postal, :referencias, :intereses_comerciales, :categorias_interes_json, :mensaje, :datos_comerciales_json, :ip_registro, :user_agent, 'en_revision', NOW())");
       $stmt->execute(array(
         ":folio" => $folio,
         ":nombre" => $nombre,
@@ -159,18 +178,24 @@ class DistribucionClientesApi extends CRUD {
         ":user_agent" => $this->userAgentContexto($contexto)
       ));
       $respuesta = $this->respuesta(false, "success", "Solicitud recibida. Tu acceso sera revisado por Artiani.", array(
+        "codigo" => "solicitud_recibida",
         "folio" => $folio,
-        "estatus" => "pendiente",
-        "siguiente_paso" => "Te contactaremos cuando la revision comercial avance.",
+        "estatus" => "en_revision",
+        "siguiente_paso" => "Cuando tu solicitud sea aprobada, recibiras instrucciones para crear o activar tu contrasenia.",
+        "contacto_soporte" => "ventas@artiani.com.mx",
+        "campos_recibidos" => array("nombre", "nombre_negocio", "empresa", "correo", "telefono", "whatsapp", "rfc", "ciudad", "estado", "tipo_interes", "tipo_negocio", "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal", "referencias", "intereses_comerciales", "mensaje"),
+        "categorias_interes_recibidas" => count($categoriasInteres),
+        "requiere_factura" => $facturacion["requiere_factura"] === 1,
         "configurado" => true,
         "no_aprueba_automaticamente" => true,
         "no_asigna_lista_automaticamente" => true,
         "no_asigna_permisos_automaticamente" => true,
         "tipo_interes_forzado" => $tipoInteresEntrada !== "mayorista"
       ));
+      $respuesta["codigo"] = "solicitud_recibida";
       $respuesta["folio"] = $folio;
-      $respuesta["estatus"] = "pendiente";
-      $respuesta["siguiente_paso"] = "Te contactaremos cuando la revision comercial avance.";
+      $respuesta["estatus"] = "en_revision";
+      $respuesta["siguiente_paso"] = "Cuando tu solicitud sea aprobada, recibiras instrucciones para crear o activar tu contrasenia.";
       return $respuesta;
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudo registrar la solicitud", array("detalle" => "error_controlado"));
@@ -208,6 +233,22 @@ class DistribucionClientesApi extends CRUD {
       $stmt->execute(array(":correo" => strtolower($correo)));
       $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$cliente) {
+        $solicitud = $this->solicitudPorCorreo($db, strtolower($correo));
+        if ($solicitud) {
+          $estatusSolicitudPublico = in_array($this->valor($solicitud, "estatus", "en_revision"), array("pendiente", "en_revision"), true) ? "en_revision" : $this->valor($solicitud, "estatus", "en_revision");
+          $codigoSolicitud = $this->codigoLoginPorEstatus($estatusSolicitudPublico);
+          $estadoSolicitud = $this->estadoAccesoCliente($estatusSolicitudPublico, array());
+          $this->registrarAuditoria($db, "solicitud", intval($this->valor($solicitud, "id_solicitud_distribucion", 0)), "login", "bloqueado", "Login Distribucion bloqueado por solicitud sin cliente", $this->detalleAcceso($contexto, array(
+            "correo" => strtolower($correo),
+            "estatus" => $this->valor($solicitud, "estatus", "")
+          )), null, null);
+          return $this->respuestaLoginError($codigoSolicitud, $estadoSolicitud["mensaje"], array(
+            "token" => null,
+            "folio" => $this->valor($solicitud, "folio", null),
+            "estatus" => $estatusSolicitudPublico,
+            "siguiente_paso" => $estadoSolicitud["siguiente_paso"]
+          ));
+        }
         $this->registrarAuditoria($db, "auth", null, "login", "error", "Credenciales Distribucion invalidas", $this->detalleAcceso($contexto, array(
           "correo" => strtolower($correo),
           "motivo" => "credenciales_invalidas"
@@ -574,6 +615,9 @@ class DistribucionClientesApi extends CRUD {
       $facturacionSolicitud = $this->valor($datosSolicitud, "facturacion", array());
       if (!is_array($facturacionSolicitud)) { $facturacionSolicitud = array(); }
       $contrasenia = (string) $this->valor($datos, "contrasenia", "");
+      if ($contrasenia !== "" && strlen($contrasenia) < 8) {
+        return $this->respuesta(true, "warning", "La contrasenia temporal debe tener al menos 8 caracteres", array("minimo_contrasenia" => 8));
+      }
       $hash = $contrasenia !== "" ? password_hash($contrasenia, PASSWORD_DEFAULT) : null;
       $idLista = intval($this->valor($datos, "id_lista_precio", 0));
       $lista = null;
@@ -1388,6 +1432,88 @@ class DistribucionClientesApi extends CRUD {
     } catch (Exception $e) {
       return false;
     }
+  }
+
+  private function clientePorCorreo($db, $correo) {
+    if (!$this->tablaExiste($db, "erp_distribucion_clientes")) { return null; }
+    try {
+      $stmt = $db->prepare("SELECT * FROM erp_distribucion_clientes WHERE correo=:correo ORDER BY id_cliente_distribucion DESC LIMIT 1");
+      $stmt->execute(array(":correo" => strtolower(trim((string) $correo))));
+      $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+      return $cliente ?: null;
+    } catch (Exception $e) {
+      return null;
+    }
+  }
+
+  private function solicitudPorCorreo($db, $correo) {
+    if (!$this->tablaExiste($db, "erp_distribucion_solicitudes")) { return null; }
+    try {
+      $stmt = $db->prepare("SELECT * FROM erp_distribucion_solicitudes WHERE correo=:correo ORDER BY FIELD(estatus, 'en_revision', 'pendiente', 'aprobado', 'rechazado', 'suspendido'), id_solicitud_distribucion ASC LIMIT 1");
+      $stmt->execute(array(":correo" => strtolower(trim((string) $correo))));
+      $solicitud = $stmt->fetch(PDO::FETCH_ASSOC);
+      return $solicitud ?: null;
+    } catch (Exception $e) {
+      return null;
+    }
+  }
+
+  private function respuestaRegistroExistente($tipo, $registro) {
+    $estatus = (string) $this->valor($registro, "estatus", "");
+    $folio = $this->valor($registro, "folio", null);
+    if ($tipo === "cliente") {
+      $codigo = $estatus === "suspendido" ? "cuenta_suspendida" : "cliente_existente";
+      $mensaje = $estatus === "suspendido" ? "Este correo pertenece a una cuenta suspendida." : "Este correo ya tiene una cuenta registrada.";
+      $siguiente = $estatus === "suspendido" ? "Contacta a Artiani para revisar tu cuenta." : "Inicia sesion o solicita ayuda si no tienes tu contrasenia.";
+    } elseif ($estatus === "rechazado") {
+      $codigo = "solicitud_rechazada";
+      $mensaje = "Ya existe una solicitud revisada para este correo.";
+      $siguiente = "Contacta a Artiani para revisar alternativas.";
+    } elseif ($estatus === "suspendido") {
+      $codigo = "cuenta_suspendida";
+      $mensaje = "Este correo pertenece a una cuenta suspendida.";
+      $siguiente = "Contacta a Artiani para revisar tu cuenta.";
+    } elseif ($estatus === "aprobado") {
+      $codigo = "cliente_existente";
+      $mensaje = "Este correo ya tiene una cuenta registrada.";
+      $siguiente = "Inicia sesion o solicita ayuda si no tienes tu contrasenia.";
+    } else {
+      $codigo = "solicitud_existente";
+      $mensaje = "Ya existe una solicitud de acceso para este correo.";
+      $estatus = in_array($estatus, array("", "pendiente", "en_revision"), true) ? "en_revision" : $estatus;
+      $siguiente = "Tu solicitud sigue en revision. Te contactaremos cuando el acceso este habilitado.";
+    }
+    $respuesta = $this->respuesta(true, "warning", $mensaje, array(
+      "codigo" => $codigo,
+      "folio" => $folio,
+      "estatus" => $estatus,
+      "siguiente_paso" => $siguiente,
+      "no_crea_folio_nuevo" => true
+    ));
+    $respuesta["codigo"] = $codigo;
+    $respuesta["folio"] = $folio;
+    $respuesta["estatus"] = $estatus;
+    $respuesta["siguiente_paso"] = $siguiente;
+    return $respuesta;
+  }
+
+  private function etiquetaCampoRegistro($campo) {
+    $etiquetas = array(
+      "nombre" => "Nombre del contacto",
+      "nombre_negocio" => "Nombre comercial",
+      "correo" => "Correo",
+      "telefono" => "Telefono",
+      "ciudad" => "Ciudad",
+      "estado" => "Estado",
+      "tipo_negocio" => "Tipo de negocio",
+      "facturacion.rfc" => "RFC",
+      "facturacion.razon_social" => "Razon social",
+      "facturacion.regimen_fiscal" => "Regimen fiscal",
+      "facturacion.uso_cfdi" => "Uso CFDI",
+      "facturacion.codigo_postal_fiscal" => "Codigo postal fiscal",
+      "facturacion.correo_facturacion" => "Correo de facturacion"
+    );
+    return isset($etiquetas[$campo]) ? $etiquetas[$campo] : $campo;
   }
 
   private function respuestaLoginError($codigo, $mensaje, $depurar = array()) {

@@ -76,6 +76,7 @@ class DistribucionPermisosApi extends CRUD {
     $puedeVerCatalogo = in_array("distribucion.catalogo.ver", $permisos, true);
     $puedeVerPrecio = in_array("distribucion.precio.ver_publico", $permisos, true) || in_array("distribucion.precio.ver_mayoreo", $permisos, true) || in_array("distribucion.precio.ver_lista_asignada", $permisos, true);
     $puedeCotizar = in_array("distribucion.cotizacion.solicitar", $permisos, true);
+    $puedeGestionarMiCatalogo = in_array("distribucion.mi_catalogo.gestionar", $permisos, true) || in_array("distribucion.surtido.gestionar", $permisos, true);
     $puedeEditarCuenta = in_array("distribucion.cuenta.editar", $permisos, true);
     return array(
       "ver_inicio" => true,
@@ -87,8 +88,8 @@ class DistribucionPermisosApi extends CRUD {
       "agregar_cotizacion" => $puedeCotizar,
       "solicitar_cotizacion" => $puedeCotizar,
       "pedido_preliminar" => in_array("distribucion.pedido.preliminar", $permisos, true),
-      "gestionar_mi_catalogo" => in_array("distribucion.mi_catalogo.gestionar", $permisos, true) || in_array("distribucion.surtido.gestionar", $permisos, true),
-      "gestionar_surtido" => in_array("distribucion.surtido.gestionar", $permisos, true),
+      "gestionar_mi_catalogo" => $puedeGestionarMiCatalogo,
+      "gestionar_surtido" => $puedeGestionarMiCatalogo,
       "gestionar_inventario_cliente" => in_array("distribucion.inventario_cliente.gestionar", $permisos, true),
       "ver_sugerido_resurtido" => in_array("distribucion.resurtido.sugerido", $permisos, true),
       "ver_pedidos" => in_array("distribucion.pedido.ver", $permisos, true),

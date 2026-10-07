@@ -75,7 +75,11 @@
             //var_dump($this->parametros);
 			//llamar callback con parametros array
 
-			$esPostAutenticado = isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && Sesionseguridad::autenticado();
+			// IA: Codex GPT-5 | 2026-10-06
+			// Proposito: evitar que la API externa Distribucion herede CSRF/auditoria de la sesion interna ERP.
+			// Impacto: DistribucionApi usa Authorization Bearer/CORS propios y debe aceptar POST desde el frontend externo aunque exista cookie ERP en el navegador.
+			$esApiDistribucionExterna = strtolower($nombreControlador) === 'distribucionapi';
+			$esPostAutenticado = isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && !$esApiDistribucionExterna && Sesionseguridad::autenticado();
 			$csrfExentos = array('Autenticacion.inicio_session', 'Autenticacion.reautenticar_session');
 			$auditoriaExplicita = array(
 				'Sistema.seguridad_usuario_rol_asignar',
@@ -90,9 +94,15 @@
 				'DistribucionAdmin.asignar_tipo_cliente',
 				'DistribucionAdmin.asignar_lista_precio',
 				'DistribucionAdmin.asignar_permisos',
+				'DistribucionAdmin.cliente_activacion_link',
+				'DistribucionAdmin.cliente_entrega_configurar',
+				'DistribucionAdmin.cliente_catalogo_preferencias',
+				'DistribucionAdmin.cliente_catalogo_regla_guardar',
 				'DistribucionAdmin.publicar_sku',
 				'DistribucionAdmin.desactivar_sku',
 				'DistribucionAdmin.cotizacion_accion_plan',
+				'DistribucionAdmin.cotizacion_item_revision',
+				'DistribucionAdmin.cotizacion_entrega_guardar',
 				'DistribucionAdmin.cotizacion_convertir_plan',
 				'CatalogoErp.registrar',
 				'CatalogoErp.actualizar',

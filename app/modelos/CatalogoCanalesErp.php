@@ -543,7 +543,7 @@ class CatalogoCanalesErp extends CRUD {
   private function urlRecurso($url) {
     $url = trim((string) $url);
     if ($url === "") { return null; }
-    if (preg_match('/^https?:\/\//i', $url) || strpos($url, "/") === 0) {
+    if (preg_match('/^https?:\/\//i', $url)) {
       return $url;
     }
     $base = defined("RUTA_RECURSOS_IMG") ? RUTA_RECURSOS_IMG : (defined("RUTA_URL") ? RUTA_URL : "");

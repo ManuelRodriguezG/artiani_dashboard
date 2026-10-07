@@ -85,7 +85,7 @@ try {
 
   $aprobacion = $clientes->clienteAprobarPlanInterno(array(
     "id_solicitud_distribucion" => $ids["solicitud"],
-    "contrasenia" => "UatDist123!"
+    "contrasenia" => "DistFront1094"
   ), 0);
   $resultado["checks"]["aprobar_cliente"] = $aprobacion;
   $ids["cliente"] = isset($aprobacion["depurar"]["id_cliente_distribucion"]) ? intval($aprobacion["depurar"]["id_cliente_distribucion"]) : 0;
@@ -116,7 +116,7 @@ try {
     "permisos" => $permisos
   ), 0);
 
-  $login = $clientes->login(array("correo" => $correo, "contrasenia" => "UatDist123!"));
+  $login = $clientes->login(array("correo" => $correo, "contrasenia" => "DistFront1094"));
   $resultado["checks"]["login"] = array(
     "ok" => uatOk($login),
     "mensaje" => isset($login["mensaje"]) ? $login["mensaje"] : null,

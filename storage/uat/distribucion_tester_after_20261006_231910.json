@@ -1,0 +1,303 @@
+{
+  "fecha": "2026-10-06T23:19:10-06:00",
+  "correo": "artiani_tester@artiani.com.mx",
+  "solicitudes": [
+    {
+      "id_solicitud_distribucion": "17",
+      "folio": "DIST-20261006-0001",
+      "nombre": "Tester Artiani Distribucion",
+      "nombre_negocio": "Acuario y Mascotas Tester Artiani",
+      "empresa": "Acuario y Mascotas Tester Artiani",
+      "correo": "artiani_tester@artiani.com.mx",
+      "telefono": "3312345678",
+      "whatsapp": "3312345678",
+      "rfc": "",
+      "ciudad": "Guadalajara",
+      "estado": "Jalisco",
+      "tipo_interes": "mayorista",
+      "tipo_negocio": "acuario_petshop",
+      "calle": "Av. Prueba Comercial",
+      "numero_exterior": "1094",
+      "numero_interior": "B",
+      "colonia": "Colonia Tester",
+      "codigo_postal": "44100",
+      "referencias": "Registro creado para pruebas UX del portal Distribucion",
+      "intereses_comerciales": "Mayoreo de accesorios de acuario, decoracion, alimentos para peces y accesorios para mascotas.",
+      "categorias_interes_json": "[{\"id_categoria_erp\":456,\"nombre\":\"Acuario y peces\",\"ruta\":\"Acuario y peces\",\"incluye_descendientes\":true},{\"id_categoria_erp\":601,\"nombre\":\"Accesorios y productos generales\",\"ruta\":\"Accesorios y productos generales\",\"incluye_descendientes\":true}]",
+      "mensaje": "Soy un negocio de prueba interesado en conocer catalogo mayorista de acuario y mascotas.",
+      "datos_comerciales_json": "{\"nombre\":\"Tester Artiani Distribucion\",\"nombre_negocio\":\"Acuario y Mascotas Tester Artiani\",\"empresa\":\"Acuario y Mascotas Tester Artiani\",\"correo\":\"artiani_tester@artiani.com.mx\",\"telefono\":\"3312345678\",\"whatsapp\":\"3312345678\",\"rfc\":\"\",\"ciudad\":\"Guadalajara\",\"estado\":\"Jalisco\",\"tipo_interes\":\"mayorista\",\"tipo_interes_recibido\":\"mayorista\",\"tipo_negocio\":\"acuario_petshop\",\"calle\":\"Av. Prueba Comercial\",\"numero_exterior\":\"1094\",\"numero_interior\":\"B\",\"colonia\":\"Colonia Tester\",\"codigo_postal\":\"44100\",\"referencias\":\"Registro creado para pruebas UX del portal Distribucion\",\"requiere_factura\":0,\"facturacion\":{\"requiere_factura\":0,\"rfc\":\"\",\"razon_social\":\"\",\"regimen_fiscal\":\"\",\"uso_cfdi\":\"\",\"codigo_postal_fiscal\":\"\",\"correo_facturacion\":\"\",\"comentarios_facturacion\":\"\"},\"categorias_interes\":[{\"id_categoria_erp\":456,\"nombre\":\"Acuario y peces\",\"ruta\":\"Acuario y peces\",\"incluye_descendientes\":true},{\"id_categoria_erp\":601,\"nombre\":\"Accesorios y productos generales\",\"ruta\":\"Accesorios y productos generales\",\"incluye_descendientes\":true}],\"intereses_comerciales\":\"Mayoreo de accesorios de acuario, decoracion, alimentos para peces y accesorios para mascotas.\",\"mensaje\":\"Soy un negocio de prueba interesado en conocer catalogo mayorista de acuario y mascotas.\",\"pendiente_permitir_registro_sin_correo\":true}",
+      "ip_registro": "127.0.0.1",
+      "user_agent": "",
+      "estatus": "aprobado",
+      "id_cliente_distribucion": "14",
+      "fecha_registro": "2026-10-06 21:35:37",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_solicitud_distribucion": "18",
+      "folio": "DIST-20261006-0002",
+      "nombre": "Tester Artiani Distribucion",
+      "nombre_negocio": "Acuario y Mascotas Tester Artiani",
+      "empresa": "Acuario y Mascotas Tester Artiani",
+      "correo": "artiani_tester@artiani.com.mx",
+      "telefono": "3312345678",
+      "whatsapp": "",
+      "rfc": "",
+      "ciudad": "Guadalajara",
+      "estado": "Jalisco",
+      "tipo_interes": "mayorista",
+      "tipo_negocio": "acuario_petshop",
+      "calle": "",
+      "numero_exterior": "",
+      "numero_interior": "",
+      "colonia": "",
+      "codigo_postal": "",
+      "referencias": "",
+      "intereses_comerciales": "",
+      "categorias_interes_json": "[]",
+      "mensaje": "Reintento de registro para prueba UX.",
+      "datos_comerciales_json": "{\"nombre\":\"Tester Artiani Distribucion\",\"nombre_negocio\":\"Acuario y Mascotas Tester Artiani\",\"empresa\":\"Acuario y Mascotas Tester Artiani\",\"correo\":\"artiani_tester@artiani.com.mx\",\"telefono\":\"3312345678\",\"whatsapp\":\"\",\"rfc\":\"\",\"ciudad\":\"Guadalajara\",\"estado\":\"Jalisco\",\"tipo_interes\":\"mayorista\",\"tipo_interes_recibido\":\"mayorista\",\"tipo_negocio\":\"acuario_petshop\",\"calle\":\"\",\"numero_exterior\":\"\",\"numero_interior\":\"\",\"colonia\":\"\",\"codigo_postal\":\"\",\"referencias\":\"\",\"requiere_factura\":0,\"facturacion\":{\"requiere_factura\":0,\"rfc\":\"\",\"razon_social\":\"\",\"regimen_fiscal\":\"\",\"uso_cfdi\":\"\",\"codigo_postal_fiscal\":\"\",\"correo_facturacion\":\"\",\"comentarios_facturacion\":\"\"},\"categorias_interes\":[],\"intereses_comerciales\":\"\",\"mensaje\":\"Reintento de registro para prueba UX.\",\"pendiente_permitir_registro_sin_correo\":true}",
+      "ip_registro": "127.0.0.1",
+      "user_agent": "",
+      "estatus": "rechazado",
+      "id_cliente_distribucion": null,
+      "fecha_registro": "2026-10-06 21:35:47",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    }
+  ],
+  "clientes": [
+    {
+      "id_cliente_distribucion": "14",
+      "id_cliente_crm": null,
+      "nombre": "Tester Artiani Distribucion",
+      "empresa": "Acuario y Mascotas Tester Artiani",
+      "nombre_negocio": "Acuario y Mascotas Tester Artiani",
+      "tipo_negocio": "acuario_petshop",
+      "ciudad": "Guadalajara",
+      "estado": "Jalisco",
+      "calle": "Av. Prueba Comercial",
+      "numero_exterior": "1094",
+      "numero_interior": "B",
+      "colonia": "Colonia Tester",
+      "codigo_postal": "44100",
+      "referencias": "Registro creado para pruebas UX del portal Distribucion",
+      "requiere_factura": "0",
+      "rfc": null,
+      "razon_social": null,
+      "regimen_fiscal": null,
+      "uso_cfdi": null,
+      "codigo_postal_fiscal": null,
+      "correo_facturacion": null,
+      "comentarios_facturacion": null,
+      "correo": "artiani_tester@artiani.com.mx",
+      "correo_alterno": null,
+      "contacto_principal": null,
+      "telefono": "3312345678",
+      "whatsapp": "3312345678",
+      "tipo_cliente": "mayorista",
+      "estatus": "aprobado",
+      "contrasenia_hash": "[REDACTED_HASH_PRESENTE]",
+      "id_lista_precio": "4",
+      "catalogo_modo": "general",
+      "categorias_interes_json": "[{\"id_categoria_erp\":456,\"nombre\":\"Acuario y peces\",\"ruta\":\"Acuario y peces\",\"incluye_descendientes\":true},{\"id_categoria_erp\":601,\"nombre\":\"Accesorios y productos generales\",\"ruta\":\"Accesorios y productos generales\",\"incluye_descendientes\":true}]",
+      "metodo_entrega_default": "por_definir",
+      "entrega_habilitar_envio": "1",
+      "entrega_habilitar_recoger_tienda": "1",
+      "costo_envio_default": null,
+      "fecha_aprobacion": "2026-10-06 23:17:25",
+      "fecha_ultimo_login": "2026-10-06 23:18:50",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    }
+  ],
+  "permisos": [
+    {
+      "id_cliente_permiso": "76",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.catalogo.descargar",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "63",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.catalogo.ver",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "64",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.catalogo.ver_detalle",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "69",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.cotizacion.solicitar",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "77",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.cuenta.editar",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "68",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.inventario.ver_disponibilidad",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "73",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.inventario_cliente.gestionar",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "71",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.mi_catalogo.gestionar",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "70",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.pedido.preliminar",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "75",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.pedido.ver",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "67",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.precio.ver_lista_asignada",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "66",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.precio.ver_mayoreo",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "65",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.precio.ver_publico",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "74",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.resurtido.sugerido",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    },
+    {
+      "id_cliente_permiso": "72",
+      "id_cliente_distribucion": "14",
+      "permiso": "distribucion.surtido.gestionar",
+      "estatus": "activo",
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": "2026-10-06 23:17:25"
+    }
+  ],
+  "listas": [
+    {
+      "id_cliente_lista": "11",
+      "id_cliente_distribucion": "14",
+      "id_lista_precio": "4",
+      "prioridad": "1",
+      "estatus": "activo",
+      "fecha_inicio": "2026-10-06 23:17:25",
+      "fecha_fin": null,
+      "fecha_registro": "2026-10-06 23:17:25",
+      "fecha_actualizacion": null
+    }
+  ],
+  "mi_catalogo": [
+    {
+      "id_cliente_producto": "6",
+      "id_cliente_distribucion": "14",
+      "id_sku": "1867",
+      "alias_cliente": "Prueba Codex SKU 1867",
+      "ubicacion_cliente": "Anaquel prueba",
+      "prioridad": "10",
+      "estatus": "activo",
+      "origen": "cliente",
+      "notas": "Registro de prueba backend Distribucion",
+      "fecha_registro": "2026-10-06 23:18:22",
+      "fecha_actualizacion": "2026-10-06 23:18:22"
+    }
+  ],
+  "inventario": [
+    {
+      "id_cliente_inventario": "1",
+      "id_cliente_distribucion": "14",
+      "id_sku": "1867",
+      "existencia_cliente": "0.000000",
+      "minimo": "1.000000",
+      "maximo": "3.000000",
+      "unidad_cliente": "pieza",
+      "fecha_conteo": "2026-10-06 23:18:22",
+      "estatus": "activo",
+      "notas": "Conteo de prueba backend Distribucion",
+      "fecha_registro": "2026-10-06 23:18:22",
+      "fecha_actualizacion": "2026-10-06 23:18:22"
+    }
+  ],
+  "cotizaciones": [
+    {
+      "id_cotizacion_distribucion": "6",
+      "folio": "DPED-20261006-0001",
+      "id_cliente_distribucion": "14",
+      "tipo_documento": "pedido",
+      "estatus": "pedido_solicitado",
+      "subtotal": "41.250000",
+      "total_estimado": "41.250000",
+      "comentarios": "Prueba backend Codex - pedido preliminar tester",
+      "fecha_registro": "2026-10-06 23:18:23"
+    },
+    {
+      "id_cotizacion_distribucion": "5",
+      "folio": "DCOT-20261006-0001",
+      "id_cliente_distribucion": "14",
+      "tipo_documento": "cotizacion",
+      "estatus": "recibida",
+      "subtotal": "82.500000",
+      "total_estimado": "82.500000",
+      "comentarios": "Prueba backend Codex - cotizacion tester",
+      "fecha_registro": "2026-10-06 23:18:23"
+    }
+  ]
+}

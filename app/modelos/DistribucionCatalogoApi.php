@@ -23,6 +23,12 @@ class DistribucionCatalogoApi extends CRUD {
       "disponibilidad_estados" => $this->estadosDisponibilidad(),
       "registro" => array(
         "campos_requeridos" => array("nombre", "nombre_negocio", "correo", "telefono", "ciudad", "estado", "tipo_negocio"),
+        "codigos" => array("solicitud_recibida", "solicitud_incompleta", "campos_fiscales_requeridos", "solicitud_existente", "cliente_existente", "solicitud_rechazada", "cuenta_suspendida"),
+        "duplicados" => array(
+          "correo_es_clave_operativa" => true,
+          "no_crea_folio_nuevo_si_existe_solicitud" => true,
+          "no_actualiza_solicitud_existente_sin_regla_explicita" => true
+        ),
         "tipos_negocio" => array("venta_internet", "veterinaria", "petshop", "acuario", "acuario_petshop", "estetica_canina", "criador", "vendedor_mercado", "vendedor_ambulante", "otro"),
         "facturacion_requerida_si_requiere_factura" => array("facturacion.rfc", "facturacion.razon_social", "facturacion.regimen_fiscal", "facturacion.uso_cfdi", "facturacion.codigo_postal_fiscal", "facturacion.correo_facturacion"),
         "categorias_interes" => array(
@@ -120,14 +126,12 @@ class DistribucionCatalogoApi extends CRUD {
         "pedido_facturacion_payload" => $this->payloadFacturacionPedido(),
         "mi_catalogo_listar" => "/DistribucionApi/mi_catalogo/listar",
         "mi_catalogo_guardar" => "/DistribucionApi/mi_catalogo/guardar",
-        "admin_cliente_catalogo_preferencias" => "/DistribucionAdmin/cliente_catalogo_preferencias",
-        "admin_cliente_catalogo_reglas" => "/DistribucionAdmin/cliente_catalogo_reglas?id_cliente_distribucion={id}",
-        "admin_cliente_catalogo_regla_guardar" => "/DistribucionAdmin/cliente_catalogo_regla_guardar",
         "inventario_cliente_listar" => "/DistribucionApi/inventario_cliente/listar",
         "inventario_cliente_guardar_conteo" => "/DistribucionApi/inventario_cliente/guardar_conteo",
         "inventario_cliente_sugerido" => "/DistribucionApi/inventario_cliente/sugerido",
         "inventario_cliente_pedido_sugerido" => "/DistribucionApi/inventario_cliente/pedido_sugerido"
       ),
+      "endpoints_internos_erp" => $this->endpointsInternosErp(),
       "guardrails" => $this->guardrails()
     ));
   }
@@ -594,13 +598,22 @@ class DistribucionCatalogoApi extends CRUD {
       array("metodo" => "POST", "ruta" => "/DistribucionApi/pedido/responder"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/mi_catalogo/listar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/mi_catalogo/guardar"),
-      array("metodo" => "POST", "ruta" => "/DistribucionAdmin/cliente_catalogo_preferencias"),
-      array("metodo" => "GET", "ruta" => "/DistribucionAdmin/cliente_catalogo_reglas?id_cliente_distribucion={id}"),
-      array("metodo" => "POST", "ruta" => "/DistribucionAdmin/cliente_catalogo_regla_guardar"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/listar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/guardar_conteo"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/sugerido"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/pedido_sugerido")
+    );
+  }
+
+  private function endpointsInternosErp() {
+    return array(
+      "solo_panel_erp" => true,
+      "no_usar_desde_frontend_externo" => true,
+      "rutas" => array(
+        array("metodo" => "POST", "ruta" => "/DistribucionAdmin/cliente_catalogo_preferencias"),
+        array("metodo" => "GET", "ruta" => "/DistribucionAdmin/cliente_catalogo_reglas?id_cliente_distribucion={id}"),
+        array("metodo" => "POST", "ruta" => "/DistribucionAdmin/cliente_catalogo_regla_guardar")
+      )
     );
   }
 

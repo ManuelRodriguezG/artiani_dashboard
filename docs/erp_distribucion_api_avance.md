@@ -69,6 +69,44 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - `DistribucionApi/auth/recuperar` y `auth/reenviar_activacion` quedan disponibles con respuesta uniforme segura; no enumeran cuentas ni envian correos automaticamente en esta etapa.
 - `DistribucionCatalogoApi::contratos()` publica campos requeridos de registro, facturacion, categorias de interes, codigos de login, estados publicos, acciones y endpoints de ayuda de acceso.
 
+## Cambios 2026-10-06 - control de duplicados de registro
+
+- `DistribucionClientesApi::registrarSolicitud()` revisa primero `erp_distribucion_clientes` y `erp_distribucion_solicitudes` por correo normalizado antes de crear folio.
+- Si ya existe cliente, la API devuelve `cliente_existente` o `cuenta_suspendida` sin crear nueva solicitud.
+- Si ya existe solicitud pendiente/en revision, la API devuelve `solicitud_existente` con el folio original y `no_crea_folio_nuevo=true`.
+- Si la solicitud existente esta rechazada, devuelve `solicitud_rechazada`; si esta aprobada, devuelve `cliente_existente`.
+- El registro nuevo queda con estatus inicial `en_revision`, codigo `solicitud_recibida`, `contacto_soporte`, `campos_recibidos`, `categorias_interes_recibidas` y `requiere_factura`.
+- Login con correo que solo existe en solicitudes devuelve el estado publico de esa solicitud, para que el portal muestre revision/pendiente en lugar de credenciales invalidas.
+- Validacion fiscal agrega `campos_faltantes`, `errores_campos` y `etiquetas_campos`; cuando solo faltan fiscales, usa codigo `campos_fiscales_requeridos`.
+- El alias `gestionar_surtido` se mantiene sincronizado con `distribucion.mi_catalogo.gestionar` para compatibilidad con frontends anteriores.
+- La contrasenia temporal capturada al aprobar desde ERP respeta el mismo minimo de 8 caracteres que el flujo de activacion por link.
+- El manifiesto publico de Distribucion ya no mezcla rutas `DistribucionAdmin` dentro de endpoints externos; esas rutas quedan separadas como `endpoints_internos_erp` y marcadas solo para panel ERP.
+- Mi catalogo usa el mismo criterio de URL absoluta de imagenes que el catalogo general, evitando rutas `/uploads/...` relativas al dominio externo.
+- `Core.php` no aplica CSRF/auditoria de sesion ERP interna a `DistribucionApi`; la API externa se protege con Authorization Bearer, permisos comerciales y CORS propios.
+- Los POST internos de Distribucion que ya auditan en modelos quedan registrados como auditoria explicita en `Core.php` para evitar auditoria generica duplicada.
+
+## Cambios 2026-10-06 - backend tester read-only
+
+- Se valido por lectura que `artiani_tester@artiani.com.mx` tiene dos solicitudes pendientes (`DIST-20261006-0001` y `DIST-20261006-0002`) y ningun cliente externo creado todavia.
+- El panel ERP de Distribucion tiene vistas separadas para Resumen, Solicitudes, Clientes, Pedidos, Mi catalogo, Inventarios, Sugeridos, Productos y Demanda; las vistas PHP y el JS principal pasan validacion de sintaxis.
+- Los endpoints/modelos internos read-only de panel responden para solicitudes, clientes, cotizaciones, Mi catalogo, inventarios, sugeridos y resumen.
+- Se valido catalogo Distribucion con contexto autenticado simulado: catalogo, producto, categorias, marcas, filtros y categorias_interes responden correctamente.
+- `CatalogoCanalesErp::urlRecurso()` ahora convierte rutas `/uploads/...` en URLs absolutas del ERP cuando existe `RUTA_RECURSOS_IMG`/`RUTA_URL`, para que el frontend externo pueda pintar imagenes.
+- Se valido dry-run de cotizacion con SKU `1867` y lista `4`; recalcula precio en servidor, devuelve totales y conserva guardrails de no apartar inventario ni crear venta/pedido.
+- El flujo de activacion exige contrasenia minima de 8 caracteres; `Tester` no cumple. Para pruebas autenticadas se recomienda usar una contrasenia de prueba de al menos 8 caracteres o cambiar explicitamente la politica.
+
+## Cambios 2026-10-06 - validacion UAT con cliente tester
+
+- Se preparo el cliente de prueba `artiani_tester@artiani.com.mx` desde los metodos internos existentes, sin tocar esquema ni tablas.
+- Antes de escribir datos se guardo snapshot en `storage/uat/distribucion_tester_before_20261006_231710.json`; despues se guardo snapshot en `storage/uat/distribucion_tester_after_20261006_231910.json`.
+- La solicitud `DIST-20261006-0001` quedo aprobada como cliente Distribucion `14`; la solicitud duplicada `DIST-20261006-0002` quedo rechazada para no ensuciar pendientes.
+- El cliente tester quedo como `mayorista`, con lista de precio `4` (`mayoreo_pruba`) y permisos comerciales completos de Distribucion.
+- Login real del tester devuelve token, perfil aprobado, lista asignada y acciones completas para catalogo, precios, disponibilidad, cotizacion, pedido, Mi catalogo, inventario cliente, sugerido y cuenta.
+- Se actualizo la contrasenia UAT acordada del tester a `DistFront1094`; prueba HTTP real de `/DistribucionApi/auth/login` devuelve `error=false`, `token_len=64`, cliente `14`, estatus `aprobado`, lista `4`, 15 permisos y acciones criticas activas.
+- Se valido SKU `1867`: precio visible `41.25` MXN con lista asignada; dry-run de 2 piezas devuelve total estimado `82.5` sin bloqueos.
+- Se crearon datos UAT del flujo autenticado: Mi catalogo con SKU `1867`, inventario cliente con sugerido `3`, cotizacion `DCOT-20261006-0001` y pedido preliminar `DPED-20261006-0001`.
+- La lectura posterior confirma 1 item en Mi catalogo, 1 item en inventario, 1 sugerido, 1 cotizacion y 1 pedido visible para el cliente tester.
+
 ## Pendientes
 
 - Validar en UAT con un cliente aprobado que tenga solo `distribucion.catalogo.ver`.
@@ -77,3 +115,4 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Autorizar respaldo y aplicacion del plan de esquema Distribucion antes de probar escritura real de surtido/inventario.
 - Asignar a clientes aprobados los nuevos permisos externos segun su alcance comercial.
 - Definir en ERP la pantalla de revision por partida para confirmar cantidades surtibles antes de enviar respuesta al cliente.
+

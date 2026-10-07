@@ -786,7 +786,7 @@
             title: "Aprobar cliente",
             html: "<div class=\"text-start\">" +
                 "<div class=\"mb-5\"><div class=\"fw-bold\">" + escapeHtml(solicitud ? solicitud.nombre : "Solicitud") + "</div><div class=\"text-muted\">" + escapeHtml(solicitud ? (solicitud.nombre_negocio || solicitud.empresa || "") : "") + "</div></div>" +
-                "<label class=\"form-label fw-semibold\">Contrasenia temporal</label><input id=\"dist_aprobar_contrasenia\" type=\"password\" class=\"form-control form-control-solid mb-5\" placeholder=\"Dejar vacio para definir despues\">" +
+                "<label class=\"form-label fw-semibold\">Contrasenia temporal</label><input id=\"dist_aprobar_contrasenia\" type=\"password\" class=\"form-control form-control-solid mb-2\" placeholder=\"Dejar vacio para definir despues\"><div class=\"text-muted fs-8 mb-5\">Minimo 8 caracteres si se captura aqui.</div>" +
                 "<label class=\"form-label fw-semibold\">Tipo de cliente</label><input class=\"form-control form-control-solid mb-5\" value=\"mayorista\" disabled>" +
                 listaHtml +
                 "<div class=\"separator my-5\"></div><div class=\"fw-semibold mb-3\">Permisos comerciales iniciales</div>" +
@@ -797,11 +797,16 @@
             confirmButtonText: "Aprobar",
             preConfirm: function () {
                 var permisos = [];
+                var contrasenia = (document.getElementById("dist_aprobar_contrasenia") || {}).value || "";
+                if (contrasenia && contrasenia.length < 8) {
+                    Swal.showValidationMessage("La contrasenia temporal debe tener al menos 8 caracteres.");
+                    return false;
+                }
                 document.querySelectorAll(".swal2-container input[type='checkbox']:checked").forEach(function (input) {
                     permisos.push(input.value);
                 });
                 return {
-                    contrasenia: (document.getElementById("dist_aprobar_contrasenia") || {}).value || "",
+                    contrasenia: contrasenia,
                     id_lista_precio: (document.getElementById("dist_aprobar_lista") || {}).value || "",
                     permisos: permisos
                 };
