@@ -669,6 +669,21 @@ class DistribucionCotizacionesApi extends CRUD {
         "no_crea_venta" => true,
         "no_crea_pedido_erp" => true
       ), null, $idCliente);
+      $this->crearNotificacionDistribucion($db, array(
+        "id_cliente_distribucion" => $idCliente,
+        "tipo" => "pedido_recibido",
+        "titulo" => "Recibimos tu pedido",
+        "mensaje" => "Tu pedido fue recibido y pasara a revision comercial.",
+        "folio_referencia" => $folio,
+        "url_accion" => "/pedidos",
+        "requiere_accion" => 0,
+        "canales_disponibles" => array("correo", "whatsapp"),
+        "metadata" => array(
+          "huella" => "pedido_recibido|" . $idPedido,
+          "id_cotizacion_distribucion" => $idPedido,
+          "estatus" => "pedido_solicitado"
+        )
+      ));
       $db->commit();
       return $this->respuesta(false, "success", "Solicitud de pedido recibida. Revisaremos existencias y surtido.", array(
         "configurado" => true,
@@ -845,6 +860,20 @@ class DistribucionCotizacionesApi extends CRUD {
       if (in_array((string) $item["estatus"], array("pedido_solicitado", "recibida", "recibida_revision"), true)) {
         $db->prepare("UPDATE erp_distribucion_cotizaciones SET estatus='en_revision', fecha_actualizacion=NOW() WHERE id_cotizacion_distribucion=:id")
           ->execute(array(":id" => intval($item["id_cotizacion_distribucion"])));
+        $this->crearNotificacionDistribucion($db, array(
+          "id_cliente_distribucion" => intval($item["id_cliente_distribucion"]),
+          "tipo" => "pedido_en_revision",
+          "titulo" => "Tu pedido esta en revision",
+          "mensaje" => "El equipo comercial ya esta revisando existencias y condiciones de tu pedido.",
+          "folio_referencia" => $this->folioCotizacionPorId($db, intval($item["id_cotizacion_distribucion"])),
+          "url_accion" => "/pedidos",
+          "requiere_accion" => 0,
+          "canales_disponibles" => array("correo"),
+          "metadata" => array(
+            "huella" => "pedido_en_revision|" . intval($item["id_cotizacion_distribucion"]),
+            "id_cotizacion_distribucion" => intval($item["id_cotizacion_distribucion"])
+          )
+        ));
       }
       $this->registrarAuditoria($db, "cotizacion_item", $idItem, "revision_partida", "ok", "Partida Distribucion revisada", array(
         "cantidad_confirmada" => $cantidadConfirmada,
@@ -925,6 +954,21 @@ class DistribucionCotizacionesApi extends CRUD {
         "total_confirmado" => $total,
         "nota" => trim((string) $this->valor($datos, "nota", ""))
       ), $idUsuario, intval($pedido["id_cliente_distribucion"]));
+      $this->crearNotificacionDistribucion($db, array(
+        "id_cliente_distribucion" => intval($pedido["id_cliente_distribucion"]),
+        "tipo" => "pedido_requiere_respuesta",
+        "titulo" => "Tu pedido ya fue revisado",
+        "mensaje" => "Revisa la propuesta comercial y confirma si deseas continuar.",
+        "folio_referencia" => $this->folioCotizacionPorId($db, $id),
+        "url_accion" => "/pedidos",
+        "requiere_accion" => 1,
+        "canales_disponibles" => array("correo", "whatsapp"),
+        "metadata" => array(
+          "huella" => "pedido_requiere_respuesta|" . $id,
+          "id_cotizacion_distribucion" => $id,
+          "total_confirmado" => $total
+        )
+      ));
       $db->commit();
       return $this->respuesta(false, "success", "Respuesta de pedido guardada para el cliente", array(
         "ejecutado" => true,
@@ -1082,6 +1126,22 @@ class DistribucionCotizacionesApi extends CRUD {
         "comentario" => $comentario,
         "tipo_entrega" => $entrega["tipo_entrega"]
       ), null, $idCliente);
+      $this->crearNotificacionDistribucion($db, array(
+        "id_cliente_distribucion" => $idCliente,
+        "tipo" => $respuesta === "requiere_ajuste" ? "pedido_ajuste_solicitado" : "pedido_resuelto",
+        "titulo" => $respuesta === "requiere_ajuste" ? "Recibimos tu solicitud de ajuste" : "Respuesta de pedido registrada",
+        "mensaje" => $respuesta === "requiere_ajuste" ? "El equipo comercial revisara el ajuste que solicitaste." : "Tu respuesta quedo registrada correctamente.",
+        "folio_referencia" => $this->folioCotizacionPorId($db, $id),
+        "url_accion" => "/pedidos",
+        "requiere_accion" => 0,
+        "canales_disponibles" => array("correo"),
+        "metadata" => array(
+          "huella" => "pedido_respuesta_cliente|" . $id . "|" . $respuesta,
+          "id_cotizacion_distribucion" => $id,
+          "respuesta" => $respuesta,
+          "estatus" => $estatusNuevo
+        )
+      ));
       $db->commit();
       return $this->respuesta(false, "success", "Respuesta registrada", array(
         "ejecutado" => true,
@@ -1151,6 +1211,23 @@ class DistribucionCotizacionesApi extends CRUD {
         "estatus" => $estatus,
         "nota" => trim((string) $this->valor($datos, "nota", ""))
       ), $idUsuario, intval($cotizacion["id_cliente_distribucion"]));
+      $tipoNotificacion = $estatus === "cancelada" ? "pedido_cancelado" : ($estatus === "en_revision" ? "pedido_en_revision" : "cotizacion_actualizada");
+      $this->crearNotificacionDistribucion($db, array(
+        "id_cliente_distribucion" => intval($cotizacion["id_cliente_distribucion"]),
+        "tipo" => $tipoNotificacion,
+        "titulo" => $estatus === "cancelada" ? "Tu solicitud fue cancelada" : ($estatus === "en_revision" ? "Tu solicitud esta en revision" : "Tu solicitud fue actualizada"),
+        "mensaje" => $estatus === "cancelada" ? "La solicitud fue cancelada por el equipo comercial." : "Hay una actualizacion en tu solicitud comercial.",
+        "folio_referencia" => $this->folioCotizacionPorId($db, $id),
+        "url_accion" => "/pedidos",
+        "requiere_accion" => 0,
+        "canales_disponibles" => array("correo"),
+        "metadata" => array(
+          "huella" => "cotizacion_accion|" . $id . "|" . $accion,
+          "id_cotizacion_distribucion" => $id,
+          "accion" => $accion,
+          "estatus" => $estatus
+        )
+      ));
       $db->commit();
       return $this->respuesta(false, "success", "Cotizacion Distribucion actualizada", array(
         "ejecutado" => true,
@@ -1311,6 +1388,29 @@ class DistribucionCotizacionesApi extends CRUD {
       ":usuario" => $idUsuario,
       ":cliente" => $idCliente
     ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-07
+   * Proposito: generar avisos externos de Distribucion sin acoplar pedidos al esquema de notificaciones.
+   * Impacto: Pedidos/cotizaciones Distribucion; si la tabla aun no existe, el flujo comercial no falla.
+   * Contrato: best effort dentro de la misma conexion transaccional.
+   */
+  private function crearNotificacionDistribucion($db, $datos) {
+    try {
+      require_once RUTA_APP . "/modelos/distribucionnotificacionesapi.php";
+      $notificaciones = new DistribucionNotificacionesApi();
+      return $notificaciones->crearNotificacionEnConexion($db, $datos);
+    } catch (Exception $e) {
+      return 0;
+    }
+  }
+
+  private function folioCotizacionPorId($db, $id) {
+    $stmt = $db->prepare("SELECT folio FROM erp_distribucion_cotizaciones WHERE id_cotizacion_distribucion=:id LIMIT 1");
+    $stmt->execute(array(":id" => intval($id)));
+    return (string) $stmt->fetchColumn();
   }
 
   private function tablaExiste($db, $tabla) {

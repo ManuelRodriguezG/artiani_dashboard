@@ -190,6 +190,8 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                                         <th class="text-end">Sugerido</th>
                                         <th class="text-end">A solicitar</th>
                                         <th class="text-end">Costo</th>
+                                        <th class="text-end">Venta aprox.</th>
+                                        <th class="text-end">Valor venta</th>
                                         <th>Obs.</th>
                                         <th class="text-end">Accion</th>
                                     </tr>
@@ -200,17 +202,19 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                                         <td colspan="7" class="text-end fw-bold">Total a solicitar estimado</td>
                                         <td class="text-end fw-bold" id="sugerido_total_piezas">0</td>
                                         <td class="text-end fw-bold fs-5" id="sugerido_total">$0.00</td>
-                                        <td colspan="2"></td>
+                                        <td class="text-muted fs-8">Costo estimado</td>
+                                        <td class="text-end fw-bold fs-5" id="sugerido_total_venta">$0.00</td>
+                                        <td class="text-muted fs-8" colspan="2">Venta aproximada</td>
                                     </tr>
                                     <tr>
                                         <td colspan="7" class="text-end text-muted fw-bold">Cantidad revisada total</td>
                                         <td class="text-end text-muted fw-bold" id="sugerido_total_existencia_revisada">0</td>
-                                        <td class="text-muted fs-8" colspan="3">Suma de existencia revisada</td>
+                                        <td class="text-muted fs-8" colspan="5">Suma de existencia revisada</td>
                                     </tr>
                                     <tr>
                                         <td colspan="8" class="text-end text-muted fw-bold">Inventario fisico estimado</td>
                                         <td class="text-end text-muted fw-bold" id="sugerido_total_inventario_estimado">$0.00</td>
-                                        <td class="text-muted fs-8" colspan="2">Existencia revisada x costo</td>
+                                        <td class="text-muted fs-8" colspan="4">Existencia revisada x costo</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -252,7 +256,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20261007-1"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20261007-2"></script>
 </body>
 </html>
 

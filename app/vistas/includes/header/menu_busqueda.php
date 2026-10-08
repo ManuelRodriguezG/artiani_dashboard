@@ -137,15 +137,15 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver', 'detalle' => 'Productos ecommerce catalogo anterior')
         )),
         array('seccion' => 'Distribucion', 'titulo' => 'Distribucion', 'icono' => 'bi-box-arrow-up-right', 'items' => array(
-            array('titulo' => 'Resumen Distribucion', 'ruta' => '/DistribucionAdmin/panel_resumen', 'permiso' => 'distribucion.ver', 'detalle' => 'Resumen dashboard distribucion'),
-            array('titulo' => 'Solicitudes Distribucion', 'ruta' => '/DistribucionAdmin/panel_solicitudes', 'permiso' => 'distribucion.ver', 'detalle' => 'Solicitudes acceso clientes distribucion'),
-            array('titulo' => 'Clientes Distribucion', 'ruta' => '/DistribucionAdmin/panel_clientes', 'permiso' => 'distribucion.ver', 'detalle' => 'Clientes mayoristas permisos listas precios distribucion'),
-            array('titulo' => 'Pedidos Distribucion', 'ruta' => '/DistribucionAdmin/panel_pedidos', 'permiso' => 'distribucion.cotizaciones.ver', 'detalle' => 'Pedidos cotizaciones revision existencias distribucion'),
-            array('titulo' => 'Mi catalogo Distribucion', 'ruta' => '/DistribucionAdmin/panel_mi_catalogo', 'permiso' => 'distribucion.ver', 'detalle' => 'Mi catalogo movimientos clientes distribucion'),
-            array('titulo' => 'Inventarios cliente Distribucion', 'ruta' => '/DistribucionAdmin/panel_inventarios', 'permiso' => 'distribucion.ver', 'detalle' => 'Inventarios declarados por clientes distribucion'),
-            array('titulo' => 'Sugeridos Distribucion', 'ruta' => '/DistribucionAdmin/panel_sugeridos', 'permiso' => 'distribucion.ver', 'detalle' => 'Sugerido resurtido clientes distribucion'),
-            array('titulo' => 'Productos Distribucion', 'ruta' => '/DistribucionAdmin/panel_productos', 'permiso' => 'distribucion.editar', 'detalle' => 'Publicacion productos canal distribucion'),
-            array('titulo' => 'Demanda Distribucion', 'ruta' => '/DistribucionAdmin/panel_demanda', 'permiso' => 'distribucion.ver', 'detalle' => 'Demanda actividad comercial distribucion')
+            array('titulo' => 'Resumen Distribucion', 'ruta' => '/distribucionadmin/panel_resumen', 'permiso' => 'distribucion.ver', 'detalle' => 'Resumen dashboard distribucion'),
+            array('titulo' => 'Solicitudes Distribucion', 'ruta' => '/distribucionadmin/panel_solicitudes', 'permiso' => 'distribucion.ver', 'detalle' => 'Solicitudes acceso clientes distribucion'),
+            array('titulo' => 'Clientes Distribucion', 'ruta' => '/distribucionadmin/panel_clientes', 'permiso' => 'distribucion.ver', 'detalle' => 'Clientes mayoristas permisos listas precios distribucion'),
+            array('titulo' => 'Pedidos Distribucion', 'ruta' => '/distribucionadmin/panel_pedidos', 'permiso' => 'distribucion.cotizaciones.ver', 'detalle' => 'Pedidos cotizaciones revision existencias distribucion'),
+            array('titulo' => 'Mi catalogo Distribucion', 'ruta' => '/distribucionadmin/panel_mi_catalogo', 'permiso' => 'distribucion.ver', 'detalle' => 'Mi catalogo movimientos clientes distribucion'),
+            array('titulo' => 'Inventarios cliente Distribucion', 'ruta' => '/distribucionadmin/panel_inventarios', 'permiso' => 'distribucion.ver', 'detalle' => 'Inventarios declarados por clientes distribucion'),
+            array('titulo' => 'Sugeridos Distribucion', 'ruta' => '/distribucionadmin/panel_sugeridos', 'permiso' => 'distribucion.ver', 'detalle' => 'Sugerido resurtido clientes distribucion'),
+            array('titulo' => 'Productos Distribucion', 'ruta' => '/distribucionadmin/panel_productos', 'permiso' => 'distribucion.editar', 'detalle' => 'Publicacion productos canal distribucion'),
+            array('titulo' => 'Demanda Distribucion', 'ruta' => '/distribucionadmin/panel_demanda', 'permiso' => 'distribucion.ver', 'detalle' => 'Demanda actividad comercial distribucion')
         )),
         array('seccion' => 'Administracion', 'titulo' => 'Administracion', 'icono' => 'bi-shield-lock', 'items' => array(
             array('titulo' => 'Configuracion del sistema', 'ruta' => '/sistema/configuracion', 'permiso' => 'configuracion.administrar', 'detalle' => 'Branding logos favicon parametros sistema'),
@@ -167,3 +167,4 @@ function erpHeaderCatalogoBusqueda()
 
     return $accesos;
 }
+

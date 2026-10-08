@@ -48,6 +48,7 @@ class ComprasSugeridosCompraErp extends CRUD {
                 $where[] = "s.id_proveedor=:proveedor";
                 $params[":proveedor"] = $idProveedor;
             }
+            $precioVentaDetalle = $this->sqlPrecioVentaEstimadoDetalleSugerido($db, "d.id_sku_erp");
             $sql = "SELECT s.id_sugerido_compra, s.folio, s.id_proveedor, p.proveedor, s.estatus,
                     s.observaciones, s.id_solicitud_generada, sol.folio AS folio_solicitud,
                     s.fecha_registro, s.fecha_actualizacion,
@@ -55,6 +56,7 @@ class ComprasSugeridosCompraErp extends CRUD {
                     SUM(CASE WHEN COALESCE(d.cantidad_solicitar,0)>0 THEN 1 ELSE 0 END) AS partidas_solicitar,
                     SUM(COALESCE(d.cantidad_solicitar,0)) AS total_unidades,
                     SUM(COALESCE(d.cantidad_solicitar,0) * COALESCE(d.costo_estimado,0)) AS total_estimado,
+                    SUM(COALESCE(d.cantidad_solicitar,0) * COALESCE({$precioVentaDetalle},0)) AS venta_sugerida_estimada,
                     SUM(COALESCE(d.existencia_revisada,0)) AS total_existencia_revisada,
                     SUM(COALESCE(d.existencia_revisada,0) * COALESCE(d.costo_estimado,0)) AS inventario_revisado_estimado
                 FROM erp_compras_sugeridos_compra s
@@ -92,13 +94,15 @@ class ComprasSugeridosCompraErp extends CRUD {
             $where[] = "s.id_proveedor=:proveedor";
             $params[":proveedor"] = intval($idProveedor);
         }
+        $precioVentaDetalle = $this->sqlPrecioVentaEstimadoDetalleSugerido($db, "d.id_sku_erp");
         $stmt = $db->prepare("SELECT
                 COUNT(DISTINCT s.id_sugerido_compra) AS sugeridos_pendientes,
                 COUNT(d.id_detalle) AS partidas,
                 SUM(COALESCE(d.existencia_revisada,0)) AS cantidad_revisada,
                 SUM(COALESCE(d.existencia_revisada,0) * COALESCE(d.costo_estimado,0)) AS inventario_estimado,
                 SUM(COALESCE(d.cantidad_solicitar,0)) AS cantidad_a_solicitar,
-                SUM(COALESCE(d.cantidad_solicitar,0) * COALESCE(d.costo_estimado,0)) AS compra_sugerida_estimada
+                SUM(COALESCE(d.cantidad_solicitar,0) * COALESCE(d.costo_estimado,0)) AS compra_sugerida_estimada,
+                SUM(COALESCE(d.cantidad_solicitar,0) * COALESCE({$precioVentaDetalle},0)) AS venta_sugerida_estimada
             FROM erp_compras_sugeridos_compra s
             LEFT JOIN erp_compras_sugeridos_compra_detalle d ON d.id_sugerido_compra=s.id_sugerido_compra
             WHERE " . implode(" AND ", $where));
@@ -110,7 +114,8 @@ class ComprasSugeridosCompraErp extends CRUD {
             "cantidad_revisada" => floatval($this->valor($fila, "cantidad_revisada", 0)),
             "inventario_estimado" => floatval($this->valor($fila, "inventario_estimado", 0)),
             "cantidad_a_solicitar" => floatval($this->valor($fila, "cantidad_a_solicitar", 0)),
-            "compra_sugerida_estimada" => floatval($this->valor($fila, "compra_sugerida_estimada", 0))
+            "compra_sugerida_estimada" => floatval($this->valor($fila, "compra_sugerida_estimada", 0)),
+            "venta_sugerida_estimada" => floatval($this->valor($fila, "venta_sugerida_estimada", 0))
         );
     }
 
@@ -194,6 +199,8 @@ class ComprasSugeridosCompraErp extends CRUD {
      * Regla: costo estimado prioriza costo vigente, lista proveedor y costo_ultimo como ultimo respaldo.
      * Actualizacion IA: Codex GPT-5 | Fecha: 2026-09-19
      * Regla: expone portada de SKU/producto desde Catalogo ERP para apoyar seleccion visual sin duplicar imagenes.
+     * Actualizacion IA: Codex GPT-5 | Fecha: 2026-10-07
+     * Regla: agrega precio de venta aproximado desde listas de precios vigentes, solo como lectura operativa.
      */
     public function productosProveedor($filtros = array()) {
         try {
@@ -238,11 +245,13 @@ class ComprasSugeridosCompraErp extends CRUD {
                 $params[":q"] = "%" . $q . "%";
             }
 
+            $precioVentaSelect = $this->sqlPrecioVentaEstimadoSugerido($db);
             $sql = "SELECT sp.id_sku_proveedor, sp.id_proveedor, sp.id_sku AS id_sku_erp,
                     sp.sku_proveedor, sp.factor_conversion, sp.cantidad_minima, sp.costo_ultimo,
                     sp.es_preferido, uc.abreviatura AS unidad_compra,
                     s.sku AS sku_erp, s.nombre AS nombre_erp, s.id_producto_erp,
-                    p.nombre AS producto_erp,
+                    p.nombre AS producto_erp
+                    {$precioVentaSelect},
                     COALESCE(
                         (
                             SELECT img_sku.url_imagen
@@ -347,6 +356,8 @@ class ComprasSugeridosCompraErp extends CRUD {
                 $fila["existencia_revisada"] = 0;
                 $fila["cantidad_sugerida"] = $this->calcularCantidadSugerida($fila, 0);
                 $fila["cantidad_solicitar"] = $fila["cantidad_sugerida"];
+                $fila["precio_venta_estimado"] = floatval($this->valor($fila, "precio_venta_estimado", 0));
+                $fila["fuente_precio_venta"] = $fila["precio_venta_estimado"] > 0 ? "erp_listas_precios" : "sin_precio";
                 $items[] = $fila;
             }
 
@@ -413,6 +424,9 @@ class ComprasSugeridosCompraErp extends CRUD {
             $clave = intval($this->valor($fila, "id_sku_proveedor", 0)) . "|" . intval($this->valor($fila, "id_sku_erp", 0));
             if (isset($costos[$clave])) {
                 $detalle[$i]["imagen_portada"] = $this->valor($costos[$clave], "imagen_portada", "");
+                $detalle[$i]["precio_venta_estimado"] = floatval($this->valor($costos[$clave], "precio_venta_estimado", 0));
+                $detalle[$i]["lista_precio_venta"] = $this->valor($costos[$clave], "lista_precio_venta", "");
+                $detalle[$i]["fuente_precio_venta"] = $this->valor($costos[$clave], "fuente_precio_venta", "sin_precio");
             }
             if (floatval($this->valor($fila, "costo_estimado", 0)) > 0) {
                 continue;
@@ -848,6 +862,84 @@ class ComprasSugeridosCompraErp extends CRUD {
             $cantidadCompra = $minima;
         }
         return round($cantidadCompra, 6);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-07
+     * Proposito: exponer precio de venta aproximado para Sugerido usando listas de precios ERP vigentes.
+     * Impacto: Compras/Sugerido; solo lectura, no guarda snapshot ni usa precios legacy de catalogo.
+     * Contrato: prioriza precio por SKU, luego por producto; usa listas activas generales/POS sin almacen especifico.
+     */
+    private function sqlPrecioVentaEstimadoSugerido(PDO $db) {
+        if (!$this->tablaExiste($db, "erp_listas_precios") || !$this->tablaExiste($db, "erp_listas_precios_detalle")) {
+            return ", NULL AS precio_venta_estimado, NULL AS lista_precio_venta";
+        }
+        $vigencia = "l2.estatus='activa'
+            AND d2.estatus='activo'
+            AND COALESCE(d2.precio,0)>0
+            AND (l2.canal IS NULL OR l2.canal='' OR l2.canal='general' OR l2.canal='pos')
+            AND (l2.id_almacen IS NULL OR l2.id_almacen=0)
+            AND (l2.fecha_inicio IS NULL OR l2.fecha_inicio<=NOW())
+            AND (l2.fecha_fin IS NULL OR l2.fecha_fin>=NOW())
+            AND (d2.fecha_inicio IS NULL OR d2.fecha_inicio<=NOW())
+            AND (d2.fecha_fin IS NULL OR d2.fecha_fin>=NOW())";
+        $orden = "CASE WHEN d2.id_sku=s.id_sku THEN 0 ELSE 1 END,
+            CASE WHEN l2.canal IS NULL OR l2.canal='' OR l2.canal='general' THEN 0 ELSE 1 END,
+            l2.prioridad ASC,
+            l2.id_lista_precio DESC,
+            d2.id_lista_precio_detalle DESC";
+        return ",
+            (
+                SELECT d2.precio
+                FROM erp_listas_precios_detalle d2
+                INNER JOIN erp_listas_precios l2 ON l2.id_lista_precio=d2.id_lista_precio
+                WHERE {$vigencia}
+                  AND (d2.id_sku=s.id_sku OR (d2.id_sku IS NULL AND d2.id_producto_erp=p.id_producto_erp))
+                ORDER BY {$orden}
+                LIMIT 1
+            ) AS precio_venta_estimado,
+            (
+                SELECT l2.nombre
+                FROM erp_listas_precios_detalle d2
+                INNER JOIN erp_listas_precios l2 ON l2.id_lista_precio=d2.id_lista_precio
+                WHERE {$vigencia}
+                  AND (d2.id_sku=s.id_sku OR (d2.id_sku IS NULL AND d2.id_producto_erp=p.id_producto_erp))
+                ORDER BY {$orden}
+                LIMIT 1
+            ) AS lista_precio_venta";
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-07
+     * Proposito: calcular valor de venta aproximado en listados de Sugerido sin guardar precio.
+     * Impacto: Compras/Sugerido; agrega comparativo por folio usando listas de precios activas.
+     * Contrato: solo resuelve por SKU ERP del detalle guardado; si no hay lista vigente devuelve cero.
+     */
+    private function sqlPrecioVentaEstimadoDetalleSugerido(PDO $db, $idSkuSql) {
+        if (!$this->tablaExiste($db, "erp_listas_precios") || !$this->tablaExiste($db, "erp_listas_precios_detalle")) {
+            return "0";
+        }
+        return "(SELECT d2.precio
+            FROM erp_listas_precios_detalle d2
+            INNER JOIN erp_listas_precios l2 ON l2.id_lista_precio=d2.id_lista_precio
+            WHERE l2.estatus='activa'
+              AND d2.estatus='activo'
+              AND COALESCE(d2.precio,0)>0
+              AND d2.id_sku={$idSkuSql}
+              AND (l2.canal IS NULL OR l2.canal='' OR l2.canal='general' OR l2.canal='pos')
+              AND (l2.id_almacen IS NULL OR l2.id_almacen=0)
+              AND (l2.fecha_inicio IS NULL OR l2.fecha_inicio<=NOW())
+              AND (l2.fecha_fin IS NULL OR l2.fecha_fin>=NOW())
+              AND (d2.fecha_inicio IS NULL OR d2.fecha_inicio<=NOW())
+              AND (d2.fecha_fin IS NULL OR d2.fecha_fin>=NOW())
+            ORDER BY
+              CASE WHEN l2.canal IS NULL OR l2.canal='' OR l2.canal='general' THEN 0 ELSE 1 END,
+              l2.prioridad ASC,
+              l2.id_lista_precio DESC,
+              d2.id_lista_precio_detalle DESC
+            LIMIT 1)";
     }
 
     private function schemaDisponible(PDO $db) {

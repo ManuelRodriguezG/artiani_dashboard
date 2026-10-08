@@ -13,6 +13,10 @@
     var catalogosFiltros = {marcas: [], categorias: [], proveedores: []};
     var productosPaginacion = {pagina: 1, limite: 120, total: 0, total_paginas: 1};
     var listas = [];
+    var clienteDetalle = null;
+    var clienteListas = [];
+    var clienteListaActiva = null;
+    var clienteListaProductos = [];
     var permisosComerciales = [];
     var permisosUi = window.DISTRIBUCION_ADMIN_PERMISOS || {};
     var seccionActiva = window.DISTRIBUCION_ADMIN_SECCION || "resumen";
@@ -237,7 +241,7 @@
     }
 
     function abrirWhatsAppActivacion(data) {
-        request("/DistribucionAdmin/cliente_activacion_link", data).then(function (response) {
+        request("/distribucionadmin/cliente_activacion_link", data).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var depurar = response.depurar || {};
             var cliente = depurar.cliente || {};
@@ -252,7 +256,7 @@
     }
 
     function generarLinkAccesoCliente(data) {
-        request("/DistribucionAdmin/cliente_activacion_link", data).then(function (response) {
+        request("/distribucionadmin/cliente_activacion_link", data).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var depurar = response.depurar || {};
             var cliente = depurar.cliente || {};
@@ -286,7 +290,7 @@
 
     function verAuditoriaCliente(idCliente) {
         var cliente = clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(idCliente); });
-        request("/DistribucionAdmin/cliente_auditoria?id_cliente_distribucion=" + encodeURIComponent(idCliente)).then(function (response) {
+        request("/distribucionadmin/cliente_auditoria?id_cliente_distribucion=" + encodeURIComponent(idCliente)).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var items = response.depurar && response.depurar.items ? response.depurar.items : [];
             var filas = items.map(function (item) {
@@ -335,6 +339,222 @@
                 escapeHtml((lista.codigo || "Lista") + " - " + lista.nombre) + "</option>";
         });
         return html;
+    }
+
+    function clienteIdActual() {
+        return Number(window.DISTRIBUCION_CLIENTE_ID || 0);
+    }
+
+    function clienteUrl(seccion, idCliente) {
+        return adminBase + "/" + seccion + "/" + encodeURIComponent(idCliente || clienteIdActual());
+    }
+
+    function resumenClienteHtml(cliente) {
+        if (!cliente) { return "<span class=\"text-muted\">Cliente no disponible</span>"; }
+        var negocio = cliente.nombre_negocio || cliente.empresa || "Sin negocio";
+        return "<div class=\"fw-bold fs-4 mb-1\">" + escapeHtml(cliente.nombre || "Cliente") + "</div>" +
+            "<div class=\"text-muted mb-4\">" + escapeHtml(negocio) + "</div>" +
+            "<div class=\"mb-2\"><i class=\"bi bi-envelope me-2\"></i>" + escapeHtml(cliente.correo || "Sin correo") + "</div>" +
+            "<div class=\"mb-2\"><i class=\"bi bi-telephone me-2\"></i>" + escapeHtml(cliente.telefono || "Sin telefono") + "</div>" +
+            "<div class=\"mb-2\"><i class=\"bi bi-geo-alt me-2\"></i>" + escapeHtml([cliente.ciudad, cliente.estado].filter(Boolean).join(", ") || "Sin ubicacion") + "</div>" +
+            "<div class=\"mt-4\">" + badge(cliente.estatus) + " <span class=\"badge badge-light ms-2\">" + escapeHtml(cliente.tipo_cliente || "sin tipo") + "</span></div>";
+    }
+
+    function actualizarLinksCliente() {
+        var id = clienteIdActual();
+        [
+            ["dist_cliente_nav_listas", "cliente_listas"],
+            ["dist_cliente_nav_permisos", "cliente_permisos"],
+            ["dist_cliente_nav_entrega", "cliente_entrega"],
+            ["dist_cliente_listas_volver", "cliente"],
+            ["dist_cliente_permisos_volver", "cliente"],
+            ["dist_cliente_entrega_volver", "cliente"]
+        ].forEach(function (item) {
+            var link = document.getElementById(item[0]);
+            if (link) { link.href = clienteUrl(item[1], id); }
+        });
+    }
+
+    function cargarClienteDetalle() {
+        var id = clienteIdActual();
+        if (!id) { return Promise.resolve(); }
+        return request("/distribucionadmin/cliente_detalle?id_cliente_distribucion=" + encodeURIComponent(id)).then(function (response) {
+            clienteDetalle = response.depurar && response.depurar.cliente ? response.depurar.cliente : null;
+            renderClienteDetalle();
+            renderPermisosClientePagina();
+            renderEntregaClientePagina();
+        });
+    }
+
+    function renderClienteDetalle() {
+        actualizarLinksCliente();
+        var resumen = document.getElementById("dist_cliente_resumen");
+        if (resumen) { resumen.innerHTML = resumenClienteHtml(clienteDetalle); }
+        var acciones = document.getElementById("dist_cliente_acciones");
+        if (!acciones || !clienteDetalle) { return; }
+        var id = clienteDetalle.id_cliente_distribucion;
+        var tarjetas = [
+            ["Listas y sublistas", "Define lista base, express o especial y el alcance de productos.", "bi-tags", "cliente_listas", "primary"],
+            ["Permisos", "Habilita acciones comerciales del portal para este cliente.", "bi-sliders", "cliente_permisos", "info"],
+            ["Entrega", "Configura envio, recoger y costo sugerido para pedidos.", "bi-truck", "cliente_entrega", "secondary"]
+        ];
+        acciones.innerHTML = tarjetas.map(function (item) {
+            return "<div class=\"col-md-4\"><a class=\"card border border-gray-200 h-100 text-decoration-none\" href=\"" + clienteUrl(item[3], id) + "\">" +
+                "<div class=\"card-body\"><div class=\"symbol symbol-45px mb-4\"><span class=\"symbol-label bg-light-" + item[4] + "\"><i class=\"bi " + item[2] + " fs-2 text-" + item[4] + "\"></i></span></div>" +
+                "<div class=\"fw-bold fs-5 text-gray-900 mb-2\">" + escapeHtml(item[0]) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item[1]) + "</div></div></a></div>";
+        }).join("");
+    }
+
+    function cargarListasCliente() {
+        var id = clienteIdActual();
+        if (!id) { return Promise.resolve(); }
+        return Promise.all([
+            cargarClienteDetalle(),
+            request("/distribucionadmin/cliente_listas_asignadas?id_cliente_distribucion=" + encodeURIComponent(id)).then(function (response) {
+                clienteListas = response.depurar && response.depurar.items ? response.depurar.items : [];
+            })
+        ]).then(function () {
+            renderListasClientePagina();
+        });
+    }
+
+    function renderListasClientePagina() {
+        actualizarLinksCliente();
+        var resumen = document.getElementById("dist_cliente_listas_resumen");
+        if (resumen) { resumen.innerHTML = resumenClienteHtml(clienteDetalle); }
+        var selectNueva = document.getElementById("dist_cliente_lista_nueva");
+        if (selectNueva) { selectNueva.innerHTML = getListaOptions(""); }
+        var contenedor = document.getElementById("dist_cliente_listas_asignadas");
+        if (!contenedor) { return; }
+        contenedor.innerHTML = clienteListas.map(function (item) {
+            var activa = clienteListaActiva && String(clienteListaActiva.id_cliente_lista) === String(item.id_cliente_lista);
+            return "<button type=\"button\" class=\"btn text-start " + (activa ? "btn-light-primary" : "btn-light") + "\" data-cliente-lista-seleccionar=\"" + escapeHtml(item.id_cliente_lista) + "\">" +
+                "<div class=\"fw-bold\">" + escapeHtml(item.alias || item.lista_nombre || ("Lista " + item.id_lista_precio)) + "</div>" +
+                "<div class=\"text-muted fs-8\">" + escapeHtml((item.tipo_lista || "base") + " / " + (item.modo_productos || "todos") + " / productos " + (item.productos_habilitados || 0)) + "</div>" +
+                "</button>";
+        }).join("") || "<div class=\"text-muted\">Este cliente todavia no tiene listas asignadas.</div>";
+        if (!clienteListaActiva && clienteListas.length) {
+            seleccionarListaCliente(clienteListas[0].id_cliente_lista);
+        }
+    }
+
+    function seleccionarListaCliente(idClienteLista) {
+        clienteListaActiva = clienteListas.filter(function (item) { return String(item.id_cliente_lista) === String(idClienteLista); })[0] || null;
+        renderListasClientePagina();
+        if (!clienteListaActiva) { return; }
+        var titulo = document.getElementById("dist_cliente_lista_activa");
+        if (titulo) {
+            titulo.textContent = (clienteListaActiva.lista_nombre || "Lista") + " / " + (clienteListaActiva.modo_productos || "todos");
+        }
+        cargarProductosListaCliente().catch(showError);
+    }
+
+    function cargarProductosListaCliente() {
+        if (!clienteListaActiva) { return Promise.resolve(); }
+        return request("/distribucionadmin/cliente_lista_productos?" + query({
+            id_cliente_lista: clienteListaActiva.id_cliente_lista,
+            id_lista_precio: clienteListaActiva.id_lista_precio,
+            q: selectValue("dist_cliente_lista_productos_buscar")
+        })).then(function (response) {
+            clienteListaProductos = response.depurar && response.depurar.items ? response.depurar.items : [];
+            renderProductosListaCliente();
+        });
+    }
+
+    function renderProductosListaCliente() {
+        var cuerpo = document.getElementById("dist_cliente_lista_productos");
+        if (!cuerpo) { return; }
+        cuerpo.innerHTML = clienteListaProductos.map(function (item) {
+            return "<tr><td><input class=\"form-check-input\" type=\"checkbox\" data-cliente-lista-producto=\"" + escapeHtml(item.id_sku) + "\"" + (Number(item.habilitado || 0) ? " checked" : "") + "></td>" +
+                "<td><div class=\"fw-semibold\">" + escapeHtml(item.nombre_sku || item.producto || "Producto") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div></td>" +
+                "<td>" + escapeHtml(item.sku || item.id_sku || "") + "</td><td class=\"text-end\">" + money(item.precio) + "</td></tr>";
+        }).join("") || "<tr><td colspan=\"4\" class=\"text-center text-muted py-10\">Sin productos en esta lista</td></tr>";
+    }
+
+    function guardarListaCliente() {
+        return request("/distribucionadmin/cliente_lista_guardar", {
+            id_cliente_distribucion: clienteIdActual(),
+            id_lista_precio: selectValue("dist_cliente_lista_nueva"),
+            tipo_lista: selectValue("dist_cliente_lista_tipo"),
+            modo_productos: selectValue("dist_cliente_lista_modo"),
+            principal: clienteListas.length ? 0 : 1
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo guardar la lista"); }
+            showOk(response.mensaje || "Lista guardada");
+            clienteListaActiva = null;
+            return cargarListasCliente();
+        });
+    }
+
+    function guardarProductosListaCliente() {
+        if (!clienteListaActiva) { return Promise.resolve(); }
+        var productosSeleccionados = Array.prototype.slice.call(document.querySelectorAll("[data-cliente-lista-producto]:checked")).map(function (input) {
+            return input.getAttribute("data-cliente-lista-producto");
+        });
+        return request("/distribucionadmin/cliente_lista_productos_guardar", {
+            id_cliente_distribucion: clienteIdActual(),
+            id_cliente_lista: clienteListaActiva.id_cliente_lista,
+            modo_productos: clienteListaActiva.modo_productos || "seleccionados",
+            productos: JSON.stringify(productosSeleccionados)
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudieron guardar productos"); }
+            showOk(response.mensaje || "Productos guardados");
+            return cargarListasCliente();
+        });
+    }
+
+    function renderPermisosClientePagina() {
+        actualizarLinksCliente();
+        var resumen = document.getElementById("dist_cliente_permisos_resumen");
+        if (resumen) { resumen.innerHTML = resumenClienteHtml(clienteDetalle); }
+        var contenedor = document.getElementById("dist_cliente_permisos_lista");
+        if (!contenedor || !clienteDetalle) { return; }
+        var activos = arraySeguro(clienteDetalle.permisos || []);
+        contenedor.innerHTML = permisosComerciales.map(function (permiso) {
+            var checked = activos.indexOf(permiso) !== -1 ? " checked" : "";
+            return "<div class=\"col-md-6 col-xl-4\"><label class=\"form-check form-check-custom form-check-solid border rounded p-4 h-100\">" +
+                "<input class=\"form-check-input\" type=\"checkbox\" data-cliente-permiso=\"" + escapeHtml(permiso) + "\"" + checked + ">" +
+                "<span class=\"form-check-label fw-semibold ms-3\">" + escapeHtml(permiso) + "</span></label></div>";
+        }).join("") || "<div class=\"text-muted\">No hay permisos configurados.</div>";
+    }
+
+    function guardarPermisosClientePagina() {
+        var permisos = Array.prototype.slice.call(document.querySelectorAll("[data-cliente-permiso]:checked")).map(function (input) {
+            return input.getAttribute("data-cliente-permiso");
+        });
+        return request("/distribucionadmin/asignar_permisos", {
+            id_cliente_distribucion: clienteIdActual(),
+            permisos: JSON.stringify(permisos)
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudieron guardar permisos"); }
+            showOk(response.mensaje || "Permisos guardados");
+            return cargarClienteDetalle();
+        });
+    }
+
+    function renderEntregaClientePagina() {
+        actualizarLinksCliente();
+        var resumen = document.getElementById("dist_cliente_entrega_resumen");
+        if (resumen) { resumen.innerHTML = resumenClienteHtml(clienteDetalle); }
+        if (!clienteDetalle || !document.getElementById("dist_cliente_entrega_metodo")) { return; }
+        document.getElementById("dist_cliente_entrega_metodo").value = clienteDetalle.metodo_entrega_default || "por_definir";
+        document.getElementById("dist_cliente_entrega_costo").value = clienteDetalle.costo_envio_default || 0;
+        document.getElementById("dist_cliente_entrega_envio").checked = Number(clienteDetalle.entrega_habilitar_envio || 0) === 1;
+        document.getElementById("dist_cliente_entrega_recoger").checked = Number(clienteDetalle.entrega_habilitar_recoger_tienda || 0) === 1;
+    }
+
+    function guardarEntregaClientePagina() {
+        return request("/distribucionadmin/cliente_entrega_configurar", {
+            id_cliente_distribucion: clienteIdActual(),
+            metodo_entrega_default: selectValue("dist_cliente_entrega_metodo"),
+            costo_envio_default: document.getElementById("dist_cliente_entrega_costo").value || 0,
+            entrega_habilitar_envio: document.getElementById("dist_cliente_entrega_envio").checked ? 1 : 0,
+            entrega_habilitar_recoger_tienda: document.getElementById("dist_cliente_entrega_recoger").checked ? 1 : 0
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo guardar entrega"); }
+            showOk(response.mensaje || "Entrega guardada");
+            return cargarClienteDetalle();
+        });
     }
 
     /**
@@ -397,7 +617,7 @@
 
     function renderSolicitudes() {
         if (!document.getElementById("dist_solicitudes_lista")) { return; }
-        var q = (document.getElementById("dist_solicitudes_buscar").value || "").toLowerCase();
+        var q = (selectValue("dist_solicitudes_buscar") || "").toLowerCase();
         var visibles = solicitudes.filter(function (item) {
             return [item.folio, item.nombre, item.nombre_negocio, item.empresa, item.correo, item.telefono, item.whatsapp, item.ciudad, item.estado, item.tipo_negocio].join(" ").toLowerCase().indexOf(q) !== -1;
         });
@@ -422,7 +642,7 @@
 
     function renderClientes() {
         if (!document.getElementById("dist_clientes_lista")) { return; }
-        var q = (document.getElementById("dist_clientes_buscar").value || "").toLowerCase();
+        var q = (selectValue("dist_clientes_buscar") || "").toLowerCase();
         var incompleto = selectValue("dist_clientes_incompletos");
         var visibles = clientes.filter(function (item) {
             if ([item.nombre, item.empresa, item.correo, item.telefono].join(" ").toLowerCase().indexOf(q) === -1) { return false; }
@@ -435,20 +655,16 @@
             var totalInventario = inventarios.filter(function (fila) { return String(fila.id_cliente_distribucion) === String(item.id_cliente_distribucion); }).length;
             var totalSugeridos = sugeridos.filter(function (fila) { return String(fila.id_cliente_distribucion) === String(item.id_cliente_distribucion); }).length;
             var totalPedidos = cotizaciones.filter(function (fila) { return String(fila.id_cliente_distribucion) === String(item.id_cliente_distribucion); }).length;
-            var tipo = permisosUi.editar
-                ? "<select class=\"form-select form-select-sm\" data-cliente-tipo=\"" + escapeHtml(item.id_cliente_distribucion) + "\">" +
-                  ["registrado", "revendedor", "mayorista", "distribuidor_autorizado"].map(function (tipoCliente) {
-                      return "<option value=\"" + tipoCliente + "\"" + (item.tipo_cliente === tipoCliente ? " selected" : "") + ">" + tipoCliente + "</option>";
-                  }).join("") + "</select>"
-                : escapeHtml(item.tipo_cliente);
-            var lista = permisosUi.asignar_precios
-                ? "<select class=\"form-select form-select-sm\" data-cliente-lista=\"" + escapeHtml(item.id_cliente_distribucion) + "\">" + getListaOptions(item.id_lista_precio) + "</select>"
-                : escapeHtml(item.lista_precio || "Sin lista");
-            var acciones = "";
+            var tipo = "<span class=\"badge badge-light\">" + escapeHtml(item.tipo_cliente || "sin tipo") + "</span>";
+            var lista = "<div class=\"fw-semibold\">" + escapeHtml(item.lista_precio || "Sin lista base") + "</div>" +
+                "<div class=\"text-muted fs-8\">Configurar desde Listas</div>";
+            var acciones = "<a class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Atender\" href=\"" + clienteUrl("cliente", item.id_cliente_distribucion) + "\"><i class=\"bi bi-person-lines-fill\"></i></a> ";
             if (permisosUi.editar) {
-                acciones += "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Permisos\" data-cliente-permisos=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-sliders\"></i></button> ";
-                acciones += "<button class=\"btn btn-sm btn-icon btn-light-secondary\" title=\"Entrega\" data-cliente-entrega=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-truck\"></i></button> ";
-                acciones += "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"Catalogo\" data-cliente-catalogo=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-journal-check\"></i></button> ";
+                acciones += "<a class=\"btn btn-sm btn-icon btn-light-info\" title=\"Permisos\" href=\"" + clienteUrl("cliente_permisos", item.id_cliente_distribucion) + "\"><i class=\"bi bi-sliders\"></i></a> ";
+                acciones += "<a class=\"btn btn-sm btn-icon btn-light-secondary\" title=\"Entrega\" href=\"" + clienteUrl("cliente_entrega", item.id_cliente_distribucion) + "\"><i class=\"bi bi-truck\"></i></a> ";
+            }
+            if (permisosUi.asignar_precios) {
+                acciones += "<a class=\"btn btn-sm btn-icon btn-light-success\" title=\"Listas\" href=\"" + clienteUrl("cliente_listas", item.id_cliente_distribucion) + "\"><i class=\"bi bi-tags\"></i></a> ";
             }
             acciones += "<button class=\"btn btn-sm btn-icon btn-light-info\" title=\"Historial de acceso\" data-cliente-auditoria=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-clock-history\"></i></button> ";
             if (item.telefono) {
@@ -522,7 +738,7 @@
     function renderSurtidos() {
         var lista = document.getElementById("dist_mi_catalogo_lista");
         if (!lista) { return; }
-        var q = (document.getElementById("dist_mi_catalogo_buscar").value || "").toLowerCase();
+        var q = (selectValue("dist_mi_catalogo_buscar") || "").toLowerCase();
         var visibles = miCatalogoClientes.filter(function (item) { return filtroTexto(item).indexOf(q) !== -1; });
         document.getElementById("dist_mi_catalogo_total").textContent = visibles.length;
         lista.innerHTML = visibles.map(function (item) {
@@ -551,7 +767,8 @@
     }
 
     function renderInventarios() {
-        var q = (document.getElementById("dist_inventarios_buscar").value || "").toLowerCase();
+        if (!document.getElementById("dist_inventarios_lista")) { return; }
+        var q = (selectValue("dist_inventarios_buscar") || "").toLowerCase();
         var estado = selectValue("dist_inventarios_estado");
         var visibles = inventarios.filter(function (item) {
             if (filtroTexto(item).indexOf(q) === -1) { return false; }
@@ -563,7 +780,8 @@
     }
 
     function renderSugeridos() {
-        var q = (document.getElementById("dist_sugeridos_buscar").value || "").toLowerCase();
+        if (!document.getElementById("dist_sugeridos_lista")) { return; }
+        var q = (selectValue("dist_sugeridos_buscar") || "").toLowerCase();
         var visibles = sugeridos.filter(function (item) { return filtroTexto(item).indexOf(q) !== -1; });
         renderInventarioTabla(visibles, "dist_sugeridos_lista", "dist_sugeridos_total", "Sin sugeridos de resurtido");
     }
@@ -622,8 +840,8 @@
     }
 
     function cargarSolicitudes() {
-        var estatus = document.getElementById("dist_solicitudes_estatus").value;
-        return request("/DistribucionAdmin/solicitudes?limite=100&estatus=" + encodeURIComponent(estatus)).then(function (response) {
+        var estatus = selectValue("dist_solicitudes_estatus");
+        return request("/distribucionadmin/solicitudes?limite=100&estatus=" + encodeURIComponent(estatus)).then(function (response) {
             solicitudes = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderSolicitudes();
         });
@@ -631,14 +849,14 @@
 
     function cargarClientes() {
         var estatus = selectValue("dist_clientes_estatus");
-        return request("/DistribucionAdmin/clientes?limite=100&estatus=" + encodeURIComponent(estatus)).then(function (response) {
+        return request("/distribucionadmin/clientes?limite=100&estatus=" + encodeURIComponent(estatus)).then(function (response) {
             clientes = response.depurar && response.depurar.items ? response.depurar.items : [];
             renderClientes();
         });
     }
 
     function cargarCotizaciones() {
-        return request("/DistribucionAdmin/cotizaciones?" + query({
+        return request("/distribucionadmin/cotizaciones?" + query({
             limite: 100,
             estatus: selectValue("dist_cotizaciones_estatus"),
             q: selectValue("dist_cotizaciones_buscar"),
@@ -651,7 +869,7 @@
     }
 
     function cargarSurtidos() {
-        return request("/DistribucionAdmin/cliente_mi_catalogo?" + query({
+        return request("/distribucionadmin/cliente_mi_catalogo?" + query({
             limite: 200,
             q: selectValue("dist_mi_catalogo_buscar"),
             id_marca_erp: selectValue("dist_mi_catalogo_marca"),
@@ -664,7 +882,7 @@
     }
 
     function cargarInventarios() {
-        return request("/DistribucionAdmin/cliente_inventarios?" + query({
+        return request("/distribucionadmin/cliente_inventarios?" + query({
             limite: 200,
             q: selectValue("dist_inventarios_buscar"),
             id_marca_erp: selectValue("dist_inventarios_marca"),
@@ -677,7 +895,7 @@
     }
 
     function cargarSugeridos() {
-        return request("/DistribucionAdmin/cliente_sugeridos?" + query({
+        return request("/distribucionadmin/cliente_sugeridos?" + query({
             limite: 200,
             q: selectValue("dist_sugeridos_buscar"),
             id_marca_erp: selectValue("dist_sugeridos_marca"),
@@ -694,7 +912,7 @@
         var input = document.getElementById("dist_productos_buscar");
         if (input) { q = input.value || ""; }
         productosPaginacion.limite = Number(selectValue("dist_productos_limite") || productosPaginacion.limite || 120);
-        return request("/DistribucionAdmin/skus_publicables?" + query(productosQueryFiltros(productosPaginacion.limite, productosPaginacion.pagina))).then(function (response) {
+        return request("/distribucionadmin/skus_publicables?" + query(productosQueryFiltros(productosPaginacion.limite, productosPaginacion.pagina))).then(function (response) {
             productos = response.depurar && response.depurar.items ? response.depurar.items : [];
             productosPaginacion = response.depurar && response.depurar.paginacion ? response.depurar.paginacion : productosPaginacion;
             renderProductos();
@@ -728,21 +946,21 @@
     }
 
     function cargarResumen() {
-        return request("/DistribucionAdmin/resumen").then(function (response) {
+        return request("/distribucionadmin/resumen").then(function (response) {
             resumen = response.depurar || {};
             renderResumen();
         });
     }
 
     function cargarDemanda() {
-        return request("/DistribucionAdmin/demanda").then(function (response) {
+        return request("/distribucionadmin/demanda").then(function (response) {
             demanda = response.depurar || {};
             renderDemanda();
         });
     }
 
     function cargarCatalogosFiltros() {
-        return request("/DistribucionAdmin/catalogos_filtros").then(function (response) {
+        return request("/distribucionadmin/catalogos_filtros").then(function (response) {
             catalogosFiltros = response.depurar || {marcas: [], categorias: [], proveedores: []};
             llenarSelect(".dist-filtro-marca", catalogosFiltros.marcas || [], "Marca");
             llenarSelect(".dist-filtro-categoria", catalogosFiltros.categorias || [], "Categoria");
@@ -753,12 +971,12 @@
     function cargarAuxiliares() {
         var promesas = [];
         if (permisosUi.asignar_precios) {
-            promesas.push(request("/DistribucionAdmin/listas_precios").then(function (response) {
+            promesas.push(request("/distribucionadmin/listas_precios").then(function (response) {
                 listas = response.depurar && response.depurar.items ? response.depurar.items : [];
             }));
         }
         if (permisosUi.editar) {
-            promesas.push(request("/DistribucionAdmin/permisos_comerciales").then(function (response) {
+            promesas.push(request("/distribucionadmin/permisos_comerciales").then(function (response) {
                 permisosComerciales = response.depurar && response.depurar.items ? response.depurar.items : [];
             }));
         }
@@ -776,6 +994,18 @@
             }
             if (seccionActiva === "clientes") {
                 return Promise.all([cargarClientes(), cargarCotizaciones(), cargarSurtidos(), cargarInventarios(), cargarSugeridos()]).then(function () { renderClientes(); });
+            }
+            if (seccionActiva === "cliente") {
+                return cargarClienteDetalle();
+            }
+            if (seccionActiva === "cliente_listas") {
+                return cargarListasCliente();
+            }
+            if (seccionActiva === "cliente_permisos") {
+                return Promise.all([cargarClienteDetalle()]);
+            }
+            if (seccionActiva === "cliente_entrega") {
+                return cargarClienteDetalle();
             }
             if (seccionActiva === "pedidos") {
                 return cargarCotizaciones();
@@ -840,7 +1070,7 @@
             }
         }).then(function (result) {
             if (!result.isConfirmed) { return; }
-            request("/DistribucionAdmin/cliente_aprobar", {
+            request("/distribucionadmin/cliente_aprobar", {
                 id_solicitud_distribucion: id,
                 contrasenia: result.value.contrasenia || "",
                 id_lista_precio: result.value.id_lista_precio || "",
@@ -855,7 +1085,7 @@
     }
 
     function verSolicitud(id) {
-        request("/DistribucionAdmin/solicitud_detalle?id_solicitud_distribucion=" + encodeURIComponent(id)).then(function (response) {
+        request("/distribucionadmin/solicitud_detalle?id_solicitud_distribucion=" + encodeURIComponent(id)).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var item = response.depurar && response.depurar.solicitud ? response.depurar.solicitud : null;
             if (!item) { throw new Error("Solicitud no encontrada"); }
@@ -979,7 +1209,7 @@
             Swal.fire({text: "Cliente no encontrado en la lista actual.", icon: "warning", confirmButtonText: "Aceptar"});
             return;
         }
-        request("/DistribucionAdmin/cliente_catalogo_reglas?id_cliente_distribucion=" + encodeURIComponent(idCliente)).then(function (response) {
+        request("/distribucionadmin/cliente_catalogo_reglas?id_cliente_distribucion=" + encodeURIComponent(idCliente)).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var reglas = response.depurar && response.depurar.items ? response.depurar.items : [];
             var permitidosActivos = reglas.filter(function (regla) { return regla.accion === "permitir" && regla.estatus === "activo"; }).length;
@@ -1032,7 +1262,7 @@
 
     function guardarCatalogoPreferenciasCliente(idCliente) {
         var modo = selectValue("dist_catalogo_cliente_modo") || "general";
-        request("/DistribucionAdmin/cliente_catalogo_preferencias", {
+        request("/distribucionadmin/cliente_catalogo_preferencias", {
             id_cliente_distribucion: idCliente,
             catalogo_modo: modo,
             categorias_interes: JSON.stringify(arraySeguro((clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(idCliente); }) || {}).categorias_interes))
@@ -1061,7 +1291,7 @@
             origen: "admin"
         };
         data[tipo === "sku" ? "id_sku" : (tipo === "categoria" ? "id_categoria_erp" : "id_marca_erp")] = objeto;
-        request("/DistribucionAdmin/cliente_catalogo_regla_guardar", data).then(function (response) {
+        request("/distribucionadmin/cliente_catalogo_regla_guardar", data).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             showOk(response.mensaje);
             verCatalogoCliente(idCliente);
@@ -1102,7 +1332,7 @@
             }
         }).then(function (result) {
             if (!result.isConfirmed) { return; }
-            accionSimple("/DistribucionAdmin/asignar_permisos", {id_cliente_distribucion: idCliente, permisos: JSON.stringify(result.value || [])});
+            accionSimple("/distribucionadmin/asignar_permisos", {id_cliente_distribucion: idCliente, permisos: JSON.stringify(result.value || [])});
         });
     }
 
@@ -1132,7 +1362,7 @@
             }
         }).then(function (result) {
             if (!result.isConfirmed) { return; }
-            accionSimple("/DistribucionAdmin/cliente_entrega_configurar", Object.assign({id_cliente_distribucion: idCliente}, result.value || {}));
+            accionSimple("/distribucionadmin/cliente_entrega_configurar", Object.assign({id_cliente_distribucion: idCliente}, result.value || {}));
         });
     }
 
@@ -1222,7 +1452,7 @@
     }
 
     function verCotizacionDetalle(idCotizacion) {
-        request("/DistribucionAdmin/cotizacion_detalle?id_cotizacion_distribucion=" + encodeURIComponent(idCotizacion)).then(function (response) {
+        request("/distribucionadmin/cotizacion_detalle?id_cotizacion_distribucion=" + encodeURIComponent(idCotizacion)).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var cotizacion = response.depurar && response.depurar.cotizacion ? response.depurar.cotizacion : {};
             var items = response.depurar && response.depurar.items ? response.depurar.items : [];
@@ -1309,7 +1539,7 @@
     }
 
     function guardarEntregaCotizacion(idCotizacion) {
-        request("/DistribucionAdmin/cotizacion_entrega_guardar", {
+        request("/distribucionadmin/cotizacion_entrega_guardar", {
             id_cotizacion_distribucion: idCotizacion,
             tipo_entrega: (document.getElementById("dist_pedido_tipo_entrega") || {}).value || "por_definir",
             costo_envio: (document.getElementById("dist_pedido_costo_envio") || {}).value || "0",
@@ -1369,7 +1599,7 @@
             }
         }).then(function (result) {
             if (!result.isConfirmed) { return; }
-            request("/DistribucionAdmin/cotizacion_item_revision", {
+            request("/distribucionadmin/cotizacion_item_revision", {
                 id_cotizacion_item: item.id_cotizacion_item,
                 cantidad_confirmada: result.value.cantidad_confirmada,
                 estatus_revision: result.value.estatus_revision,
@@ -1506,7 +1736,7 @@
         var pagina = 1;
         var totalPaginas = 1;
         function cargarPagina() {
-            return request("/DistribucionAdmin/skus_publicables?" + query(productosQueryFiltros(300, pagina))).then(function (response) {
+            return request("/distribucionadmin/skus_publicables?" + query(productosQueryFiltros(300, pagina))).then(function (response) {
                 if (response.error) { throw new Error(response.mensaje); }
                 var depurar = response.depurar || {};
                 var items = depurar.items || [];
@@ -1564,7 +1794,7 @@
     }
 
     function ejecutarProductosLote(accion, items) {
-        var url = accion === "publicar" ? "/DistribucionAdmin/publicar_sku" : "/DistribucionAdmin/desactivar_sku";
+        var url = accion === "publicar" ? "/distribucionadmin/publicar_sku" : "/distribucionadmin/desactivar_sku";
         var total = items.length;
         var ok = 0;
         var errores = [];
@@ -1603,7 +1833,7 @@
         var secuencia = Promise.resolve();
         items.forEach(function (item) {
             secuencia = secuencia.then(function () {
-                return request("/DistribucionAdmin/cliente_catalogo_regla_guardar", {
+                return request("/distribucionadmin/cliente_catalogo_regla_guardar", {
                     id_cliente_distribucion: config.id_cliente_distribucion,
                     tipo_regla: "sku",
                     id_sku: item.id_sku,
@@ -1653,6 +1883,20 @@
             confirmarProductosLote("desactivar");
         } else if (button.id === "dist_productos_asignar_cliente") {
             confirmarAsignarProductosCliente();
+        } else if (button.id === "dist_cliente_lista_guardar") {
+            guardarListaCliente().catch(showError);
+        } else if (button.id === "dist_cliente_lista_productos_guardar") {
+            guardarProductosListaCliente().catch(showError);
+        } else if (button.id === "dist_cliente_lista_productos_todos") {
+            document.querySelectorAll("[data-cliente-lista-producto]").forEach(function (input) { input.checked = true; });
+        } else if (button.id === "dist_cliente_lista_productos_limpiar") {
+            document.querySelectorAll("[data-cliente-lista-producto]").forEach(function (input) { input.checked = false; });
+        } else if (button.id === "dist_cliente_permisos_guardar") {
+            guardarPermisosClientePagina().catch(showError);
+        } else if (button.id === "dist_cliente_entrega_guardar") {
+            guardarEntregaClientePagina().catch(showError);
+        } else if (button.hasAttribute("data-cliente-lista-seleccionar")) {
+            seleccionarListaCliente(button.getAttribute("data-cliente-lista-seleccionar"));
         } else if (button.hasAttribute("data-solicitud-aprobar")) {
             aprobarSolicitud(button.getAttribute("data-solicitud-aprobar"));
         } else if (button.hasAttribute("data-solicitud-detalle")) {
@@ -1670,9 +1914,9 @@
                 abrirWhatsApp(solicitud);
             }
         } else if (button.hasAttribute("data-solicitud-rechazar")) {
-            accionSimple("/DistribucionAdmin/cliente_rechazar", {id_solicitud_distribucion: button.getAttribute("data-solicitud-rechazar")});
+            accionSimple("/distribucionadmin/cliente_rechazar", {id_solicitud_distribucion: button.getAttribute("data-solicitud-rechazar")});
         } else if (button.hasAttribute("data-cliente-suspender")) {
-            accionSimple("/DistribucionAdmin/cliente_suspendir", {id_cliente_distribucion: button.getAttribute("data-cliente-suspender")});
+            accionSimple("/distribucionadmin/cliente_suspendir", {id_cliente_distribucion: button.getAttribute("data-cliente-suspender")});
         } else if (button.hasAttribute("data-cliente-permisos")) {
             editarPermisos(button.getAttribute("data-cliente-permisos"));
         } else if (button.hasAttribute("data-cliente-entrega")) {
@@ -1696,14 +1940,14 @@
         } else if (button.hasAttribute("data-cotizacion-detalle")) {
             verCotizacionDetalle(button.getAttribute("data-cotizacion-detalle"));
         } else if (button.hasAttribute("data-cotizacion")) {
-            accionSimple("/DistribucionAdmin/cotizacion_accion_plan", {
+            accionSimple("/distribucionadmin/cotizacion_accion_plan", {
                 id_cotizacion_distribucion: button.getAttribute("data-cotizacion"),
                 accion: button.getAttribute("data-cotizacion-accion")
             });
         } else if (button.hasAttribute("data-sku-publicar")) {
-            accionSimple("/DistribucionAdmin/publicar_sku", {id_sku: button.getAttribute("data-sku-publicar")});
+            accionSimple("/distribucionadmin/publicar_sku", {id_sku: button.getAttribute("data-sku-publicar")});
         } else if (button.hasAttribute("data-sku-desactivar")) {
-            accionSimple("/DistribucionAdmin/desactivar_sku", {
+            accionSimple("/distribucionadmin/desactivar_sku", {
                 id_sku: button.getAttribute("data-sku-desactivar"),
                 id_canal_vinculo: button.getAttribute("data-vinculo")
             });
@@ -1741,12 +1985,12 @@
         } else if (event.target.id === "dist_productos_marca" || event.target.id === "dist_productos_categoria" || event.target.id === "dist_productos_proveedor" || event.target.id === "dist_productos_canal" || event.target.id === "dist_productos_precio" || event.target.id === "dist_productos_imagen" || event.target.id === "dist_productos_ficha") {
             reiniciarProductosYCargar().catch(showError);
         } else if (event.target.hasAttribute("data-cliente-tipo")) {
-            accionSimple("/DistribucionAdmin/asignar_tipo_cliente", {
+            accionSimple("/distribucionadmin/asignar_tipo_cliente", {
                 id_cliente_distribucion: event.target.getAttribute("data-cliente-tipo"),
                 tipo_cliente: event.target.value
             });
         } else if (event.target.hasAttribute("data-cliente-lista") && event.target.value) {
-            accionSimple("/DistribucionAdmin/asignar_lista_precio", {
+            accionSimple("/distribucionadmin/asignar_lista_precio", {
                 id_cliente_distribucion: event.target.getAttribute("data-cliente-lista"),
                 id_lista_precio: event.target.value
             });
@@ -1758,6 +2002,8 @@
             renderSolicitudes();
         } else if (event.target.id === "dist_clientes_buscar") {
             renderClientes();
+        } else if (event.target.id === "dist_cliente_lista_productos_buscar") {
+            cargarProductosListaCliente().catch(showError);
         } else if (event.target.id === "dist_mi_catalogo_buscar") {
             renderSurtidos();
         } else if (event.target.id === "dist_inventarios_buscar") {

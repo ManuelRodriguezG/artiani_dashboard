@@ -340,15 +340,15 @@ $gruposMenu = array(
         'icono' => 'bi-box-arrow-up-right',
         'permiso' => 'distribucion.ver',
         'items' => array(
-            array('titulo' => 'Resumen', 'ruta' => '/DistribucionAdmin/panel_resumen', 'permiso' => 'distribucion.ver'),
-            array('titulo' => 'Solicitudes', 'ruta' => '/DistribucionAdmin/panel_solicitudes', 'permiso' => 'distribucion.ver'),
-            array('titulo' => 'Clientes', 'ruta' => '/DistribucionAdmin/panel_clientes', 'permiso' => 'distribucion.ver'),
-            array('titulo' => 'Pedidos', 'ruta' => '/DistribucionAdmin/panel_pedidos', 'permiso' => 'distribucion.cotizaciones.ver'),
-            array('titulo' => 'Mi catalogo', 'ruta' => '/DistribucionAdmin/panel_mi_catalogo', 'permiso' => 'distribucion.ver'),
-            array('titulo' => 'Inventarios', 'ruta' => '/DistribucionAdmin/panel_inventarios', 'permiso' => 'distribucion.ver'),
-            array('titulo' => 'Sugeridos', 'ruta' => '/DistribucionAdmin/panel_sugeridos', 'permiso' => 'distribucion.ver'),
-            array('titulo' => 'Productos', 'ruta' => '/DistribucionAdmin/panel_productos', 'permiso' => 'distribucion.editar'),
-            array('titulo' => 'Demanda', 'ruta' => '/DistribucionAdmin/panel_demanda', 'permiso' => 'distribucion.ver')
+            array('titulo' => 'Resumen', 'ruta' => '/distribucionadmin/panel_resumen', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Solicitudes', 'ruta' => '/distribucionadmin/panel_solicitudes', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Clientes', 'ruta' => '/distribucionadmin/panel_clientes', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Pedidos', 'ruta' => '/distribucionadmin/panel_pedidos', 'permiso' => 'distribucion.cotizaciones.ver'),
+            array('titulo' => 'Mi catalogo', 'ruta' => '/distribucionadmin/panel_mi_catalogo', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Inventarios', 'ruta' => '/distribucionadmin/panel_inventarios', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Sugeridos', 'ruta' => '/distribucionadmin/panel_sugeridos', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Productos', 'ruta' => '/distribucionadmin/panel_productos', 'permiso' => 'distribucion.editar'),
+            array('titulo' => 'Demanda', 'ruta' => '/distribucionadmin/panel_demanda', 'permiso' => 'distribucion.ver')
         )
     ),
     array(
@@ -537,3 +537,4 @@ window.ERP_CSRF_TOKEN = <?= json_encode(Sesionseguridad::csrfToken()) ?>;
 </script>
 <script src="/assets/js/custom/security/session-guard.js"></script>
 <script src="/assets/js/custom/apps/erp/notificaciones/notificaciones.js?v=20260616-1"></script>
+

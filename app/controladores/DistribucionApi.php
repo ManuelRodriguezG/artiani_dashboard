@@ -338,6 +338,34 @@ class DistribucionApi extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-07
+   * Proposito: enrutar notificaciones comerciales del portal externo Distribucion.
+   * Impacto: Portal Distribucion; listado, contador, lectura y solicitud de reenvio viven en ERP.
+   * Contrato: GET resumen/listar y POST marcar_leida/enviar autenticados por token externo.
+   */
+  public function notificacion($accion = "") {
+    if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    $notificaciones = $this->notificacionesDistribucion();
+    if ($accion === "" || $accion === "resumen") {
+      return $this->responderApiDistribucion($notificaciones->resumen($this->contextoCliente()));
+    }
+    if ($accion === "listar") {
+      return $this->responderApiDistribucion($notificaciones->listar($_GET, $this->contextoCliente()));
+    }
+    if (!$this->esPostDistribucion()) {
+      return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("notificacion/" . $accion));
+    }
+    if ($accion === "marcar_leida") {
+      return $this->responderApiDistribucion($notificaciones->marcarLeida($this->entradaJsonDistribucion(), $this->contextoCliente()));
+    }
+    if ($accion === "enviar") {
+      return $this->responderApiDistribucion($notificaciones->enviar($this->entradaJsonDistribucion(), $this->contextoCliente()));
+    }
+    return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("notificacion/" . $accion));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: estandarizar headers de la API Distribucion y CORS restringido.
    * Impacto: Seguridad API; solo permite origenes autorizados sin abrir credenciales a cualquier dominio.
@@ -401,5 +429,10 @@ class DistribucionApi extends Controlador {
 
   private function contextoCliente() {
     return $this->modelo("DistribucionPermisosApi")->contextoDesdeRequest();
+  }
+
+  private function notificacionesDistribucion() {
+    require_once RUTA_APP . "/modelos/distribucionnotificacionesapi.php";
+    return new DistribucionNotificacionesApi();
   }
 }

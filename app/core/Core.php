@@ -45,7 +45,7 @@
 				// IA: Codex GPT-6 | 2026-09-30 | PIT nace como modulo independiente protegido antes de integrarse a Catalogo/CMS.
 				'pit',
 				'Paquetes', 'Producto', 'Produccion', 'Proveedor', 'Proyecto', 'Rentabilidad', 'Sistema', 'Sucursal', 'Tms', 'Users', 'Usuario',
-				'DistribucionAdmin',
+				'distribucionadmin',
 				'Utilidad', 'Ventas'
 			);
 			if ($this->controladorProtegido($this->controladorActual, $controladoresProtegidos)) {
@@ -88,22 +88,22 @@
 				'Sistema.seguridad_usuario_estatus',
 				'Sistema.seguridad_usuario_crear',
 				'Sistema.seguridad_usuario_editar',
-				'DistribucionAdmin.cliente_aprobar',
-				'DistribucionAdmin.cliente_rechazar',
-				'DistribucionAdmin.cliente_suspendir',
-				'DistribucionAdmin.asignar_tipo_cliente',
-				'DistribucionAdmin.asignar_lista_precio',
-				'DistribucionAdmin.asignar_permisos',
-				'DistribucionAdmin.cliente_activacion_link',
-				'DistribucionAdmin.cliente_entrega_configurar',
-				'DistribucionAdmin.cliente_catalogo_preferencias',
-				'DistribucionAdmin.cliente_catalogo_regla_guardar',
-				'DistribucionAdmin.publicar_sku',
-				'DistribucionAdmin.desactivar_sku',
-				'DistribucionAdmin.cotizacion_accion_plan',
-				'DistribucionAdmin.cotizacion_item_revision',
-				'DistribucionAdmin.cotizacion_entrega_guardar',
-				'DistribucionAdmin.cotizacion_convertir_plan',
+				'distribucionadmin.cliente_aprobar',
+				'distribucionadmin.cliente_rechazar',
+				'distribucionadmin.cliente_suspendir',
+				'distribucionadmin.asignar_tipo_cliente',
+				'distribucionadmin.asignar_lista_precio',
+				'distribucionadmin.asignar_permisos',
+				'distribucionadmin.cliente_activacion_link',
+				'distribucionadmin.cliente_entrega_configurar',
+				'distribucionadmin.cliente_catalogo_preferencias',
+				'distribucionadmin.cliente_catalogo_regla_guardar',
+				'distribucionadmin.publicar_sku',
+				'distribucionadmin.desactivar_sku',
+				'distribucionadmin.cotizacion_accion_plan',
+				'distribucionadmin.cotizacion_item_revision',
+				'distribucionadmin.cotizacion_entrega_guardar',
+				'distribucionadmin.cotizacion_convertir_plan',
 				'CatalogoErp.registrar',
 				'CatalogoErp.actualizar',
 				'CatalogoErp.agregar_sku',
@@ -201,12 +201,15 @@
 				'MigracionBd.esquema_actualizar'
 			);
 			$rutaAccion = $nombreControlador . '.' . $this->metodoActual;
-			if ($esPostAutenticado && !in_array($rutaAccion, $csrfExentos, true)) {
+			$rutaAccionNormalizada = strtolower($rutaAccion);
+			$csrfExentosNormalizados = array_map('strtolower', $csrfExentos);
+			$auditoriaExplicitaNormalizada = array_map('strtolower', $auditoriaExplicita);
+			if ($esPostAutenticado && !in_array($rutaAccionNormalizada, $csrfExentosNormalizados, true)) {
 				Sesionseguridad::requerirCsrf();
 			}
 
 			$resultado = call_user_func_array([$this->controladorActual,$this->metodoActual],$this->parametros);
-			if ($esPostAutenticado && strpos($rutaAccion, 'Autenticacion.') !== 0 && !in_array($rutaAccion, $auditoriaExplicita, true)) {
+			if ($esPostAutenticado && strpos($rutaAccionNormalizada, 'autenticacion.') !== 0 && !in_array($rutaAccionNormalizada, $auditoriaExplicitaNormalizada, true)) {
 				Sesionseguridad::registrarAuditoria(strtolower($nombreControlador), $this->metodoActual, array(
 					'resultado' => http_response_code() >= 400 ? 'error' : 'ok',
 					'mensaje' => 'Peticion POST ejecutada',
@@ -238,6 +241,11 @@
 			}
 
 			$directorio = RUTA_APP.'/controladores/';
+			// IA: Codex GPT-5 | 2026-10-08 | Permite controladores con archivo canonico en minusculas antes del fallback legacy.
+			if(file_exists($directorio.$segmento.'.php')){
+				return $segmento;
+			}
+
 			$candidato = ucwords($segmento);
 			if(file_exists($directorio.$candidato.'.php')){
 				return $candidato;

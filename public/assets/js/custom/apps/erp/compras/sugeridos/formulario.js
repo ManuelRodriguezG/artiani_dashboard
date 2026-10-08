@@ -114,6 +114,9 @@
             cantidad_solicitar: Object.prototype.hasOwnProperty.call(x, "cantidad_solicitar") ? numero(x.cantidad_solicitar) : numero(x.cantidad_sugerida || 0),
             cantidad_solicitar_manual: Object.prototype.hasOwnProperty.call(x, "cantidad_solicitar") ? 1 : 0,
             costo_estimado: numero(x.costo_estimado || x.costo_ultimo || 0),
+            precio_venta_estimado: numero(x.precio_venta_estimado || 0),
+            lista_precio_venta: x.lista_precio_venta || "",
+            fuente_precio_venta: x.fuente_precio_venta || "",
             observaciones: ""
         };
     }
@@ -243,6 +246,9 @@
                     x.cantidad_solicitar = numero(x.cantidad_solicitar || 0);
                     x.cantidad_solicitar_manual = 1;
                     x.costo_estimado = numero(x.costo_estimado || 0);
+                    x.precio_venta_estimado = numero(x.precio_venta_estimado || 0);
+                    x.lista_precio_venta = x.lista_precio_venta || "";
+                    x.fuente_precio_venta = x.fuente_precio_venta || "";
                     x.imagen_portada = x.imagen_portada || x.url_imagen || x.imagen || "";
                     return x;
                 });
@@ -385,18 +391,22 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-27
-     * Proposito: mostrar el valor aproximado levantado en mini inventarios sin afectar inventario real.
-     * Impacto: UX Compras/Sugerido; calcula solo en pantalla con existencia revisada x costo estimado.
+     * Proposito: mostrar valores aproximados de compra, inventario y venta sin afectar inventario real.
+     * Impacto: UX Compras/Sugerido; calcula solo en pantalla con costos/precios vigentes consultados.
+     * Actualizacion IA: Codex GPT-5 | Fecha: 2026-10-07
+     * Regla: venta aproximada usa cantidad a solicitar x precio vigente de listas ERP cuando exista.
      */
     function actualizarResumen() {
         var totalPiezas = items.reduce(function (t, x) { return t + Number(x.cantidad_solicitar || 0); }, 0);
         var total = items.reduce(function (t, x) { return t + Number(x.cantidad_solicitar || 0) * Number(x.costo_estimado || 0); }, 0);
+        var totalVenta = items.reduce(function (t, x) { return t + Number(x.cantidad_solicitar || 0) * Number(x.precio_venta_estimado || 0); }, 0);
         var totalExistenciaRevisada = items.reduce(function (t, x) { return t + Number(x.existencia_revisada || 0); }, 0);
         var totalInventarioEstimado = items.reduce(function (t, x) {
             return t + Number(x.existencia_revisada || 0) * Number(x.costo_estimado || 0);
         }, 0);
         document.getElementById("sugerido_total_piezas").textContent = totalPiezas.toFixed(6);
         document.getElementById("sugerido_total").textContent = money(total);
+        document.getElementById("sugerido_total_venta").textContent = money(totalVenta);
         document.getElementById("sugerido_total_existencia_revisada").textContent = totalExistenciaRevisada.toFixed(6);
         document.getElementById("sugerido_total_inventario_estimado").textContent = money(totalInventarioEstimado);
         document.getElementById("sugerido_resumen").textContent = items.length + " productos consultados; " +
@@ -428,6 +438,8 @@
         document.getElementById("sugerido_items").innerHTML = visibles.map(function (x) {
             var i = items.indexOf(x);
             var maximo = x.stock_maximo === null || x.stock_maximo === "" ? "-" : Number(x.stock_maximo || 0).toFixed(2);
+            var precioVenta = Number(x.precio_venta_estimado || 0);
+            var listaVenta = x.lista_precio_venta ? "<div class=\"text-muted fs-8\">" + esc(x.lista_precio_venta) + "</div>" : "<div class=\"text-muted fs-8\">Sin precio</div>";
             return "<tr id=\"sugerido_item_" + i + "\" class=\"" + (i === partidaEnfocada ? "table-warning" : "") + "\">" +
                 "<td><div class=\"d-flex align-items-center gap-3\">" + productoImagenHtml(x, "sugerido-producto-imagen--md") + "<div><div class=\"fw-bold\">" + esc(x.sku_proveedor || x.sku_erp) + "</div><div class=\"text-muted fs-8\">SKU ERP: " + esc(x.sku_erp || "-") + "</div></div></div></td>" +
                 "<td>" + esc(x.nombre_proveedor || x.nombre_erp) + "<div class=\"text-muted fs-8\">" + esc(x.unidad_compra || "") + " | factor " + Number(x.factor_conversion || 1).toFixed(6) + "</div></td>" +
@@ -438,10 +450,12 @@
                 "<td class=\"text-end fw-bold\"><span class=\"sugerido-cantidad-readonly\" data-sugerido-sugerida=\"" + i + "\">" + Number(x.cantidad_sugerida || 0).toFixed(6) + "</span></td>" +
                 "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-final-input\" inputmode=\"decimal\" data-sugerido-cantidad=\"" + i + "\" value=\"" + Number(x.cantidad_solicitar || 0) + "\"" + readonly + "></td>" +
                 "<td class=\"text-end\">" + money(x.costo_estimado) + "</td>" +
+                "<td class=\"text-end\"><div class=\"fw-semibold\">" + money(precioVenta) + "</div>" + listaVenta + "</td>" +
+                "<td class=\"text-end fw-bold\">" + money(Number(x.cantidad_solicitar || 0) * precioVenta) + "</td>" +
                 "<td><input class=\"form-control form-control-sm\" data-sugerido-obs=\"" + i + "\" value=\"" + esc(x.observaciones || "") + "\"" + readonly + "></td>" +
                 "<td class=\"text-end\"><button type=\"button\" class=\"btn btn-sm btn-light-danger\" data-sugerido-eliminar=\"" + i + "\"" + (modoLectura ? " disabled" : "") + "><i class=\"bi bi-trash\"></i></button></td>" +
                 "</tr>";
-        }).join("") || "<tr><td colspan=\"11\" class=\"text-center text-muted py-8\">Busca productos del proveedor y agrega solo los que quieres revisar.</td></tr>";
+        }).join("") || "<tr><td colspan=\"13\" class=\"text-center text-muted py-8\">Busca productos del proveedor y agrega solo los que quieres revisar.</td></tr>";
 
         actualizarResumen();
         document.getElementById("sugerido_filtro_partidas_resumen").textContent = filtroPartidas === ""

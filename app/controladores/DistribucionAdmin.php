@@ -19,7 +19,7 @@ class DistribucionAdmin extends Controlador {
    * Contrato: vista; no escribe por si misma.
    */
   public function administracion() {
-    $this->abrirSeccion("resumen", "/DistribucionAdmin/administracion");
+    $this->abrirSeccion("resumen", "/distribucionadmin/administracion");
   }
 
   /**
@@ -60,39 +60,101 @@ class DistribucionAdmin extends Controlador {
   }
 
   public function panel_resumen() {
-    $this->abrirSeccion("resumen", "/DistribucionAdmin/panel_resumen");
+    $this->abrirSeccion("resumen", "/distribucionadmin/panel_resumen");
   }
 
   public function panel_solicitudes() {
-    $this->abrirSeccion("solicitudes", "/DistribucionAdmin/panel_solicitudes");
+    $this->abrirSeccion("solicitudes", "/distribucionadmin/panel_solicitudes");
   }
 
   public function panel_clientes() {
-    $this->abrirSeccion("clientes", "/DistribucionAdmin/panel_clientes");
+    $this->abrirSeccion("clientes", "/distribucionadmin/panel_clientes");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: abrir ficha operativa enfocada para atender un cliente Distribucion.
+   * Impacto: UX ERP Distribucion; evita administrar acciones profundas desde modales en la bandeja.
+   * Contrato: vista protegida por `distribucion.ver`; no escribe por si misma.
+   */
+  public function cliente($idCliente = 0) {
+    $this->abrirClienteSeccion("cliente", intval($idCliente), "Atender cliente");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: abrir configuracion dedicada de listas/sublistas comerciales por cliente.
+   * Impacto: UX ERP Distribucion; permite manejar varias listas por cliente y productos habilitados por lista.
+   * Contrato: vista protegida por `distribucion.asignar_precios`; no escribe por si misma.
+   */
+  public function cliente_listas($idCliente = 0) {
+    $this->requerirPermiso("distribucion.asignar_precios");
+    $this->abrirClienteSeccion("cliente_listas", intval($idCliente), "Listas del cliente");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: abrir permisos comerciales de un cliente en pantalla dedicada.
+   * Impacto: UX ERP Distribucion; reemplaza edicion profunda en modal por flujo enfocado.
+   * Contrato: vista protegida por `distribucion.editar`; no escribe por si misma.
+   */
+  public function cliente_permisos($idCliente = 0) {
+    $this->requerirPermiso("distribucion.editar");
+    $this->abrirClienteSeccion("cliente_permisos", intval($idCliente), "Permisos del cliente");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: abrir configuracion logistica del cliente en pantalla dedicada.
+   * Impacto: UX ERP Distribucion; permite revisar direccion/metodo sin modal.
+   * Contrato: vista protegida por `distribucion.editar`; no escribe por si misma.
+   */
+  public function cliente_entrega($idCliente = 0) {
+    $this->requerirPermiso("distribucion.editar");
+    $this->abrirClienteSeccion("cliente_entrega", intval($idCliente), "Entrega del cliente");
+  }
+
+  private function abrirClienteSeccion($vista, $idCliente, $titulo) {
+    $this->requerirPermiso("distribucion.ver");
+    $permitidas = array("cliente", "cliente_listas", "cliente_permisos", "cliente_entrega");
+    if (!in_array($vista, $permitidas, true)) {
+      $vista = "cliente";
+    }
+    $this->vista("apps/erp/distribucion/" . $vista, array(
+      "modulo" => "distribucion",
+      "seccion_activa" => "clientes",
+      "ruta_canonica" => "/distribucionadmin/" . $vista . "/" . intval($idCliente),
+      "id_cliente_distribucion" => intval($idCliente),
+      "titulo_cliente_distribucion" => $titulo
+    ));
   }
 
   public function panel_pedidos() {
-    $this->abrirSeccion("pedidos", "/DistribucionAdmin/panel_pedidos");
+    $this->abrirSeccion("pedidos", "/distribucionadmin/panel_pedidos");
   }
 
   public function panel_mi_catalogo() {
-    $this->abrirSeccion("mi_catalogo", "/DistribucionAdmin/panel_mi_catalogo");
+    $this->abrirSeccion("mi_catalogo", "/distribucionadmin/panel_mi_catalogo");
   }
 
   public function panel_inventarios() {
-    $this->abrirSeccion("inventarios", "/DistribucionAdmin/panel_inventarios");
+    $this->abrirSeccion("inventarios", "/distribucionadmin/panel_inventarios");
   }
 
   public function panel_sugeridos() {
-    $this->abrirSeccion("sugeridos", "/DistribucionAdmin/panel_sugeridos");
+    $this->abrirSeccion("sugeridos", "/distribucionadmin/panel_sugeridos");
   }
 
   public function panel_productos() {
-    $this->abrirSeccion("productos", "/DistribucionAdmin/panel_productos");
+    $this->abrirSeccion("productos", "/distribucionadmin/panel_productos");
   }
 
   public function panel_demanda() {
-    $this->abrirSeccion("demanda", "/DistribucionAdmin/panel_demanda");
+    $this->abrirSeccion("demanda", "/distribucionadmin/panel_demanda");
   }
 
   /**
@@ -165,6 +227,18 @@ class DistribucionAdmin extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: consultar ficha completa interna de cliente Distribucion.
+   * Impacto: UX ERP Distribucion; alimenta paginas dedicadas de atencion.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function cliente_detalle() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionClientesApi")->clienteDetalleInterno($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
    * Proposito: consultar auditoria interna de accesos/activaciones de un cliente Distribucion.
    * Impacto: Admin ERP Distribucion; permite trazabilidad operativa sin exponer tokens ni contrasenas.
@@ -184,6 +258,30 @@ class DistribucionAdmin extends Controlador {
   public function listas_precios() {
     $this->requerirPermiso("distribucion.asignar_precios");
     return json_encode($this->modelo("DistribucionClientesApi")->listasPrecioInternas($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: consultar listas asignadas a un cliente Distribucion.
+   * Impacto: Admin ERP Distribucion; separa listas y sublistas de la bandeja general de clientes.
+   * Contrato: GET protegido por `distribucion.asignar_precios`; read-only.
+   */
+  public function cliente_listas_asignadas() {
+    $this->requerirPermiso("distribucion.asignar_precios");
+    return json_encode($this->modelo("DistribucionClientesApi")->listasClienteInternas($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: consultar productos de una lista de precios y su habilitacion para el cliente.
+   * Impacto: Admin ERP Distribucion; permite crear sublistas por cliente sin reglas genericas.
+   * Contrato: GET protegido por `distribucion.asignar_precios`; read-only.
+   */
+  public function cliente_lista_productos() {
+    $this->requerirPermiso("distribucion.asignar_precios");
+    return json_encode($this->modelo("DistribucionClientesApi")->productosListaClienteInternos($_GET));
   }
 
   /**
@@ -306,6 +404,30 @@ class DistribucionAdmin extends Controlador {
   public function asignar_lista_precio() {
     $this->requerirPermiso("distribucion.asignar_precios");
     return json_encode($this->modelo("DistribucionClientesApi")->listaPrecioPlanInterno($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: guardar una lista comercial asignada a cliente Distribucion sin desactivar otras listas.
+   * Impacto: Admin ERP Distribucion; soporta lista base, express y sublistas por producto.
+   * Contrato: POST protegido por `distribucion.asignar_precios`; escritura auditada.
+   */
+  public function cliente_lista_guardar() {
+    $this->requerirPermiso("distribucion.asignar_precios");
+    return json_encode($this->modelo("DistribucionClientesApi")->listaClienteGuardarInterna($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: guardar productos habilitados dentro de una lista asignada a cliente.
+   * Impacto: Admin ERP Distribucion; permite sublistas de precios sin usar reglas de catalogo.
+   * Contrato: POST protegido por `distribucion.asignar_precios`; escritura auditada.
+   */
+  public function cliente_lista_productos_guardar() {
+    $this->requerirPermiso("distribucion.asignar_precios");
+    return json_encode($this->modelo("DistribucionClientesApi")->listaClienteProductosGuardarInterna($_POST, $this->usuarioActualId()));
   }
 
   /**

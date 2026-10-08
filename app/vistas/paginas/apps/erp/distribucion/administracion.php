@@ -3,15 +3,15 @@ include __DIR__ . '/resumen.php';
 return;
 $distSeccionActiva = isset($datos['seccion_activa']) ? $datos['seccion_activa'] : 'resumen';
 $distSecciones = array(
-    'resumen' => array('titulo' => 'Resumen', 'ruta' => '/DistribucionAdmin/panel_resumen', 'tab' => 'dist_tab_resumen'),
-    'solicitudes' => array('titulo' => 'Solicitudes', 'ruta' => '/DistribucionAdmin/panel_solicitudes', 'tab' => 'dist_tab_solicitudes'),
-    'clientes' => array('titulo' => 'Clientes', 'ruta' => '/DistribucionAdmin/panel_clientes', 'tab' => 'dist_tab_clientes'),
-    'pedidos' => array('titulo' => 'Pedidos', 'ruta' => '/DistribucionAdmin/panel_pedidos', 'tab' => 'dist_tab_cotizaciones'),
-    'mi_catalogo' => array('titulo' => 'Mi catalogo', 'ruta' => '/DistribucionAdmin/panel_mi_catalogo', 'tab' => 'dist_tab_mi_catalogo'),
-    'inventarios' => array('titulo' => 'Inventarios', 'ruta' => '/DistribucionAdmin/panel_inventarios', 'tab' => 'dist_tab_inventarios'),
-    'sugeridos' => array('titulo' => 'Sugeridos', 'ruta' => '/DistribucionAdmin/panel_sugeridos', 'tab' => 'dist_tab_sugeridos'),
-    'productos' => array('titulo' => 'Productos', 'ruta' => '/DistribucionAdmin/panel_productos', 'tab' => 'dist_tab_productos'),
-    'demanda' => array('titulo' => 'Demanda', 'ruta' => '/DistribucionAdmin/panel_demanda', 'tab' => 'dist_tab_demanda')
+    'resumen' => array('titulo' => 'Resumen', 'ruta' => '/distribucionadmin/panel_resumen', 'tab' => 'dist_tab_resumen'),
+    'solicitudes' => array('titulo' => 'Solicitudes', 'ruta' => '/distribucionadmin/panel_solicitudes', 'tab' => 'dist_tab_solicitudes'),
+    'clientes' => array('titulo' => 'Clientes', 'ruta' => '/distribucionadmin/panel_clientes', 'tab' => 'dist_tab_clientes'),
+    'pedidos' => array('titulo' => 'Pedidos', 'ruta' => '/distribucionadmin/panel_pedidos', 'tab' => 'dist_tab_cotizaciones'),
+    'mi_catalogo' => array('titulo' => 'Mi catalogo', 'ruta' => '/distribucionadmin/panel_mi_catalogo', 'tab' => 'dist_tab_mi_catalogo'),
+    'inventarios' => array('titulo' => 'Inventarios', 'ruta' => '/distribucionadmin/panel_inventarios', 'tab' => 'dist_tab_inventarios'),
+    'sugeridos' => array('titulo' => 'Sugeridos', 'ruta' => '/distribucionadmin/panel_sugeridos', 'tab' => 'dist_tab_sugeridos'),
+    'productos' => array('titulo' => 'Productos', 'ruta' => '/distribucionadmin/panel_productos', 'tab' => 'dist_tab_productos'),
+    'demanda' => array('titulo' => 'Demanda', 'ruta' => '/distribucionadmin/panel_demanda', 'tab' => 'dist_tab_demanda')
 );
 if (!isset($distSecciones[$distSeccionActiva])) {
     $distSeccionActiva = 'resumen';
@@ -437,3 +437,4 @@ $distPaneClass = function ($seccion) use ($distSeccionActiva) {
     <script src="/assets/js/custom/apps/erp/distribucion/administracion.js?v=20261001-secciones"></script>
 </body>
 </html>
+

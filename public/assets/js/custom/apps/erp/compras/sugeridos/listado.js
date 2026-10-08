@@ -57,10 +57,10 @@
                 renderResumen(r.depurar && r.depurar.resumen ? r.depurar.resumen : {});
                 var rows = r.depurar && Array.isArray(r.depurar.items) ? r.depurar.items : [];
                 document.getElementById("sugeridos_body").innerHTML = rows.map(renderRow).join("") ||
-                    "<tr><td colspan=\"10\" class=\"text-center text-muted py-8\">Sin sugeridos de compra</td></tr>";
+                    "<tr><td colspan=\"11\" class=\"text-center text-muted py-8\">Sin sugeridos de compra</td></tr>";
             })
             .catch(function (e) {
-                document.getElementById("sugeridos_body").innerHTML = "<tr><td colspan=\"10\" class=\"text-center text-danger py-8\">" + esc(e.message || "No se pudo cargar") + "</td></tr>";
+                document.getElementById("sugeridos_body").innerHTML = "<tr><td colspan=\"11\" class=\"text-center text-danger py-8\">" + esc(e.message || "No se pudo cargar") + "</td></tr>";
             });
     }
 
@@ -74,6 +74,7 @@
         document.getElementById("sugeridos_resumen_partidas").textContent = Number(resumen.partidas || 0);
         document.getElementById("sugeridos_resumen_inventario").textContent = money(resumen.inventario_estimado);
         document.getElementById("sugeridos_resumen_compra").textContent = money(resumen.compra_sugerida_estimada);
+        document.getElementById("sugeridos_resumen_venta").textContent = money(resumen.venta_sugerida_estimada);
         document.getElementById("sugeridos_resumen_cantidad_revisada").textContent = Number(resumen.cantidad_revisada || 0).toFixed(6);
         document.getElementById("sugeridos_resumen_cantidad_solicitar").textContent = Number(resumen.cantidad_a_solicitar || 0).toFixed(6);
     }
@@ -105,6 +106,7 @@
             "<td class=\"text-end\">" + Number(x.total_partidas || 0) + "</td>" +
             "<td class=\"text-end\">" + Number(x.total_unidades || 0).toFixed(6) + "</td>" +
             "<td class=\"text-end fw-bold\">" + money(x.total_estimado) + "</td>" +
+            "<td class=\"text-end fw-bold\">" + money(x.venta_sugerida_estimada) + "</td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + money(x.inventario_revisado_estimado) + "</div><div class=\"text-muted fs-8\">" + Number(x.total_existencia_revisada || 0).toFixed(6) + " revisadas</div></td>" +
             "<td>" + solicitud + "</td>" +
             "<td><span class=\"badge badge-light\">" + esc(x.estatus || "-") + "</span></td>" +

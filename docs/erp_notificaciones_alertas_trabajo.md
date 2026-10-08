@@ -179,6 +179,15 @@ Despues, si el flujo crece, conviene crear una tabla transversal tipo:
 
 La tabla transversal no debe reemplazar la entidad original. Solo debe indexar, notificar y dar seguimiento global.
 
+## Decision 2026-10-07 - Notificaciones externas Distribucion
+
+- Las notificaciones para clientes del portal externo Distribucion no usan la bandeja interna `erp_notificaciones`, porque pertenecen a identidades externas autenticadas por token y no a usuarios ERP.
+- El contrato externo vive bajo `/DistribucionApi/notificacion/*` y resuelve siempre el cliente desde el token; el frontend no puede elegir `id_cliente_distribucion`.
+- La persistencia prevista es `erp_distribucion_notificaciones` y `erp_distribucion_notificacion_envios`.
+- Los envios por correo, WhatsApp, SMS o llamada deben auditarse aunque el proveedor aun no este integrado; si no existe integracion, la API debe responder mensaje claro con `configurado=false`.
+- Los destinos de envio deben guardarse enmascarados. No registrar tokens, hashes, contrasenas ni datos internos del equipo ERP.
+- Los modelos de dominio de Distribucion pueden crear notificaciones en modo best effort: si el esquema externo aun no existe, la operacion comercial principal no debe fallar.
+
 ## Integracion por modulo
 
 Cada modulo nuevo debe responder:

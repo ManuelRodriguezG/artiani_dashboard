@@ -14,6 +14,7 @@ class DistribucionApiEsquema extends DBSchema {
       "erp_distribucion_solicitudes",
       "erp_distribucion_cliente_permisos",
       "erp_distribucion_cliente_listas",
+      "erp_distribucion_cliente_lista_productos",
       "erp_distribucion_cliente_catalogo_reglas",
       "erp_distribucion_cliente_solicitudes_cambio",
       "erp_distribucion_cliente_productos",
@@ -21,6 +22,8 @@ class DistribucionApiEsquema extends DBSchema {
       "erp_distribucion_cliente_inventario_movimientos",
       "erp_distribucion_cotizaciones",
       "erp_distribucion_cotizacion_items",
+      "erp_distribucion_notificaciones",
+      "erp_distribucion_notificacion_envios",
       "erp_distribucion_tokens",
       "erp_distribucion_auditoria"
     );
@@ -235,6 +238,28 @@ class DistribucionApiEsquema extends DBSchema {
       "KEY `idx_dist_cliente_lista_cliente` (`id_cliente_distribucion`, `estatus`, `prioridad`)",
       "KEY `idx_dist_cliente_lista_lista` (`id_lista_precio`, `estatus`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cliente_listas", "modo_productos", "VARCHAR(30) NOT NULL DEFAULT 'todos' AFTER `estatus`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cliente_listas", "tipo_lista", "VARCHAR(30) NOT NULL DEFAULT 'base' AFTER `modo_productos`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cliente_listas", "alias", "VARCHAR(120) NULL AFTER `tipo_lista`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cliente_listas", "notas", "TEXT NULL AFTER `alias`", $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_lista_productos", array(
+      "`id_cliente_lista_producto` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`id_cliente_lista` BIGINT NOT NULL",
+      "`id_lista_precio` INT NOT NULL",
+      "`id_sku` BIGINT NOT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`origen` VARCHAR(40) NOT NULL DEFAULT 'admin'",
+      "`notas` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_cliente_lista_producto`)",
+      "UNIQUE KEY `idx_dist_cliente_lista_sku` (`id_cliente_lista`, `id_sku`)",
+      "KEY `idx_dist_lista_producto_cliente` (`id_cliente_distribucion`, `estatus`)",
+      "KEY `idx_dist_lista_producto_lista` (`id_lista_precio`, `estatus`)",
+      "KEY `idx_dist_lista_producto_sku` (`id_sku`, `estatus`)"
+    ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_catalogo_reglas", array(
       "`id_cliente_catalogo_regla` BIGINT NOT NULL AUTO_INCREMENT",
@@ -439,6 +464,70 @@ class DistribucionApiEsquema extends DBSchema {
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizacion_items", "fecha_revision", "DATETIME NULL AFTER `comentario_revision`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_cotizacion_items", "id_usuario_revision", "INT NULL AFTER `fecha_revision`", $ejecutar);
 
+    $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_notificaciones", array(
+      "`id_notificacion` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`tipo` VARCHAR(80) NOT NULL",
+      "`titulo` VARCHAR(180) NOT NULL",
+      "`mensaje` TEXT NULL",
+      "`folio_referencia` VARCHAR(80) NULL",
+      "`url_accion` VARCHAR(700) NULL",
+      "`requiere_accion` TINYINT(1) NOT NULL DEFAULT 0",
+      "`canales_disponibles_json` LONGTEXT NULL",
+      "`metadata_json` LONGTEXT NULL",
+      "`leida` TINYINT(1) NOT NULL DEFAULT 0",
+      "`fecha_lectura` DATETIME NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'pendiente'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_notificacion`)",
+      "KEY `idx_dist_notif_cliente` (`id_cliente_distribucion`, `estatus`, `leida`)",
+      "KEY `idx_dist_notif_tipo` (`tipo`, `estatus`)",
+      "KEY `idx_dist_notif_fecha` (`fecha_registro`)"
+    ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "id_cliente_distribucion", "BIGINT NOT NULL AFTER `id_notificacion`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "tipo", "VARCHAR(80) NOT NULL AFTER `id_cliente_distribucion`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "titulo", "VARCHAR(180) NOT NULL AFTER `tipo`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "mensaje", "TEXT NULL AFTER `titulo`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "folio_referencia", "VARCHAR(80) NULL AFTER `mensaje`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "url_accion", "VARCHAR(700) NULL AFTER `folio_referencia`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "requiere_accion", "TINYINT(1) NOT NULL DEFAULT 0 AFTER `url_accion`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "canales_disponibles_json", "LONGTEXT NULL AFTER `requiere_accion`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "metadata_json", "LONGTEXT NULL AFTER `canales_disponibles_json`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "leida", "TINYINT(1) NOT NULL DEFAULT 0 AFTER `metadata_json`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "fecha_lectura", "DATETIME NULL AFTER `leida`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "estatus", "VARCHAR(30) NOT NULL DEFAULT 'pendiente' AFTER `fecha_lectura`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "fecha_registro", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `estatus`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificaciones", "fecha_actualizacion", "DATETIME NULL AFTER `fecha_registro`", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_notificaciones", "idx_dist_notif_cliente", "KEY `idx_dist_notif_cliente` (`id_cliente_distribucion`, `estatus`, `leida`)", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_notificaciones", "idx_dist_notif_tipo", "KEY `idx_dist_notif_tipo` (`tipo`, `estatus`)", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_notificaciones", "idx_dist_notif_fecha", "KEY `idx_dist_notif_fecha` (`fecha_registro`)", $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_notificacion_envios", array(
+      "`id_envio` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_notificacion` BIGINT NOT NULL",
+      "`id_cliente_distribucion` BIGINT NOT NULL",
+      "`canal` VARCHAR(30) NOT NULL",
+      "`destino_mascarado` VARCHAR(180) NULL",
+      "`estatus_envio` VARCHAR(40) NOT NULL",
+      "`mensaje_error` VARCHAR(255) NULL",
+      "`metadata_json` LONGTEXT NULL",
+      "`fecha_envio` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_envio`)",
+      "KEY `idx_dist_notif_envio_notif` (`id_notificacion`, `canal`, `fecha_envio`)",
+      "KEY `idx_dist_notif_envio_cliente` (`id_cliente_distribucion`, `canal`, `fecha_envio`)"
+    ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificacion_envios", "id_notificacion", "BIGINT NOT NULL AFTER `id_envio`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificacion_envios", "id_cliente_distribucion", "BIGINT NOT NULL AFTER `id_notificacion`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificacion_envios", "canal", "VARCHAR(30) NOT NULL AFTER `id_cliente_distribucion`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificacion_envios", "destino_mascarado", "VARCHAR(180) NULL AFTER `canal`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificacion_envios", "estatus_envio", "VARCHAR(40) NOT NULL AFTER `destino_mascarado`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificacion_envios", "mensaje_error", "VARCHAR(255) NULL AFTER `estatus_envio`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificacion_envios", "metadata_json", "LONGTEXT NULL AFTER `mensaje_error`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_notificacion_envios", "fecha_envio", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `metadata_json`", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_notificacion_envios", "idx_dist_notif_envio_notif", "KEY `idx_dist_notif_envio_notif` (`id_notificacion`, `canal`, `fecha_envio`)", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_notificacion_envios", "idx_dist_notif_envio_cliente", "KEY `idx_dist_notif_envio_cliente` (`id_cliente_distribucion`, `canal`, `fecha_envio`)", $ejecutar);
+
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_auditoria", array(
       "`id_auditoria_distribucion` BIGINT NOT NULL AUTO_INCREMENT",
       "`entidad` VARCHAR(80) NOT NULL",
@@ -467,7 +556,7 @@ class DistribucionApiEsquema extends DBSchema {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: generar/aplicar solo permisos internos ERP de Distribucion.
-   * Impacto: Seguridad ERP; habilita proteccion de DistribucionAdmin sin ejecutar todo el plan global de seguridad.
+   * Impacto: Seguridad ERP; habilita proteccion de distribucionadmin sin ejecutar todo el plan global de seguridad.
    * Contrato: idempotente; inserta permisos y asigna a roles base autorizados, no retira permisos existentes.
    */
   public function planPermisosInternosDistribucion($ejecutar = false) {
@@ -520,6 +609,8 @@ class DistribucionApiEsquema extends DBSchema {
       "erp_distribucion_cliente_inventario_movimientos" => "Bitacora de conteos y cambios de minimos/maximos del inventario del cliente.",
       "erp_distribucion_cotizaciones" => "Encabezado de solicitudes de cotizacion Distribucion.",
       "erp_distribucion_cotizacion_items" => "Snapshot comercial de partidas cotizadas.",
+      "erp_distribucion_notificaciones" => "Avisos comerciales visibles para clientes externos de Distribucion.",
+      "erp_distribucion_notificacion_envios" => "Intentos auditados de envio o reenvio de avisos externos.",
       "erp_distribucion_tokens" => "Tokens externos separados de sesion ERP interna.",
       "erp_distribucion_auditoria" => "Trazabilidad de aprobaciones, login y cotizaciones externas."
     );

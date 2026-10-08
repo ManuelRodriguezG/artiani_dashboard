@@ -129,7 +129,11 @@ class DistribucionCatalogoApi extends CRUD {
         "inventario_cliente_listar" => "/DistribucionApi/inventario_cliente/listar",
         "inventario_cliente_guardar_conteo" => "/DistribucionApi/inventario_cliente/guardar_conteo",
         "inventario_cliente_sugerido" => "/DistribucionApi/inventario_cliente/sugerido",
-        "inventario_cliente_pedido_sugerido" => "/DistribucionApi/inventario_cliente/pedido_sugerido"
+        "inventario_cliente_pedido_sugerido" => "/DistribucionApi/inventario_cliente/pedido_sugerido",
+        "notificacion_resumen" => "/DistribucionApi/notificacion/resumen",
+        "notificacion_listar" => "/DistribucionApi/notificacion/listar",
+        "notificacion_marcar_leida" => "/DistribucionApi/notificacion/marcar_leida",
+        "notificacion_enviar" => "/DistribucionApi/notificacion/enviar"
       ),
       "endpoints_internos_erp" => $this->endpointsInternosErp(),
       "guardrails" => $this->guardrails()
@@ -296,7 +300,7 @@ class DistribucionCatalogoApi extends CRUD {
     try {
       $db = $this->getConexion();
       if (!$db || !$this->tablaExiste($db, "erp_catalogo_skus") || !$this->tablaExiste($db, "erp_catalogo_productos") || !$this->tablaExiste($db, "erp_catalogo_canales_vinculos")) {
-        return $this->respuesta(false, "warning", "Catalogo ERP no disponible", array("configurado" => false, "items" => array()));
+        return $this->respuesta(false, "warning", "Catalogo no disponible", array("configurado" => false, "items" => array()));
       }
       $limite = max(1, min(300, intval($this->valor($filtros, "limite", 30))));
       $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
@@ -467,7 +471,7 @@ class DistribucionCatalogoApi extends CRUD {
         return $this->respuesta(true, "warning", "SKU no publicable para Distribucion");
       }
       if (!$this->skuTienePrecioActivo($db, $idSku)) {
-        return $this->respuesta(true, "warning", "SKU sin precio activo en listas ERP");
+        return $this->respuesta(true, "warning", "Este producto aun no tiene precio activo");
       }
       $slug = $this->idExternoUnico($db, $this->valor($datos, "id_externo", ""), $sku);
       $db->beginTransaction();
@@ -544,7 +548,7 @@ class DistribucionCatalogoApi extends CRUD {
    * Contrato: devuelve JSON con endpoint solicitado.
    */
   public function endpointNoEncontrado($endpoint) {
-    return $this->respuesta(true, "warning", "Endpoint Distribucion no encontrado", array("endpoint" => $endpoint));
+    return $this->respuesta(true, "warning", "La accion solicitada no esta disponible", array("endpoint" => $endpoint));
   }
 
   /**
@@ -554,7 +558,7 @@ class DistribucionCatalogoApi extends CRUD {
    * Contrato: devuelve JSON con endpoint solicitado.
    */
   public function metodoPostRequerido($endpoint) {
-    return $this->respuesta(true, "warning", "Este endpoint requiere POST", array("endpoint" => $endpoint));
+    return $this->respuesta(true, "warning", "Esta accion debe enviarse desde el formulario correspondiente", array("endpoint" => $endpoint));
   }
 
   private function apiMeta() {
@@ -601,7 +605,11 @@ class DistribucionCatalogoApi extends CRUD {
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/listar"),
       array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/guardar_conteo"),
       array("metodo" => "GET", "ruta" => "/DistribucionApi/inventario_cliente/sugerido"),
-      array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/pedido_sugerido")
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/inventario_cliente/pedido_sugerido"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/notificacion/resumen"),
+      array("metodo" => "GET", "ruta" => "/DistribucionApi/notificacion/listar"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/notificacion/marcar_leida"),
+      array("metodo" => "POST", "ruta" => "/DistribucionApi/notificacion/enviar")
     );
   }
 
@@ -610,9 +618,9 @@ class DistribucionCatalogoApi extends CRUD {
       "solo_panel_erp" => true,
       "no_usar_desde_frontend_externo" => true,
       "rutas" => array(
-        array("metodo" => "POST", "ruta" => "/DistribucionAdmin/cliente_catalogo_preferencias"),
-        array("metodo" => "GET", "ruta" => "/DistribucionAdmin/cliente_catalogo_reglas?id_cliente_distribucion={id}"),
-        array("metodo" => "POST", "ruta" => "/DistribucionAdmin/cliente_catalogo_regla_guardar")
+        array("metodo" => "POST", "ruta" => "/distribucionadmin/cliente_catalogo_preferencias"),
+        array("metodo" => "GET", "ruta" => "/distribucionadmin/cliente_catalogo_reglas?id_cliente_distribucion={id}"),
+        array("metodo" => "POST", "ruta" => "/distribucionadmin/cliente_catalogo_regla_guardar")
       )
     );
   }
@@ -1006,3 +1014,4 @@ class DistribucionCatalogoApi extends CRUD {
     return $salida;
   }
 }
+

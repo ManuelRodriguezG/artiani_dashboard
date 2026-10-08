@@ -96,7 +96,7 @@ class DistribucionClientesApi extends CRUD {
 
     $db = $this->getConexion();
     if (!$db || !$this->tablaExiste($db, "erp_distribucion_solicitudes")) {
-      return $this->respuesta(true, "warning", "Contrato de registro listo; persistencia pendiente en ERP", array(
+      return $this->respuesta(true, "warning", "El registro aun no esta disponible para guardar solicitudes", array(
         "folio" => null,
         "estatus" => "pendiente",
         "configurado" => false,
@@ -217,7 +217,7 @@ class DistribucionClientesApi extends CRUD {
 
     $db = $this->getConexion();
     if (!$db || !$this->tablaExiste($db, "erp_distribucion_clientes") || !$this->tablaExiste($db, "erp_distribucion_tokens")) {
-      return $this->respuesta(true, "warning", "Login Distribucion pendiente de tokens externos ERP", array(
+      return $this->respuesta(true, "warning", "El inicio de sesion aun no esta disponible", array(
         "token" => null,
         "perfil" => null,
         "configurado" => false,
@@ -540,7 +540,7 @@ class DistribucionClientesApi extends CRUD {
   public function listasPrecioInternas($filtros = array()) {
     $db = $this->getConexion();
     if (!$db || !$this->tablaExiste($db, "erp_listas_precios")) {
-      return $this->respuesta(false, "warning", "Listas de precio ERP no disponibles", array("configurado" => false, "items" => array()));
+      return $this->respuesta(false, "warning", "Listas de precio no disponibles", array("configurado" => false, "items" => array()));
     }
     try {
       $stmt = $db->prepare("SELECT id_lista_precio, codigo, nombre, canal, prioridad, estatus
@@ -552,6 +552,134 @@ class DistribucionClientesApi extends CRUD {
       return $this->respuesta(false, "success", "Listas de precio consultadas", array("configurado" => true, "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudieron consultar listas de precio", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: consultar ficha interna de cliente para paginas dedicadas de atencion.
+   * Impacto: Admin ERP Distribucion; reduce modales y centraliza contexto del cliente.
+   * Contrato: read-only; no expone tokens ni hashes.
+   */
+  public function clienteDetalleInterno($filtros = array()) {
+    $idCliente = intval($this->valor($filtros, "id_cliente_distribucion", $this->valor($filtros, "id", 0)));
+    if ($idCliente <= 0) {
+      return $this->respuesta(true, "warning", "Cliente requerido", array("cliente" => null));
+    }
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_distribucion_clientes")) {
+      return $this->respuesta(false, "warning", "Clientes Distribucion pendientes de esquema", array("configurado" => false, "cliente" => null));
+    }
+    try {
+      $joinLista = $this->tablaExiste($db, "erp_listas_precios") ? "LEFT JOIN erp_listas_precios l ON l.id_lista_precio=c.id_lista_precio" : "LEFT JOIN (SELECT NULL id_lista_precio, NULL nombre) l ON 1=0";
+      $stmt = $db->prepare("SELECT c.*, l.nombre lista_precio
+        FROM erp_distribucion_clientes c
+        " . $joinLista . "
+        WHERE c.id_cliente_distribucion=:cliente
+        LIMIT 1");
+      $stmt->execute(array(":cliente" => $idCliente));
+      $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$cliente) {
+        return $this->respuesta(true, "warning", "Cliente no encontrado", array("cliente" => null));
+      }
+      $cliente["permisos"] = $this->permisosCliente($db, $idCliente);
+      $cliente["listas_asignadas"] = $this->listasClientePayload($db, $idCliente);
+      $cliente["categorias_interes"] = $this->jsonArray($this->valor($cliente, "categorias_interes_json", ""));
+      unset($cliente["contrasenia_hash"]);
+      return $this->respuesta(false, "success", "Cliente Distribucion consultado", array("configurado" => true, "cliente" => $cliente));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo consultar cliente Distribucion", array("detalle" => "error_controlado", "cliente" => null));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: consultar listas de precio asignadas a un cliente y su modo de productos.
+   * Impacto: Admin ERP Distribucion; permite multiples listas, incluida lista express.
+   * Contrato: read-only; requiere plan de esquema para columnas avanzadas.
+   */
+  public function listasClienteInternas($filtros = array()) {
+    $idCliente = intval($this->valor($filtros, "id_cliente_distribucion", $this->valor($filtros, "id", 0)));
+    if ($idCliente <= 0) {
+      return $this->respuesta(true, "warning", "Cliente requerido", array("items" => array()));
+    }
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_distribucion_cliente_listas")) {
+      return $this->respuesta(false, "warning", "Listas de cliente pendientes de esquema", array("configurado" => false, "items" => array()));
+    }
+    try {
+      return $this->respuesta(false, "success", "Listas del cliente consultadas", array(
+        "configurado" => true,
+        "requiere_plan_sublistas" => !$this->columnasClienteListasAvanzadas($db),
+        "items" => $this->listasClientePayload($db, $idCliente)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudieron consultar listas del cliente", array("detalle" => "error_controlado", "items" => array()));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: consultar productos de una lista de precio para habilitarlos al cliente como sublista.
+   * Impacto: Admin ERP Distribucion; muestra solo productos de la lista seleccionada.
+   * Contrato: read-only; no modifica precios ni catalogo global.
+   */
+  public function productosListaClienteInternos($filtros = array()) {
+    $idClienteLista = intval($this->valor($filtros, "id_cliente_lista", 0));
+    $idLista = intval($this->valor($filtros, "id_lista_precio", 0));
+    $q = trim((string) $this->valor($filtros, "q", ""));
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_listas_precios_detalle") || !$this->tablaExiste($db, "erp_listas_precios")) {
+      return $this->respuesta(false, "warning", "Detalle de listas de precio no disponible", array("configurado" => false, "items" => array()));
+    }
+    try {
+      if ($idLista <= 0 && $idClienteLista > 0 && $this->tablaExiste($db, "erp_distribucion_cliente_listas")) {
+        $stmtLista = $db->prepare("SELECT id_lista_precio FROM erp_distribucion_cliente_listas WHERE id_cliente_lista=:id LIMIT 1");
+        $stmtLista->execute(array(":id" => $idClienteLista));
+        $idLista = intval($stmtLista->fetchColumn());
+      }
+      if ($idLista <= 0) {
+        return $this->respuesta(true, "warning", "Lista de precio requerida", array("items" => array()));
+      }
+      $where = array("d.id_lista_precio=:lista", "d.estatus='activo'", "d.precio>0", "d.id_sku IS NOT NULL");
+      $params = array(":lista" => $idLista);
+      if ($q !== "") {
+        $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+      $habilitadoSql = "0";
+      if ($idClienteLista > 0 && $this->tablaExiste($db, "erp_distribucion_cliente_lista_productos")) {
+        $habilitadoSql = "CASE WHEN lp.id_cliente_lista_producto IS NULL THEN 0 ELSE 1 END";
+      }
+      $joinHabilitado = $idClienteLista > 0 && $this->tablaExiste($db, "erp_distribucion_cliente_lista_productos")
+        ? "LEFT JOIN erp_distribucion_cliente_lista_productos lp ON lp.id_cliente_lista=:cliente_lista AND lp.id_sku=d.id_sku AND lp.estatus='activo'"
+        : "";
+      if ($joinHabilitado !== "") { $params[":cliente_lista"] = $idClienteLista; }
+      $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.id_lista_precio, d.id_sku, d.id_producto_erp, d.precio, d.moneda,
+          s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) nombre_sku, p.nombre producto,
+          " . $habilitadoSql . " habilitado
+        FROM erp_listas_precios_detalle d
+        INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+        LEFT JOIN erp_catalogo_skus s ON s.id_sku=d.id_sku
+        LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=COALESCE(d.id_producto_erp, s.id_producto_erp)
+        " . $joinHabilitado . "
+        WHERE " . implode(" AND ", $where) . "
+          AND l.estatus='activa'
+          AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW())
+          AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW())
+        ORDER BY COALESCE(NULLIF(s.nombre,''), p.nombre), s.sku
+        LIMIT 500");
+      $stmt->execute($params);
+      return $this->respuesta(false, "success", "Productos de la lista consultados", array(
+        "configurado" => true,
+        "sublistas_configuradas" => $this->tablaExiste($db, "erp_distribucion_cliente_lista_productos"),
+        "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudieron consultar productos de la lista", array("detalle" => "error_controlado", "items" => array()));
     }
   }
 
@@ -702,6 +830,20 @@ class DistribucionClientesApi extends CRUD {
         "token_activacion_generado" => true,
         "token_activacion_expira" => $activacion["fecha_expiracion"]
       ), $idUsuario, $idCliente);
+      $this->crearNotificacionDistribucion($db, array(
+        "id_cliente_distribucion" => $idCliente,
+        "tipo" => "cuenta_aprobada",
+        "titulo" => "Tu cuenta fue aprobada",
+        "mensaje" => "Tu acceso a Distribucion ya esta listo. Revisa tu cuenta para continuar.",
+        "folio_referencia" => $this->valor($solicitud, "folio", ""),
+        "url_accion" => "/mi-cuenta",
+        "requiere_accion" => 0,
+        "canales_disponibles" => array("correo", "whatsapp"),
+        "metadata" => array(
+          "huella" => "cuenta_aprobada|" . $idCliente,
+          "id_solicitud_distribucion" => $idSolicitud
+        )
+      ));
       $db->commit();
       return $this->respuesta(false, "success", "Cliente Distribucion aprobado", array(
         "ejecutado" => true,
@@ -848,6 +990,23 @@ class DistribucionClientesApi extends CRUD {
         "id_cliente_distribucion" => $idCliente ?: null,
         "id_solicitud_distribucion" => $idSolicitud ?: null
       ), $idUsuario, $idCliente ?: null);
+      if ($idCliente > 0) {
+        $tipoNotificacion = $estatus === "suspendido" ? "cuenta_suspendida" : ($estatus === "rechazado" ? "cuenta_rechazada" : "cuenta_modificada");
+        $this->crearNotificacionDistribucion($db, array(
+          "id_cliente_distribucion" => $idCliente,
+          "tipo" => $tipoNotificacion,
+          "titulo" => $estatus === "suspendido" ? "Tu cuenta fue suspendida" : ($estatus === "rechazado" ? "Tu cuenta fue rechazada" : "Tu cuenta fue actualizada"),
+          "mensaje" => $estatus === "suspendido" ? "Tu cuenta Distribucion fue suspendida. Contacta al equipo comercial para mas informacion." : "Hubo una actualizacion importante en tu cuenta Distribucion.",
+          "folio_referencia" => "",
+          "url_accion" => "/mi-cuenta",
+          "requiere_accion" => 0,
+          "canales_disponibles" => array("correo"),
+          "metadata" => array(
+            "huella" => "cuenta_estatus|" . $idCliente . "|" . $estatus,
+            "estatus" => $estatus
+          )
+        ));
+      }
       $db->commit();
       return $this->respuesta(false, "success", "Estatus Distribucion actualizado", array(
         "ejecutado" => true,
@@ -958,11 +1117,170 @@ class DistribucionClientesApi extends CRUD {
         "id_lista_precio" => $idLista,
         "lista" => $lista["nombre"]
       ), $idUsuario, $idCliente);
+      $this->crearNotificacionDistribucion($db, array(
+        "id_cliente_distribucion" => $idCliente,
+        "tipo" => "cuenta_modificada",
+        "titulo" => "Tu lista de precios fue actualizada",
+        "mensaje" => "El equipo comercial actualizo las condiciones de precio de tu cuenta.",
+        "url_accion" => "/mi-cuenta",
+        "requiere_accion" => 0,
+        "canales_disponibles" => array("correo"),
+        "metadata" => array(
+          "huella" => "cliente_lista|" . $idCliente . "|" . $idLista,
+          "id_lista_precio" => $idLista
+        )
+      ));
       $db->commit();
       return $this->respuesta(false, "success", "Lista de precio asignada", array("ejecutado" => true, "id_cliente_distribucion" => $idCliente, "id_lista_precio" => $idLista));
     } catch (Exception $e) {
       if ($db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", "No se pudo asignar lista de precio", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: guardar una lista asignada al cliente sin reemplazar las demas listas activas.
+   * Impacto: Admin ERP Distribucion; soporta lista base, express y listas especiales por cliente.
+   * Contrato: escritura auditada; no cambia precios de ERP ni catalogo global.
+   */
+  public function listaClienteGuardarInterna($datos = array(), $idUsuario = null) {
+    $idCliente = intval($this->valor($datos, "id_cliente_distribucion", 0));
+    $idClienteLista = intval($this->valor($datos, "id_cliente_lista", 0));
+    $idLista = intval($this->valor($datos, "id_lista_precio", 0));
+    if ($idCliente <= 0) { return $this->respuesta(true, "warning", "Cliente requerido"); }
+    if ($idLista <= 0) { return $this->respuesta(true, "warning", "Lista de precio requerida"); }
+    $modoProductos = $this->modoProductosLista($this->valor($datos, "modo_productos", "todos"));
+    $tipoLista = $this->tipoListaCliente($this->valor($datos, "tipo_lista", "base"));
+    $alias = $this->textoNullable($this->valor($datos, "alias", ""), 120);
+    $notas = $this->textoNullable($this->valor($datos, "notas", ""), 2000);
+    $prioridad = max(1, min(999, intval($this->valor($datos, "prioridad", 1))));
+    $estatus = trim((string) $this->valor($datos, "estatus", "activo"));
+    $estatus = in_array($estatus, array("activo", "inactivo"), true) ? $estatus : "activo";
+    $principal = intval($this->valor($datos, "principal", 0)) === 1;
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->tablaExiste($db, "erp_listas_precios")) {
+      return $this->respuesta(true, "warning", "Esquema de listas no disponible", array("configurado" => false));
+    }
+    if (!$this->columnasClienteListasAvanzadas($db)) {
+      return $this->respuesta(true, "warning", "Falta actualizar el esquema para manejar sublistas por cliente", array("requiere_plan_esquema" => true));
+    }
+    try {
+      $lista = $this->listaPrecioActiva($db, $idLista);
+      if (!$lista) { return $this->respuesta(true, "warning", "Lista de precio no activa"); }
+      $db->beginTransaction();
+      $cliente = $this->buscarCliente($db, $idCliente);
+      if (!$cliente) { throw new Exception("cliente_no_encontrado"); }
+      if ($idClienteLista > 0) {
+        $db->prepare("UPDATE erp_distribucion_cliente_listas
+          SET id_lista_precio=:lista, prioridad=:prioridad, estatus=:estatus, modo_productos=:modo, tipo_lista=:tipo, alias=:alias, notas=:notas, fecha_actualizacion=NOW()
+          WHERE id_cliente_lista=:id AND id_cliente_distribucion=:cliente")
+          ->execute(array(
+            ":lista" => $idLista,
+            ":prioridad" => $prioridad,
+            ":estatus" => $estatus,
+            ":modo" => $modoProductos,
+            ":tipo" => $tipoLista,
+            ":alias" => $alias,
+            ":notas" => $notas,
+            ":id" => $idClienteLista,
+            ":cliente" => $idCliente
+          ));
+      } else {
+        $db->prepare("INSERT INTO erp_distribucion_cliente_listas
+          (id_cliente_distribucion, id_lista_precio, prioridad, estatus, fecha_inicio, modo_productos, tipo_lista, alias, notas, fecha_registro, fecha_actualizacion)
+          VALUES (:cliente, :lista, :prioridad, :estatus, NOW(), :modo, :tipo, :alias, :notas, NOW(), NOW())")
+          ->execute(array(
+            ":cliente" => $idCliente,
+            ":lista" => $idLista,
+            ":prioridad" => $prioridad,
+            ":estatus" => $estatus,
+            ":modo" => $modoProductos,
+            ":tipo" => $tipoLista,
+            ":alias" => $alias,
+            ":notas" => $notas
+          ));
+        $idClienteLista = intval($db->lastInsertId());
+      }
+      if ($principal) {
+        $db->prepare("UPDATE erp_distribucion_clientes SET id_lista_precio=:lista, fecha_actualizacion=NOW() WHERE id_cliente_distribucion=:cliente")
+          ->execute(array(":lista" => $idLista, ":cliente" => $idCliente));
+      }
+      $this->registrarAuditoria($db, "cliente_lista", $idClienteLista, "guardar_lista_cliente", "ok", "Lista Distribucion guardada para cliente", array(
+        "id_cliente_distribucion" => $idCliente,
+        "id_lista_precio" => $idLista,
+        "modo_productos" => $modoProductos,
+        "tipo_lista" => $tipoLista,
+        "principal" => $principal
+      ), $idUsuario, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Lista del cliente guardada", array("ejecutado" => true, "id_cliente_lista" => $idClienteLista));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo guardar la lista del cliente", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
+   * Proposito: guardar productos habilitados dentro de una lista asignada al cliente.
+   * Impacto: Admin ERP Distribucion; crea sublista por cliente sin usar reglas genericas de catalogo.
+   * Contrato: escritura auditada; solo guarda SKUs que existen en la lista seleccionada.
+   */
+  public function listaClienteProductosGuardarInterna($datos = array(), $idUsuario = null) {
+    $idCliente = intval($this->valor($datos, "id_cliente_distribucion", 0));
+    $idClienteLista = intval($this->valor($datos, "id_cliente_lista", 0));
+    $modoProductos = $this->modoProductosLista($this->valor($datos, "modo_productos", "seleccionados"));
+    if ($idCliente <= 0) { return $this->respuesta(true, "warning", "Cliente requerido"); }
+    if ($idClienteLista <= 0) { return $this->respuesta(true, "warning", "Lista asignada requerida"); }
+    $productos = $this->normalizarIds($this->valor($datos, "productos", $this->valor($datos, "ids_sku", array())));
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db) || !$this->tablaExiste($db, "erp_distribucion_cliente_lista_productos") || !$this->columnasClienteListasAvanzadas($db)) {
+      return $this->respuesta(true, "warning", "Falta actualizar el esquema para guardar sublistas por producto", array("requiere_plan_esquema" => true));
+    }
+    try {
+      $stmtLista = $db->prepare("SELECT id_cliente_lista, id_lista_precio FROM erp_distribucion_cliente_listas WHERE id_cliente_lista=:id AND id_cliente_distribucion=:cliente LIMIT 1");
+      $stmtLista->execute(array(":id" => $idClienteLista, ":cliente" => $idCliente));
+      $asignacion = $stmtLista->fetch(PDO::FETCH_ASSOC);
+      if (!$asignacion) { return $this->respuesta(true, "warning", "Lista asignada no encontrada"); }
+      $idLista = intval($asignacion["id_lista_precio"]);
+      $db->beginTransaction();
+      $db->prepare("UPDATE erp_distribucion_cliente_listas SET modo_productos=:modo, fecha_actualizacion=NOW() WHERE id_cliente_lista=:id")
+        ->execute(array(":modo" => $modoProductos, ":id" => $idClienteLista));
+      $db->prepare("UPDATE erp_distribucion_cliente_lista_productos SET estatus='inactivo', fecha_actualizacion=NOW() WHERE id_cliente_lista=:id")
+        ->execute(array(":id" => $idClienteLista));
+      $guardados = 0;
+      if ($modoProductos === "seleccionados" && !empty($productos)) {
+        $stmtValida = $db->prepare("SELECT id_sku FROM erp_listas_precios_detalle WHERE id_lista_precio=:lista AND id_sku=:sku AND estatus='activo' AND precio>0 LIMIT 1");
+        $stmtInsert = $db->prepare("INSERT INTO erp_distribucion_cliente_lista_productos
+          (id_cliente_distribucion, id_cliente_lista, id_lista_precio, id_sku, estatus, origen, fecha_registro, fecha_actualizacion)
+          VALUES (:cliente, :cliente_lista, :lista, :sku, 'activo', 'admin', NOW(), NOW())
+          ON DUPLICATE KEY UPDATE estatus='activo', fecha_actualizacion=NOW()");
+        foreach ($productos as $idSku) {
+          $stmtValida->execute(array(":lista" => $idLista, ":sku" => $idSku));
+          if (!$stmtValida->fetchColumn()) { continue; }
+          $stmtInsert->execute(array(
+            ":cliente" => $idCliente,
+            ":cliente_lista" => $idClienteLista,
+            ":lista" => $idLista,
+            ":sku" => $idSku
+          ));
+          $guardados++;
+        }
+      }
+      $this->registrarAuditoria($db, "cliente_lista", $idClienteLista, "guardar_productos_lista_cliente", "ok", "Productos habilitados por lista guardados", array(
+        "id_cliente_distribucion" => $idCliente,
+        "id_lista_precio" => $idLista,
+        "modo_productos" => $modoProductos,
+        "productos_guardados" => $guardados
+      ), $idUsuario, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Productos de la lista guardados", array("ejecutado" => true, "productos_guardados" => $guardados));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudieron guardar productos de la lista", array("detalle" => "error_controlado"));
     }
   }
 
@@ -994,6 +1312,19 @@ class DistribucionClientesApi extends CRUD {
       $this->registrarAuditoria($db, "cliente", $idCliente, "asignar_permisos", "ok", "Permisos Distribucion actualizados", array(
         "permisos" => $permisos
       ), $idUsuario, $idCliente);
+      $this->crearNotificacionDistribucion($db, array(
+        "id_cliente_distribucion" => $idCliente,
+        "tipo" => "cuenta_modificada",
+        "titulo" => "Tu acceso fue actualizado",
+        "mensaje" => "El equipo comercial actualizo las funciones disponibles en tu cuenta.",
+        "url_accion" => "/mi-cuenta",
+        "requiere_accion" => 0,
+        "canales_disponibles" => array("correo"),
+        "metadata" => array(
+          "huella" => "cliente_permisos|" . $idCliente . "|" . hash("sha256", implode(",", $permisos)),
+          "permisos_actualizados" => count($permisos)
+        )
+      ));
       $db->commit();
       return $this->respuesta(false, "success", "Permisos Distribucion actualizados", array("ejecutado" => true, "id_cliente_distribucion" => $idCliente, "permisos" => $permisos));
     } catch (Exception $e) {
@@ -1232,7 +1563,7 @@ class DistribucionClientesApi extends CRUD {
     }
     $db = $this->getConexion();
     if (!$this->esquemaOperativo($db) || !$this->tablaExiste($db, "erp_distribucion_cliente_solicitudes_cambio") || !$this->columnasPerfilClienteDisponibles($db)) {
-      return $this->respuesta(true, "warning", "Mi cuenta Distribucion pendiente de esquema", array("configurado" => false));
+      return $this->respuesta(true, "warning", "Mi cuenta aun no esta disponible para solicitar cambios", array("configurado" => false));
     }
     $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
     $simplesPermitidos = array("telefono", "whatsapp", "correo_alterno", "contacto_principal");
@@ -1260,14 +1591,21 @@ class DistribucionClientesApi extends CRUD {
     foreach (array("id_lista_precio", "permisos", "tipo_cliente", "estatus", "catalogo_modo") as $bloqueado) {
       unset($simples[$bloqueado], $sensibles[$bloqueado]);
     }
-    if (empty($simples) && empty($sensibles)) {
-      return $this->respuesta(true, "warning", "No hay cambios validos para procesar");
-    }
-
     try {
       $db->beginTransaction();
       $cliente = $this->buscarCliente($db, $idCliente);
       if (!$cliente) { throw new Exception("cliente_no_encontrado"); }
+      $simples = $this->camposPerfilModificados($simples, $cliente);
+      $sensibles = $this->camposPerfilModificados($sensibles, $cliente);
+      if (empty($simples) && empty($sensibles)) {
+        $db->rollBack();
+        return $this->respuesta(false, "info", "No detectamos cambios para procesar", array(
+          "ejecutado" => false,
+          "sin_cambios" => true,
+          "cambios_aplicados" => array(),
+          "requiere_revision" => false
+        ));
+      }
       if (!empty($simples)) {
         $sets = array();
         $params = array(":cliente" => $idCliente);
@@ -1279,7 +1617,8 @@ class DistribucionClientesApi extends CRUD {
         $db->prepare("UPDATE erp_distribucion_clientes SET " . implode(", ", $sets) . " WHERE id_cliente_distribucion=:cliente")
           ->execute($params);
         $this->registrarAuditoria($db, "cliente", $idCliente, "perfil_contacto_actualizar", "ok", "Contacto Distribucion actualizado desde portal", array(
-          "campos" => array_keys($simples)
+          "campos" => array_keys($simples),
+          "campos_etiquetas" => $this->etiquetasCamposPerfil(array_keys($simples))
         ), null, $idCliente);
       }
       $idSolicitud = null;
@@ -1292,21 +1631,29 @@ class DistribucionClientesApi extends CRUD {
           ":cliente" => $idCliente,
           ":tipo" => "perfil_comercial",
           ":resumen" => $resumen,
-          ":datos" => json_encode(array("campos" => $sensibles), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+          ":datos" => json_encode(array(
+            "campos" => $sensibles,
+            "campos_etiquetas" => $this->etiquetasCamposPerfil(array_keys($sensibles))
+          ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
           ":ip" => $this->ipContexto($contexto),
           ":ua" => $this->userAgentContexto($contexto)
         ));
         $idSolicitud = intval($db->lastInsertId());
         $this->registrarAuditoria($db, "cliente", $idCliente, "perfil_solicitar_cambio", "pendiente", "Solicitud de cambio sensible recibida", array(
           "id_solicitud_cambio" => $idSolicitud,
-          "campos" => array_keys($sensibles)
+          "campos" => array_keys($sensibles),
+          "campos_etiquetas" => $this->etiquetasCamposPerfil(array_keys($sensibles))
         ), null, $idCliente);
       }
       $db->commit();
       return $this->respuesta(false, "success", empty($sensibles) ? "Datos de contacto actualizados" : "Solicitud de cambio recibida", array(
         "ejecutado" => true,
         "cambios_aplicados" => array_keys($simples),
+        "cambios_aplicados_etiquetas" => $this->etiquetasCamposPerfil(array_keys($simples)),
         "requiere_revision" => !empty($sensibles),
+        "campos_revision" => array_keys($sensibles),
+        "campos_revision_etiquetas" => $this->etiquetasCamposPerfil(array_keys($sensibles)),
+        "resumen" => !empty($sensibles) ? $this->resumenSolicitudCambio($sensibles) : "",
         "id_solicitud" => $idSolicitud,
         "estatus" => $idSolicitud ? "pendiente" : "aplicado"
       ));
@@ -1555,10 +1902,59 @@ class DistribucionClientesApi extends CRUD {
     return substr($valor, 0, $max);
   }
 
+  private function camposPerfilModificados($campos, $cliente) {
+    $modificados = array();
+    foreach ($campos as $campo => $valor) {
+      $actual = $this->normalizarCampoPerfil($campo, $this->valor($cliente, $campo, ""));
+      if ((string) $actual !== (string) $valor) {
+        $modificados[$campo] = $valor;
+      }
+    }
+    return $modificados;
+  }
+
   private function resumenSolicitudCambio($campos) {
-    $nombres = array_keys($campos);
+    $nombres = $this->etiquetasCamposPerfil(array_keys($campos));
     return substr("Cambio de " . implode(", ", array_slice($nombres, 0, 8)) . (count($nombres) > 8 ? " y otros datos" : ""), 0, 255);
   }
+
+  private function etiquetasCamposPerfil($campos) {
+    $etiquetas = array();
+    foreach ($campos as $campo) {
+      $etiquetas[] = $this->etiquetaCampoPerfil($campo);
+    }
+    return $etiquetas;
+  }
+
+  private function etiquetaCampoPerfil($campo) {
+    $etiquetas = array(
+      "telefono" => "telefono",
+      "whatsapp" => "WhatsApp",
+      "correo_alterno" => "correo alterno",
+      "contacto_principal" => "contacto principal",
+      "empresa" => "empresa",
+      "nombre_negocio" => "nombre comercial",
+      "tipo_negocio" => "tipo de negocio",
+      "ciudad" => "ciudad",
+      "estado" => "estado",
+      "calle" => "calle",
+      "numero_exterior" => "numero exterior",
+      "numero_interior" => "numero interior",
+      "colonia" => "colonia",
+      "codigo_postal" => "codigo postal",
+      "referencias" => "referencias de entrega",
+      "requiere_factura" => "facturacion requerida",
+      "rfc" => "RFC",
+      "razon_social" => "razon social",
+      "regimen_fiscal" => "regimen fiscal",
+      "uso_cfdi" => "uso CFDI",
+      "codigo_postal_fiscal" => "codigo postal fiscal",
+      "correo_facturacion" => "correo de facturacion",
+      "comentarios_facturacion" => "comentarios de facturacion"
+    );
+    return isset($etiquetas[$campo]) ? $etiquetas[$campo] : $campo;
+  }
+
 
   private function permisosCliente($db, $idCliente) {
     if (!$this->tablaExiste($db, "erp_distribucion_cliente_permisos")) {
@@ -1680,6 +2076,60 @@ class DistribucionClientesApi extends CRUD {
       (id_cliente_distribucion, id_lista_precio, prioridad, estatus, fecha_inicio, fecha_registro)
       VALUES (:cliente, :lista, 1, 'activo', NOW(), NOW())")
       ->execute(array(":cliente" => intval($idCliente), ":lista" => intval($idLista)));
+  }
+
+  private function listasClientePayload($db, $idCliente) {
+    if (!$this->tablaExiste($db, "erp_distribucion_cliente_listas")) { return array(); }
+    $avanzadas = $this->columnasClienteListasAvanzadas($db);
+    $selectAvanzado = $avanzadas
+      ? "cl.modo_productos, cl.tipo_lista, cl.alias, cl.notas,"
+      : "'todos' modo_productos, 'base' tipo_lista, NULL alias, NULL notas,";
+    $joinLista = $this->tablaExiste($db, "erp_listas_precios") ? "LEFT JOIN erp_listas_precios l ON l.id_lista_precio=cl.id_lista_precio" : "LEFT JOIN (SELECT NULL id_lista_precio, NULL codigo, NULL nombre, NULL canal) l ON 1=0";
+    $productosSelect = $this->tablaExiste($db, "erp_distribucion_cliente_lista_productos")
+      ? "(SELECT COUNT(*) FROM erp_distribucion_cliente_lista_productos lp WHERE lp.id_cliente_lista=cl.id_cliente_lista AND lp.estatus='activo') productos_habilitados"
+      : "0 productos_habilitados";
+    $stmt = $db->prepare("SELECT cl.id_cliente_lista, cl.id_cliente_distribucion, cl.id_lista_precio, cl.prioridad, cl.estatus,
+        cl.fecha_inicio, cl.fecha_fin, cl.fecha_registro, cl.fecha_actualizacion, " . $selectAvanzado . "
+        l.codigo lista_codigo, l.nombre lista_nombre, l.canal lista_canal, " . $productosSelect . "
+      FROM erp_distribucion_cliente_listas cl
+      " . $joinLista . "
+      WHERE cl.id_cliente_distribucion=:cliente
+      ORDER BY cl.estatus='activo' DESC, cl.prioridad ASC, cl.id_cliente_lista DESC");
+    $stmt->execute(array(":cliente" => intval($idCliente)));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function columnasClienteListasAvanzadas($db) {
+    foreach (array("modo_productos", "tipo_lista", "alias", "notas") as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_cliente_listas", $columna)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private function modoProductosLista($modo) {
+    $modo = trim((string) $modo);
+    return in_array($modo, array("todos", "seleccionados"), true) ? $modo : "todos";
+  }
+
+  private function tipoListaCliente($tipo) {
+    $tipo = trim((string) $tipo);
+    return in_array($tipo, array("base", "express", "especial"), true) ? $tipo : "base";
+  }
+
+  private function normalizarIds($entrada) {
+    if (is_string($entrada)) {
+      $decodificada = json_decode($entrada, true);
+      $entrada = is_array($decodificada) ? $decodificada : explode(",", $entrada);
+    }
+    if (!is_array($entrada)) { return array(); }
+    $salida = array();
+    foreach ($entrada as $valor) {
+      $id = intval($valor);
+      if ($id > 0) { $salida[$id] = $id; }
+    }
+    return array_values($salida);
   }
 
   private function validarPermisosComerciales($permisos) {
@@ -1834,6 +2284,23 @@ class DistribucionClientesApi extends CRUD {
       ":usuario" => $idUsuario,
       ":cliente" => $idCliente
     ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-07
+   * Proposito: notificar cambios de cuenta al cliente externo sin acoplar aprobacion/permisos al esquema nuevo.
+   * Impacto: Clientes Distribucion; si notificaciones aun no estan aplicadas, la operacion principal continua.
+   * Contrato: best effort sobre la misma conexion transaccional.
+   */
+  private function crearNotificacionDistribucion($db, $datos) {
+    try {
+      require_once RUTA_APP . "/modelos/distribucionnotificacionesapi.php";
+      $notificaciones = new DistribucionNotificacionesApi();
+      return $notificaciones->crearNotificacionEnConexion($db, $datos);
+    } catch (Exception $e) {
+      return 0;
+    }
   }
 
   private function detalleAcceso($contexto = array(), $extra = array()) {

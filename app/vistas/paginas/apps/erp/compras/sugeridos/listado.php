@@ -88,6 +88,13 @@ $puedeEditar = !empty($datos["puede_editar"]);
                             </div>
                             <div class="col-xl-3 col-md-6">
                                 <div class="border border-gray-300 rounded p-4 h-100">
+                                    <div class="text-muted fs-8 text-uppercase fw-bold">Venta aproximada</div>
+                                    <div class="fw-bold fs-2" id="sugeridos_resumen_venta">$0.00</div>
+                                    <div class="text-muted fs-8">A solicitar x lista de precios vigente</div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="border border-gray-300 rounded p-4 h-100">
                                     <div class="text-muted fs-8 text-uppercase fw-bold">Criterio</div>
                                     <div class="fw-semibold fs-6 mt-2">Borrador y lista</div>
                                     <div class="text-muted fs-8">No incluye cancelados ni sugeridos con solicitud generada.</div>
@@ -104,6 +111,7 @@ $puedeEditar = !empty($datos["puede_editar"]);
                                         <th class="text-end">Partidas</th>
                                         <th class="text-end">A solicitar</th>
                                         <th class="text-end">Estimado</th>
+                                        <th class="text-end">Venta aprox.</th>
                                         <th class="text-end">Inventario revisado</th>
                                         <th>Solicitud</th>
                                         <th>Estado</th>
@@ -121,6 +129,6 @@ $puedeEditar = !empty($datos["puede_editar"]);
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/listado.js?v=20261007-1"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/listado.js?v=20261007-2"></script>
 </body>
 </html>

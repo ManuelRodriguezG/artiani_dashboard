@@ -37,15 +37,15 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 
 - Se agrego `DistribucionClienteSurtidoApi` para contratos externos de Mi catalogo, inventario cliente y sugerido de resurtido.
 - `DistribucionApi` expone `/mi_catalogo/listar`, `/mi_catalogo/guardar`, `/inventario_cliente/listar`, `/inventario_cliente/guardar_conteo`, `/inventario_cliente/sugerido` y `/inventario_cliente/pedido_sugerido`.
-- `DistribucionAdmin` expone bandejas internas read-only para Mi catalogo, inventarios y sugeridos.
-- La vista `DistribucionAdmin/administracion` agrega tabs internas de Mi catalogo, Inventarios y Sugeridos.
+- `/distribucionadmin` expone bandejas internas read-only para Mi catalogo, inventarios y sugeridos.
+- La vista `/distribucionadmin/administracion` agrega tabs internas de Mi catalogo, Inventarios y Sugeridos.
 - El plan de esquema agrega tablas para Mi catalogo, inventario cliente y movimientos de inventario cliente; no se ejecuto DDL en esta etapa.
 
 ## Cambios 2026-09-29 - consola interna ERP
 
-- `DistribucionAdmin/administracion` se consolida como consola operativa interna con tabs de Resumen, Solicitudes, Clientes, Mi catalogo, Inventario cliente, Sugerido, Pedidos, Productos y Demanda.
+- `/distribucionadmin/administracion` se consolida como consola operativa interna con tabs de Resumen, Solicitudes, Clientes, Mi catalogo, Inventario cliente, Sugerido, Pedidos, Productos y Demanda.
 - Se agrega el modelo `distribucionanaliticainterna.php` con clase `DistribucionAnaliticaInterna` para lecturas agregadas de dashboard, demanda y catalogos de filtros internos. Es read-only y no expone costos, margenes ni stock exacto al frontend externo.
-- `DistribucionAdmin` agrega endpoints internos read-only: `/resumen`, `/demanda` y `/catalogos_filtros`.
+- `/distribucionadmin` agrega endpoints internos read-only: `/resumen`, `/demanda` y `/catalogos_filtros`.
 - Productos publicables soporta filtros internos por marca, categoria, proveedor, estado de canal, precio, imagen y ficha, reutilizando tablas de Catalogo ERP.
 - Pedidos/cotizaciones muestran detalle de partidas y preparan revision por partida con `cantidad_confirmada`, `estatus_revision`, `comentario_revision`, `fecha_revision` e `id_usuario_revision` solo si las columnas ya existen.
 - No se ejecuto DDL ni migracion. Si faltan columnas de revision por partida, deben aplicarse desde el plan de `DistribucionApiEsquema` con respaldo y autorizacion explicita.
@@ -54,10 +54,18 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 
 - Distribucion deja de depender de una sola entrada visual de Administracion para operar el modulo.
 - El sidebar y el buscador global apuntan a paginas separadas: Resumen, Solicitudes, Clientes, Pedidos, Mi catalogo, Inventarios, Sugeridos, Productos y Demanda.
-- Las rutas internas usan `DistribucionAdmin/panel_*` para no chocar con endpoints JSON existentes como `resumen`, `solicitudes`, `clientes`, `cotizaciones` y `demanda`.
+- Las rutas internas usan `/distribucionadmin/panel_*` en minusculas para no chocar con endpoints JSON existentes como `resumen`, `solicitudes`, `clientes`, `cotizaciones` y `demanda`, y para funcionar en servidores sensibles a mayusculas/minusculas.
 - Cada seccion tiene su propia vista PHP dentro de `app/vistas/paginas/apps/erp/distribucion/`; el layout comun solo conserva header, sidebar, navegacion y scripts.
 - El JS carga solo los datos requeridos por la pagina activa para evitar que Pedidos, Clientes, Mi catalogo, Inventarios y Productos queden mezclados en una sola pantalla.
 - Pedidos queda como bandeja operativa separada para revisar partidas, cantidades solicitadas bloqueadas, cantidades confirmadas, valores e impresion de revision.
+
+## Decision 2026-10-08 - rutas internas en minusculas
+
+- Queda prohibido usar `/DistribucionAdmin/...` en vistas, sidebar, buscador, JS, ejemplos de documentos o llamadas AJAX nuevas.
+- La ruta operativa canonica del panel interno es `/distribucionadmin/...`.
+- La capitalizacion anterior solo queda como referencia historica; ningun enlace de UI debe depender de ella.
+- El archivo del controlador queda como `app/controladores/distribucionadmin.php` para que produccion lo encuentre en sistemas sensibles a mayusculas/minusculas.
+- `Core.php` compara CSRF/auditoria explicita sin depender de mayusculas para que las rutas internas en minusculas no generen auditoria duplicada.
 
 ## Cambios 2026-10-06 - autenticacion, registro y estados de acceso
 
@@ -80,7 +88,7 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Validacion fiscal agrega `campos_faltantes`, `errores_campos` y `etiquetas_campos`; cuando solo faltan fiscales, usa codigo `campos_fiscales_requeridos`.
 - El alias `gestionar_surtido` se mantiene sincronizado con `distribucion.mi_catalogo.gestionar` para compatibilidad con frontends anteriores.
 - La contrasenia temporal capturada al aprobar desde ERP respeta el mismo minimo de 8 caracteres que el flujo de activacion por link.
-- El manifiesto publico de Distribucion ya no mezcla rutas `DistribucionAdmin` dentro de endpoints externos; esas rutas quedan separadas como `endpoints_internos_erp` y marcadas solo para panel ERP.
+- El manifiesto publico de Distribucion ya no mezcla rutas internas del panel dentro de endpoints externos; esas rutas quedan separadas como `endpoints_internos_erp` y marcadas solo para panel ERP.
 - Mi catalogo usa el mismo criterio de URL absoluta de imagenes que el catalogo general, evitando rutas `/uploads/...` relativas al dominio externo.
 - `Core.php` no aplica CSRF/auditoria de sesion ERP interna a `DistribucionApi`; la API externa se protege con Authorization Bearer, permisos comerciales y CORS propios.
 - Los POST internos de Distribucion que ya auditan en modelos quedan registrados como auditoria explicita en `Core.php` para evitar auditoria generica duplicada.
@@ -132,6 +140,42 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - El modal de reglas agrega sugerencias de objeto para SKU, categoria o marca segun los datos cargados en el panel, reduciendo captura manual de IDs.
 - No se ejecuto DDL ni escritura de datos durante esta implementacion; las escrituras quedan disponibles solo cuando el usuario opere los botones del panel ERP.
 
+## Cambios 2026-10-07 - pedidos UAT y cambios de cuenta
+
+- Se dejaron dos pedidos nuevos del cliente tester `14` listos para que frontend pruebe respuesta del cliente sin consumir el caso ya aceptado:
+  - `DPED-20261007-0003` (`id_pedido_distribucion=13`): usar para probar `requiere_ajuste`.
+  - `DPED-20261007-0004` (`id_pedido_distribucion=14`): usar para probar `rechazado`.
+- Ambos pedidos tienen SKU `1867`, cantidad solicitada `1`, cantidad confirmada `1`, estatus `respondida`, total confirmado `41.25`, revision por partida y detalle visible desde el perfil autenticado del tester.
+- La preparacion interna de estos pedidos conserva guardrails: no aparta inventario, no crea venta y no crea pedido ERP final.
+- `DistribucionClientesApi::solicitarCambioPerfil()` ahora compara contra los datos actuales del cliente antes de actualizar contacto o registrar solicitud; si no hay diferencias responde `No detectamos cambios para procesar` y no crea solicitud.
+- Los cambios simples de contacto siguen aplicando directo; los cambios comerciales/fiscales generan solicitud pendiente solo por los campos realmente modificados.
+- Las solicitudes de cambio ahora guardan y devuelven etiquetas humanas (`nombre comercial`, `correo de facturacion`, etc.) y resumen legible, evitando textos genericos como `Cambio de empresa... y otros datos` cuando no aplica.
+- Se valido un caso sin cambios reales para el cliente `14`: respuesta `error=false`, `tipo=info`, `sin_cambios=true`, sin escritura nueva.
+- Se valido un cambio comercial UAT para el cliente `14`: solicitud `id_solicitud=2`, resumen `Cambio de nombre comercial`, estatus `pendiente`.
+- Se reviso auditoria para los nuevos pedidos y para el cambio de perfil; registra crear pedido preliminar, configurar respuesta interna y solicitud de cambio sin hashes, tokens ni contrasenas.
+- Se suavizaron mensajes publicos base para rutas/acciones no disponibles y metodo incorrecto, evitando texto visible como `endpoint`; las claves tecnicas internas se conservan para compatibilidad del contrato.
+
+## Cambios 2026-10-07 - API de notificaciones del portal
+
+- Se agrega el contrato externo `/DistribucionApi/notificacion/*` con resumen, listado, marcado de lectura y solicitud de envio/reenvio por canal.
+- Se crea el modelo `app/modelos/distribucionnotificacionesapi.php` con archivo en minusculas para evitar fallas de despliegue por sensibilidad de mayusculas/minusculas.
+- Las notificaciones externas se separan de la bandeja interna `erp_notificaciones`: viven en `erp_distribucion_notificaciones` y sus intentos de envio en `erp_distribucion_notificacion_envios`.
+- `DistribucionApiEsquema::planActualizarDistribucionApi()` queda preparado para crear esas tablas, pero no se ejecuto DDL ni escritura de esquema en esta etapa.
+- La API siempre resuelve el cliente desde el token externo; no acepta `id_cliente_distribucion` del frontend para listar, marcar o reenviar notificaciones.
+- `DistribucionCotizacionesApi` genera avisos best effort al recibir pedido, pasar a revision, guardar propuesta comercial, cancelar/actualizar solicitud y recibir respuesta del cliente.
+- `DistribucionClientesApi` genera avisos best effort al aprobar cuenta, suspender/rechazar/actualizar estatus, asignar lista de precios y actualizar permisos comerciales.
+- Los envios por correo, WhatsApp, SMS y llamada quedan auditados como intentos; si el proveedor aun no esta integrado, la API responde mensaje claro con `configurado=false` sin romper el frontend.
+- Los destinos de envio se guardan enmascarados y la auditoria no guarda tokens, hashes, contrasenas ni contactos internos.
+
+## Decision 2026-10-08 - UX de atencion de clientes y sublistas comerciales
+
+- La bandeja de Clientes deja de ser el lugar para configurar acciones profundas. Debe servir para encontrar al cliente y entrar a pantallas dedicadas: Atender cliente, Listas, Permisos y Entrega.
+- No usar modales para administrar listas, permisos o entrega cuando la accion requiere revisar contexto y tomar decisiones comerciales.
+- Las listas de precio por cliente ya no deben pensarse como una unica lista ni como reglas sueltas de catalogo. Un cliente puede tener varias listas activas: base, express o especial.
+- Cada lista asignada puede operar en modo `todos` o `seleccionados`. En modo `seleccionados`, la sublista de productos se toma solo desde los productos que existen en esa lista de precios.
+- La lista express cubre el caso comercial de bajo margen para productos que el cliente no maneja en stock, pero que Artiani puede surtir si el cliente necesita venderlos.
+- El plan de esquema agrega columnas avanzadas a `erp_distribucion_cliente_listas` y la tabla `erp_distribucion_cliente_lista_productos`; no se ejecuto DDL en esta etapa.
+
 ## Pendientes
 
 - Validar en UAT con un cliente aprobado que tenga solo `distribucion.catalogo.ver`.
@@ -141,4 +185,5 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Asignar a clientes aprobados los nuevos permisos externos segun su alcance comercial.
 - Terminar pruebas visuales del panel ERP en navegador para confirmar filtros, modales y estados con datos reales.
 - Decidir si la API externa debe cambiar codigos HTTP para errores de negocio (`422`, `404`, `409`) o conservar `200` con `error=true` por compatibilidad.
+- Hacer una segunda pasada de textos visibles cuando frontend confirme que mensajes de `depurar` no se muestran al usuario final.
 
