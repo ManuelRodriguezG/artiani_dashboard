@@ -660,11 +660,14 @@ class DistribucionClientesApi extends CRUD {
       if ($joinHabilitado !== "") { $params[":cliente_lista"] = $idClienteLista; }
       $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.id_lista_precio, d.id_sku, d.id_producto_erp, d.precio, d.moneda,
           s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) nombre_sku, p.nombre producto,
+          pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) categoria,
           " . $habilitadoSql . " habilitado
         FROM erp_listas_precios_detalle d
         INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
         LEFT JOIN erp_catalogo_skus s ON s.id_sku=d.id_sku
         LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=COALESCE(d.id_producto_erp, s.id_producto_erp)
+        LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+        LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
         " . $joinHabilitado . "
         WHERE " . implode(" AND ", $where) . "
           AND l.estatus='activa'

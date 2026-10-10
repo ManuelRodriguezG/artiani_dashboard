@@ -1736,7 +1736,8 @@ class VentasErp extends CRUD {
             }
 
             foreach ($items as $indice => $item) {
-                $validacion = $this->prevalidarPartida($db, $item, $idAlmacen, $indice + 1);
+                $idAlmacenPartida = $this->idAlmacenPartidaPos($item, $idAlmacen);
+                $validacion = $this->prevalidarPartida($db, $item, $idAlmacenPartida, $indice + 1);
                 $partidas[] = $validacion;
                 $subtotal += floatval($validacion["subtotal"]);
                 if (!empty($validacion["bloqueos"])) {
@@ -4221,6 +4222,7 @@ class VentasErp extends CRUD {
             $db = $this->getConexion();
             return $this->respuesta(false, "success", "Catalogos POS consultados", array(
                 "almacenes" => $this->listarAlmacenesVenta($db),
+                "almacenes_origen" => $this->listarAlmacenesOrigenPos($db),
                 "cajas" => $this->listarCajasPos($db),
                 "turnos_abiertos" => $this->listarTurnosAbiertosPos($db),
                 "schema_cajas_pendiente" => !$this->tablaExiste($db, "erp_pos_cajas"),
@@ -5489,6 +5491,51 @@ class VentasErp extends CRUD {
             return null;
         }
     }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-09.
+     * Proposito: avisar a Ventas/Listas cuando POS cobra un SKU existente sin precio formal.
+     * Impacto: no bloquea el cobro; deja pendiente operativo para normalizar listas de precios.
+     * Contrato: best effort e idempotente por detalle de venta.
+     */
+    private function registrarNotificacionPrecioPendientePos($db, $idVenta, $idDetalle, $folioVenta, $datosVenta, $sku, $precioManual, $motivo, $idUsuario) {
+        try {
+            if (!$this->tablaExiste($db, "erp_notificaciones") || intval($idDetalle) <= 0) {
+                return 0;
+            }
+            $huella = "pos_precio_manual_sin_lista|" . intval($idDetalle);
+            $payload = array(
+                "huella" => $huella,
+                "folio_venta" => $folioVenta,
+                "id_venta" => intval($idVenta),
+                "id_venta_detalle" => intval($idDetalle),
+                "id_almacen" => intval($this->valor($datosVenta, "id_almacen", 0)),
+                "id_sku" => intval($this->valor($sku, "id_sku", 0)),
+                "sku" => $this->valor($sku, "sku", ""),
+                "precio_manual" => floatval($precioManual),
+                "motivo" => $motivo,
+                "accion_sugerida" => "capturar_precio_formal_en_listas"
+            );
+            require_once __DIR__ . "/NotificacionesErp.php";
+            $notificaciones = new NotificacionesErp();
+            return $notificaciones->guardarOperativaEnConexion($db, array(
+                "tipo" => "sku_sin_precio_lista_post_venta",
+                "modulo_origen" => "ventas_pos",
+                "entidad_origen" => "erp_ventas_detalle",
+                "id_entidad_origen" => intval($idDetalle),
+                "area_responsable" => "ventas_listas",
+                "permiso_requerido" => "ventas.ver",
+                "titulo" => "SKU vendido sin precio formal",
+                "descripcion" => "Configurar precio formal para SKU " . $this->valor($sku, "sku", "") . " vendido en POS " . $folioVenta . ".",
+                "prioridad" => "alta",
+                "url_accion" => "/ventas/listas_precios",
+                "payload_json" => $payload,
+                "creado_por" => intval($idUsuario) ?: null
+            ));
+        } catch (Exception $e) {
+            return 0;
+        }
+    }
     /**
      * Documentacion IA: Codex GPT-5, 2026-07-10.
      * Proposito: consultar precio, imagen y disponibilidad para checador POS/celular.
@@ -5679,7 +5726,8 @@ class VentasErp extends CRUD {
             $cliente = $this->resolverClienteDryRun($db, $idCliente, $identificadorCliente, $schemaClientesPendiente);
             $subtotal = 0;
             foreach ($items as $indice => $item) {
-                $validacion = $this->prevalidarPartida($db, $item, $idAlmacen, $indice + 1, $cliente, $canal, $schemaListasPendiente, $autorizarInventarioPendiente, $omitirAfectacionInventario);
+                $idAlmacenPartida = $this->idAlmacenPartidaPos($item, $idAlmacen);
+                $validacion = $this->prevalidarPartida($db, $item, $idAlmacenPartida, $indice + 1, $cliente, $canal, $schemaListasPendiente, $autorizarInventarioPendiente, $omitirAfectacionInventario);
                 $partidas[] = $validacion;
                 if (!empty($validacion["bloqueos"])) {
                     $bloqueos = array_merge($bloqueos, $validacion["bloqueos"]);
@@ -5774,6 +5822,8 @@ class VentasErp extends CRUD {
             return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Venta rapida lista para agregar al carrito" : "Venta rapida requiere correcciones", array(
                 "dry_run" => true,
                 "tipo_partida" => "venta_rapida",
+                "id_almacen" => $idAlmacen,
+                "id_almacen_origen" => $idAlmacen,
                 "sku_snapshot" => "VENTA-RAPIDA",
                 "descripcion_manual_snapshot" => $descripcion,
                 "cantidad" => $cantidad,
@@ -6394,6 +6444,14 @@ class VentasErp extends CRUD {
         );
         $modoInventarioVenta = $this->resolverModoInventarioCajaPos($db, $datosVenta["id_caja"]);
         $afectarInventarioVenta = intval($this->valor($modoInventarioVenta, "afectar_inventario", 1)) === 1;
+        if (!empty($modoInventarioVenta["autorizar_inventario_pendiente"])) {
+            $autorizarInventarioPendiente = true;
+            if ($motivoInventarioPendiente === "") {
+                $motivoInventarioPendiente = trim((string) $this->valor($modoInventarioVenta, "motivo_inventario_pendiente", "Regularizacion activa POS"));
+            }
+            $datosVenta["autorizar_inventario_pendiente_pos"] = "AUTORIZAR INVENTARIO PENDIENTE";
+            $datosVenta["motivo_inventario_pendiente"] = $motivoInventarioPendiente;
+        }
         $fechaOperacionVenta = $this->resolverFechaOperacionVentaPos($this->valor($datos, "fecha_operacion", ""), $modoInventarioVenta);
         if (!empty($fechaOperacionVenta["error"])) {
             return $this->respuesta(true, "warning", $fechaOperacionVenta["mensaje"], array(
@@ -6620,6 +6678,7 @@ class VentasErp extends CRUD {
             $pendientesInventario = array();
             $cantidadInventarioPendienteTotal = 0;
             foreach ($partidas as $partida) {
+                $idAlmacenPartida = $this->idAlmacenPartidaPos($partida, $datosVenta["id_almacen"]);
                 if ($this->esPartidaVentaRapidaControlada($partida)) {
                     $cantidadVentaRapida = $this->redondearPosReal($this->valor($partida, "cantidad", 0));
                     $precioVentaRapida = $this->redondearPosReal($this->valor($partida, "precio_unitario", 0));
@@ -6672,12 +6731,18 @@ class VentasErp extends CRUD {
                         ":total" => $totalVentaRapida
                     ));
                     $idDetalle = intval($db->lastInsertId());
+                    if ($this->columnaExiste($db, "erp_ventas_detalle", "id_almacen")) {
+                        $db->prepare("UPDATE erp_ventas_detalle SET id_almacen=:almacen WHERE id_venta_detalle=:detalle")
+                            ->execute(array(":almacen" => $idAlmacenPartida, ":detalle" => $idDetalle));
+                    }
+                    $datosVentaPartida = $datosVenta;
+                    $datosVentaPartida["id_almacen"] = $idAlmacenPartida;
                     $pendientesVentaRapida[] = $this->registrarPendienteVentaRapidaPosReal(
                         $db,
                         $idVenta,
                         $idDetalle,
                         $folio,
-                        $datosVenta,
+                        $datosVentaPartida,
                         $partida,
                         $clienteSnapshot,
                         $idClienteCrmVenta,
@@ -6692,11 +6757,14 @@ class VentasErp extends CRUD {
                 $modoSalida = $this->valorRutaPosReal($partida, array("plan_salida_inventario", "modo"), "existencia_agregada");
                 $precioPartida = isset($partidasPrecio[intval($this->valor($partida, "renglon", 0))]) ? $partidasPrecio[intval($this->valor($partida, "renglon", 0))] : array();
                 $aplicaExcepcion = !empty($partida["aplica_excepcion_comercial"]);
+                $precioManualSinLista = intval($this->valor($partida, "precio_manual_sin_lista", $this->valor($precioPartida, "precio_manual_sin_lista", 0))) === 1
+                    || $this->valor($precioPartida, "regla_precio_origen", "") === "precio_manual_sin_lista";
                 $precioOriginal = $this->redondearPosReal($this->valor($partida, "precio_unitario_original", $this->valor($partida, "precio_unitario", 0)));
                 $precioFinal = $this->redondearPosReal($this->valor($partida, "precio_unitario_final", $this->valor($partida, "precio_unitario", 0)));
                 $descuentoPartida = $this->redondearPosReal($this->valor($partida, "descuento_excepcion", 0));
                 $subtotalPartida = $this->redondearPosReal($this->valor($partida, "subtotal_original", $this->valor($partida, "subtotal", 0)));
                 $totalPartida = $this->redondearPosReal($this->valor($partida, "total_final", $this->valor($partida, "subtotal", 0)));
+                $motivoPrecioManual = trim((string) $this->valor($partida, "precio_manual_motivo", $this->valor($precioPartida, "precio_manual_motivo", "")));
 
                 $stmt = $db->prepare("INSERT INTO erp_ventas_detalle
                     (id_venta, renglon, id_producto_erp, id_sku_erp, sku, descripcion,
@@ -6735,12 +6803,19 @@ class VentasErp extends CRUD {
                     ":subtotal" => $subtotalPartida,
                     ":total" => $totalPartida,
                     ":id_excepcion" => $aplicaExcepcion ? intval($this->valor($partida, "id_excepcion_comercial", 0)) : null,
-                    ":tipo_excepcion" => $aplicaExcepcion ? $this->valor($partida, "tipo_excepcion_comercial", null) : null,
-                    ":motivo_excepcion" => $aplicaExcepcion && $excepcionBloqueada ? $this->valor($excepcionBloqueada, "motivo", null) : null,
+                    ":tipo_excepcion" => $aplicaExcepcion ? $this->valor($partida, "tipo_excepcion_comercial", null) : ($precioManualSinLista ? "precio_manual_sin_lista" : null),
+                    ":motivo_excepcion" => $aplicaExcepcion && $excepcionBloqueada ? $this->valor($excepcionBloqueada, "motivo", null) : ($precioManualSinLista ? $motivoPrecioManual : null),
                     ":autorizado_comercial_por" => $aplicaExcepcion && $excepcionBloqueada ? intval($this->valor($excepcionBloqueada, "autorizado_por", 0)) : null,
                     ":fecha_autorizacion_comercial" => $aplicaExcepcion && $excepcionBloqueada ? $this->valor($excepcionBloqueada, "fecha_autorizacion", null) : null
                 ));
                 $idDetalle = intval($db->lastInsertId());
+                if ($precioManualSinLista) {
+                    $this->registrarNotificacionPrecioPendientePos($db, $idVenta, $idDetalle, $folio, $datosVenta, $sku, $precioFinal, $motivoPrecioManual, $idUsuario);
+                }
+                if ($this->columnaExiste($db, "erp_ventas_detalle", "id_almacen")) {
+                    $db->prepare("UPDATE erp_ventas_detalle SET id_almacen=:almacen WHERE id_venta_detalle=:detalle")
+                        ->execute(array(":almacen" => $idAlmacenPartida, ":detalle" => $idDetalle));
+                }
                 if (!$afectarInventarioVenta && $this->columnaExiste($db, "erp_ventas_detalle", "inventario_estado")) {
                     $setsDetallePiloto = array("inventario_estado=:estado");
                     $paramsDetallePiloto = array(
@@ -6768,7 +6843,7 @@ class VentasErp extends CRUD {
                         $idVenta,
                         $idDetalle,
                         $folio,
-                        $datosVenta["id_almacen"],
+                        $idAlmacenPartida,
                         intval($sku["id_sku"]),
                         $sku,
                         floatval($this->valor($partida, "cantidad", 0)),
@@ -6801,7 +6876,7 @@ class VentasErp extends CRUD {
                 );
                 if ($afectarInventarioVenta && intval($this->valor($partida, "controla_inventario", 0)) === 1) {
                     foreach ($this->valorRutaPosReal($partida, array("plan_salida_inventario", "asignaciones"), array()) as $asignacionInv) {
-                        $evidenciaInventario[] = $this->aplicarSalidaInventarioPosReal($db, $idVenta, $idDetalle, $folio, $sku, $asignacionInv, $datosVenta["id_almacen"], $idUsuario);
+                        $evidenciaInventario[] = $this->aplicarSalidaInventarioPosReal($db, $idVenta, $idDetalle, $folio, $sku, $asignacionInv, $idAlmacenPartida, $idUsuario);
                     }
                 }
             }
@@ -8036,6 +8111,7 @@ class VentasErp extends CRUD {
                     continue;
                 }
                 $precio = $this->resolverPrecioSkuDryRun($db, $sku, $cliente, $canal, $idAlmacen, $schemaListasPendiente);
+                $precio = $this->resolverPrecioManualSinListaPos($precio, $item, $sku, $bloqueos);
                 $importe = round(max(0, $cantidad) * floatval($precio["precio_aplicado"]), 6);
                 $total += $importe;
                 $partidas[] = array(
@@ -8096,6 +8172,7 @@ class VentasErp extends CRUD {
             $tipoExcepcion = trim((string) $this->valor($datos, "tipo_excepcion", ""));
             $idSkuObjetivo = intval($this->valor($datos, "id_sku", 0));
             $precioManual = floatval($this->valor($datos, "precio_manual", 0));
+            $precioConjuntoTotal = floatval($this->valor($datos, "precio_conjunto_total", 0));
             $descuentoMonto = floatval($this->valor($datos, "descuento_monto", 0));
             $descuentoPorcentaje = floatval($this->valor($datos, "descuento_porcentaje", 0));
             $motivo = trim((string) $this->valor($datos, "motivo", ""));
@@ -8112,7 +8189,7 @@ class VentasErp extends CRUD {
             if (empty($items)) {
                 $bloqueos[] = "Agrega partidas para simular la excepcion comercial";
             }
-            if (!in_array($tipoExcepcion, array("precio_manual", "descuento_partida", "descuento_general"), true)) {
+            if (!in_array($tipoExcepcion, array("precio_manual", "descuento_partida", "descuento_general", "precio_conjunto"), true)) {
                 $bloqueos[] = "Selecciona tipo de excepcion comercial";
             }
             if ($motivo === "") {
@@ -8147,7 +8224,9 @@ class VentasErp extends CRUD {
                 $precioLista = round(floatval($precio["precio_aplicado"]), 6);
                 $precioFinal = $precioLista;
                 $descuentoPartida = 0;
-                $aplicaPartida = $tipoExcepcion === "descuento_general" || $idSkuObjetivo <= 0 || $idSkuObjetivo === intval($sku["id_sku"]);
+                $aplicaPartida = $tipoExcepcion === "descuento_general"
+                    || ($tipoExcepcion === "precio_conjunto" && intval($this->valor($item, "aplica_ajuste_conjunto", 0)) === 1)
+                    || ($tipoExcepcion !== "precio_conjunto" && ($idSkuObjetivo <= 0 || $idSkuObjetivo === intval($sku["id_sku"])));
                 $bloqueosPartida = array();
 
                 if ($tipoExcepcion === "precio_manual" && $aplicaPartida) {
@@ -8205,6 +8284,42 @@ class VentasErp extends CRUD {
                     $bloqueos[] = "Captura descuento general por monto o porcentaje";
                 }
                 $descuentoTotal = $this->calcularDescuentoComercial($subtotalAplicado, $descuentoMonto, $descuentoPorcentaje);
+            }
+            if ($tipoExcepcion === "precio_conjunto") {
+                $subtotalConjunto = 0;
+                $indicesConjunto = array();
+                foreach ($partidas as $idx => $partida) {
+                    if (!empty($partida["aplica_excepcion"])) {
+                        $indicesConjunto[] = $idx;
+                        $subtotalConjunto += round(floatval($this->valor($partida, "importe_lista", 0)), 6);
+                    }
+                }
+                if (empty($indicesConjunto)) {
+                    $bloqueos[] = "Marca las partidas que forman el paquete o precio conjunto";
+                }
+                if ($precioConjuntoTotal <= 0) {
+                    $bloqueos[] = "Captura total conjunto mayor a cero";
+                }
+                if ($subtotalConjunto > 0 && $precioConjuntoTotal > $subtotalConjunto + 0.0001) {
+                    $bloqueos[] = "El total conjunto no puede ser mayor al subtotal de las partidas seleccionadas";
+                }
+                if (!empty($indicesConjunto) && $precioConjuntoTotal > 0 && $precioConjuntoTotal <= $subtotalConjunto + 0.0001) {
+                    $descuentoTotal = round(max(0, $subtotalConjunto - $precioConjuntoTotal), 6);
+                    $descuentoAsignado = 0;
+                    $ultimoIndice = end($indicesConjunto);
+                    foreach ($indicesConjunto as $idx) {
+                        $importeLista = round(floatval($this->valor($partidas[$idx], "importe_lista", 0)), 6);
+                        $descuentoPartida = $idx === $ultimoIndice
+                            ? round(max(0, $descuentoTotal - $descuentoAsignado), 6)
+                            : round($descuentoTotal * ($importeLista / max(0.000001, $subtotalConjunto)), 6);
+                        $descuentoAsignado += $descuentoPartida;
+                        $importeFinal = round(max(0, $importeLista - $descuentoPartida), 6);
+                        $cantidadPartida = round(floatval($this->valor($partidas[$idx], "cantidad", 0)), 6);
+                        $partidas[$idx]["descuento_estimado"] = $descuentoPartida;
+                        $partidas[$idx]["importe_final_estimado"] = $importeFinal;
+                        $partidas[$idx]["precio_final_estimado"] = $cantidadPartida > 0 ? round($importeFinal / $cantidadPartida, 6) : 0;
+                    }
+                }
             }
             $totalEstimado = round(max(0, $subtotalAplicado - $descuentoTotal), 6);
 
@@ -8327,7 +8442,7 @@ class VentasErp extends CRUD {
             $clienteNombre = trim((string) $this->valor($clienteDepurar, "nombre_publico", ""));
             $clienteIdentificador = trim((string) $this->valor($clienteDepurar, "identificador", ""));
             $clienteOrigen = trim((string) $this->valor($clienteDepurar, "origen_cliente", ""));
-            $alcance = $tipoExcepcion === "descuento_general" ? "venta" : "partida";
+            $alcance = $tipoExcepcion === "descuento_general" ? "venta" : ($tipoExcepcion === "precio_conjunto" ? "conjunto_partidas" : "partida");
             $precioBase = round(floatval($this->valor($partidaAplicada, "precio_base", 0)), 6);
             $precioLista = round(floatval($this->valor($partidaAplicada, "precio_lista", 0)), 6);
             $precioFinal = round(floatval($this->valor($partidaAplicada, "precio_final_estimado", $precioLista)), 6);
@@ -8488,7 +8603,7 @@ class VentasErp extends CRUD {
                     if (intval($excepcion["id_venta"]) > 0 || intval($excepcion["id_venta_detalle"]) > 0) {
                         $bloqueos[] = "La excepcion comercial ya fue consumida por una venta";
                     }
-                    if (!in_array($excepcion["tipo_excepcion"], array("precio_manual", "descuento_partida", "descuento_general"), true)) {
+                    if (!in_array($excepcion["tipo_excepcion"], array("precio_manual", "descuento_partida", "descuento_general", "precio_conjunto"), true)) {
                         $bloqueos[] = "Tipo de excepcion comercial no soportado para POS";
                     }
                 }
@@ -8523,6 +8638,14 @@ class VentasErp extends CRUD {
 
             if ($excepcion) {
                 $idSkuExcepcion = intval($excepcion["id_sku_erp"]);
+                $snapshotExcepcion = json_decode((string) $this->valor($excepcion, "datos_snapshot", ""), true);
+                $partidasSnapshot = is_array($snapshotExcepcion) && isset($snapshotExcepcion["partidas"]) && is_array($snapshotExcepcion["partidas"])
+                    ? $snapshotExcepcion["partidas"]
+                    : array();
+                $snapshotPorRenglon = array();
+                foreach ($partidasSnapshot as $partidaSnapshot) {
+                    $snapshotPorRenglon[intval($this->valor($partidaSnapshot, "renglon", 0))] = $partidaSnapshot;
+                }
                 foreach ($partidasBase as $partida) {
                     $subtotalPartidaBase = round(floatval($this->valor($partida, "subtotal", 0)), 6);
                     $subtotalBase += $subtotalPartidaBase;
@@ -8530,8 +8653,11 @@ class VentasErp extends CRUD {
                     $precioBaseBackend = round(floatval($this->valor($partida, "precio_unitario", 0)), 6);
                     $precioFinal = $precioBaseBackend;
                     $descuentoPartida = 0;
+                    $renglonPartida = intval($this->valor($partida, "renglon", 0));
+                    $snapshotPartida = isset($snapshotPorRenglon[$renglonPartida]) ? $snapshotPorRenglon[$renglonPartida] : array();
                     $aplica = $excepcion["tipo_excepcion"] === "descuento_general"
-                        || ($idSkuExcepcion > 0 && $idSkuExcepcion === intval($this->valor($partida, "id_sku", 0)));
+                        || ($excepcion["tipo_excepcion"] === "precio_conjunto" && !empty($snapshotPartida) && !empty($snapshotPartida["aplica_excepcion"]))
+                        || ($excepcion["tipo_excepcion"] !== "precio_conjunto" && $idSkuExcepcion > 0 && $idSkuExcepcion === intval($this->valor($partida, "id_sku", 0)));
 
                     if ($aplica && $renglonObjetivo === 0) {
                         $renglonObjetivo = intval($this->valor($partida, "renglon", 0));
@@ -8541,6 +8667,12 @@ class VentasErp extends CRUD {
                         $descuentoPartida = round(max(0, $subtotalPartidaBase - ($precioFinal * $cantidad)), 6);
                     } elseif ($aplica && $excepcion["tipo_excepcion"] === "descuento_partida") {
                         $descuentoPartida = round(floatval($excepcion["descuento_total"]), 6);
+                    } elseif ($aplica && $excepcion["tipo_excepcion"] === "precio_conjunto") {
+                        $subtotalSnapshot = round(floatval($this->valor($snapshotPartida, "importe_lista", 0)), 6);
+                        if (abs($subtotalPartidaBase - $subtotalSnapshot) > 0.0001) {
+                            $bloqueos[] = "La partida " . $renglonPartida . " cambio despues de autorizar el precio conjunto; registra una nueva autorizacion";
+                        }
+                        $descuentoPartida = round(floatval($this->valor($snapshotPartida, "descuento_estimado", 0)), 6);
                     }
 
                     $totalPartida = $aplica && $excepcion["tipo_excepcion"] === "precio_manual"
@@ -9575,6 +9707,30 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-10
+     * Proposito: separar la tienda/caja del turno de los almacenes que pueden surtir una partida POS.
+     * Impacto: permite una sola caja operativa cobrando productos que salen de locales/almacenes distintos.
+     * Contrato: solo lectura; no habilita cajas ni modifica permisos de almacen.
+     */
+    private function listarAlmacenesOrigenPos($db) {
+        if (!$db) {
+            return array();
+        }
+        $whereTecnico = $this->columnaExiste($db, "erp_almacenes", "es_tecnico")
+            ? " AND COALESCE(es_tecnico, 0)=0"
+            : "";
+        $sql = "SELECT id_almacen, codigo_almacen, almacen, nombre_comercial, tipo_almacen,
+                permite_venta, permite_preparacion, permite_ajustes, estatus
+            FROM erp_almacenes
+            WHERE COALESCE(estatus,'activo')='activo'
+              $whereTecnico
+            ORDER BY
+              CASE WHEN COALESCE(permite_venta, 0)=1 THEN 0 ELSE 1 END,
+              orden ASC, almacen ASC";
+        return $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-06-27.
      * Proposito: concentrar tipos operativos de movimientos de caja POS.
      * Impacto: evita que UI, dry-run y aplicadores usen categorias distintas.
@@ -9887,7 +10043,9 @@ class VentasErp extends CRUD {
             "modo_operacion_inventario" => "normal",
             "generar_alertas_inventario" => 1,
             "estado_venta" => "normal",
-            "estado_detalle" => "normal"
+            "estado_detalle" => "normal",
+            "autorizar_inventario_pendiente" => 0,
+            "motivo_inventario_pendiente" => ""
         );
         if (!$db || intval($idCaja) <= 0 || !$this->tablaExiste($db, "erp_pos_cajas") || !$this->columnaExiste($db, "erp_pos_cajas", "afectar_inventario")) {
             return $modo;
@@ -9903,13 +10061,26 @@ class VentasErp extends CRUD {
         }
         $afectar = intval($this->valor($fila, "afectar_inventario", 1)) === 1;
         $modoOperacion = trim((string) $this->valor($fila, "modo_operacion_inventario", "normal"));
+        if ($afectar && $modoOperacion === "regularizacion_activa") {
+            return array(
+                "afectar_inventario" => 1,
+                "modo_operacion_inventario" => "regularizacion_activa",
+                "generar_alertas_inventario" => intval($this->valor($fila, "generar_alertas_inventario", 1)) ? 1 : 0,
+                "estado_venta" => "regularizacion_activa",
+                "estado_detalle" => "regularizacion_activa",
+                "autorizar_inventario_pendiente" => 1,
+                "motivo_inventario_pendiente" => "Regularizacion activa POS: venta con mini inventario obligatorio"
+            );
+        }
         if (!$afectar || $modoOperacion === "piloto_sin_inventario") {
             return array(
                 "afectar_inventario" => 0,
                 "modo_operacion_inventario" => "piloto_sin_inventario",
                 "generar_alertas_inventario" => intval($this->valor($fila, "generar_alertas_inventario", 1)) ? 1 : 0,
                 "estado_venta" => "registrada_sin_afectar_inventario",
-                "estado_detalle" => "sin_afectacion_piloto"
+                "estado_detalle" => "sin_afectacion_piloto",
+                "autorizar_inventario_pendiente" => 0,
+                "motivo_inventario_pendiente" => ""
             );
         }
         return $modo;
@@ -9992,12 +10163,16 @@ class VentasErp extends CRUD {
         $modoInventario = trim((string) $this->valor($datos, "modo_operacion_inventario", "normal"));
         $afectarInventario = intval($this->valor($datos, "afectar_inventario", $modoInventario === "piloto_sin_inventario" ? 0 : 1)) ? 1 : 0;
         $generarAlertasInventario = intval($this->valor($datos, "generar_alertas_inventario", 1)) ? 1 : 0;
-        if (!in_array($modoInventario, array("normal", "piloto_sin_inventario"), true)) {
+        if (!in_array($modoInventario, array("normal", "regularizacion_activa", "piloto_sin_inventario"), true)) {
             $bloqueos[] = "Modo de inventario de caja invalido";
         }
         if ($modoInventario === "piloto_sin_inventario") {
             $afectarInventario = 0;
             $avisos[] = "Modo piloto: las ventas se registran para caja/reportes, pero no descuentan inventario ni generan kardex.";
+        } elseif ($modoInventario === "regularizacion_activa") {
+            $afectarInventario = 1;
+            $generarAlertasInventario = 1;
+            $avisos[] = "Regularizacion activa: descuenta inventario disponible y autoriza faltantes solo con politica POS, pendiente y alerta.";
         } elseif (!$afectarInventario) {
             $modoInventario = "piloto_sin_inventario";
             $avisos[] = "Se ajusto el modo a piloto porque afectar inventario esta apagado.";
@@ -10772,6 +10947,51 @@ class VentasErp extends CRUD {
         return $resultado;
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-09.
+     * Proposito: permitir precio provisional solo cuando el SKU no tiene precio formal vigente.
+     * Impacto: POS puede vender durante regularizacion y deja snapshot para corregir Listas de precios.
+     * Contrato: no permite cambiar precios existentes; exige precio positivo y motivo.
+     */
+    private function resolverPrecioManualSinListaPos($precioResuelto, $item, $sku, &$bloqueos) {
+        $precioFormal = round(floatval($this->valor($precioResuelto, "precio_aplicado", 0)), 6);
+        $precioEnviado = round(floatval($this->valor($item, "precio_unitario", 0)), 6);
+        $solicitaManual = intval($this->valor($item, "precio_manual_sin_lista", 0)) === 1 || ($precioFormal <= 0 && $precioEnviado > 0);
+        if ($precioFormal > 0) {
+            if ($solicitaManual && $precioEnviado > 0 && abs($precioEnviado - $precioFormal) > 0.000001) {
+                $bloqueos[] = "El SKU ya tiene precio formal; usa excepcion comercial autorizada para cambiarlo";
+            }
+            return $precioResuelto;
+        }
+        if (!$solicitaManual && $precioFormal <= 0) {
+            $bloqueos[] = "El SKU no tiene precio formal; captura precio provisional con motivo";
+            return $precioResuelto;
+        }
+        $motivo = trim((string) $this->valor($item, "precio_manual_motivo", ""));
+        if ($precioEnviado <= 0) {
+            $bloqueos[] = "Precio provisional debe ser mayor a cero";
+            return $precioResuelto;
+        }
+        if ($motivo === "" || strlen($motivo) < 8) {
+            $bloqueos[] = "Precio provisional requiere motivo claro para Listas de precios";
+            return $precioResuelto;
+        }
+        $precioResuelto["precio_base"] = 0;
+        $precioResuelto["precio_aplicado"] = $precioEnviado;
+        $precioResuelto["id_lista_precio"] = null;
+        $precioResuelto["lista_precio_snapshot"] = "pendiente_lista_precios";
+        $precioResuelto["regla_precio_origen"] = "precio_manual_sin_lista";
+        $precioResuelto["fuente_precio"] = "pos_precio_provisional";
+        $precioResuelto["precio_manual_sin_lista"] = 1;
+        $precioResuelto["precio_manual_motivo"] = $motivo;
+        $precioResuelto["sku_precio_pendiente"] = array(
+            "id_sku" => intval($this->valor($sku, "id_sku", 0)),
+            "sku" => $this->valor($sku, "sku", ""),
+            "motivo" => $motivo
+        );
+        return $precioResuelto;
+    }
+
     private function calcularDescuentoComercial($base, $monto, $porcentaje) {
         $base = max(0, floatval($base));
         $monto = max(0, floatval($monto));
@@ -10898,6 +11118,9 @@ class VentasErp extends CRUD {
             $normalizados[] = array(
                 "id_sku" => intval($this->valor($item, "id_sku", 0)),
                 "cantidad" => round(floatval($this->valor($item, "cantidad", 0)), 6),
+                "precio_unitario" => round(floatval($this->valor($item, "precio_unitario", 0)), 6),
+                "precio_manual_sin_lista" => intval($this->valor($item, "precio_manual_sin_lista", 0)),
+                "precio_manual_motivo" => trim((string) $this->valor($item, "precio_manual_motivo", "")),
                 "modo_salida" => trim((string) $this->valor($item, "modo_salida", "")),
                 "id_inventario_unidad" => intval($this->valor($item, "id_inventario_unidad", 0))
             );
@@ -11146,6 +11369,7 @@ class VentasErp extends CRUD {
     }
 
     private function prevalidarPartida($db, $item, $idAlmacen, $renglon, $cliente = array(), $canal = "pos", $schemaListasPendiente = true, $autorizarInventarioPendiente = false, $omitirAfectacionInventario = false) {
+        $idAlmacen = $this->idAlmacenPartidaPos($item, $idAlmacen);
         if ($this->esPartidaVentaRapidaControlada($item)) {
             return $this->prevalidarPartidaVentaRapidaControlada($item, $idAlmacen, $renglon);
         }
@@ -11159,6 +11383,8 @@ class VentasErp extends CRUD {
         if (!$sku) {
             return array(
                 "renglon" => $renglon,
+                "id_almacen" => $idAlmacen,
+                "id_almacen_origen" => $idAlmacen,
                 "id_sku" => $idSku,
                 "cantidad" => $cantidad,
                 "subtotal" => 0,
@@ -11240,6 +11466,7 @@ class VentasErp extends CRUD {
         }
 
         $precioResuelto = $this->resolverPrecioSkuDryRun($db, $sku, is_array($cliente) ? $cliente : array(), $canal, $idAlmacen, $schemaListasPendiente);
+        $precioResuelto = $this->resolverPrecioManualSinListaPos($precioResuelto, $item, $sku, $bloqueos);
         $precioBackend = round(floatval($this->valor($precioResuelto, "precio_aplicado", $sku["precio"])), 6);
         $precioEnviado = round(floatval($this->valor($item, "precio_unitario", $precioBackend)), 6);
         if (abs($precioEnviado - $precioBackend) > 0.000001) {
@@ -11252,6 +11479,8 @@ class VentasErp extends CRUD {
 
         return array(
             "renglon" => $renglon,
+            "id_almacen" => $idAlmacen,
+            "id_almacen_origen" => $idAlmacen,
             "id_sku" => $idSku,
             "sku" => $sku["sku"],
             "descripcion" => $sku["nombre_sku"],
@@ -11264,6 +11493,8 @@ class VentasErp extends CRUD {
             "id_lista_precio" => $this->valor($precioResuelto, "id_lista_precio", null),
             "lista_precio_snapshot" => $this->valor($precioResuelto, "lista_precio_snapshot", "general"),
             "regla_precio_origen" => $this->valor($precioResuelto, "regla_precio_origen", "catalogo_general"),
+            "precio_manual_sin_lista" => intval($this->valor($precioResuelto, "precio_manual_sin_lista", 0)),
+            "precio_manual_motivo" => $this->valor($precioResuelto, "precio_manual_motivo", ""),
             "subtotal" => $subtotal,
             "controla_inventario" => intval($sku["controla_inventario"]),
             "permite_venta_fraccionaria" => intval($sku["permite_venta_fraccionaria"]),
@@ -11309,6 +11540,8 @@ class VentasErp extends CRUD {
         $subtotal = round(max(0, $cantidad) * max(0, $precio), 6);
         return array(
             "renglon" => $renglon,
+            "id_almacen" => $idAlmacen,
+            "id_almacen_origen" => $idAlmacen,
             "id_sku" => 0,
             "sku" => "VENTA-RAPIDA",
             "tipo_partida" => "venta_rapida",
@@ -13845,6 +14078,14 @@ class VentasErp extends CRUD {
         $texto = rtrim(rtrim(sprintf("%.10F", floatval($numero)), "0"), ".");
         $partes = explode(".", $texto);
         return count($partes) === 2 ? strlen($partes[1]) : 0;
+    }
+
+    private function idAlmacenPartidaPos($item, $idAlmacenDefault) {
+        if (!is_array($item)) {
+            return intval($idAlmacenDefault);
+        }
+        $idAlmacen = intval($this->valor($item, "id_almacen", $this->valor($item, "id_almacen_origen", $idAlmacenDefault)));
+        return $idAlmacen > 0 ? $idAlmacen : intval($idAlmacenDefault);
     }
 
     private function tablaExiste($db, $tabla) {

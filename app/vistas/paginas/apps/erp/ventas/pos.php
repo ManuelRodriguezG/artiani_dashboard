@@ -18,9 +18,10 @@
         .pos-shell { min-height: calc(100vh - 190px); }
         .pos-toolbar { background: #f7f8fa; border: 1px solid #e6e8ee; border-radius: 8px; }
         .pos-results-wrap { overflow-x: auto; overflow-y: hidden; padding-bottom: 8px; }
-        .pos-results { display: flex; flex-wrap: nowrap; gap: 12px; min-height: 204px; }
-        .pos-product { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; width: 210px; min-width: 210px; min-height: 196px; }
-        .pos-product-img { width: 100%; height: 92px; object-fit: cover; border-radius: 7px 7px 0 0; background: #f1f3f6; }
+        .pos-results { display: flex; flex-wrap: nowrap; gap: 12px; min-height: 282px; }
+        .pos-product { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; width: 252px; min-width: 252px; min-height: 276px; }
+        .pos-product-img { width: 100%; height: 142px; object-fit: contain; border-radius: 7px 7px 0 0; background: #f6f7f9; padding: 8px; }
+        .pos-product-quick { border-style: dashed; background: #fbfcff; }
         .pos-cart { width: 100%; }
         .pos-cart-list { max-height: 46vh; overflow: auto; }
         .pos-cart-img { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; background: #f1f3f6; flex: 0 0 54px; }
@@ -29,14 +30,13 @@
         .pos-qty input { width: 78px; min-width: 0; height: 34px; font-weight: 700; box-sizing: border-box; }
         .pos-weight-input { width: 146px; min-width: 146px; max-width: 146px; height: 38px; font-size: 1.12rem; font-weight: 700; text-align: right; box-sizing: border-box; }
         .pos-qty-label { min-width: 146px; text-align: center; }
-        .pos-cart-table { min-width: 760px; }
+        .pos-cart-table { min-width: 660px; }
         .pos-cart-table th { color: #7e8299; font-size: .72rem; text-transform: uppercase; white-space: nowrap; }
         .pos-cart-table td { vertical-align: middle; }
         .pos-cart-table th:nth-child(3), .pos-cart-table td:nth-child(3) { width: 185px; min-width: 185px; }
-        .pos-mode-group { display: inline-flex; border: 1px solid #e3e6ee; border-radius: 8px; overflow: hidden; background: #fff; }
-        .pos-mode-btn { border: 0; background: transparent; padding: 7px 10px; font-weight: 600; color: #5e6278; white-space: nowrap; }
-        .pos-mode-btn.active { background: #1b84ff; color: #fff; }
-        .pos-mode-btn:disabled { color: #b5b5c3; background: #f5f6fa; cursor: not-allowed; }
+        .pos-cart-table th:first-child, .pos-cart-table td:first-child { width: 42px; min-width: 42px; }
+        .pos-ajuste-check { width: 20px; height: 20px; }
+        .pos-origin-select { max-width: 230px; }
         .pos-pay-grid { display: grid; grid-template-columns: minmax(150px, 1fr) 110px minmax(120px, .8fr) 34px; gap: 8px; align-items: center; }
         .pos-cuentas { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
         .pos-cuenta-btn { min-width: 142px; border: 1px solid #e4e6ef; background: #fff; border-radius: 8px; padding: 8px 10px; text-align: left; }
@@ -56,7 +56,8 @@
         .pos-total-panel { border-left: 1px solid #eef0f6; padding-left: 18px; }
         .pos-badge-row { min-height: 26px; }
         .pos-empty { min-height: 180px; border: 1px dashed #d7dbe4; border-radius: 8px; }
-        .pos-product-title { min-height: 38px; line-height: 1.25; }
+        .pos-product-title { min-height: 50px; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
+        .pos-product-subtitle { min-height: 18px; line-height: 1.2; overflow-wrap: anywhere; }
         .pos-product-meta { min-height: 35px; }
         .pos-caja-result { max-height: 260px; overflow: auto; }
         .pos-evidencias-result { max-height: 360px; overflow: auto; }
@@ -70,7 +71,8 @@
         .pos-scan-line { position: absolute; left: 12%; right: 12%; top: calc(38% + 43px); height: 2px; background: #50cd89; box-shadow: 0 0 12px rgba(80,205,137,.75); pointer-events: none; }
         @media (max-width: 991px) {
             .pos-cart-list { max-height: none; }
-            .pos-product { width: 190px; min-width: 190px; }
+            .pos-product { width: 224px; min-width: 224px; }
+            .pos-product-img { height: 128px; }
             .pos-pay-grid { grid-template-columns: 1fr 96px 1fr 34px; }
             .pos-total-panel { border-left: 0; padding-left: 0; }
             .pos-action-strip .pos-module-btn { min-width: 104px; flex: 1 1 104px; }
@@ -352,11 +354,6 @@
                                                         <span>Total estimado</span>
                                                         <strong id="pos_total">$0.00</strong>
                                                     </div>
-                                                    <div class="border rounded p-3 mb-3">
-                                                        <label class="form-label text-muted fs-8 text-uppercase mb-1">Fecha operativa temporal</label>
-                                                        <input class="form-control form-control-sm" id="pos_fecha_operacion" type="datetime-local">
-                                                        <div class="text-muted fs-8 mt-1">Solo aplica en caja piloto sin afectar inventario. Si se deja vacia, usa la fecha actual.</div>
-                                                    </div>
                                                     <div class="d-grid gap-2">
                                                         <button class="btn btn-success btn-lg w-100" id="pos_cobrar_real" type="button"><i class="bi bi-cash-coin"></i> Cobrar <span class="pos-shortcut-hint">Ctrl+Enter</span></button>
                                                         <button class="btn btn-warning btn-lg w-100 d-none" id="pos_cobrar_faltantes_real" type="button"><i class="bi bi-exclamation-triangle"></i> Cobrar con faltantes</button>
@@ -565,6 +562,7 @@
                                     <option value="precio_manual">Precio manual</option>
                                     <option value="descuento_partida">Descuento partida</option>
                                     <option value="descuento_general">Descuento general</option>
+                                    <option value="precio_conjunto">Precio conjunto</option>
                                 </select>
                             </div>
                             <div class="col-md-8">
@@ -574,6 +572,10 @@
                             <div class="col-md-4">
                                 <label class="form-label text-muted fs-8 text-uppercase">Precio manual</label>
                                 <input class="form-control form-control-solid" id="pos_excepcion_precio" inputmode="decimal" placeholder="0.00">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label text-muted fs-8 text-uppercase">Total conjunto</label>
+                                <input class="form-control form-control-solid" id="pos_excepcion_precio_conjunto" inputmode="decimal" placeholder="0.00">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label text-muted fs-8 text-uppercase">Desc. monto</label>
@@ -595,6 +597,7 @@
                                 <button class="btn btn-warning w-100" id="pos_excepcion_dryrun" type="button"><i class="bi bi-shield-check"></i> Validar</button>
                             </div>
                             <div class="col-12">
+                                <div class="text-muted fs-8">Para precio conjunto, marca las partidas del carrito que forman el paquete y captura el total final autorizado.</div>
                                 <button class="btn btn-light-warning w-100" id="pos_excepcion_registrar" type="button"><i class="bi bi-file-earmark-lock"></i> Registrar folio autorizado</button>
                             </div>
                         </div>

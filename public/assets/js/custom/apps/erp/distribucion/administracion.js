@@ -20,6 +20,7 @@
     var permisosComerciales = [];
     var permisosUi = window.DISTRIBUCION_ADMIN_PERMISOS || {};
     var seccionActiva = window.DISTRIBUCION_ADMIN_SECCION || "resumen";
+    var adminBase = "/distribucionadmin";
 
     function escapeHtml(value) {
         var div = document.createElement("div");
@@ -360,6 +361,30 @@
             "<div class=\"mt-4\">" + badge(cliente.estatus) + " <span class=\"badge badge-light ms-2\">" + escapeHtml(cliente.tipo_cliente || "sin tipo") + "</span></div>";
     }
 
+    function categoriasInteresCliente() {
+        return arraySeguro(clienteDetalle ? clienteDetalle.categorias_interes : []).map(function (item) {
+            if (typeof item === "object") {
+                return String(item.nombre || item.categoria || item.label || item.id || "").trim();
+            }
+            return String(item || "").trim();
+        }).filter(Boolean);
+    }
+
+    function categoriasSugeridasPorNegocio(tipo) {
+        var mapa = {
+            venta_internet: ["alimento", "premio", "accesorio", "higiene", "juguete"],
+            veterinaria: ["salud", "higiene", "alimento", "suplemento", "farmacia"],
+            petshop: ["alimento", "premio", "juguete", "accesorio", "higiene"],
+            acuario: ["pez", "acuario", "filtro", "alimento", "tratamiento"],
+            acuario_petshop: ["pez", "acuario", "alimento", "premio", "accesorio"],
+            estetica_canina: ["higiene", "estetica", "shampoo", "accesorio", "premio"],
+            criador: ["alimento", "suplemento", "higiene", "cama", "transportadora"],
+            vendedor_mercado: ["alimento", "premio", "accesorio", "economico", "higiene"],
+            vendedor_ambulante: ["alimento", "premio", "accesorio", "economico"]
+        };
+        return mapa[tipo] || [];
+    }
+
     function actualizarLinksCliente() {
         var id = clienteIdActual();
         [
@@ -367,6 +392,9 @@
             ["dist_cliente_nav_permisos", "cliente_permisos"],
             ["dist_cliente_nav_entrega", "cliente_entrega"],
             ["dist_cliente_listas_volver", "cliente"],
+            ["dist_cliente_listas_categorias", "cliente_categorias"],
+            ["dist_cliente_categorias_volver", "cliente"],
+            ["dist_cliente_categorias_listas", "cliente_listas"],
             ["dist_cliente_permisos_volver", "cliente"],
             ["dist_cliente_entrega_volver", "cliente"]
         ].forEach(function (item) {
@@ -394,12 +422,13 @@
         if (!acciones || !clienteDetalle) { return; }
         var id = clienteDetalle.id_cliente_distribucion;
         var tarjetas = [
-            ["Listas y sublistas", "Define lista base, express o especial y el alcance de productos.", "bi-tags", "cliente_listas", "primary"],
+            ["Listas y productos", "Asigna varias listas y marca los productos que realmente quieres habilitar.", "bi-tags", "cliente_listas", "primary"],
+            ["Preferencias", "Agrega o quita categorias de interes para enfocar la seleccion de productos.", "bi-ui-checks-grid", "cliente_categorias", "success"],
             ["Permisos", "Habilita acciones comerciales del portal para este cliente.", "bi-sliders", "cliente_permisos", "info"],
             ["Entrega", "Configura envio, recoger y costo sugerido para pedidos.", "bi-truck", "cliente_entrega", "secondary"]
         ];
         acciones.innerHTML = tarjetas.map(function (item) {
-            return "<div class=\"col-md-4\"><a class=\"card border border-gray-200 h-100 text-decoration-none\" href=\"" + clienteUrl(item[3], id) + "\">" +
+            return "<div class=\"col-md-6 col-xl-3\"><a class=\"card border border-gray-200 h-100 text-decoration-none\" href=\"" + clienteUrl(item[3], id) + "\">" +
                 "<div class=\"card-body\"><div class=\"symbol symbol-45px mb-4\"><span class=\"symbol-label bg-light-" + item[4] + "\"><i class=\"bi " + item[2] + " fs-2 text-" + item[4] + "\"></i></span></div>" +
                 "<div class=\"fw-bold fs-5 text-gray-900 mb-2\">" + escapeHtml(item[0]) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item[1]) + "</div></div></a></div>";
         }).join("");
@@ -428,11 +457,13 @@
         if (!contenedor) { return; }
         contenedor.innerHTML = clienteListas.map(function (item) {
             var activa = clienteListaActiva && String(clienteListaActiva.id_cliente_lista) === String(item.id_cliente_lista);
-            return "<button type=\"button\" class=\"btn text-start " + (activa ? "btn-light-primary" : "btn-light") + "\" data-cliente-lista-seleccionar=\"" + escapeHtml(item.id_cliente_lista) + "\">" +
+            return "<button type=\"button\" class=\"btn text-start min-w-200px " + (activa ? "btn-light-primary" : "btn-light") + "\" data-cliente-lista-seleccionar=\"" + escapeHtml(item.id_cliente_lista) + "\">" +
                 "<div class=\"fw-bold\">" + escapeHtml(item.alias || item.lista_nombre || ("Lista " + item.id_lista_precio)) + "</div>" +
-                "<div class=\"text-muted fs-8\">" + escapeHtml((item.tipo_lista || "base") + " / " + (item.modo_productos || "todos") + " / productos " + (item.productos_habilitados || 0)) + "</div>" +
+                "<div class=\"text-muted fs-8\">" + escapeHtml("Productos marcados " + (item.productos_habilitados || 0)) + "</div>" +
                 "</button>";
         }).join("") || "<div class=\"text-muted\">Este cliente todavia no tiene listas asignadas.</div>";
+        renderCategoriasClientePagina();
+        renderInteresesListaCliente();
         if (!clienteListaActiva && clienteListas.length) {
             seleccionarListaCliente(clienteListas[0].id_cliente_lista);
         }
@@ -444,9 +475,85 @@
         if (!clienteListaActiva) { return; }
         var titulo = document.getElementById("dist_cliente_lista_activa");
         if (titulo) {
-            titulo.textContent = (clienteListaActiva.lista_nombre || "Lista") + " / " + (clienteListaActiva.modo_productos || "todos");
+            titulo.textContent = clienteListaActiva.lista_nombre || "Lista";
         }
+        renderInteresesListaCliente();
         cargarProductosListaCliente().catch(showError);
+    }
+
+    function renderInteresesListaCliente() {
+        var contenedor = document.getElementById("dist_cliente_lista_intereses");
+        if (!contenedor) { return; }
+        var categorias = categoriasInteresCliente();
+        if (!categorias.length) {
+            contenedor.innerHTML = "<div class=\"alert alert-warning mb-0\"><div class=\"fw-bold mb-1\">Este cliente no selecciono categorias de interes.</div><div>No conviene asignarle productos hasta capturar que categorias le interesan.</div></div>";
+            return;
+        }
+        contenedor.innerHTML = "<div class=\"d-flex flex-wrap gap-2 align-items-center\"><span class=\"text-muted fs-8 me-2\">Intereses del cliente:</span>" +
+            categorias.map(function (categoria) { return "<span class=\"badge badge-light-primary\">" + escapeHtml(categoria) + "</span>"; }).join("") +
+            "<a class=\"btn btn-sm btn-light ms-2\" href=\"" + clienteUrl("cliente_categorias") + "\"><i class=\"bi bi-pencil\"></i> Editar</a></div>";
+    }
+
+    function renderCategoriasClientePagina() {
+        actualizarLinksCliente();
+        var resumen = document.getElementById("dist_cliente_categorias_resumen");
+        if (resumen) { resumen.innerHTML = resumenClienteHtml(clienteDetalle); }
+        var actuales = document.getElementById("dist_cliente_categorias_actuales");
+        var lista = document.getElementById("dist_cliente_categorias_lista");
+        if (!actuales || !lista) { return; }
+        var seleccionadas = categoriasInteresCliente();
+        if (!seleccionadas.length) {
+            actuales.innerHTML = "<div class=\"alert alert-warning mb-0\">El cliente no selecciono categorias al registrarse.</div>";
+        } else {
+            actuales.innerHTML = "<div class=\"d-flex flex-wrap gap-2 align-items-center\"><span class=\"text-muted fs-8 me-2\">Seleccionadas:</span>" + seleccionadas.map(function (categoria) {
+                return "<span class=\"badge badge-light-primary\">" + escapeHtml(categoria) + "</span>";
+            }).join("") + "</div>";
+        }
+        var seleccionNormalizada = seleccionadas.map(function (item) { return item.toLowerCase(); });
+        lista.innerHTML = (catalogosFiltros.categorias || []).map(function (categoria) {
+            var nombre = String(categoria.nombre || "");
+            var checked = seleccionNormalizada.indexOf(nombre.toLowerCase()) !== -1 ? " checked" : "";
+            return "<div class=\"col-md-6 col-xl-4\"><label class=\"form-check form-check-custom form-check-solid border rounded p-4 h-100\">" +
+                "<input class=\"form-check-input\" type=\"checkbox\" data-cliente-categoria-interes=\"" + escapeHtml(nombre) + "\"" + checked + ">" +
+                "<span class=\"form-check-label fw-semibold ms-3\">" + escapeHtml(nombre) + "</span></label></div>";
+        }).join("") || "<div class=\"text-muted\">No hay categorias disponibles para seleccionar.</div>";
+    }
+
+    function guardarCategoriasCliente() {
+        var categorias = Array.prototype.slice.call(document.querySelectorAll("[data-cliente-categoria-interes]:checked")).map(function (input) {
+            return input.getAttribute("data-cliente-categoria-interes");
+        });
+        return request("/distribucionadmin/cliente_catalogo_preferencias", {
+            id_cliente_distribucion: clienteIdActual(),
+            catalogo_modo: clienteDetalle && clienteDetalle.catalogo_modo ? clienteDetalle.catalogo_modo : "general",
+            categorias_interes: JSON.stringify(categorias)
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudieron guardar categorias"); }
+            showOk(response.mensaje || "Preferencias guardadas");
+            return cargarListasCliente();
+        });
+    }
+
+    function aplicarSugerenciaCategorias() {
+        var tipo = selectValue("dist_cliente_sugerencia_tipo") || (clienteDetalle ? clienteDetalle.tipo_negocio : "");
+        var sugeridas = categoriasSugeridasPorNegocio(tipo);
+        var detalle = document.getElementById("dist_cliente_sugerencia_detalle");
+        if (!sugeridas.length) {
+            if (detalle) { detalle.textContent = "No hay sugerencia configurada para este tipo de negocio."; }
+            return;
+        }
+        var marcadas = [];
+        document.querySelectorAll("[data-cliente-categoria-interes]").forEach(function (input) {
+            var nombre = String(input.getAttribute("data-cliente-categoria-interes") || "").toLowerCase();
+            var coincide = sugeridas.some(function (clave) { return nombre.indexOf(clave) !== -1; });
+            if (coincide) {
+                input.checked = true;
+                marcadas.push(input.getAttribute("data-cliente-categoria-interes"));
+            }
+        });
+        if (detalle) {
+            detalle.textContent = marcadas.length ? ("Marcadas: " + marcadas.join(", ")) : "No encontre categorias del catalogo que coincidan con esta sugerencia.";
+        }
     }
 
     function cargarProductosListaCliente() {
@@ -467,16 +574,42 @@
         cuerpo.innerHTML = clienteListaProductos.map(function (item) {
             return "<tr><td><input class=\"form-check-input\" type=\"checkbox\" data-cliente-lista-producto=\"" + escapeHtml(item.id_sku) + "\"" + (Number(item.habilitado || 0) ? " checked" : "") + "></td>" +
                 "<td><div class=\"fw-semibold\">" + escapeHtml(item.nombre_sku || item.producto || "Producto") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div></td>" +
+                "<td><span class=\"badge badge-light\">" + escapeHtml(item.categoria || "Sin categoria") + "</span></td>" +
                 "<td>" + escapeHtml(item.sku || item.id_sku || "") + "</td><td class=\"text-end\">" + money(item.precio) + "</td></tr>";
-        }).join("") || "<tr><td colspan=\"4\" class=\"text-center text-muted py-10\">Sin productos en esta lista</td></tr>";
+        }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-10\">Sin productos en esta lista</td></tr>";
+    }
+
+    function marcarProductosPorPreferencias() {
+        var categorias = categoriasInteresCliente().map(function (item) { return item.toLowerCase(); });
+        if (!categorias.length) {
+            Swal.fire({text: "Este cliente no tiene categorias de interes capturadas.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        var marcados = 0;
+        clienteListaProductos.forEach(function (item) {
+            var categoria = String(item.categoria || "").toLowerCase();
+            var coincide = categorias.some(function (preferida) {
+                return categoria === preferida || categoria.indexOf(preferida) !== -1 || preferida.indexOf(categoria) !== -1;
+            });
+            if (!coincide) { return; }
+            document.querySelectorAll("[data-cliente-lista-producto]").forEach(function (input) {
+                if (String(input.getAttribute("data-cliente-lista-producto")) === String(item.id_sku)) {
+                    input.checked = true;
+                    marcados++;
+                }
+            });
+        });
+        if (!marcados) {
+            Swal.fire({text: "No encontre productos de esta lista que coincidan con las categorias preferidas.", icon: "info", confirmButtonText: "Aceptar"});
+        }
     }
 
     function guardarListaCliente() {
         return request("/distribucionadmin/cliente_lista_guardar", {
             id_cliente_distribucion: clienteIdActual(),
             id_lista_precio: selectValue("dist_cliente_lista_nueva"),
-            tipo_lista: selectValue("dist_cliente_lista_tipo"),
-            modo_productos: selectValue("dist_cliente_lista_modo"),
+            tipo_lista: "base",
+            modo_productos: "seleccionados",
             principal: clienteListas.length ? 0 : 1
         }).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No se pudo guardar la lista"); }
@@ -488,13 +621,17 @@
 
     function guardarProductosListaCliente() {
         if (!clienteListaActiva) { return Promise.resolve(); }
+        if (!categoriasInteresCliente().length) {
+            Swal.fire({text: "Primero captura categorias de interes para este cliente antes de asignar productos.", icon: "warning", confirmButtonText: "Aceptar"});
+            return Promise.resolve();
+        }
         var productosSeleccionados = Array.prototype.slice.call(document.querySelectorAll("[data-cliente-lista-producto]:checked")).map(function (input) {
             return input.getAttribute("data-cliente-lista-producto");
         });
         return request("/distribucionadmin/cliente_lista_productos_guardar", {
             id_cliente_distribucion: clienteIdActual(),
             id_cliente_lista: clienteListaActiva.id_cliente_lista,
-            modo_productos: clienteListaActiva.modo_productos || "seleccionados",
+            modo_productos: "seleccionados",
             productos: JSON.stringify(productosSeleccionados)
         }).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No se pudieron guardar productos"); }
@@ -1000,6 +1137,9 @@
             }
             if (seccionActiva === "cliente_listas") {
                 return cargarListasCliente();
+            }
+            if (seccionActiva === "cliente_categorias") {
+                return cargarClienteDetalle().then(function () { renderCategoriasClientePagina(); });
             }
             if (seccionActiva === "cliente_permisos") {
                 return Promise.all([cargarClienteDetalle()]);
@@ -1887,10 +2027,16 @@
             guardarListaCliente().catch(showError);
         } else if (button.id === "dist_cliente_lista_productos_guardar") {
             guardarProductosListaCliente().catch(showError);
+        } else if (button.id === "dist_cliente_lista_productos_preferencias") {
+            marcarProductosPorPreferencias();
         } else if (button.id === "dist_cliente_lista_productos_todos") {
             document.querySelectorAll("[data-cliente-lista-producto]").forEach(function (input) { input.checked = true; });
         } else if (button.id === "dist_cliente_lista_productos_limpiar") {
             document.querySelectorAll("[data-cliente-lista-producto]").forEach(function (input) { input.checked = false; });
+        } else if (button.id === "dist_cliente_categorias_guardar") {
+            guardarCategoriasCliente().catch(showError);
+        } else if (button.id === "dist_cliente_sugerencia_aplicar") {
+            aplicarSugerenciaCategorias();
         } else if (button.id === "dist_cliente_permisos_guardar") {
             guardarPermisosClientePagina().catch(showError);
         } else if (button.id === "dist_cliente_entrega_guardar") {

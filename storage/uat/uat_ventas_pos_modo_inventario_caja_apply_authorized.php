@@ -32,7 +32,7 @@ foreach ($args as $arg) {
 }
 
 $validacionRespaldo = validarRespaldo($respaldo);
-if ($autorizar !== "VENTAS_POS_MODO_INVENTARIO_CAJA_REAL" || !$validacionRespaldo["ok"] || $idCaja <= 0 || !in_array($modo, array("normal", "piloto_sin_inventario"), true)) {
+if ($autorizar !== "VENTAS_POS_MODO_INVENTARIO_CAJA_REAL" || !$validacionRespaldo["ok"] || $idCaja <= 0 || !in_array($modo, array("normal", "regularizacion_activa", "piloto_sin_inventario"), true)) {
     responder(array(
         "ok" => false,
         "modo" => "bloqueado",
@@ -41,7 +41,7 @@ if ($autorizar !== "VENTAS_POS_MODO_INVENTARIO_CAJA_REAL" || !$validacionRespald
             "--autorizar=VENTAS_POS_MODO_INVENTARIO_CAJA_REAL",
             "--respaldo=RUTA_O_REFERENCIA",
             "--id_caja=ID",
-            "--modo=normal|piloto_sin_inventario"
+            "--modo=normal|regularizacion_activa|piloto_sin_inventario"
         ),
         "validacion_respaldo" => $validacionRespaldo
     ));
@@ -90,6 +90,9 @@ if (!$antes) {
 }
 
 $afectarInventario = $modo === "piloto_sin_inventario" ? 0 : 1;
+if ($modo === "regularizacion_activa") {
+    $generarAlertas = 1;
+}
 $stmtUpdate = $db->prepare("UPDATE erp_pos_cajas
     SET afectar_inventario=:afectar,
         modo_operacion_inventario=:modo,
@@ -114,7 +117,9 @@ responder(array(
     "respaldo_ref" => $respaldo,
     "antes" => $antes,
     "despues" => $despues,
-    "siguiente_paso" => "Abrir turno y ejecutar venta POS real para confirmar comportamiento de caja/reportes sin afectar inventario si esta en piloto."
+    "siguiente_paso" => $modo === "regularizacion_activa"
+        ? "Abrir turno y ejecutar venta POS real con stock, faltante y venta rapida para confirmar kardex, pendientes y alertas."
+        : "Abrir turno y ejecutar venta POS real para confirmar comportamiento de caja/reportes sin afectar inventario si esta en piloto."
 ));
 
 function validarRespaldo($respaldo) {

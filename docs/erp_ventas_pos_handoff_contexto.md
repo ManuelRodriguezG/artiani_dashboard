@@ -30,6 +30,65 @@ Mantener en un solo lugar el contexto operativo del modulo Ventas/POS/Pedidos co
 
 ## Estado actual del modulo
 
+### Corte vigente 2026-10-10 - busqueda POS y venta rapida asistida
+
+Implementado sin escritura BD:
+
+- El buscador de POS muestra una tarjeta de accion `Venta rapida` cuando no hay resultados visibles o cuando el cajero decide que ninguno corresponde.
+- La accion precarga la descripcion escrita en el buscador dentro del modal de venta rapida controlada.
+- El boton superior `Venta rapida` tambien reutiliza el texto buscado si existe.
+- Las tarjetas de producto muestran nombre en varias lineas y subtitulo del producto base cuando aplica, para reducir errores al elegir SKUs parecidos.
+- La venta rapida sigue siendo controlada: requiere validar, precio, cantidad y motivo antes de entrar al carrito; la alerta a Catalogo/Inventario nace hasta el cobro real, no solo por buscar o agregar al carrito.
+
+### Corte vigente 2026-10-09 - caja compartida con origen de inventario por partida
+
+Necesidad operativa:
+
+- Por ahora el negocio puede cobrar en una sola caja/turno aunque el cliente compre productos de dos locales pegados.
+- La caja/turno sigue siendo el control de dinero, usuario cobrador, pagos, corte y diferencias.
+- El inventario no debe salir ciego del almacen de la caja; cada partida del carrito debe conservar `id_almacen`/`id_almacen_origen`.
+- Reportes futuros deben poder separar:
+  - dinero cobrado por caja/turno;
+  - ventas por usuario;
+  - inventario, kardex, faltantes, venta rapida y regularizacion por almacen/local de la partida.
+
+Implementado sin escritura BD:
+
+- POS muestra en cada renglon del carrito un selector `Origen` con los almacenes disponibles para surtir partidas.
+- El selector principal del POS sigue usando `almacenes` vendibles para caja/turno; el selector de partida usa `almacenes_origen` para no quedar limitado a la tienda oficial de cobro.
+- Al agregar SKU normal, el origen inicial es el punto de venta/caja actual.
+- Al cambiar origen de una partida normal, POS vuelve a consultar disponibilidad del SKU en ese almacen y recalcula modo sugerido.
+- Venta rapida tambien conserva origen por partida; su pendiente a Catalogo/Inventario debe quedar asociado al local correcto cuando se cobre.
+- El payload de POS y de Atenciones incluye `id_almacen` e `id_almacen_origen` por partida.
+- `VentasErp::prevalidarCarritoPos()` valida cada partida contra su almacen de origen, no solo contra el almacen de cabecera.
+- `VentasErp::confirmarVentaPosReal()` usa el almacen de la partida para:
+  - pendientes de inventario POS;
+  - salida/kardex de inventario;
+  - pendiente de venta rapida controlada.
+- `VentasErpEsquema::planActualizarVentasPos()` prepara `erp_ventas_detalle.id_almacen` e indice `idx_ventas_detalle_almacen`.
+- Se agrego paquete DDL aislado para productivo:
+  - read-only: `storage/uat/uat_ventas_pos_detalle_almacen_schema_readonly.php`;
+  - apply autorizado: `storage/uat/uat_ventas_pos_detalle_almacen_schema_apply_authorized.php`;
+  - token: `VENTAS_POS_DETALLE_ALMACEN_DDL`;
+  - confirmacion: `APLICAR ALMACEN PARTIDA POS`.
+- Auditoria posterior a autorizacion `VENTAS_POS_DETALLE_ALMACEN_DDL`: `erp_ventas_detalle.id_almacen` e indice `idx_ventas_detalle_almacen` existen.
+
+Decision de arquitectura:
+
+- No crear dos cajas para cobrar una misma venta.
+- No mezclar dos turnos en un mismo ticket.
+- Cabecera de venta (`erp_ventas.id_almacen`) representa el POS/caja principal que cobro.
+- Detalle de venta (`erp_ventas_detalle.id_almacen`, cuando este aplicado) representa el origen operativo de inventario de cada renglon.
+- Trazabilidad fina ya existe en `erp_ventas_detalle_inventario.id_almacen` y se alimenta con el almacen de la partida.
+
+Pendiente antes de UAT real:
+
+- Autorizar/aplicar DDL de `erp_ventas_detalle.id_almacen` si la columna no existe en la base actual.
+- Autorizacion sugerida:
+  `AUTORIZO APLICAR DDL ALMACEN POR PARTIDA POS usando respaldo UAT POS vigente con token VENTAS_POS_DETALLE_ALMACEN_DDL confirmacion="APLICAR ALMACEN PARTIDA POS" para UAT POS`
+- Definir si una caja puede usar todos los almacenes activos o solo una lista permitida futura, por ejemplo `erp_pos_cajas_almacenes`.
+- Probar una venta mixta: una partida de Mascotas y una de Acuario en el mismo ticket, con corte de caja unico y kardex/pendientes por almacen.
+
 ### Corte vigente 2026-07-30 - cuentas multiples y atenciones compartidas
 
 Resumen corto para retomar en otro chat:
@@ -5413,3 +5472,253 @@ Fecha operativa temporal POS:
 - UAT read-only creada: `storage/uat/uat_ventas_pos_fecha_operacion_piloto_readonly.php`.
 - Resultado vigente: `ok=true`.
 - Nota operativa: la fecha de venta puede ser historica, pero el pago/caja pertenecen al turno abierto actual. Para captura historica masiva sin afectar arqueo real conviene abrir un turno especial de captura o preparar despues un modo administrativo sin movimiento de caja.
+
+## Decision operativa - POS como motor de regularizacion activa
+
+Fecha: 2026-10-09.
+
+Proyecto canonico: `C:\xampp\htdocs\panel_de_control`.
+
+Host canonico local: `http://panel.com.local/`.
+
+El modo `piloto_sin_inventario` existe y funciona, pero no debe convertirse en el modo principal de arranque del negocio si el objetivo es forzar la regularizacion operativa. Ese modo registra ventas/caja/reportes sin descontar inventario ni crear kardex; por lo mismo, tampoco obliga a cerrar pendientes de existencias.
+
+Para el arranque real se define como objetivo el modo `regularizacion_activa`:
+
+- POS debe permitir vender cuando el inventario aun no esta perfectamente regularizado, pero solo con trazabilidad y pendientes obligatorios.
+- Si el SKU existe y tiene stock, la venta debe descontar inventario con kardex normal.
+- Si el SKU existe y falta stock, la venta debe pasar por inventario pendiente POS, crear expediente `PINV-*`, notificacion a Inventario/Existencias y resolucion posterior con mini inventario.
+- Si el producto no existe en Catalogo, la venta debe entrar como venta rapida controlada, crear pendiente `VRP-*`, notificacion a Catalogo y, al clasificarse contra un SKU, dejar regularizacion de inventario separada.
+- Si el SKU clasificado o vendido queda sin proveedor, costo, lista de precios, garantia, reglas de inventario, reorden o publicacion ecommerce, el sistema debe crear o mostrar pendientes accionables para el modulo responsable.
+- El POS no debe usar una bandera global de Catalogo como autorizacion completa para vender con faltante. Catalogo define capacidades del SKU; Ventas/POS define politica operativa por tienda/caja/canal; Inventario resuelve el conteo; Compras/Proveedores/Listas/Ecommerce completan el ciclo.
+
+Estado actual revisado:
+
+- Inventario pendiente POS ya esta documentado y probado en UAT con politicas por almacen/SKU/canal, expediente `erp_pos_inventario_pendientes`, notificacion `pos_venta_inventario_pendiente` y resolucion desde Inventario/Existencias.
+- Venta rapida controlada ya cobra, crea pendiente `VRP-*`, notifica a Catalogo, permite vincular a SKU existente o solicitar borrador a Catalogo, y al clasificar genera notificacion `regularizacion_inventario_pos_vrp` para Inventario si el SKU controla inventario.
+- Falta consolidar el flujo automatico posterior a la venta/clasificacion para pendientes de proveedor, costo, lista de precios, ecommerce y reorden/compras.
+
+Mapa de alertas objetivo para regularizacion activa:
+
+1. `pendiente_catalogo_pos`
+   - Origen: Ventas/POS.
+   - Responsable: Catalogo.
+   - Caso: venta rapida cobrada con producto sin SKU definitivo.
+   - Ruta: `/ventas/venta_rapida_pendientes?folio=VRP-*`.
+   - Cierre: se vincula a SKU existente o se solicita/crea borrador y luego se clasifica.
+
+2. `regularizacion_inventario_pos_vrp`
+   - Origen: Ventas/POS.
+   - Responsable: Inventario.
+   - Caso: venta rapida ya clasificada contra SKU que controla inventario.
+   - Ruta actual: `/inventario/productos_existencias?id_sku=ID`.
+   - Cierre esperado: Inventario realiza mini conteo/regularizacion y conserva trazabilidad del `VRP`.
+
+3. `pos_venta_inventario_pendiente`
+   - Origen: Ventas/POS.
+   - Responsable: Inventario.
+   - Caso: SKU existente vendido con faltante autorizado por politica POS.
+   - Ruta: `/inventario/productos_existencias#pendientes-pos`.
+   - Cierre: Inventario resuelve el expediente `PINV-*` con conteo fisico y ajuste/salida pendiente.
+
+4. `sku_sin_proveedor_post_venta`
+   - Origen recomendado: Ventas/POS o Catalogo al clasificar.
+   - Responsable: Proveedores/Compras.
+   - Caso: SKU vendido/clasificado sin relacion proveedor-SKU activa o sin proveedor probable confirmado.
+   - Cierre esperado: Proveedores relaciona SKU con proveedor; Compras puede usarlo para surtido posterior.
+   - Estado: pendiente de implementar como regla transversal.
+
+5. `sku_sin_precio_lista_post_venta`
+   - Origen recomendado: Ventas/POS o Listas/Rentabilidad.
+   - Responsable: Comercial/Listas.
+   - Caso: SKU vendido con precio manual/rapido o sin lista vigente.
+   - Cierre esperado: Listas captura o aprueba precio por canal/sucursal/lista.
+   - Estado: pendiente de implementar como regla transversal.
+
+6. `sku_bajo_stock_post_venta`
+   - Origen recomendado: Inventario al resolver conteo o POS al descontar kardex normal.
+   - Responsable: Inventario/Compras.
+   - Caso: existencia disponible queda por debajo de minimo o punto de reorden.
+   - Cierre esperado: Inventario confirma necesidad; Compras genera solicitud/orden sugerida agrupada por proveedor.
+   - Estado: existe base de reorden en Catalogo, pero falta cierre automatico POS -> Compras.
+
+7. `sku_no_publicado_ecommerce_post_venta`
+   - Origen recomendado: Catalogo/Ecommerce despues de clasificar o vender producto relevante.
+   - Responsable: Ecommerce/Catalogo.
+   - Caso: SKU vendible aun no esta listo/publicado en catalogo web.
+   - Cierre esperado: completar datos publicables y activar publicacion cuando aplique.
+   - Estado: documentado como alerta ecommerce/catalogo, falta integracion directa desde POS.
+
+Proxima implementacion recomendada:
+
+1. Preparar modo `regularizacion_activa` en configuracion de caja POS, separado de `normal` y `piloto_sin_inventario`.
+2. En modo `regularizacion_activa`, el cobro POS debe usar automaticamente el flujo correcto:
+   - stock suficiente: venta normal con kardex;
+   - SKU existente con faltante: venta con inventario pendiente;
+   - producto por clasificar: venta rapida controlada;
+   - carrito mixto: consolidar venta con partidas normales, pendientes y venta rapida sin exigir botones separados al cajero.
+3. Crear semaforo operativo de pendientes post venta: Catalogo, Inventario, Proveedores, Listas, Ecommerce y Compras/Reorden.
+4. Llevar al modulo Compras la definicion fina de agrupacion por proveedor, viabilidad del pedido, minimo de compra, costo, margen y prioridad.
+
+Avance tecnico 2026-10-09:
+
+- Se agrego la opcion `regularizacion_activa` en `Ventas > Configuracion POS > Caja > Inventario en ventas`.
+- `VentasErp::resolverModoInventarioCajaPos()` reconoce el modo y lo mantiene con `afectar_inventario=1`.
+- En `regularizacion_activa`, el backend autoriza automaticamente el flujo de inventario pendiente con motivo operativo `Regularizacion activa POS: venta con mini inventario obligatorio`.
+- La validacion de caja fuerza `generar_alertas_inventario=1` para ese modo.
+- La UI muestra badge `Regularizacion activa` para distinguirlo de inventario normal y piloto sin inventario.
+- El POS de cobro detecta si la caja esta en `regularizacion_activa`; si el carrito tiene faltantes, el boton normal `Cobrar` ya no pide autorizacion manual al cajero y deja que backend cree los pendientes trazables.
+- El script autorizado `storage/uat/uat_ventas_pos_modo_inventario_caja_apply_authorized.php` acepta `--modo=regularizacion_activa` y fuerza alertas de inventario encendidas para ese modo.
+- No se cambio ninguna caja existente ni se escribio BD.
+- Validacion tecnica ejecutada:
+  - `C:\xampp\php\php.exe -l app\modelos\VentasErp.php`
+  - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\pos_configuracion.php`
+  - `C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_modo_inventario_caja_apply_authorized.php`
+  - `node --check public\assets\js\custom\apps\erp\ventas\pos_configuracion.js`
+  - `node --check public\assets\js\custom\apps\erp\ventas\pos.js`
+
+Pendiente antes de activar en operacion:
+
+- Configurar una caja en `regularizacion_activa` con autorizacion o desde UI administrativa.
+- Confirmar que las politicas de inventario pendiente por tienda/SKU/canal cubren los productos que se venderan con faltante.
+- Hacer UAT real con carrito mixto: producto con stock, producto con faltante y venta rapida.
+- Preparar semaforo post venta para pendientes de proveedor, costo, listas, ecommerce y reorden.
+
+## Corte vigente 2026-10-09 - caja compartida con origen de almacen por partida
+
+Proyecto canonico: `C:\xampp\htdocs\panel_de_control`.
+
+Host canonico local: `http://panel.com.local/`.
+
+Decision operativa:
+
+- El negocio puede operar con una sola caja/turno compartido aunque existan dos locales/almacenes fisicos pegados.
+- La cabecera de venta (`erp_ventas.id_almacen`) representa la caja/POS principal que cobra.
+- El detalle de venta (`erp_ventas_detalle.id_almacen`) representa de que almacen/local sale cada partida.
+- La trazabilidad fina de inventario se conserva en `erp_ventas_detalle_inventario.id_almacen` y en kardex/pendientes.
+- Atenciones multiusuario pueden crearse desde un navegador/dispositivo y cobrarse desde otro; la venta final debe registrar usuario cobrador, turno/caja y almacen de origen por partida.
+
+Cambios implementados:
+
+- POS permite elegir `Origen` por partida desde el carrito.
+- El payload de cobro, prevalidacion y atenciones envia `id_almacen`/`id_almacen_origen` por partida.
+- El backend preevalua cada SKU contra el almacen elegido en esa partida, no solo contra el almacen de la caja.
+- Venta rapida y atenciones preservan el almacen de origen para regularizacion posterior.
+- `VentasErpEsquema::planActualizarDetalleAlmacenPos()` prepara el DDL puntual.
+- `VentasErpEsquema::auditarDetalleAlmacenPos()` audita columna e indice.
+- DDL autorizado aplicado: columna `erp_ventas_detalle.id_almacen` e indice `idx_ventas_detalle_almacen`.
+
+Autorizacion usada:
+
+`AUTORIZO APLICAR DDL ALMACEN POR PARTIDA POS usando respaldo UAT POS vigente con token VENTAS_POS_DETALLE_ALMACEN_DDL confirmacion="APLICAR ALMACEN PARTIDA POS" para UAT POS`
+
+Validacion tecnica:
+
+- Auditoria posterior: `columnas_faltantes=0`, `indices_faltantes=0`.
+- `C:\xampp\php\php.exe -l app\modelos\VentasErp.php`
+- `C:\xampp\php\php.exe -l app\modelos\VentasErpEsquema.php`
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\pos.php`
+- `node --check public\assets\js\custom\apps\erp\ventas\pos.js`
+
+Pendiente recomendado:
+
+- Ejecutar UAT real con una sola caja/turno y partidas mixtas de distintos almacenes.
+- Confirmar que reportes POS muestran totales por turno/caja y tambien desglose por almacen de origen.
+- Ajustar manual operativo para explicar que `Origen` no cambia quien cobra; solo define de donde sale inventario o donde se genera el pendiente.
+
+## Corte vigente 2026-10-09 - precio provisional cuando SKU no tiene lista/precio formal
+
+Decision:
+
+- Los botones `Stock general`, `Unidad cerrada` y `Granel trazable` dejaron de mostrarse en el carrito para no estorbar visualmente ni alargar la tabla, especialmente en movil.
+- Esos modos quedan como decision tecnica automatica (`modo_salida`) resuelta por disponibilidad, unidad abierta/cerrada y configuracion del SKU.
+- La operacion principal del cajero queda reducida a capturar cantidad/peso segun el producto.
+- Si un SKU existente no tiene precio formal vigente, POS puede venderlo con precio provisional manual.
+- El precio provisional solo aplica cuando el backend resuelve precio formal `0`; si el SKU ya tiene precio, cualquier cambio debe seguir usando excepcion comercial/autorizacion.
+
+Cambios implementados:
+
+- La tabla del carrito ahora muestra solo producto, cantidad/peso, precio, importe y accion de quitar.
+- El ancho minimo de la tabla se redujo para mejorar uso en pantallas chicas.
+- Cuando POS agrega un SKU con precio `0`, la linea del carrito muestra input de precio y motivo.
+- El payload envia `precio_manual_sin_lista=1` y `precio_manual_motivo`.
+- Backend valida:
+  - precio provisional mayor a cero;
+  - motivo claro;
+  - que no exista precio formal vigente para ese SKU.
+- La venta guarda snapshot con:
+  - `precio_base=0`;
+  - `precio_aplicado=precio provisional`;
+  - `lista_precio_snapshot=pendiente_lista_precios`;
+  - `regla_precio_origen=precio_manual_sin_lista`;
+  - `tipo_excepcion_comercial=precio_manual_sin_lista`;
+  - `motivo_excepcion_comercial=motivo capturado`.
+- Al confirmar venta, se crea notificacion best-effort `sku_sin_precio_lista_post_venta` hacia Ventas/Listas para normalizar el precio formal.
+
+Regla importante:
+
+- Este flujo no reemplaza listas de precios ni excepciones comerciales. Solo permite operar durante regularizacion cuando el SKU ya existe pero aun no tiene precio formal.
+
+## Corte vigente 2026-10-10 - ajuste comercial manual por precio conjunto
+
+Decision:
+
+- El POS puede necesitar resolver casos operativos temporales como `3 x 100`, pecera equipada o paquete armado en mostrador sin crear todavia un motor formal de promociones.
+- Esto no debe modificar catalogo, listas de precios ni costos.
+- La solucion correcta es una excepcion comercial puntual y trazable, no un descuento calculado solo en navegador.
+- El cajero marca las partidas del carrito que forman el conjunto, captura el total final autorizado y registra un folio de autorizacion comercial.
+- El backend calcula el descuento proporcional por partida y guarda el snapshot en `erp_ventas_excepciones_comerciales.datos_snapshot`.
+- La venta real consume ese folio y conserva `id_excepcion_comercial`, tipo, motivo, autorizador y descuento por detalle.
+
+Cambios implementados:
+
+- En carrito POS se agrego una casilla `Aj.` por partida para incluirla en un ajuste/paquete.
+- En Autorizacion comercial se agrego el tipo `precio_conjunto` y el campo `Total conjunto`.
+- `VentasErp::excepcionComercialDryRun()` soporta `precio_conjunto`:
+  - exige partidas marcadas;
+  - exige total conjunto mayor a cero;
+  - bloquea total conjunto mayor al subtotal seleccionado;
+  - reparte el descuento de forma proporcional entre partidas seleccionadas.
+- `VentasErp::excepcionComercialConsumoDryRun()` soporta consumo de `precio_conjunto` usando el snapshot autorizado y bloquea si el carrito cambio despues de autorizar.
+
+Pendiente para uso real:
+
+- Hacer UAT con dos o mas partidas seleccionadas: validar folio, aplicar folio, cobrar y confirmar que ticket/venta/reportes reflejen subtotal, descuento y total final.
+
+Politica sembrada:
+
+- Fecha: 2026-10-10.
+- Entorno: conexion productiva definida por el proyecto (`panel_de_control`, host canonico `panel.com.local` con override/configuracion vigente).
+- Token autorizado: `VENTAS_POS_PRECIO_CONJUNTO_POLITICA`.
+- Script: `storage/uat/uat_ventas_pos_precio_conjunto_politica_authorized.php`.
+- Resultado: `ok=true`, `modo=precio_conjunto_politica_sembrada`.
+- Politica creada/actualizada:
+  - `id_politica_comercial=4`;
+  - `codigo=POS_PRECIO_CONJUNTO_UAT_A5`;
+  - `tipo_excepcion=precio_conjunto`;
+  - `canal=pos`;
+  - `id_almacen=5`;
+  - `descuento_max_porcentaje=1.000000`;
+  - `descuento_max_monto=999999.000000`;
+  - `permiso_requerido=ventas.autorizar_excepcion_comercial`;
+  - `estatus=activa`.
+
+Validacion read-only posterior:
+
+- `VentasErp::excepcionComercialDryRun()` con `tipo_excepcion=precio_conjunto`, `id_almacen=5`, dos partidas SKU `1760`, total conjunto `500`.
+- Resultado: `error=false`, `tipo=success`, `mensaje=Excepcion comercial simulada`.
+- Totales: `subtotal_lista=590`, `descuento_total_estimado=90`, `total_estimado=500`.
+- Bloqueos: ninguno.
+
+Readiness repetible:
+
+- Script: `storage/uat/uat_ventas_pos_precio_conjunto_readiness_readonly.php`.
+- Comando usado:
+  - `C:\xampp\php\php.exe storage\uat\uat_ventas_pos_precio_conjunto_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=2 --total_conjunto=500 --motivo="Readiness POS precio conjunto" --codigo_autorizacion=SUP-READINESS`
+- Resultado:
+  - `ok=true`;
+  - politica activa `POS_PRECIO_CONJUNTO_UAT_A5`;
+  - `autorizador_tiene_permiso=true`;
+  - `conteo_excepciones_antes=3`;
+  - `conteo_excepciones_despues=3`;
+  - bloqueos vacios.

@@ -175,6 +175,9 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Cada lista asignada puede operar en modo `todos` o `seleccionados`. En modo `seleccionados`, la sublista de productos se toma solo desde los productos que existen en esa lista de precios.
 - La lista express cubre el caso comercial de bajo margen para productos que el cliente no maneja en stock, pero que Artiani puede surtir si el cliente necesita venderlos.
 - El plan de esquema agrega columnas avanzadas a `erp_distribucion_cliente_listas` y la tabla `erp_distribucion_cliente_lista_productos`; no se ejecuto DDL en esta etapa.
+- Ajuste UX posterior: la UI ya no pide tipo de lista ni modo todos/seleccionados; el admin asigna listas reales y decide productos con checks. La pantalla de listas queda a lo ancho arriba, productos abajo, y muestra categorias de interes del cliente antes de permitir guardar productos.
+- La pantalla agrega preferencias de categorias por cliente y una primera ayuda de asignaciones sugeridas por tipo de negocio para marcar categorias recomendadas; si se requiere administrar plantillas persistentes por negocio, se debe agregar una tabla/configuracion dedicada antes de consolidarlo como regla global.
+- Ajuste UX posterior 2: la pantalla Listas solo muestra categorias ya seleccionadas y las usa como apoyo para marcar productos coincidentes; agregar/quitar categorias se mueve a la vista dedicada `cliente_categorias`.
 
 ## Pendientes
 

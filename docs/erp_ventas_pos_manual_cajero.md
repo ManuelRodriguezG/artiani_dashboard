@@ -151,13 +151,43 @@ Usar este flujo cuando se necesite precio manual o descuento:
 
 1. Agregar productos al carrito.
 2. Abrir `Autorizacion`.
-3. Seleccionar tipo: precio manual, descuento partida o descuento general.
+3. Seleccionar tipo: precio manual, descuento partida, descuento general o precio conjunto.
 4. Si aplica a una partida, seleccionar el producto correcto.
 5. Capturar motivo y supervisor.
 6. Validar.
 7. Aplicar folio autorizado.
 
 No entregar producto ni cobrar con descuento si el folio aparece bloqueado, consumido, vencido o no corresponde al carrito.
+
+### Precio conjunto o paquete manual
+
+Usar `Precio conjunto` solo para ajustes puntuales de mostrador, por ejemplo:
+
+- vender 3 piezas por un precio redondo;
+- armar una pecera equipada con precio final acordado;
+- resolver un paquete temporal mientras todavia no existe una promocion formal.
+
+Pasos:
+
+1. Agregar todas las partidas al carrito con su cantidad correcta.
+2. En el carrito, marcar la casilla `Aj.` de cada partida que forma el paquete.
+3. Abrir `Autorizacion`.
+4. Seleccionar `Precio conjunto`.
+5. Capturar `Total conjunto`, que es el total final autorizado para esas partidas marcadas.
+6. Capturar motivo claro, por ejemplo `Paquete pecera equipada autorizado`.
+7. Capturar codigo o usuario supervisor.
+8. Presionar `Validar`.
+9. Si no hay bloqueos, presionar `Registrar folio autorizado`.
+10. Ir a `Folio`, aplicar el folio y revisar que el total del POS cambie.
+11. Cobrar normalmente.
+
+Reglas:
+
+- No usar precio conjunto para cambiar la lista de precios del producto.
+- No usarlo como promocion permanente; si se repite mucho, debe convertirse en regla formal de listas/promociones.
+- Si cambias cantidad, quitas productos o agregas productos despues de autorizar, vuelve a registrar folio.
+- El descuento se reparte por el sistema entre las partidas marcadas para que venta, ticket y reportes cuadren.
+- El cliente no debe ver mensajes internos de autorizacion; el ticket solo debe reflejar venta, descuento/total y datos comerciales permitidos.
 
 ## Cierre del dia
 

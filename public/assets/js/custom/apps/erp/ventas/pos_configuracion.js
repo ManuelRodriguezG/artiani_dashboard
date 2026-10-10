@@ -183,9 +183,11 @@
             var afectaInventario = numeroConDefault(item.afectar_inventario, 1);
             var modoInventario = String(item.modo_operacion_inventario || (afectaInventario === 1 ? "normal" : "piloto_sin_inventario"));
             var inventarioNormal = afectaInventario === 1 && modoInventario !== "piloto_sin_inventario";
-            var badgeInventario = inventarioNormal
-                ? "<span class=\"badge badge-light-success me-1\">Inventario normal</span>"
-                : "<span class=\"badge badge-light-warning me-1\">Piloto sin inventario</span>";
+            var badgeInventario = modoInventario === "regularizacion_activa"
+                ? "<span class=\"badge badge-light-info me-1\">Regularizacion activa</span>"
+                : (inventarioNormal
+                    ? "<span class=\"badge badge-light-success me-1\">Inventario normal</span>"
+                    : "<span class=\"badge badge-light-warning me-1\">Piloto sin inventario</span>");
             if (Number(item.permite_efectivo || 0)) { metodos.push("Efectivo"); }
             if (Number(item.permite_tarjeta || 0)) { metodos.push("Tarjeta"); }
             if (Number(item.permite_transferencia || 0)) { metodos.push("Transferencia"); }

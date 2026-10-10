@@ -97,6 +97,18 @@ class DistribucionAdmin extends Controlador {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-10-08
+   * Proposito: abrir preferencias de categorias de un cliente en pantalla dedicada.
+   * Impacto: UX ERP Distribucion; separa editar intereses de la asignacion de productos por lista.
+   * Contrato: vista protegida por `distribucion.editar`; no escribe por si misma.
+   */
+  public function cliente_categorias($idCliente = 0) {
+    $this->requerirPermiso("distribucion.editar");
+    $this->abrirClienteSeccion("cliente_categorias", intval($idCliente), "Preferencias del cliente");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-08
    * Proposito: abrir permisos comerciales de un cliente en pantalla dedicada.
    * Impacto: UX ERP Distribucion; reemplaza edicion profunda en modal por flujo enfocado.
    * Contrato: vista protegida por `distribucion.editar`; no escribe por si misma.
@@ -120,7 +132,7 @@ class DistribucionAdmin extends Controlador {
 
   private function abrirClienteSeccion($vista, $idCliente, $titulo) {
     $this->requerirPermiso("distribucion.ver");
-    $permitidas = array("cliente", "cliente_listas", "cliente_permisos", "cliente_entrega");
+    $permitidas = array("cliente", "cliente_listas", "cliente_categorias", "cliente_permisos", "cliente_entrega");
     if (!in_array($vista, $permitidas, true)) {
       $vista = "cliente";
     }

@@ -94,6 +94,7 @@
                                                 <label class="form-label text-muted fs-8 text-uppercase">Inventario en ventas</label>
                                                 <select class="form-select form-select-solid" id="pos_cfg_caja_modo_inventario">
                                                     <option value="normal">Normal: descuenta inventario y kardex</option>
+                                                    <option value="regularizacion_activa">Regularizacion activa: vende y genera pendientes obligatorios</option>
                                                     <option value="piloto_sin_inventario">Piloto: registra venta sin afectar inventario</option>
                                                 </select>
                                             </div>
@@ -102,7 +103,7 @@
                                                 <label class="form-check form-check-custom form-check-solid mt-3"><input class="form-check-input" id="pos_cfg_caja_alertas_inventario" type="checkbox" checked><span class="form-check-label">Generar alertas si aplica</span></label>
                                             </div>
                                             <div class="col-md-4">
-                                                <div class="alert alert-light-warning py-3 mb-0 fs-7">Piloto conserva venta, caja, ticket y reportes; no descuenta stock ni crea kardex.</div>
+                                                <div class="alert alert-light-warning py-3 mb-0 fs-7">Regularizacion activa descuenta si hay stock y crea pendientes si falta; piloto conserva venta/caja/ticket sin kardex.</div>
                                             </div>
                                         </div>
                                     </div>

@@ -157,6 +157,7 @@ class VentasErpEsquema extends DBSchema {
             "`id_venta_detalle` BIGINT NOT NULL AUTO_INCREMENT",
             "`id_venta` BIGINT NOT NULL",
             "`renglon` INT NOT NULL DEFAULT 1",
+            "`id_almacen` INT NULL",
             "`id_producto_erp` BIGINT NULL",
             "`id_sku_erp` BIGINT NULL",
             "`sku` VARCHAR(150) NULL",
@@ -186,8 +187,11 @@ class VentasErpEsquema extends DBSchema {
             "`fecha_actualizacion` DATETIME NULL",
             "PRIMARY KEY (`id_venta_detalle`)",
             "KEY `idx_ventas_detalle_venta` (`id_venta`, `renglon`)",
+            "KEY `idx_ventas_detalle_almacen` (`id_almacen`, `estatus`)",
             "KEY `idx_ventas_detalle_sku` (`id_sku_erp`, `estatus`)"
         ), $opciones, $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "id_almacen", "INT NULL AFTER `renglon`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_detalle", "idx_ventas_detalle_almacen", "KEY `idx_ventas_detalle_almacen` (`id_almacen`, `estatus`)", $ejecutar);
 
         $plan[] = $this->crearTablaSiNoExiste("erp_ventas_detalle_inventario", array(
             "`id_venta_detalle_inventario` BIGINT NOT NULL AUTO_INCREMENT",
@@ -2497,6 +2501,51 @@ class VentasErpEsquema extends DBSchema {
             "mensaje" => "Auditoria de esquema Ventas/POS generada",
             "depurar" => $resultado,
             "alcance" => $alcance
+        );
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-09.
+     * Proposito: preparar persistencia del almacen de origen por partida POS.
+     * Impacto: permite una caja/turno unico con detalle de inventario, reportes y pendientes por almacen/local.
+     * Contrato: con $ejecutar=false solo genera SQL; con true requiere autorizacion externa y respaldo vigente.
+     */
+    public function planActualizarDetalleAlmacenPos($ejecutar = false) {
+        $plan = array();
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "id_almacen", "INT NULL AFTER `renglon`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_detalle", "idx_ventas_detalle_almacen", "KEY `idx_ventas_detalle_almacen` (`id_almacen`, `estatus`)", $ejecutar);
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-09.
+     * Proposito: auditar si Ventas/POS ya puede guardar almacen de origen por partida.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA.
+     * Contrato: no crea ni modifica estructura.
+     */
+    public function auditarDetalleAlmacenPos() {
+        $tabla = "erp_ventas_detalle";
+        $resultado = array(
+            "tabla" => $tabla,
+            "existe" => $this->tablaExiste($tabla),
+            "columnas" => array(
+                array("columna" => "id_almacen", "existe" => $this->columnaExiste($tabla, "id_almacen"))
+            ),
+            "indices" => array(
+                array("indice" => "idx_ventas_detalle_almacen", "existe" => $this->indiceExiste($tabla, "idx_ventas_detalle_almacen"))
+            )
+        );
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria almacen por partida POS generada",
+            "depurar" => $resultado,
+            "contrato" => array(
+                "no_escribe_bd" => true,
+                "no_mueve_caja" => true,
+                "no_mueve_inventario" => true,
+                "no_modifica_ventas" => true
+            )
         );
     }
 }
