@@ -5,7 +5,8 @@
         cajas: "activos",
         terminales: "activos",
         asignaciones: "activos",
-        politicas: "activos"
+        politicas: "activos",
+        autorizadores: "activos"
     };
 
     /**
@@ -48,6 +49,8 @@
         var asignaciones = data.asignaciones || [];
         var politicas = data.politicas_inventario_pendiente || [];
         var tickets = data.ticket_configuraciones || [];
+        var autorizadores = data.autorizadores_pos || [];
+        var codigosAutorizacion = data.codigos_autorizacion_pos || [];
         renderKpi("pos_config_kpi_cajas", contarActivos(cajas, "activa"), contarHistoricos(cajas, "activa"));
         renderKpi("pos_config_kpi_terminales", contarActivos(terminales, "activa"), contarHistoricos(terminales, "activa"));
         renderKpi("pos_config_kpi_asignaciones", contarActivos(asignaciones, "activo"), contarHistoricos(asignaciones, "activo"));
@@ -60,6 +63,8 @@
         renderAsignaciones(filtrarPorEstado(asignaciones, filtros.asignaciones, "activo"));
         renderPoliticasInventario(filtrarPorEstado(politicas, filtros.politicas, "activa"));
         renderTickets(tickets);
+        renderAutorizadores(filtrarPorEstado(autorizadores, filtros.autorizadores, "activo"));
+        renderCodigosAutorizacion(codigosAutorizacion);
         llenarSelectores(data);
     }
 
@@ -101,15 +106,27 @@
         var almacenesHtml = almacenes.map(function (item) {
             return "<option value=\"" + escapeHtml(item.id_almacen) + "\">" + escapeHtml(item.codigo_almacen || item.almacen || item.id_almacen) + "</option>";
         }).join("") || "<option value=\"\">Sin tiendas</option>";
-        ["pos_cfg_caja_almacen", "pos_cfg_terminal_almacen", "pos_cfg_asig_almacen", "pos_cfg_pinv_almacen", "pos_cfg_ticket_almacen"].forEach(function (id) {
+        ["pos_cfg_caja_almacen", "pos_cfg_terminal_almacen", "pos_cfg_asig_almacen", "pos_cfg_pinv_almacen", "pos_cfg_ticket_almacen", "pos_cfg_aut_almacen"].forEach(function (id) {
             document.getElementById(id).innerHTML = almacenesHtml;
         });
         var cajasHtml = cajas.map(function (item) {
             return "<option value=\"" + escapeHtml(item.id_caja) + "\" data-almacen=\"" + escapeHtml(item.id_almacen) + "\">" + escapeHtml(item.codigo || item.nombre || item.id_caja) + "</option>";
         }).join("") || "<option value=\"\">Sin cajas</option>";
-        ["pos_cfg_terminal_caja", "pos_cfg_asig_caja", "pos_cfg_ticket_caja"].forEach(function (id) {
+        ["pos_cfg_terminal_caja", "pos_cfg_asig_caja", "pos_cfg_ticket_caja", "pos_cfg_aut_caja"].forEach(function (id) {
             document.getElementById(id).innerHTML = cajasHtml;
         });
+        var usuarios = data.usuarios_pos || [];
+        var usuariosHtml = usuarios.map(function (item) {
+            return "<option value=\"" + escapeHtml(item.id_usuario) + "\">" + escapeHtml((item.nombre_mostrar || ("Usuario " + item.id_usuario)) + " #" + item.id_usuario) + "</option>";
+        }).join("") || "<option value=\"\">Sin usuarios activos</option>";
+        document.getElementById("pos_cfg_aut_usuario").innerHTML = usuariosHtml;
+        var autorizadores = data.autorizadores_pos || [];
+        var autorizadoresHtml = autorizadores.filter(function (item) {
+            return String(item.estatus || "activo") === "activo";
+        }).map(function (item) {
+            return "<option value=\"" + escapeHtml(item.id_autorizador_pos) + "\">" + escapeHtml((item.nombre_mostrar || ("Usuario " + item.id_usuario)) + " / " + (item.rol_autorizador || "supervisor")) + "</option>";
+        }).join("") || "<option value=\"\">Primero guarda un autorizador</option>";
+        document.getElementById("pos_cfg_codigo_autorizador").innerHTML = autorizadoresHtml;
         var terminalesHtml = "<option value=\"\">Sin terminal</option>" + terminales.map(function (item) {
             return "<option value=\"" + escapeHtml(item.id_terminal_pos) + "\" data-almacen=\"" + escapeHtml(item.id_almacen) + "\" data-caja=\"" + escapeHtml(item.id_caja || "") + "\">" + escapeHtml(item.codigo || item.nombre || item.id_terminal_pos) + "</option>";
         }).join("");
@@ -118,6 +135,7 @@
         sincronizarTerminal();
         sincronizarAsignacion("almacen");
         sincronizarTicket("almacen");
+        sincronizarAutorizador("almacen");
         llenarTicketDesdeActual(data.ticket_configuracion_efectiva || {});
     }
 
@@ -174,6 +192,16 @@
             if (option.value === "") { return true; }
             return (!almacen || optionAlmacen === almacen) && (!cajaValor || optionCaja === cajaValor || optionCaja === "");
         });
+    }
+
+    function sincronizarAutorizador(origen) {
+        var almacen = document.getElementById("pos_cfg_aut_almacen").value;
+        var caja = document.getElementById("pos_cfg_aut_caja");
+        if (origen === "almacen") {
+            seleccionarCompatible(caja, function (option) {
+                return !almacen || option.getAttribute("data-almacen") === almacen || option.value === "";
+            });
+        }
     }
 
     function renderCajas(filas) {
@@ -260,6 +288,35 @@
                 "<td><span class=\"badge " + (activo ? "badge-light-success" : "badge-light") + "\">" + escapeHtml(item.estatus || "-") + "</span></td>" +
                 "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pos-config-editar=\"ticket\" data-id=\"" + escapeHtml(item.id_ticket_configuracion || "") + "\"><i class=\"bi bi-pencil\"></i></button></td></tr>";
         }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin configuraciones de ticket. Guarda una configuracion base para el POS.</td></tr>";
+    }
+
+    function renderAutorizadores(filas) {
+        document.getElementById("pos_config_autorizadores").innerHTML = (filas || []).map(function (item) {
+            var activo = String(item.estatus || "") === "activo";
+            var alcance = item.alcance || "global";
+            var scope = alcance === "global" ? "Global" : (alcance === "caja" ? "Caja " + (item.caja_codigo || item.id_caja || "-") : "Tienda " + (item.almacen || item.id_almacen || "-"));
+            var tipos = String(item.tipos_autorizacion || "").split(",").filter(Boolean);
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.nombre_mostrar || ("Usuario " + (item.id_usuario || "-"))) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.rol_autorizador || "supervisor") + "</div></td>" +
+                "<td>" + escapeHtml(scope) + "</td>" +
+                "<td>" + (tipos.length ? tipos.map(function (tipo) { return "<span class=\"badge badge-light-primary me-1\">" + escapeHtml(tipo) + "</span>"; }).join("") : "<span class=\"text-muted\">Sin tipos</span>") + "</td>" +
+                "<td><div class=\"fw-semibold\">Desc. " + escapeHtml(item.descuento_max_porcentaje || "0") + "%</div><div class=\"text-muted fs-8\">Monto $" + escapeHtml(item.monto_maximo || "0") + "</div></td>" +
+                "<td><span class=\"badge " + (activo ? "badge-light-success" : "badge-light") + "\">" + escapeHtml(item.estatus || "-") + "</span></td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary me-2\" type=\"button\" data-pos-config-editar=\"autorizador\" data-id=\"" + escapeHtml(item.id_autorizador_pos || "") + "\"><i class=\"bi bi-pencil\"></i></button>" +
+                (activo ? "<button class=\"btn btn-sm btn-light-danger\" type=\"button\" data-pos-config-desactivar=\"autorizador\" data-id=\"" + escapeHtml(item.id_autorizador_pos || "") + "\"><i class=\"bi bi-slash-circle\"></i></button>" : "<span class=\"badge badge-light\">Historico</span>") + "</td></tr>";
+        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin autorizadores POS configurados</td></tr>";
+    }
+
+    function renderCodigosAutorizacion(filas) {
+        document.getElementById("pos_config_codigos_autorizacion").innerHTML = (filas || []).map(function (item) {
+            var activo = String(item.estatus || "") === "activo";
+            var uso = String(item.usos_realizados || "0") + " / " + String(item.uso_maximo || "1");
+            var vigencia = (item.fecha_inicio || "-") + " a " + (item.fecha_fin || "sin limite");
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.folio || "-") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.codigo_mascara || "") + "</div></td>" +
+                "<td>" + escapeHtml(item.nombre_mostrar || ("Usuario " + (item.id_usuario_autorizador || "-"))) + "</td>" +
+                "<td><span class=\"badge badge-light-primary\">" + escapeHtml(item.tipo_autorizacion || "-") + "</span></td>" +
+                "<td>" + escapeHtml(uso) + "</td><td class=\"fs-8\">" + escapeHtml(vigencia) + "</td>" +
+                "<td><span class=\"badge " + (activo ? "badge-light-success" : "badge-light") + "\">" + escapeHtml(item.estatus || "-") + "</span></td></tr>";
+        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin codigos generados</td></tr>";
     }
 
     function bool(id) {
@@ -353,6 +410,33 @@
         };
     }
 
+    function datosAutorizador() {
+        return {
+            id_autorizador_pos: document.getElementById("pos_cfg_aut_id").value,
+            id_usuario: document.getElementById("pos_cfg_aut_usuario").value,
+            rol_autorizador: document.getElementById("pos_cfg_aut_rol").value,
+            alcance: document.getElementById("pos_cfg_aut_alcance").value,
+            id_almacen: document.getElementById("pos_cfg_aut_almacen").value,
+            id_caja: document.getElementById("pos_cfg_aut_caja").value,
+            tipo_autorizacion: document.getElementById("pos_cfg_aut_tipo").value,
+            descuento_max_porcentaje: document.getElementById("pos_cfg_aut_descuento").value,
+            monto_maximo: document.getElementById("pos_cfg_aut_monto").value,
+            vigencia_dias: document.getElementById("pos_cfg_aut_vigencia").value,
+            observaciones: document.getElementById("pos_cfg_aut_observaciones").value.trim()
+        };
+    }
+
+    function datosCodigoAutorizacion() {
+        return {
+            id_autorizador_pos: document.getElementById("pos_cfg_codigo_autorizador").value,
+            tipo_autorizacion: document.getElementById("pos_cfg_codigo_tipo").value,
+            uso_maximo: document.getElementById("pos_cfg_codigo_usos").value,
+            expira_minutos: document.getElementById("pos_cfg_codigo_minutos").value,
+            monto_maximo: document.getElementById("pos_cfg_codigo_monto").value,
+            motivo: document.getElementById("pos_cfg_codigo_motivo").value.trim()
+        };
+    }
+
     function validarCaja() {
         postRequest("/ventas/pos_configuracion_caja_dryrun_erp", datosCaja()).then(renderValidacion).catch(renderErrorValidacion);
     }
@@ -371,6 +455,14 @@
 
     function validarTicket() {
         postRequest("/ventas/pos_configuracion_ticket_dryrun_erp", datosTicket()).then(renderValidacion).catch(renderErrorValidacion);
+    }
+
+    function validarAutorizador() {
+        postRequest("/ventas/pos_configuracion_autorizador_dryrun_erp", datosAutorizador()).then(renderValidacion).catch(renderErrorValidacion);
+    }
+
+    function validarCodigoAutorizacion() {
+        postRequest("/ventas/pos_configuracion_codigo_autorizacion_dryrun_erp", datosCodigoAutorizacion()).then(renderValidacion).catch(renderErrorValidacion);
     }
 
     function guardar(url, data) {
@@ -401,6 +493,19 @@
 
     function guardarTicket() {
         guardar("/ventas/pos_configuracion_ticket_guardar_erp", datosTicket());
+    }
+
+    function guardarAutorizador() {
+        guardar("/ventas/pos_configuracion_autorizador_guardar_erp", datosAutorizador());
+    }
+
+    function generarCodigoAutorizacion() {
+        postRequest("/ventas/pos_configuracion_codigo_autorizacion_generar_erp", datosCodigoAutorizacion()).then(function (response) {
+            renderValidacion(response);
+            if (!response.error && response.tipo === "success") {
+                cargar();
+            }
+        }).catch(renderErrorValidacion);
     }
 
     function activarTab(selector) {
@@ -458,6 +563,21 @@
             if (!item) { return; }
             activarTab("#pos_config_tab_ticket");
             llenarTicketDesdeActual(item);
+        } else if (tipo === "autorizador") {
+            item = buscarPorId(estado.autorizadores_pos, "id_autorizador_pos", id);
+            if (!item) { return; }
+            activarTab("#pos_config_tab_autorizadores");
+            document.getElementById("pos_cfg_aut_id").value = item.id_autorizador_pos || "";
+            document.getElementById("pos_cfg_aut_usuario").value = item.id_usuario || "";
+            document.getElementById("pos_cfg_aut_rol").value = item.rol_autorizador || "supervisor";
+            document.getElementById("pos_cfg_aut_alcance").value = item.alcance || "global";
+            document.getElementById("pos_cfg_aut_almacen").value = item.id_almacen || document.getElementById("pos_cfg_aut_almacen").value;
+            sincronizarAutorizador("almacen");
+            document.getElementById("pos_cfg_aut_caja").value = item.id_caja || document.getElementById("pos_cfg_aut_caja").value;
+            document.getElementById("pos_cfg_aut_tipo").value = String(item.tipos_autorizacion || "precio_conjunto").split(",")[0] || "precio_conjunto";
+            document.getElementById("pos_cfg_aut_descuento").value = item.descuento_max_porcentaje || "100";
+            document.getElementById("pos_cfg_aut_monto").value = item.monto_maximo || "999999";
+            document.getElementById("pos_cfg_aut_observaciones").value = item.observaciones || "";
         }
     }
 
@@ -494,7 +614,7 @@
     }
 
     function limpiarCaptura() {
-        ["pos_cfg_caja_id", "pos_cfg_terminal_id", "pos_cfg_asig_id", "pos_cfg_caja_codigo", "pos_cfg_caja_nombre", "pos_cfg_terminal_codigo", "pos_cfg_terminal_nombre", "pos_cfg_terminal_identificador", "pos_cfg_asig_usuario", "pos_cfg_pinv_codigo", "pos_cfg_pinv_nombre", "pos_cfg_pinv_motivo", "pos_cfg_pinv_sku"].forEach(function (id) {
+        ["pos_cfg_caja_id", "pos_cfg_terminal_id", "pos_cfg_asig_id", "pos_cfg_aut_id", "pos_cfg_caja_codigo", "pos_cfg_caja_nombre", "pos_cfg_terminal_codigo", "pos_cfg_terminal_nombre", "pos_cfg_terminal_identificador", "pos_cfg_asig_usuario", "pos_cfg_pinv_codigo", "pos_cfg_pinv_nombre", "pos_cfg_pinv_motivo", "pos_cfg_pinv_sku", "pos_cfg_aut_observaciones", "pos_cfg_codigo_motivo"].forEach(function (id) {
             var element = document.getElementById(id);
             if (element) { element.value = ""; }
         });
@@ -545,6 +665,9 @@
             html += "<ul class=\"mb-0 mt-2 ps-4 text-muted\">" + avisos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
         html += "</div><pre class=\"bg-light p-3 rounded fs-8 mb-0\">" + escapeHtml(JSON.stringify(propuesta, null, 2)) + "</pre>";
+        if (propuesta.codigo_autorizacion) {
+            html = "<div class=\"alert alert-warning py-4 mb-3\"><div class=\"fw-bold fs-5\">Codigo generado: " + escapeHtml(propuesta.codigo_autorizacion) + "</div><div class=\"fs-7\">Entregalo solo para esta operacion. Despues el sistema conservara mascara y auditoria, no el codigo visible.</div></div>" + html;
+        }
         document.getElementById("pos_config_validacion_resultado").innerHTML = html;
     }
 
@@ -560,16 +683,21 @@
         document.getElementById("pos_cfg_asig_caja").addEventListener("change", function () { sincronizarAsignacion("caja"); });
         document.getElementById("pos_cfg_ticket_almacen").addEventListener("change", function () { sincronizarTicket("almacen"); });
         document.getElementById("pos_cfg_ticket_caja").addEventListener("change", function () { sincronizarTicket("caja"); });
+        document.getElementById("pos_cfg_aut_almacen").addEventListener("change", function () { sincronizarAutorizador("almacen"); });
         document.getElementById("pos_cfg_caja_validar").addEventListener("click", validarCaja);
         document.getElementById("pos_cfg_terminal_validar").addEventListener("click", validarTerminal);
         document.getElementById("pos_cfg_asig_validar").addEventListener("click", validarAsignacion);
         document.getElementById("pos_cfg_pinv_validar").addEventListener("click", validarPoliticaInventario);
         document.getElementById("pos_cfg_ticket_validar").addEventListener("click", validarTicket);
+        document.getElementById("pos_cfg_aut_validar").addEventListener("click", validarAutorizador);
+        document.getElementById("pos_cfg_codigo_validar").addEventListener("click", validarCodigoAutorizacion);
         document.getElementById("pos_cfg_caja_guardar").addEventListener("click", guardarCaja);
         document.getElementById("pos_cfg_terminal_guardar").addEventListener("click", guardarTerminal);
         document.getElementById("pos_cfg_asig_guardar").addEventListener("click", guardarAsignacion);
         document.getElementById("pos_cfg_pinv_guardar").addEventListener("click", guardarPoliticaInventario);
         document.getElementById("pos_cfg_ticket_guardar").addEventListener("click", guardarTicket);
+        document.getElementById("pos_cfg_aut_guardar").addEventListener("click", guardarAutorizador);
+        document.getElementById("pos_cfg_codigo_generar").addEventListener("click", generarCodigoAutorizacion);
         document.getElementById("pos_cfg_limpiar").addEventListener("click", limpiarCaptura);
         document.addEventListener("click", function (event) {
             var filtroBoton = event.target.closest("[data-pos-filtro]");

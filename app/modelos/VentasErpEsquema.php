@@ -2548,4 +2548,125 @@ class VentasErpEsquema extends DBSchema {
             )
         );
     }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: preparar tablas para autorizadores y codigos temporales POS.
+     * Impacto: habilita supervisor/gerente con codigos auditables para precio manual, paquetes y excepciones.
+     * Contrato: con $ejecutar=false solo genera SQL; ejecucion requiere autorizacion externa y respaldo vigente.
+     */
+    public function planActualizarAutorizadoresPos($ejecutar = false) {
+        $plan = array();
+        $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_pos_autorizadores", array(
+            "`id_autorizador_pos` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_usuario` INT NOT NULL",
+            "`rol_autorizador` VARCHAR(40) NOT NULL DEFAULT 'supervisor'",
+            "`alcance` VARCHAR(30) NOT NULL DEFAULT 'global'",
+            "`id_almacen` INT NULL",
+            "`id_caja` BIGINT NULL",
+            "`tipos_autorizacion` TEXT NULL",
+            "`descuento_max_porcentaje` DECIMAL(9,6) NOT NULL DEFAULT 0",
+            "`monto_maximo` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`permite_autoautorizar` TINYINT(1) NOT NULL DEFAULT 0",
+            "`requiere_motivo` TINYINT(1) NOT NULL DEFAULT 1",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+            "`fecha_inicio` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_fin` DATETIME NULL",
+            "`creado_por` INT NULL",
+            "`observaciones` TEXT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_autorizador_pos`)",
+            "KEY `idx_pos_autorizadores_usuario` (`id_usuario`, `estatus`)",
+            "KEY `idx_pos_autorizadores_alcance` (`alcance`, `id_almacen`, `id_caja`, `estatus`)",
+            "KEY `idx_pos_autorizadores_vigencia` (`estatus`, `fecha_inicio`, `fecha_fin`)"
+        ), $opciones, $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_pos_codigos_autorizacion", array(
+            "`id_codigo_autorizacion` BIGINT NOT NULL AUTO_INCREMENT",
+            "`folio` VARCHAR(50) NOT NULL",
+            "`id_autorizador_pos` BIGINT NOT NULL",
+            "`id_usuario_autorizador` INT NOT NULL",
+            "`codigo_hash` VARCHAR(255) NOT NULL",
+            "`codigo_mascara` VARCHAR(40) NULL",
+            "`tipo_autorizacion` VARCHAR(50) NOT NULL",
+            "`alcance` VARCHAR(30) NOT NULL DEFAULT 'global'",
+            "`id_almacen` INT NULL",
+            "`id_caja` BIGINT NULL",
+            "`uso_maximo` INT NOT NULL DEFAULT 1",
+            "`usos_realizados` INT NOT NULL DEFAULT 0",
+            "`monto_maximo` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`descuento_max_porcentaje` DECIMAL(9,6) NOT NULL DEFAULT 0",
+            "`fecha_inicio` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_fin` DATETIME NULL",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+            "`motivo` VARCHAR(255) NULL",
+            "`observaciones` TEXT NULL",
+            "`datos_snapshot` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`revocado_por` INT NULL",
+            "`fecha_revocacion` DATETIME NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_codigo_autorizacion`)",
+            "UNIQUE KEY `idx_pos_codigos_folio` (`folio`)",
+            "KEY `idx_pos_codigos_autorizador` (`id_autorizador_pos`, `estatus`)",
+            "KEY `idx_pos_codigos_tipo` (`tipo_autorizacion`, `estatus`, `fecha_fin`)",
+            "KEY `idx_pos_codigos_scope` (`alcance`, `id_almacen`, `id_caja`, `estatus`)",
+            "CONSTRAINT `fk_pos_codigos_autorizador` FOREIGN KEY (`id_autorizador_pos`) REFERENCES `erp_pos_autorizadores` (`id_autorizador_pos`)"
+        ), $opciones, $ejecutar);
+
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: auditar estructura de autorizadores/codigos POS.
+     * Impacto: solo lectura para saber si se puede activar la seccion productiva.
+     * Contrato: no crea ni modifica tablas.
+     */
+    public function auditarAutorizadoresPos() {
+        $tablas = array("erp_pos_autorizadores", "erp_pos_codigos_autorizacion");
+        $columnas = array(
+            "erp_pos_autorizadores" => array("id_autorizador_pos", "id_usuario", "rol_autorizador", "alcance", "id_almacen", "id_caja", "tipos_autorizacion", "descuento_max_porcentaje", "monto_maximo", "estatus"),
+            "erp_pos_codigos_autorizacion" => array("id_codigo_autorizacion", "folio", "id_autorizador_pos", "id_usuario_autorizador", "codigo_hash", "codigo_mascara", "tipo_autorizacion", "uso_maximo", "usos_realizados", "fecha_fin", "estatus")
+        );
+        $indices = array(
+            "erp_pos_autorizadores" => array("idx_pos_autorizadores_usuario", "idx_pos_autorizadores_alcance", "idx_pos_autorizadores_vigencia"),
+            "erp_pos_codigos_autorizacion" => array("idx_pos_codigos_folio", "idx_pos_codigos_autorizador", "idx_pos_codigos_tipo", "idx_pos_codigos_scope")
+        );
+        $resultado = array();
+        foreach ($tablas as $tabla) {
+            $faltanColumnas = array();
+            $faltanIndices = array();
+            $existe = $this->tablaExiste($tabla);
+            if ($existe) {
+                foreach ($columnas[$tabla] as $columna) {
+                    if (!$this->columnaExiste($tabla, $columna)) {
+                        $faltanColumnas[] = $columna;
+                    }
+                }
+                foreach ($indices[$tabla] as $indice) {
+                    if (!$this->indiceExiste($tabla, $indice)) {
+                        $faltanIndices[] = $indice;
+                    }
+                }
+            }
+            $resultado[] = array(
+                "tabla" => $tabla,
+                "existe" => $existe,
+                "faltan_columnas" => $faltanColumnas,
+                "faltan_indices" => $faltanIndices
+            );
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria autorizadores POS generada",
+            "depurar" => $resultado,
+            "contrato" => array("no_escribe_bd" => true, "no_crea_tablas" => true, "no_genera_codigos" => true)
+        );
+    }
 }

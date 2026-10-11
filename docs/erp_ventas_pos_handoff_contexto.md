@@ -5722,3 +5722,260 @@ Readiness repetible:
   - `conteo_excepciones_antes=3`;
   - `conteo_excepciones_despues=3`;
   - bloqueos vacios.
+
+Avance UI posterior:
+
+- Se agrego boton `Paquete` en el encabezado del carrito POS.
+- Se agrego modal `Armar paquete` para seleccionar partidas, capturar precio final, motivo y autorizacion.
+- El modal usa el mismo contrato backend de `precio_conjunto`; no calcula descuentos finales en navegador.
+- `Validar paquete` ejecuta dry-run comercial.
+- `Registrar y aplicar` crea el folio de autorizacion comercial y lo valida contra el carrito sin exigir pago completo en ese momento; el cobro real sigue validando pagos completos.
+- Cuando el folio queda aplicado, el carrito muestra una alerta `Paquete aplicado`, folio, total y ahorro, y marca visualmente las partidas afectadas.
+- Si el operador cambia cantidad, origen, precio provisional, pago o quita partidas, el POS limpia la excepcion activa y obliga a volver a autorizar.
+- La documentacion de cajero quedo actualizada en `docs/erp_ventas_pos_manual_cajero.md`.
+
+## Corte vigente 2026-10-10 - Autorizadores y codigos POS
+
+Decision:
+
+- Los codigos de autorizacion no deben ser texto inventado por el cajero.
+- Deben generarse desde `Ventas > Configuracion POS > Autorizadores`, con usuario responsable, rol, alcance, tipo autorizado, limites, vigencia y motivo.
+- El codigo plano se debe mostrar una sola vez al generarlo; despues solo se conserva mascara y hash.
+- POS seguira consumiendo el codigo en flujos como precio conjunto, precio manual, descuentos, inventario pendiente, gastos, devoluciones o diferencias de caja.
+
+Cambios preparados sin escritura BD:
+
+- Vista `app/vistas/paginas/apps/erp/ventas/pos_configuracion.php`:
+  - nueva pestaña `Autorizadores`;
+  - formulario para asignar usuario como supervisor/gerente/administrador POS;
+  - formulario para validar/generar codigo temporal;
+  - tablas de autorizadores y codigos.
+- JS `public/assets/js/custom/apps/erp/ventas/pos_configuracion.js`:
+  - carga usuarios activos, autorizadores y codigos;
+  - valida autorizador;
+  - valida codigo;
+  - prepara guardado/generacion real con endpoints protegidos.
+- Controlador `app/controladores/Ventas.php`:
+  - endpoints dry-run para autorizador y codigo;
+  - endpoints reales protegidos para guardar autorizador y generar codigo.
+- Modelo `app/modelos/VentasErp.php`:
+  - lectura read-only de usuarios, autorizadores y codigos;
+  - validaciones de alcance, rol, vigencia, tipos y limites;
+  - generacion de codigo con `password_hash`, mascara y folio auditable.
+- Esquema `app/modelos/VentasErpEsquema.php`:
+  - plan `planActualizarAutorizadoresPos()`;
+  - auditoria `auditarAutorizadoresPos()`.
+
+Pendiente para activar real:
+
+- Autorizar DDL de `erp_pos_autorizadores` y `erp_pos_codigos_autorizacion`.
+- Sembrar permisos finos si hace falta: configuracion POS crear/editar/desactivar y autorizacion comercial.
+- UAT real:
+  - crear autorizador;
+  - generar codigo;
+  - usar codigo en precio conjunto;
+  - validar que el codigo no se muestre en ticket y quede trazado en excepcion comercial.
+
+Aplicacion DDL:
+
+- Fecha: 2026-10-10.
+- Script: `storage/uat/uat_ventas_pos_autorizadores_schema_apply_authorized.php`.
+- Token autorizado: `VENTAS_POS_AUTORIZADORES_DDL`.
+- Confirmacion: `APLICAR AUTORIZADORES POS`.
+- Respaldo referido: `productivo vigente`.
+- Resultado: `ok=true`.
+- Tablas creadas:
+  - `erp_pos_autorizadores`;
+  - `erp_pos_codigos_autorizacion`.
+- Auditoria posterior:
+  - ambas tablas existen;
+  - sin columnas faltantes;
+  - sin indices faltantes.
+- Read-only posterior de Configuracion POS:
+  - `schema_pendiente=false`;
+  - `usuarios_pos=4`;
+  - `autorizadores_pos=0`;
+  - `codigos_autorizacion_pos=0`.
+
+Siguiente paso:
+
+- Crear el primer autorizador POS desde UI o script autorizado.
+- Generar un codigo temporal.
+- Probarlo en `Paquete / Precio conjunto`.
+
+Avance posterior:
+
+- `pos_excepcion_comercial_registrar_erp` ya no exige de forma rigida `ventas.autorizar_excepcion_comercial` en controlador.
+- La seguridad se movio al modelo:
+  - si hay codigo POS generado, se valida por hash, vigencia, uso, tipo, alcance, monto y porcentaje;
+  - si el codigo es valido, el autorizador real se toma del codigo;
+  - si no hay codigo valido, solo puede registrar excepcion quien tenga `ventas.autorizar_excepcion_comercial`;
+  - al registrar la excepcion se consume el codigo y se marca `consumido` cuando llega a su limite de usos.
+- Prueba read-only con codigo inventado `POS-0000-0000`:
+  - resultado `warning`;
+  - bloqueo esperado: `Codigo de autorizacion POS invalido, vencido o ya consumido`;
+  - no escribio datos.
+
+Siguiente autorizacion sugerida:
+
+`AUTORIZO CREAR AUTORIZADOR POS PRODUCTIVO usando respaldo productivo vigente con token VENTAS_POS_AUTORIZADOR_REAL id_usuario_ejecuta=1 id_usuario_autorizador=1 rol=gerente alcance=global tipo=precio_conjunto monto_maximo=999999 descuento_max_porcentaje=100 vigencia_dias=365 motivo="Primer autorizador POS para precio conjunto"`
+
+Aplicacion autorizador real:
+
+- Fecha: 2026-10-10.
+- Script: `storage/uat/uat_ventas_pos_autorizador_real_authorized.php`.
+- Token autorizado: `VENTAS_POS_AUTORIZADOR_REAL`.
+- Respaldo referido: `productivo vigente`.
+- Resultado: `ok=true`.
+- Autorizador creado:
+  - `id_autorizador_pos=1`;
+  - `id_usuario=1`;
+  - `nombre_mostrar=soporte_sistema`;
+  - `rol_autorizador=gerente`;
+  - `alcance=global`;
+  - `tipos_autorizacion=precio_conjunto`;
+  - `descuento_max_porcentaje=100`;
+  - `monto_maximo=999999`;
+  - `estatus=activo`;
+  - `fecha_fin=2027-10-10 16:19:54`.
+- Lectura posterior:
+  - `autorizadores_pos=1`;
+  - `codigos_autorizacion_pos=0`.
+
+Siguiente autorizacion sugerida:
+
+`AUTORIZO GENERAR CODIGO POS PRODUCTIVO usando respaldo productivo vigente con token VENTAS_POS_CODIGO_AUTORIZACION_REAL id_usuario_ejecuta=1 id_autorizador_pos=1 tipo=precio_conjunto uso_maximo=1 expira_minutos=120 monto_maximo=999999 motivo="Codigo temporal para probar precio conjunto POS"`
+
+Generacion codigo autorizacion real:
+
+- Fecha: 2026-10-10.
+- Script: `storage/uat/uat_ventas_pos_codigo_autorizacion_real_authorized.php`.
+- Token autorizado: `VENTAS_POS_CODIGO_AUTORIZACION_REAL`.
+- Respaldo referido: `productivo vigente`.
+- Resultado: `ok=true`.
+- Codigo generado:
+  - `id_codigo_autorizacion=1`;
+  - `folio=AUTPOS-20261010-000001`;
+  - `codigo_mascara=POS--****-22`;
+  - `id_autorizador_pos=1`;
+  - `tipo_autorizacion=precio_conjunto`;
+  - `alcance=global`;
+  - `uso_maximo=1`;
+  - `usos_realizados=0`;
+  - `monto_maximo=999999`;
+  - `descuento_max_porcentaje=100`;
+  - `estatus=activo`;
+  - `fecha_fin=2026-10-10 18:33:56`.
+- Nota de seguridad: el codigo completo no se documenta; solo se mostro en la salida controlada del script.
+
+Correccion UI precio conjunto:
+
+- Fecha: 2026-10-10.
+- Archivos:
+  - `public/assets/js/custom/apps/erp/ventas/pos.js`;
+  - `app/modelos/VentasErp.php`;
+  - `app/vistas/paginas/apps/erp/ventas/pos.php`.
+- Problema detectado en prueba operativa:
+  - al validar un paquete desde POS, el modal podia mostrar/calcular contra el carrito completo en vez de solo las partidas seleccionadas;
+  - el mensaje usaba `subtotal_lista` como "Subtotal seleccionado", lo que confundia porque ese campo representa la venta completa;
+  - codigos pegados con espacios o saltos podian fallar como invalidos.
+- Ajuste aplicado:
+  - antes de validar o registrar paquete, el JS sincroniza los checks visibles del modal como fuente final;
+  - el payload de `precio_conjunto` normaliza el codigo eliminando espacios y usando mayusculas;
+  - el backend normaliza el codigo antes de validar hash;
+  - el backend devuelve `subtotal_conjunto` y `total_conjunto`;
+  - el modal muestra `Subtotal seleccionado`, `Descuento`, `Total paquete` y, aparte, el total estimado de la venta completa.
+- Validacion:
+  - `php -l app/modelos/VentasErp.php`: OK;
+  - `php -l app/vistas/paginas/apps/erp/ventas/pos.php`: OK;
+  - `node --check public/assets/js/custom/apps/erp/ventas/pos.js`: OK;
+  - dry-run read-only confirmo codigo POS valido y separacion de totales de conjunto.
+
+Persistencia origen por partida POS:
+
+- Fecha: 2026-10-10.
+- Archivo: `public/assets/js/custom/apps/erp/ventas/pos.js`.
+- Regla operativa:
+  - las cuentas del carrito POS son locales del navegador hasta que se cobran o se envian a Atenciones;
+  - cada partida debe conservar su almacen/local de salida aunque la caja/turno sea unico;
+  - al cobrar o subir a Atenciones, se manda `id_almacen_origen` por partida.
+- Problema detectado:
+  - al reiniciar o recargar, algunas partidas podian mostrar `Origen actual` aunque habian sido cambiadas de origen;
+  - el id podia conservarse, pero el nombre dependia de que el catalogo de almacenes ya estuviera cargado.
+- Ajuste aplicado:
+  - se guarda `nombre_almacen_origen` junto con `id_almacen_origen`;
+  - el selector de origen conserva una opcion visible aunque el catalogo tarde en cargar o no incluya ese almacen;
+  - las partidas enviadas a Atenciones incluyen nombre e id de origen;
+  - las atenciones recuperadas reconstruyen el origen por partida.
+- Validacion:
+  - `node --check public/assets/js/custom/apps/erp/ventas/pos.js`: OK;
+  - `php -l app/vistas/paginas/apps/erp/ventas/pos.php`: OK.
+
+UX descuentos POS:
+
+- Fecha: 2026-10-10.
+- Archivos:
+  - `app/vistas/paginas/apps/erp/ventas/pos.php`;
+  - `public/assets/js/custom/apps/erp/ventas/pos.js`.
+- Paquete / precio conjunto:
+  - se agrego modo `Precio final`;
+  - se agrego modo `Descuento %`;
+  - al capturar porcentaje calcula automaticamente el total final del paquete;
+  - sigue usando `precio_conjunto`, motivo, codigo de autorizacion y folio comercial.
+- Descuento venta:
+  - se agrego boton `Descuento` junto a `Paquete`;
+  - se agrego modal de descuento general sobre todo el carrito;
+  - soporta `Descuento %` y `Monto descuento`;
+  - calcula total estimado antes de validar;
+  - registra y aplica folio usando `descuento_general`.
+- Validacion:
+  - `node --check public/assets/js/custom/apps/erp/ventas/pos.js`: OK;
+  - `php -l app/vistas/paginas/apps/erp/ventas/pos.php`: OK.
+- Lectura de configuracion:
+  - existe politica comercial activa para `descuento_general` en canal POS / almacen 5;
+  - el autorizador actual solo permite `precio_conjunto`, por lo que para probar descuento general falta crear/generar codigo con tipo `descuento_general` o `general`.
+
+Ajuste correctivo seleccion paquete:
+
+- Fecha: 2026-10-10.
+- Problema reportado:
+  - POS seguia mostrando `Subtotal seleccionado` como si tomara todo el carrito;
+  - el navegador estaba usando una version anterior del asset o una seleccion vieja del carrito;
+  - el boton `Descuento` podia no verse si la vista/asset quedaba cacheado.
+- Ajuste aplicado:
+  - version del asset POS actualizada a `20261010-1715-paquete-descuento-origen`;
+  - botones `Paquete`, `Descuento` y vaciar carrito ahora permiten wrap para no ocultarse en pantallas angostas;
+  - el frontend envia `indices_ajuste_conjunto` con los renglones visibles seleccionados en el modal;
+  - el backend respeta `indices_ajuste_conjunto` para `precio_conjunto`, aun si las partidas llegan con marcas viejas.
+- Validacion read-only:
+  - prueba con dos partidas marcadas por error y `indices_ajuste_conjunto=[0]`;
+  - resultado: solo la partida 0 aplico paquete;
+  - `subtotal_conjunto=126`, `subtotal_lista=421`, segunda partida `aplica=false`;
+  - codigo POS validado correctamente.
+
+## Corte vigente 2026-10-10 - Unidad en venta rapida y recuperacion de codigos
+
+Venta rapida:
+
+- El modal de POS `Venta rapida controlada` permite capturar unidad provisional sin pedir detalle extra de unidad.
+- Unidades aceptadas: `pza`, `kg`, `g`, `l`, `ml`, `m`, `cm`, `paquete`, `servicio`.
+- El frontend envia `unidad_venta` en dry-run, carrito, atenciones, excepciones y cobro.
+- El backend normaliza la unidad y la guarda en:
+  - snapshot de partida;
+  - `erp_ventas_detalle.unidad_venta`;
+  - `erp_ventas_detalle.unidad_base`;
+  - pendiente `VRP-*` mediante `datos_snapshot`.
+- La bandeja `Ventas > Productos por clasificar` muestra cantidad + unidad y envia esa pista a Catalogo cuando se solicita borrador.
+- Flujo acordado:
+  - agregar venta rapida al carrito no crea alerta;
+  - cobrar venta real crea pendiente `VRP-*` y notificacion a Catalogo;
+  - Catalogo puede vincular a SKU existente o crear borrador;
+  - al resolver contra SKU, el pendiente queda `clasificado`, se resuelve la notificacion de Catalogo y si el SKU controla inventario se crea pendiente de regularizacion para Inventario;
+  - no se mueve kardex automaticamente desde Catalogo.
+
+Codigos de autorizacion:
+
+- Los codigos completos no son recuperables despues de generarse.
+- La base conserva hash y mascara; la UI/listados solo deben mostrar folio, mascara, estatus, vigencia y usos.
+- Si el usuario olvida el codigo, debe generar uno nuevo desde `Ventas > Configuracion POS > Autorizadores`.
+- No documentar codigos completos en handoff ni tickets.

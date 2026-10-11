@@ -34,8 +34,13 @@
         .pos-cart-table th { color: #7e8299; font-size: .72rem; text-transform: uppercase; white-space: nowrap; }
         .pos-cart-table td { vertical-align: middle; }
         .pos-cart-table th:nth-child(3), .pos-cart-table td:nth-child(3) { width: 185px; min-width: 185px; }
-        .pos-cart-table th:first-child, .pos-cart-table td:first-child { width: 42px; min-width: 42px; }
+        .pos-cart-table th:first-child, .pos-cart-table td:first-child { width: 96px; min-width: 96px; }
         .pos-ajuste-check { width: 20px; height: 20px; }
+        .pos-ajuste-label { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 76px; border: 1px solid #e4e6ef; border-radius: 8px; padding: 5px 7px; color: #5e6278; background: #fff; font-size: .72rem; font-weight: 800; cursor: pointer; }
+        .pos-ajuste-label:has(.pos-ajuste-check:checked) { border-color: #ffc700; background: #fff8dd; color: #a16207; }
+        .pos-paquete-row { background: #fffaf0; }
+        .pos-paquete-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 2px 6px; background: #fff4cc; color: #a16207; font-size: .68rem; font-weight: 800; }
+        .pos-paquete-list { max-height: 300px; overflow: auto; border: 1px solid #eef0f6; border-radius: 8px; }
         .pos-origin-select { max-width: 230px; }
         .pos-pay-grid { display: grid; grid-template-columns: minmax(150px, 1fr) 110px minmax(120px, .8fr) 34px; gap: 8px; align-items: center; }
         .pos-cuentas { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
@@ -231,12 +236,16 @@
                                 </div>
                                 <div>
                                     <div class="card pos-cart">
-                                        <div class="card-header border-0 pt-5">
+                                        <div class="card-header border-0 pt-5 flex-wrap gap-3">
                                             <div>
                                                 <h2 class="card-title fw-bold fs-4 mb-1">Carrito</h2>
                                                 <div class="text-muted fs-7" id="pos_carrito_estado">Sin partidas</div>
                                             </div>
-                                            <button class="btn btn-sm btn-icon btn-light-danger" id="pos_vaciar" type="button" title="Vaciar carrito"><i class="bi bi-trash"></i></button>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <button class="btn btn-sm btn-light-warning" id="pos_paquete_modal_btn" type="button" title="Armar precio conjunto"><i class="bi bi-box-seam"></i> Paquete</button>
+                                                <button class="btn btn-sm btn-light-info" id="pos_descuento_modal_btn" type="button" title="Descuento general autorizado"><i class="bi bi-percent"></i> Descuento</button>
+                                                <button class="btn btn-sm btn-icon btn-light-danger" id="pos_vaciar" type="button" title="Vaciar carrito"><i class="bi bi-trash"></i></button>
+                                            </div>
                                         </div>
                                         <div class="card-body pt-2">
                                             <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
@@ -400,6 +409,20 @@
                     <div class="col-md-3">
                         <label class="form-label text-muted fs-8 text-uppercase">Cantidad</label>
                         <input class="form-control form-control-solid" id="pos_vr_cantidad" inputmode="decimal" value="1">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted fs-8 text-uppercase">Unidad</label>
+                        <select class="form-select form-select-solid" id="pos_vr_unidad">
+                            <option value="pza">Pieza</option>
+                            <option value="kg">Kg</option>
+                            <option value="g">Gramo</option>
+                            <option value="l">Litro</option>
+                            <option value="ml">Mililitro</option>
+                            <option value="m">Metro</option>
+                            <option value="cm">Centimetro</option>
+                            <option value="paquete">Paquete</option>
+                            <option value="servicio">Servicio</option>
+                        </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-muted fs-8 text-uppercase">Precio unitario</label>
@@ -619,6 +642,121 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="pos_paquete_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title mb-1">Armar paquete</h3>
+                    <div class="text-muted fs-7">Precio conjunto autorizado para partidas seleccionadas del carrito</div>
+                </div>
+                <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-light-warning py-3">
+                    Selecciona las partidas que forman el paquete, captura el precio final acordado y registra el folio. Si despues cambias cantidades o productos, el paquete se limpia y debe autorizarse de nuevo.
+                </div>
+                <div id="pos_paquete_partidas" class="pos-paquete-list mb-4"></div>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fs-8 text-uppercase">Modo</label>
+                        <select class="form-select form-select-solid" id="pos_paquete_modo">
+                            <option value="precio_final">Precio final</option>
+                            <option value="porcentaje">Descuento %</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fs-8 text-uppercase">Subtotal seleccionado</label>
+                        <div class="form-control form-control-solid fw-bold" id="pos_paquete_subtotal">$0.00</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fs-8 text-uppercase">Precio final paquete</label>
+                        <input class="form-control form-control-solid" id="pos_paquete_total" inputmode="decimal" placeholder="0.00">
+                    </div>
+                    <div class="col-md-4" id="pos_paquete_porcentaje_wrap">
+                        <label class="form-label text-muted fs-8 text-uppercase">Descuento %</label>
+                        <input class="form-control form-control-solid" id="pos_paquete_porcentaje" inputmode="decimal" placeholder="0">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fs-8 text-uppercase">Ahorro</label>
+                        <div class="form-control form-control-solid fw-bold text-warning" id="pos_paquete_ahorro">$0.00</div>
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label text-muted fs-8 text-uppercase">Motivo</label>
+                        <input class="form-control form-control-solid" id="pos_paquete_motivo" placeholder="Ej. Paquete pecera equipada autorizado">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label text-muted fs-8 text-uppercase">Supervisor / autorizacion</label>
+                        <input class="form-control form-control-solid" id="pos_paquete_autorizacion" placeholder="Codigo o usuario">
+                    </div>
+                </div>
+                <div id="pos_paquete_resultado" class="mt-4"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-light-warning" id="pos_paquete_validar" type="button"><i class="bi bi-shield-check"></i> Validar paquete</button>
+                <button class="btn btn-warning" id="pos_paquete_registrar" type="button"><i class="bi bi-file-earmark-lock"></i> Registrar y aplicar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="pos_descuento_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title mb-1">Descuento venta</h3>
+                    <div class="text-muted fs-7">Descuento autorizado sobre todo el carrito</div>
+                </div>
+                <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-light-info py-3">
+                    Aplica cuando quieres descontar la venta completa. Si necesitas ajustar solo ciertos productos, usa Paquete.
+                </div>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fs-8 text-uppercase">Subtotal carrito</label>
+                        <div class="form-control form-control-solid fw-bold" id="pos_descuento_subtotal">$0.00</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fs-8 text-uppercase">Modo</label>
+                        <select class="form-select form-select-solid" id="pos_descuento_modo">
+                            <option value="porcentaje">Descuento %</option>
+                            <option value="monto">Monto descuento</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6" id="pos_descuento_porcentaje_wrap">
+                        <label class="form-label text-muted fs-8 text-uppercase">Porcentaje</label>
+                        <input class="form-control form-control-solid" id="pos_descuento_porcentaje" inputmode="decimal" placeholder="0">
+                    </div>
+                    <div class="col-md-6" id="pos_descuento_monto_wrap">
+                        <label class="form-label text-muted fs-8 text-uppercase">Monto</label>
+                        <input class="form-control form-control-solid" id="pos_descuento_monto" inputmode="decimal" placeholder="0.00">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fs-8 text-uppercase">Total estimado</label>
+                        <div class="form-control form-control-solid fw-bold text-primary" id="pos_descuento_total">$0.00</div>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label text-muted fs-8 text-uppercase">Motivo</label>
+                        <input class="form-control form-control-solid" id="pos_descuento_motivo" placeholder="Ej. Descuento autorizado por promocion local">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label text-muted fs-8 text-uppercase">Supervisor / autorizacion</label>
+                        <input class="form-control form-control-solid" id="pos_descuento_autorizacion" placeholder="Codigo o usuario">
+                    </div>
+                </div>
+                <div id="pos_descuento_resultado" class="mt-4"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-light-info" id="pos_descuento_validar" type="button"><i class="bi bi-shield-check"></i> Validar descuento</button>
+                <button class="btn btn-info" id="pos_descuento_registrar" type="button"><i class="bi bi-file-earmark-lock"></i> Registrar y aplicar</button>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="modal fade" id="pos_atenciones_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -670,6 +808,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260829-fecha-operacion-piloto1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20261010-venta-rapida-unidad1"></script>
 </body>
 </html>

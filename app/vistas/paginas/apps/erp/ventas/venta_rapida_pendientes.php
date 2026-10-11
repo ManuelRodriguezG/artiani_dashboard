@@ -126,6 +126,6 @@ window.VRP_FOLIO_INICIAL = <?= json_encode(isset($_GET["folio"]) ? trim((string)
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/venta_rapida_pendientes.js?v=20260730-borrador-catalogo1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/venta_rapida_pendientes.js?v=20261010-unidad-vr1"></script>
 </body>
 </html>

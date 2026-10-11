@@ -112,6 +112,31 @@ Regla operativa:
 - El pedido puede tener saldo pendiente, segun reglas autorizadas.
 - El inventario reservado o consumido se controla con folio ERP, no con nota manual.
 
+## Venta rapida controlada
+
+Usar `Venta rapida` solo cuando el producto fisico no aparece en Catalogo ERP y el cliente ya esta en mostrador.
+
+Captura minima:
+
+1. Descripcion detallada del producto.
+2. Cantidad.
+3. Unidad de venta: pieza, kg, gramo, litro, ml, metro, cm, paquete o servicio.
+4. Precio unitario provisional.
+5. Codigo de barras si existe.
+6. Si controla inventario.
+7. Motivo.
+
+Reglas:
+
+- Agregar al carrito no crea alerta todavia.
+- La alerta nace hasta cobrar la venta real.
+- Al cobrar, POS crea pendiente `VRP-*` para Catalogo y conserva la unidad capturada.
+- Si el producto ya existia, Catalogo debe resolver la venta rapida vinculandola al SKU correcto.
+- Si no existia, Catalogo debe crear el borrador/SKU y despues vincular la incidencia.
+- Cuando queda vinculada a un SKU, el pendiente deja de estar abierto, pero conserva historial.
+- Si el SKU controla inventario, el sistema genera pendiente de regularizacion para Inventario; Catalogo no mueve kardex.
+- No usar venta rapida si el producto existe pero no tiene existencia; para eso se usa inventario pendiente.
+
 ## Bloqueos comunes
 
 `Configura cajas POS antes de cobrar`
@@ -159,6 +184,31 @@ Usar este flujo cuando se necesite precio manual o descuento:
 
 No entregar producto ni cobrar con descuento si el folio aparece bloqueado, consumido, vencido o no corresponde al carrito.
 
+### De donde sale el codigo de autorizacion
+
+El codigo de autorizacion no debe inventarse en el mostrador.
+
+Flujo correcto:
+
+1. Administracion entra a `Ventas > Configuracion POS`.
+2. Abre la pestaña `Autorizadores`.
+3. Asigna un usuario como `Supervisor`, `Gerente` o `Administrador`.
+4. Define alcance: global, tienda o caja.
+5. Define que puede autorizar: precio conjunto, precio manual, descuento, inventario pendiente, gasto de caja, devolucion o diferencia de caja.
+6. Captura limites y vigencia.
+7. Genera un codigo temporal con motivo.
+8. El codigo completo se entrega al cajero solo para esa operacion.
+
+Reglas:
+
+- El codigo es temporal y auditable.
+- El historial conserva quien lo genero, para que tipo de autorizacion, vigencia, usos y limites.
+- El codigo completo se muestra una sola vez al generarlo.
+- Si se olvido el codigo completo, no se puede recuperar por seguridad; se debe generar uno nuevo desde `Ventas > Configuracion POS > Autorizadores`.
+- La lista historica solo muestra folio, mascara, estatus, vigencia y usos, no el codigo completo.
+- El ticket del cliente no debe mostrar mensajes internos del sistema ni razones de bloqueo.
+- Si el codigo vence, se consume o no corresponde al carrito, se debe solicitar uno nuevo.
+
 ### Precio conjunto o paquete manual
 
 Usar `Precio conjunto` solo para ajustes puntuales de mostrador, por ejemplo:
@@ -170,16 +220,15 @@ Usar `Precio conjunto` solo para ajustes puntuales de mostrador, por ejemplo:
 Pasos:
 
 1. Agregar todas las partidas al carrito con su cantidad correcta.
-2. En el carrito, marcar la casilla `Aj.` de cada partida que forma el paquete.
-3. Abrir `Autorizacion`.
-4. Seleccionar `Precio conjunto`.
-5. Capturar `Total conjunto`, que es el total final autorizado para esas partidas marcadas.
-6. Capturar motivo claro, por ejemplo `Paquete pecera equipada autorizado`.
-7. Capturar codigo o usuario supervisor.
-8. Presionar `Validar`.
-9. Si no hay bloqueos, presionar `Registrar folio autorizado`.
-10. Ir a `Folio`, aplicar el folio y revisar que el total del POS cambie.
-11. Cobrar normalmente.
+2. Presionar `Paquete` en el encabezado del carrito.
+3. Marcar las partidas que forman el conjunto.
+4. Capturar `Precio final paquete`.
+5. Capturar motivo claro, por ejemplo `Paquete pecera equipada autorizado`.
+6. Capturar codigo o usuario supervisor.
+7. Presionar `Validar paquete`.
+8. Si no hay bloqueos, presionar `Registrar y aplicar`.
+9. Confirmar que el carrito muestre `Paquete aplicado`, el folio y el ahorro.
+10. Cobrar normalmente.
 
 Reglas:
 
@@ -188,6 +237,7 @@ Reglas:
 - Si cambias cantidad, quitas productos o agregas productos despues de autorizar, vuelve a registrar folio.
 - El descuento se reparte por el sistema entre las partidas marcadas para que venta, ticket y reportes cuadren.
 - El cliente no debe ver mensajes internos de autorizacion; el ticket solo debe reflejar venta, descuento/total y datos comerciales permitidos.
+- Si necesitas agregar o quitar un componente del paquete, vuelve a abrir `Paquete`, selecciona las partidas correctas y registra un nuevo folio. No se debe reutilizar un folio con carrito cambiado.
 
 ## Cierre del dia
 

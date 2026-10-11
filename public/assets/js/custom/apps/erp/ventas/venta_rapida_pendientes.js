@@ -29,6 +29,19 @@
         return new Intl.NumberFormat("es-MX", {style: "currency", currency: "MXN"}).format(Number(value || 0));
     }
 
+    function unidadPendiente(pendiente) {
+        if (pendiente.unidad_venta) { return pendiente.unidad_venta; }
+        var snapshot = pendiente.datos_snapshot || "";
+        if (!snapshot) { return "pza"; }
+        try {
+            var data = typeof snapshot === "string" ? JSON.parse(snapshot) : snapshot;
+            var partida = data && data.partida ? data.partida : {};
+            return partida.unidad_venta || partida.unidad_venta_label || "pza";
+        } catch (e) {
+            return "pza";
+        }
+    }
+
     function badge(valor) {
         var texto = String(valor || "-");
         var clase = texto === "clasificado" ? "badge-light-success" : (texto === "en_revision" ? "badge-light-info" : "badge-light-warning");
@@ -84,7 +97,7 @@
                 "</div>" +
                 "<div class=\"mt-2 fs-7\">" + escapeHtml(item.descripcion_manual || "-") + "</div>" +
                 "<div class=\"d-flex flex-wrap gap-2 mt-2 fs-8 text-muted\">" +
-                "<span>Cant. " + escapeHtml(item.cantidad || "0") + "</span>" +
+                "<span>Cant. " + escapeHtml(item.cantidad || "0") + " " + escapeHtml(unidadPendiente(item)) + "</span>" +
                 "<span>Inv. " + escapeHtml((item.inventario_estado || "-").replace(/_/g, " ")) + "</span>" +
                 (item.proveedor_provisional ? "<span>Prov. " + escapeHtml(item.proveedor_provisional) + "</span>" : "") +
                 "</div></div>";
@@ -106,7 +119,7 @@
             "<div class=\"text-end\">" + badge(pendiente.estatus) + "<div class=\"fw-bold mt-1\">" + dinero(pendiente.total || 0) + "</div></div></div>" +
             "<div class=\"fs-7 mb-3\"><span class=\"text-muted\">Descripcion POS:</span><br><span class=\"fw-semibold\">" + escapeHtml(pendiente.descripcion_manual || "-") + "</span></div>" +
             "<div class=\"row g-3 fs-7\">" +
-            campo("Cantidad", pendiente.cantidad) + campo("Precio", dinero(pendiente.precio_unitario || 0)) +
+            campo("Cantidad", String(pendiente.cantidad || "0") + " " + unidadPendiente(pendiente)) + campo("Precio", dinero(pendiente.precio_unitario || 0)) +
             campo("Codigo barras", pendiente.codigo_barras || "-") + campo("Proveedor provisional", pendiente.proveedor_provisional || "-") +
             campo("Marca provisional", pendiente.marca_provisional || "-") + campo("Categoria provisional", pendiente.categoria_provisional || "-") +
             campo("Inventario", String(pendiente.inventario_estado || "-").replace(/_/g, " ")) + campo("Operador", pendiente.id_usuario_operador || "-") +

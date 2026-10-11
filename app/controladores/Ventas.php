@@ -460,6 +460,28 @@ class Ventas extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5, 2026-10-10.
+   * Proposito: validar alta/edicion de autorizador POS sin escribir datos.
+   * Impacto: prepara supervisores/gerentes para excepciones comerciales auditables.
+   * Contrato: prevalidacion protegida por ventas.ver; no genera codigos ni modifica permisos.
+   */
+  public function pos_configuracion_autorizador_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->configuracionAutorizadorPosDryRun($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-10-10.
+   * Proposito: validar generacion futura de codigo de autorizacion POS sin escribir datos.
+   * Impacto: permite revisar vigencia, tipo y limites antes de emitir codigo real.
+   * Contrato: prevalidacion protegida por ventas.ver; no crea codigos.
+   */
+  public function pos_configuracion_codigo_autorizacion_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->configuracionCodigoAutorizacionPosDryRun($_POST));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-07-03.
    * Proposito: guardar caja POS real desde flujo autorizado de configuracion.
    * Impacto: crea/edita caja sin abrir turno ni mover caja.
@@ -523,6 +545,32 @@ class Ventas extends Controlador {
     $this->requerirPermisoConfiguracionPosGuardar();
     $respuesta = $this->modelo("VentasErp")->configuracionTicketPosGuardarReal($_POST, $this->usuarioActualId());
     $this->auditarConfiguracionPos("ticket_guardar", $respuesta);
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-10-10.
+   * Proposito: guardar autorizador POS para excepciones comerciales.
+   * Impacto: asigna usuario como supervisor/gerente POS; no genera ventas, caja ni inventario.
+   * Contrato: POST con CSRF, sesion y permiso de configuracion POS.
+   */
+  public function pos_configuracion_autorizador_guardar_erp() {
+    $this->requerirPermisoConfiguracionPosGuardar();
+    $respuesta = $this->modelo("VentasErp")->configuracionAutorizadorPosGuardarReal($_POST, $this->usuarioActualId());
+    $this->auditarConfiguracionPos("autorizador_guardar", $respuesta);
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-10-10.
+   * Proposito: generar codigo temporal de autorizacion POS.
+   * Impacto: emite codigo auditable para precio manual, paquete, descuentos u otras excepciones; no crea venta.
+   * Contrato: POST con CSRF, sesion y permiso de configuracion POS; el codigo plano se muestra una sola vez.
+   */
+  public function pos_configuracion_codigo_autorizacion_generar_erp() {
+    $this->requerirPermisoConfiguracionPosGuardar();
+    $respuesta = $this->modelo("VentasErp")->configuracionCodigoAutorizacionPosGenerarReal($_POST, $this->usuarioActualId());
+    $this->auditarConfiguracionPos("codigo_autorizacion_generar", $respuesta);
     return json_encode($respuesta);
   }
 
@@ -897,7 +945,6 @@ class Ventas extends Controlador {
    */
   public function pos_excepcion_comercial_registrar_erp() {
     $this->requerirPermiso("ventas.operar");
-    $this->requerirPermiso("ventas.autorizar_excepcion_comercial");
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     $_POST["solicitado_por"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     if (empty($_POST["autorizado_por"])) {
@@ -1091,6 +1138,10 @@ class Ventas extends Controlador {
       $entidadId = $depurar["id_terminal_pos"];
     } elseif (isset($depurar["id_usuario_caja"])) {
       $entidadId = $depurar["id_usuario_caja"];
+    } elseif (isset($depurar["id_autorizador_pos"])) {
+      $entidadId = $depurar["id_autorizador_pos"];
+    } elseif (isset($depurar["id_codigo_autorizacion"])) {
+      $entidadId = $depurar["id_codigo_autorizacion"];
     } elseif (isset($depurar["id"])) {
       $entidadId = $depurar["id"];
     }
@@ -1179,6 +1230,8 @@ class Ventas extends Controlador {
       $id = intval($_POST["id_caja"]);
     } elseif (isset($_POST["id_terminal_pos"])) {
       $id = intval($_POST["id_terminal_pos"]);
+    } elseif (isset($_POST["id_autorizador_pos"])) {
+      $id = intval($_POST["id_autorizador_pos"]);
     }
     $this->requerirPermiso($id > 0 ? "ventas.pos_config.editar" : "ventas.pos_config.crear");
     return true;

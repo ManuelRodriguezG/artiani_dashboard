@@ -75,6 +75,7 @@
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_terminal" type="button" role="tab">Terminal</button></li>
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_asignacion" type="button" role="tab">Asignacion</button></li>
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_inventario_pendiente" type="button" role="tab">Inventario pendiente</button></li>
+                                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_autorizadores" type="button" role="tab">Autorizadores</button></li>
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_ticket" type="button" role="tab">Ticket y negocio</button></li>
                                 </ul>
                                 <div class="tab-content">
@@ -150,6 +151,36 @@
                                             <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Nombre</label><input class="form-control form-control-solid" id="pos_cfg_pinv_nombre" placeholder="Inventario pendiente POS tienda"></div>
                                             <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Motivo operativo</label><input class="form-control form-control-solid" id="pos_cfg_pinv_motivo" placeholder="Arranque controlado con mini inventarios"></div>
                                             <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-light-primary" id="pos_cfg_pinv_validar" type="button"><i class="bi bi-shield-check"></i> Validar politica</button><button class="btn btn-warning" id="pos_cfg_pinv_guardar" type="button"><i class="bi bi-save"></i> Guardar politica</button></div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="pos_config_tab_autorizadores" role="tabpanel">
+                                        <div class="alert alert-light-info py-3 mb-4">
+                                            <div class="fw-bold">Codigos de autorizacion POS</div>
+                                            <div class="fs-7">Asigna usuarios que pueden autorizar excepciones comerciales y genera codigos temporales con alcance, vigencia y limites.</div>
+                                        </div>
+                                        <div class="row g-3 align-items-end mb-5">
+                                            <input type="hidden" id="pos_cfg_aut_id">
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Usuario</label><select class="form-select form-select-solid" id="pos_cfg_aut_usuario"></select></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Rol</label><select class="form-select form-select-solid" id="pos_cfg_aut_rol"><option value="supervisor">Supervisor</option><option value="gerente">Gerente</option><option value="administrador">Administrador</option></select></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Alcance</label><select class="form-select form-select-solid" id="pos_cfg_aut_alcance"><option value="global">Global</option><option value="almacen">Tienda</option><option value="caja">Caja</option></select></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Tienda</label><select class="form-select form-select-solid" id="pos_cfg_aut_almacen"></select></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Caja</label><select class="form-select form-select-solid" id="pos_cfg_aut_caja"></select></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Tipos autorizados</label><select class="form-select form-select-solid" id="pos_cfg_aut_tipo"><option value="precio_conjunto">Precio conjunto / paquete</option><option value="precio_manual">Precio manual</option><option value="descuento_partida">Descuento partida</option><option value="descuento_general">Descuento general</option><option value="inventario_pendiente">Inventario pendiente</option><option value="gasto_caja">Gasto de caja</option><option value="devolucion">Devolucion</option><option value="cierre_diferencia">Diferencia de caja</option><option value="general">General POS</option></select></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Desc. max %</label><input class="form-control form-control-solid" id="pos_cfg_aut_descuento" inputmode="decimal" value="100"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Monto max.</label><input class="form-control form-control-solid" id="pos_cfg_aut_monto" inputmode="decimal" value="999999"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Vigencia dias</label><input class="form-control form-control-solid" id="pos_cfg_aut_vigencia" inputmode="numeric" value="30"></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Observaciones</label><input class="form-control form-control-solid" id="pos_cfg_aut_observaciones" placeholder="Responsable de turno, gerencia, etc."></div>
+                                            <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-light-primary" id="pos_cfg_aut_validar" type="button"><i class="bi bi-person-check"></i> Validar autorizador</button><button class="btn btn-primary" id="pos_cfg_aut_guardar" type="button"><i class="bi bi-save"></i> Guardar autorizador</button></div>
+                                        </div>
+                                        <div class="separator separator-dashed my-5"></div>
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Autorizador</label><select class="form-select form-select-solid" id="pos_cfg_codigo_autorizador"></select></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Tipo de autorizacion</label><select class="form-select form-select-solid" id="pos_cfg_codigo_tipo"><option value="precio_conjunto">Precio conjunto / paquete</option><option value="precio_manual">Precio manual</option><option value="descuento_partida">Descuento partida</option><option value="descuento_general">Descuento general</option><option value="inventario_pendiente">Inventario pendiente</option><option value="gasto_caja">Gasto de caja</option><option value="devolucion">Devolucion</option><option value="cierre_diferencia">Diferencia de caja</option><option value="general">General POS</option></select></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Usos</label><input class="form-control form-control-solid" id="pos_cfg_codigo_usos" inputmode="numeric" value="1"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Expira en min.</label><input class="form-control form-control-solid" id="pos_cfg_codigo_minutos" inputmode="numeric" value="60"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Monto max.</label><input class="form-control form-control-solid" id="pos_cfg_codigo_monto" inputmode="decimal" value="0"></div>
+                                            <div class="col-md-8"><label class="form-label text-muted fs-8 text-uppercase">Motivo</label><input class="form-control form-control-solid" id="pos_cfg_codigo_motivo" placeholder="Ej. Autorizar paquete armado en mostrador"></div>
+                                            <div class="col-md-4 d-flex flex-wrap gap-2"><button class="btn btn-light-primary flex-grow-1" id="pos_cfg_codigo_validar" type="button"><i class="bi bi-shield-check"></i> Validar codigo</button><button class="btn btn-warning flex-grow-1" id="pos_cfg_codigo_generar" type="button"><i class="bi bi-key"></i> Generar codigo</button></div>
                                         </div>
                                     </div>
                                     <div class="tab-pane fade" id="pos_config_tab_ticket" role="tabpanel">
@@ -282,6 +313,28 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="col-12">
+                                    <div class="pos-config-card p-4">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                            <div>
+                                                <div class="fw-bold fs-5">Autorizadores y codigos POS</div>
+                                                <div class="text-muted fs-7">Usuarios con capacidad de aprobar excepciones y codigos temporales generados</div>
+                                            </div>
+                                        </div>
+                                        <div class="table-responsive pos-config-table mb-4">
+                                            <table class="table align-middle table-row-dashed gy-3 mb-0">
+                                                <thead><tr class="text-muted fw-bold fs-8 text-uppercase"><th>Autorizador</th><th>Alcance</th><th>Tipos</th><th>Limites</th><th>Estatus</th><th class="text-end">Acciones</th></tr></thead>
+                                                <tbody id="pos_config_autorizadores"></tbody>
+                                            </table>
+                                        </div>
+                                        <div class="table-responsive pos-config-table">
+                                            <table class="table align-middle table-row-dashed gy-3 mb-0">
+                                                <thead><tr class="text-muted fw-bold fs-8 text-uppercase"><th>Codigo</th><th>Autorizador</th><th>Tipo</th><th>Uso</th><th>Vigencia</th><th>Estatus</th></tr></thead>
+                                                <tbody id="pos_config_codigos_autorizacion"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -292,6 +345,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260818-modo-inventario-pos1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20261010-autorizadores-pos1"></script>
 </body>
 </html>

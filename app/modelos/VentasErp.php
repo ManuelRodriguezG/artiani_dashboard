@@ -5785,6 +5785,7 @@ class VentasErp extends CRUD {
             $proveedor = trim((string) $this->valor($datos, "proveedor_provisional", ""));
             $codigo = trim((string) $this->valor($datos, "codigo_barras", ""));
             $observaciones = trim((string) $this->valor($datos, "observaciones", ""));
+            $unidadVenta = $this->normalizarUnidadVentaRapidaPos($this->valor($datos, "unidad_venta", "pza"));
             $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
             $idUsuario = intval($this->valor($datos, "id_usuario", 0));
             $controlaInventario = intval($this->valor($datos, "controla_inventario", 1)) === 1;
@@ -5827,6 +5828,7 @@ class VentasErp extends CRUD {
                 "sku_snapshot" => "VENTA-RAPIDA",
                 "descripcion_manual_snapshot" => $descripcion,
                 "cantidad" => $cantidad,
+                "unidad_venta" => $unidadVenta,
                 "precio_unitario" => $precio,
                 "subtotal" => $subtotal,
                 "motivo" => $motivo,
@@ -5906,7 +5908,7 @@ class VentasErp extends CRUD {
                     p.cantidad, p.precio_unitario, p.total, p.codigo_barras, p.categoria_provisional,
                     p.marca_provisional, p.proveedor_provisional, p.controla_inventario, p.inventario_estado,
                     p.id_sku_erp_resuelto, p.id_producto_erp_resuelto, p.id_proveedor_resuelto,
-                    p.estatus, p.prioridad, p.motivo, p.observaciones_pos, p.fecha_registro,
+                    p.estatus, p.prioridad, p.motivo, p.observaciones_pos, p.datos_snapshot, p.fecha_registro,
                     v.estatus venta_estatus, v.total venta_total,
                     d.sku sku_detalle, d.inventario_regularizacion_estado detalle_regularizacion
                 FROM erp_pos_venta_rapida_pendientes p
@@ -6219,6 +6221,7 @@ class VentasErp extends CRUD {
             }
 
             $folio = trim((string) $pendiente["folio"]);
+            $unidadVenta = $this->unidadVentaDesdePendienteVentaRapida($pendiente);
             $huellaBase = "ventas_pos|venta_rapida_sku_sin_match|" . $folio;
             $huella = hash("sha256", $huellaBase);
             $detalle = array(
@@ -6233,6 +6236,7 @@ class VentasErp extends CRUD {
                 "id_turno_caja" => intval($pendiente["id_turno_caja"]),
                 "descripcion_manual" => $pendiente["descripcion_manual"],
                 "cantidad" => $pendiente["cantidad"],
+                "unidad_venta" => $unidadVenta,
                 "precio_unitario" => $pendiente["precio_unitario"],
                 "total" => $pendiente["total"],
                 "codigo_barras" => $pendiente["codigo_barras"],
@@ -6257,6 +6261,7 @@ class VentasErp extends CRUD {
                 "nombre_producto_sugerido" => $pendiente["descripcion_manual"],
                 "sku_sugerido" => trim((string) $pendiente["codigo_barras"]) !== "" ? $pendiente["codigo_barras"] : "VRP-" . preg_replace('/[^0-9A-Z]/', '', strtoupper($folio)),
                 "codigo_barras_sugerido" => $pendiente["codigo_barras"],
+                "unidad_venta_sugerida" => $unidadVenta,
                 "requiere_completar" => array("categoria", "marca", "unidad_base", "proveedor", "reglas_inventario", "precio_lista", "garantia")
             );
 
@@ -6686,9 +6691,11 @@ class VentasErp extends CRUD {
                     $descripcionVentaRapida = trim((string) $this->valor($partida, "descripcion", ""));
                     $pendienteCatalogo = $this->valor($partida, "pendiente_catalogo", array());
                     $controlaInventarioRapida = intval($this->valor($partida, "controla_inventario", 1)) === 1;
+                    $unidadVentaRapida = $this->normalizarUnidadVentaRapidaPos($this->valor($partida, "unidad_venta", $this->valor($partida, "unidad_venta_label", "pza")));
                     $datosPendiente = array(
                         "tipo_partida" => "venta_rapida",
                         "origen_partida" => "venta_rapida_controlada",
+                        "unidad_venta" => $unidadVentaRapida,
                         "pendiente_catalogo" => $pendienteCatalogo,
                         "operador" => array("id_usuario" => $idUsuario),
                         "contrato" => array(
@@ -6709,8 +6716,8 @@ class VentasErp extends CRUD {
                         VALUES (:venta, :renglon, NULL, NULL, 'VENTA-RAPIDA', :descripcion,
                          :descripcion_manual, :datos_catalogo, 'venta_rapida',
                          'venta_rapida_controlada', :controla, 'pendiente_catalogo', :inventario_estado,
-                         :regularizacion, :cantidad, 'provisional',
-                         :cantidad_base, 'provisional', :precio, :precio,
+                         :regularizacion, :cantidad, :unidad_venta,
+                         :cantidad_base, :unidad_base, :precio, :precio,
                          :precio_base, :precio_aplicado, NULL, 'producto_por_clasificar',
                          'precio_manual_venta_rapida', 0, 0, :subtotal, :total, 'confirmada')");
                     $stmt->execute(array(
@@ -6723,7 +6730,9 @@ class VentasErp extends CRUD {
                         ":inventario_estado" => $controlaInventarioRapida ? "pendiente_catalogo" : "sin_inventario",
                         ":regularizacion" => $controlaInventarioRapida ? "pendiente_regularizacion" : "no_inventariable_provisional",
                         ":cantidad" => $cantidadVentaRapida,
+                        ":unidad_venta" => $unidadVentaRapida,
                         ":cantidad_base" => $cantidadVentaRapida,
+                        ":unidad_base" => $unidadVentaRapida,
                         ":precio" => $precioVentaRapida,
                         ":precio_base" => $precioVentaRapida,
                         ":precio_aplicado" => $precioVentaRapida,
@@ -6995,7 +7004,9 @@ class VentasErp extends CRUD {
                 "erp_pos_turnos",
                 "erp_pos_movimientos_caja",
                 "erp_empresa_configuracion",
-                "erp_pos_ticket_configuracion"
+                "erp_pos_ticket_configuracion",
+                "erp_pos_autorizadores",
+                "erp_pos_codigos_autorizacion"
             );
             $schema = array();
             foreach ($tablas as $tabla) {
@@ -7007,6 +7018,8 @@ class VentasErp extends CRUD {
             $politicasInventarioPendiente = $this->listarPoliticasInventarioPendientePos($db);
             $ticketConfiguraciones = $this->listarTicketConfiguracionesPos($db);
             $ticketEfectiva = $this->resolverConfiguracionTicketPos($db, array());
+            $autorizadores = $this->listarAutorizadoresPos($db);
+            $codigosAutorizacion = $this->listarCodigosAutorizacionPos($db);
             $turnosAbiertos = $this->listarTurnosAbiertosPos($db);
             $movimientos = $this->listarMovimientosCajaRecientes($db, 25);
             return $this->respuesta(false, "success", "Configuracion POS consultada", array(
@@ -7019,6 +7032,9 @@ class VentasErp extends CRUD {
                 "politicas_inventario_pendiente" => $politicasInventarioPendiente,
                 "ticket_configuraciones" => $ticketConfiguraciones,
                 "ticket_configuracion_efectiva" => $ticketEfectiva,
+                "usuarios_pos" => $this->listarUsuariosPosAutorizables($db),
+                "autorizadores_pos" => $autorizadores,
+                "codigos_autorizacion_pos" => $codigosAutorizacion,
                 "turnos_abiertos" => $turnosAbiertos,
                 "movimientos_recientes" => $movimientos,
                 "resumen" => array(
@@ -7027,6 +7043,8 @@ class VentasErp extends CRUD {
                     "asignaciones" => count($asignaciones),
                     "politicas_inventario_pendiente" => count($politicasInventarioPendiente),
                     "ticket_configuraciones" => count($ticketConfiguraciones),
+                    "autorizadores_pos" => count($autorizadores),
+                    "codigos_autorizacion_pos" => count($codigosAutorizacion),
                     "turnos_abiertos" => count($turnosAbiertos),
                     "movimientos_recientes" => count($movimientos)
                 )
@@ -7331,6 +7349,221 @@ class VentasErp extends CRUD {
                 $db->rollBack();
             }
             return $this->respuesta(true, "danger", "No se pudo guardar configuracion de ticket POS", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: validar asignacion de autorizadores POS antes de guardar.
+     * Impacto: prepara supervisor/gerente para excepciones comerciales con alcance y limites.
+     * Contrato: dry-run; no crea codigos, no modifica permisos, no afecta ventas/caja/inventario.
+     */
+    public function configuracionAutorizadorPosDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $validacion = $this->configuracionAutorizadorPosValidar($db, $datos, intval($this->valor($datos, "id_autorizador_pos", 0)));
+            return $this->respuesta(false, empty($validacion["bloqueos"]) ? "success" : "warning", empty($validacion["bloqueos"]) ? "Autorizador POS valido para guardar" : "Autorizador POS requiere ajustes", array(
+                "dry_run" => true,
+                "bloqueos" => $validacion["bloqueos"],
+                "avisos" => $validacion["avisos"],
+                "propuesta" => $validacion["propuesta"],
+                "contrato" => array(
+                    "no_genera_codigo" => true,
+                    "no_crea_venta" => true,
+                    "no_mueve_caja" => true,
+                    "no_mueve_inventario" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudo validar autorizador POS", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: guardar autorizador POS real con baja friccion operativa y trazabilidad.
+     * Impacto: crea/edita usuario autorizador; no genera codigos ni altera roles del sistema.
+     * Contrato: escritura transaccional; requiere permiso administrativo desde controlador.
+     */
+    public function configuracionAutorizadorPosGuardarReal($datos = array(), $idUsuarioEjecuta = 0) {
+        try {
+            $db = $this->getConexion();
+            if (!$db || !$this->tablaExiste($db, "erp_pos_autorizadores")) {
+                return $this->respuesta(true, "danger", "Esquema de autorizadores POS no disponible");
+            }
+            $idAutorizador = intval($this->valor($datos, "id_autorizador_pos", 0));
+            $validacion = $this->configuracionAutorizadorPosValidar($db, $datos, $idAutorizador);
+            if (!empty($validacion["bloqueos"])) {
+                return $this->respuesta(false, "warning", "Autorizador POS requiere ajustes", array(
+                    "bloqueos" => $validacion["bloqueos"],
+                    "avisos" => $validacion["avisos"],
+                    "propuesta" => $validacion["propuesta"]
+                ));
+            }
+            $p = $validacion["propuesta"];
+            $db->beginTransaction();
+            if ($idAutorizador > 0) {
+                $stmt = $db->prepare("UPDATE erp_pos_autorizadores
+                    SET id_usuario=:usuario, rol_autorizador=:rol, alcance=:alcance,
+                        id_almacen=:almacen, id_caja=:caja, tipos_autorizacion=:tipos,
+                        descuento_max_porcentaje=:descuento, monto_maximo=:monto,
+                        fecha_fin=:fecha_fin, observaciones=:observaciones, fecha_actualizacion=NOW()
+                    WHERE id_autorizador_pos=:id AND COALESCE(estatus, 'activo')='activo'");
+                $stmt->execute(array(
+                    ":usuario" => $p["id_usuario"],
+                    ":rol" => $p["rol_autorizador"],
+                    ":alcance" => $p["alcance"],
+                    ":almacen" => $p["id_almacen"],
+                    ":caja" => $p["id_caja"],
+                    ":tipos" => $p["tipos_autorizacion"],
+                    ":descuento" => $p["descuento_max_porcentaje"],
+                    ":monto" => $p["monto_maximo"],
+                    ":fecha_fin" => $p["fecha_fin"],
+                    ":observaciones" => $p["observaciones"],
+                    ":id" => $idAutorizador
+                ));
+                if ($stmt->rowCount() <= 0) {
+                    throw new Exception("Autorizador POS no encontrado o inactivo");
+                }
+                $accion = "actualizado";
+            } else {
+                $stmt = $db->prepare("INSERT INTO erp_pos_autorizadores
+                    (id_usuario, rol_autorizador, alcance, id_almacen, id_caja, tipos_autorizacion,
+                     descuento_max_porcentaje, monto_maximo, permite_autoautorizar, requiere_motivo,
+                     estatus, fecha_inicio, fecha_fin, creado_por, observaciones, fecha_registro, fecha_actualizacion)
+                    VALUES (:usuario, :rol, :alcance, :almacen, :caja, :tipos,
+                     :descuento, :monto, 0, 1, 'activo', NOW(), :fecha_fin, :creado_por, :observaciones, NOW(), NOW())");
+                $stmt->execute(array(
+                    ":usuario" => $p["id_usuario"],
+                    ":rol" => $p["rol_autorizador"],
+                    ":alcance" => $p["alcance"],
+                    ":almacen" => $p["id_almacen"],
+                    ":caja" => $p["id_caja"],
+                    ":tipos" => $p["tipos_autorizacion"],
+                    ":descuento" => $p["descuento_max_porcentaje"],
+                    ":monto" => $p["monto_maximo"],
+                    ":fecha_fin" => $p["fecha_fin"],
+                    ":creado_por" => intval($idUsuarioEjecuta),
+                    ":observaciones" => $p["observaciones"]
+                ));
+                $idAutorizador = intval($db->lastInsertId());
+                $accion = "creado";
+            }
+            $db->commit();
+            return $this->respuesta(false, "success", "Autorizador POS " . $accion, array(
+                "id_autorizador_pos" => $idAutorizador,
+                "accion" => $accion,
+                "propuesta" => $p,
+                "id_usuario_ejecuta" => intval($idUsuarioEjecuta),
+                "no_genera_codigo" => true,
+                "no_crea_venta" => true
+            ));
+        } catch (Exception $e) {
+            if (isset($db) && $db && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", "No se pudo guardar autorizador POS", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: validar emision de codigo temporal de autorizacion POS.
+     * Impacto: evita codigos sin responsable, sin motivo o fuera de alcance.
+     * Contrato: dry-run; no genera codigo real y no lo persiste.
+     */
+    public function configuracionCodigoAutorizacionPosDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $validacion = $this->configuracionCodigoAutorizacionPosValidar($db, $datos);
+            return $this->respuesta(false, empty($validacion["bloqueos"]) ? "success" : "warning", empty($validacion["bloqueos"]) ? "Codigo POS listo para generarse" : "Codigo POS requiere ajustes", array(
+                "dry_run" => true,
+                "bloqueos" => $validacion["bloqueos"],
+                "avisos" => $validacion["avisos"],
+                "propuesta" => $validacion["propuesta"],
+                "contrato" => array(
+                    "no_genera_codigo_real" => true,
+                    "codigo_plano_solo_al_generar" => true,
+                    "no_crea_venta" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudo validar codigo de autorizacion POS", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: generar codigo temporal de autorizacion POS con hash y folio auditable.
+     * Impacto: habilita aprobaciones controladas para precio manual, paquetes y excepciones; no crea venta.
+     * Contrato: guarda hash; el codigo plano se devuelve una sola vez para entregarlo al cajero.
+     */
+    public function configuracionCodigoAutorizacionPosGenerarReal($datos = array(), $idUsuarioEjecuta = 0) {
+        try {
+            $db = $this->getConexion();
+            if (!$db || !$this->tablaExiste($db, "erp_pos_autorizadores") || !$this->tablaExiste($db, "erp_pos_codigos_autorizacion")) {
+                return $this->respuesta(true, "danger", "Esquema de codigos de autorizacion POS no disponible");
+            }
+            $validacion = $this->configuracionCodigoAutorizacionPosValidar($db, $datos);
+            if (!empty($validacion["bloqueos"])) {
+                return $this->respuesta(false, "warning", "Codigo POS requiere ajustes", array(
+                    "bloqueos" => $validacion["bloqueos"],
+                    "avisos" => $validacion["avisos"],
+                    "propuesta" => $validacion["propuesta"]
+                ));
+            }
+            $p = $validacion["propuesta"];
+            $codigoPlano = $this->generarCodigoAutorizacionPosPlano();
+            $folio = $this->generarFolioCodigoAutorizacionPos($db);
+            $hash = password_hash($codigoPlano, PASSWORD_DEFAULT);
+            $mascara = substr($codigoPlano, 0, 4) . "-****-" . substr($codigoPlano, -2);
+            $db->beginTransaction();
+            $stmt = $db->prepare("INSERT INTO erp_pos_codigos_autorizacion
+                (folio, id_autorizador_pos, id_usuario_autorizador, codigo_hash, codigo_mascara,
+                 tipo_autorizacion, alcance, id_almacen, id_caja, uso_maximo, usos_realizados,
+                 monto_maximo, descuento_max_porcentaje, fecha_inicio, fecha_fin, estatus,
+                 motivo, observaciones, datos_snapshot, creado_por, fecha_registro, fecha_actualizacion)
+                VALUES (:folio, :autorizador, :usuario_aut, :hash, :mascara,
+                 :tipo, :alcance, :almacen, :caja, :uso_maximo, 0,
+                 :monto, :descuento, NOW(), :fecha_fin, 'activo',
+                 :motivo, :observaciones, :snapshot, :creado_por, NOW(), NOW())");
+            $stmt->execute(array(
+                ":folio" => $folio,
+                ":autorizador" => $p["id_autorizador_pos"],
+                ":usuario_aut" => $p["id_usuario_autorizador"],
+                ":hash" => $hash,
+                ":mascara" => $mascara,
+                ":tipo" => $p["tipo_autorizacion"],
+                ":alcance" => $p["alcance"],
+                ":almacen" => $p["id_almacen"],
+                ":caja" => $p["id_caja"],
+                ":uso_maximo" => $p["uso_maximo"],
+                ":monto" => $p["monto_maximo"],
+                ":descuento" => $p["descuento_max_porcentaje"],
+                ":fecha_fin" => $p["fecha_fin"],
+                ":motivo" => $p["motivo"],
+                ":observaciones" => $p["observaciones"],
+                ":snapshot" => json_encode($p),
+                ":creado_por" => intval($idUsuarioEjecuta)
+            ));
+            $idCodigo = intval($db->lastInsertId());
+            $db->commit();
+            $p["folio"] = $folio;
+            $p["codigo_autorizacion"] = $codigoPlano;
+            $p["codigo_mascara"] = $mascara;
+            return $this->respuesta(false, "success", "Codigo de autorizacion POS generado", array(
+                "id_codigo_autorizacion" => $idCodigo,
+                "propuesta" => $p,
+                "aviso_seguridad" => "El codigo completo se muestra solo en esta respuesta; despues se conserva solo mascara y hash.",
+                "no_crea_venta" => true,
+                "no_mueve_caja" => true,
+                "no_mueve_inventario" => true
+            ));
+        } catch (Exception $e) {
+            if (isset($db) && $db && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", "No se pudo generar codigo de autorizacion POS", array("excepcion" => $e->getMessage()));
         }
     }
 
@@ -7879,7 +8112,7 @@ class VentasErp extends CRUD {
             $tipo = trim((string) $this->valor($datos, "tipo", ""));
             $id = intval($this->valor($datos, "id", 0));
             $motivo = trim((string) $this->valor($datos, "motivo", ""));
-            if ($id <= 0 || $motivo === "" || !in_array($tipo, array("caja", "terminal", "asignacion"), true)) {
+            if ($id <= 0 || $motivo === "" || !in_array($tipo, array("caja", "terminal", "asignacion", "autorizador"), true)) {
                 return $this->respuesta(false, "warning", "Desactivacion POS requiere tipo, id y motivo", array(
                     "bloqueos" => array("Captura tipo valido, id y motivo obligatorio")
                 ));
@@ -7901,6 +8134,29 @@ class VentasErp extends CRUD {
                     SET estatus='inactiva', observaciones=:observaciones, fecha_actualizacion=NOW()
                     WHERE id_terminal_pos=:id AND COALESCE(estatus, 'activa')='activa'");
             } else {
+                if ($tipo === "autorizador") {
+                    $stmt = $db->prepare("UPDATE erp_pos_autorizadores
+                        SET estatus='inactivo', fecha_fin=NOW(), observaciones=:observaciones, fecha_actualizacion=NOW()
+                        WHERE id_autorizador_pos=:id AND COALESCE(estatus, 'activo')='activo'");
+                    $stmt->execute(array(
+                        ":observaciones" => "Desactivado por usuario " . intval($idUsuario) . ": " . $motivo,
+                        ":id" => $id
+                    ));
+                    if ($stmt->rowCount() <= 0) {
+                        throw new Exception("Autorizador POS no encontrado o ya inactivo");
+                    }
+                    $db->commit();
+                    return $this->respuesta(false, "success", "Configuracion POS desactivada", array(
+                        "tipo" => $tipo,
+                        "id" => $id,
+                        "id_autorizador_pos" => $id,
+                        "motivo" => $motivo,
+                        "id_usuario" => intval($idUsuario),
+                        "baja_logica" => true,
+                        "no_abre_turno" => true,
+                        "no_mueve_caja" => true
+                    ));
+                }
                 if ($this->asignacionTieneTurnoAbierto($db, $id)) {
                     throw new Exception("No se puede desactivar una asignacion usada por turno abierto");
                 }
@@ -8176,8 +8432,10 @@ class VentasErp extends CRUD {
             $descuentoMonto = floatval($this->valor($datos, "descuento_monto", 0));
             $descuentoPorcentaje = floatval($this->valor($datos, "descuento_porcentaje", 0));
             $motivo = trim((string) $this->valor($datos, "motivo", ""));
-            $codigoAutorizacion = trim((string) $this->valor($datos, "codigo_autorizacion", ""));
+            $codigoAutorizacion = strtoupper(preg_replace('/\s+/', '', trim((string) $this->valor($datos, "codigo_autorizacion", ""))));
             $items = $this->decodificarItems($this->valor($datos, "items", array()));
+            $indicesAjusteConjunto = $this->decodificarItems($this->valor($datos, "indices_ajuste_conjunto", array()));
+            $indicesAjusteConjunto = array_map("intval", is_array($indicesAjusteConjunto) ? $indicesAjusteConjunto : array());
             $schemaClientesPendiente = !$this->schemaClientesCrmDisponible($db);
             $schemaListasPendiente = !$this->tablaExiste($db, "erp_listas_precios") || !$this->tablaExiste($db, "erp_listas_precios_detalle");
             $bloqueos = array();
@@ -8203,9 +8461,13 @@ class VentasErp extends CRUD {
             $partidas = array();
             $subtotalBase = 0;
             $subtotalAplicado = 0;
+            $subtotalConjunto = 0;
             $descuentoTotal = 0;
 
             foreach ($items as $indice => $item) {
+                if ($tipoExcepcion === "precio_conjunto" && !empty($indicesAjusteConjunto)) {
+                    $item["aplica_ajuste_conjunto"] = in_array(intval($indice), $indicesAjusteConjunto, true) ? 1 : 0;
+                }
                 $idSku = intval($this->valor($item, "id_sku", 0));
                 $cantidad = round(floatval($this->valor($item, "cantidad", 1)), 6);
                 $sku = $this->consultarSkuVenta($db, $idSku);
@@ -8286,7 +8548,6 @@ class VentasErp extends CRUD {
                 $descuentoTotal = $this->calcularDescuentoComercial($subtotalAplicado, $descuentoMonto, $descuentoPorcentaje);
             }
             if ($tipoExcepcion === "precio_conjunto") {
-                $subtotalConjunto = 0;
                 $indicesConjunto = array();
                 foreach ($partidas as $idx => $partida) {
                     if (!empty($partida["aplica_excepcion"])) {
@@ -8322,6 +8583,22 @@ class VentasErp extends CRUD {
                 }
             }
             $totalEstimado = round(max(0, $subtotalAplicado - $descuentoTotal), 6);
+            $autorizacionCodigo = null;
+            if ($codigoAutorizacion !== "") {
+                $autorizacionCodigo = $this->validarCodigoAutorizacionComercialPos($db, array(
+                    "codigo_autorizacion" => $codigoAutorizacion,
+                    "tipo_autorizacion" => $tipoExcepcion,
+                    "id_almacen" => $idAlmacen,
+                    "id_caja" => intval($this->valor($datos, "id_caja", 0)),
+                    "descuento_total" => $descuentoTotal,
+                    "descuento_porcentaje" => $subtotalAplicado > 0 ? round($descuentoTotal / $subtotalAplicado * 100, 6) : 0
+                ));
+                if (empty($autorizacionCodigo["ok"])) {
+                    $bloqueos[] = $this->valor($autorizacionCodigo, "mensaje", "Codigo de autorizacion POS invalido");
+                } else {
+                    $avisos[] = "Codigo de autorizacion POS validado: " . $this->valor($autorizacionCodigo, "folio", "");
+                }
+            }
 
             return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Excepcion comercial simulada" : "Excepcion comercial con bloqueos", array(
                 "dry_run" => true,
@@ -8332,10 +8609,13 @@ class VentasErp extends CRUD {
                 "requiere_autorizacion" => true,
                 "motivo" => $motivo,
                 "codigo_autorizacion_recibido" => $codigoAutorizacion !== "",
+                "autorizacion_codigo" => $autorizacionCodigo && !empty($autorizacionCodigo["ok"]) ? $autorizacionCodigo : null,
                 "partidas" => $partidas,
                 "totales" => array(
                     "subtotal_base" => round($subtotalBase, 6),
                     "subtotal_lista" => round($subtotalAplicado, 6),
+                    "subtotal_conjunto" => round($subtotalConjunto, 6),
+                    "total_conjunto" => $tipoExcepcion === "precio_conjunto" ? round($precioConjuntoTotal, 6) : null,
                     "descuento_total_estimado" => round($descuentoTotal, 6),
                     "total_estimado" => $totalEstimado
                 ),
@@ -8394,15 +8674,23 @@ class VentasErp extends CRUD {
             if ($idUsuarioAutoriza <= 0) {
                 $bloqueos[] = "Usuario autorizador obligatorio";
             }
-            if ($idUsuarioAutoriza > 0 && !$this->usuarioTienePermisoDb($db, $idUsuarioAutoriza, "ventas.autorizar_excepcion_comercial")) {
-                $bloqueos[] = "El usuario autorizador no tiene permiso ventas.autorizar_excepcion_comercial";
-            }
 
             $dryRun = $this->excepcionComercialDryRun($datos);
             $depurar = isset($dryRun["depurar"]) && is_array($dryRun["depurar"]) ? $dryRun["depurar"] : array();
             $bloqueosDryRun = isset($depurar["bloqueos"]) && is_array($depurar["bloqueos"]) ? $depurar["bloqueos"] : array();
             if (!empty($bloqueosDryRun)) {
                 $bloqueos = array_merge($bloqueos, $bloqueosDryRun);
+            }
+            $autorizacionCodigo = isset($depurar["autorizacion_codigo"]) && is_array($depurar["autorizacion_codigo"]) ? $depurar["autorizacion_codigo"] : null;
+            $solicitanteTienePermiso = $idUsuarioSolicita > 0 && $this->usuarioTienePermisoDb($db, $idUsuarioSolicita, "ventas.autorizar_excepcion_comercial");
+            if ($autorizacionCodigo && !empty($autorizacionCodigo["ok"])) {
+                $idUsuarioAutoriza = intval($this->valor($autorizacionCodigo, "id_usuario_autorizador", $idUsuarioAutoriza));
+            } else {
+                if (!$solicitanteTienePermiso) {
+                    $bloqueos[] = "Se requiere codigo de autorizacion POS valido o permiso ventas.autorizar_excepcion_comercial";
+                } elseif ($idUsuarioAutoriza > 0 && !$this->usuarioTienePermisoDb($db, $idUsuarioAutoriza, "ventas.autorizar_excepcion_comercial")) {
+                    $bloqueos[] = "El usuario autorizador no tiene permiso ventas.autorizar_excepcion_comercial";
+                }
             }
 
             $politica = $this->consultarPoliticaComercial($db, $tipoExcepcion, $canal, $idAlmacen);
@@ -8532,6 +8820,9 @@ class VentasErp extends CRUD {
             );
             $stmt->execute(array_merge($paramsInsert, $paramsClienteCrm));
             $idExcepcion = intval($db->lastInsertId());
+            if ($autorizacionCodigo && !empty($autorizacionCodigo["id_codigo_autorizacion"])) {
+                $this->consumirCodigoAutorizacionPos($db, intval($autorizacionCodigo["id_codigo_autorizacion"]), $idUsuarioSolicita, "excepcion_comercial:" . $folio);
+            }
             $db->commit();
 
             return $this->respuesta(false, "success", "Excepcion comercial autorizada registrada", array(
@@ -9886,6 +10177,77 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: listar usuarios activos candidatos a autorizador POS.
+     * Impacto: alimenta Configuracion POS sin exponer credenciales ni modificar roles.
+     * Contrato: read-only.
+     */
+    private function listarUsuariosPosAutorizables($db) {
+        if (!$db || !$this->tablaExiste($db, "sys_usuarios")) {
+            return array();
+        }
+        $sql = "SELECT id_usuario,
+                TRIM(CONCAT_WS(' ', nombres, apellido_paterno, apellido_materno)) AS nombre_mostrar,
+                celular, estatus
+            FROM sys_usuarios
+            WHERE COALESCE(estatus, 1)=1
+            ORDER BY nombres ASC, apellido_paterno ASC, id_usuario ASC
+            LIMIT 250";
+        return $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: listar autorizadores POS configurados.
+     * Impacto: permite administrar supervisores/gerentes y sus alcances.
+     * Contrato: read-only.
+     */
+    private function listarAutorizadoresPos($db) {
+        if (!$db || !$this->tablaExiste($db, "erp_pos_autorizadores")) {
+            return array();
+        }
+        $joinCaja = $this->tablaExiste($db, "erp_pos_cajas")
+            ? "LEFT JOIN erp_pos_cajas c ON c.id_caja=a.id_caja"
+            : "";
+        $sql = "SELECT a.id_autorizador_pos, a.id_usuario, a.rol_autorizador, a.alcance,
+                a.id_almacen, a.id_caja, a.tipos_autorizacion, a.descuento_max_porcentaje,
+                a.monto_maximo, a.permite_autoautorizar, a.requiere_motivo, a.estatus,
+                a.fecha_inicio, a.fecha_fin, a.creado_por, a.observaciones,
+                TRIM(CONCAT_WS(' ', u.nombres, u.apellido_paterno, u.apellido_materno)) AS nombre_mostrar,
+                al.almacen, al.codigo_almacen,
+                " . ($joinCaja ? "c.codigo AS caja_codigo, c.nombre AS caja_nombre" : "NULL AS caja_codigo, NULL AS caja_nombre") . "
+            FROM erp_pos_autorizadores a
+            LEFT JOIN sys_usuarios u ON u.id_usuario=a.id_usuario
+            LEFT JOIN erp_almacenes al ON al.id_almacen=a.id_almacen
+            $joinCaja
+            ORDER BY COALESCE(a.estatus, 'activo') ASC, a.rol_autorizador ASC, nombre_mostrar ASC";
+        return $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-10.
+     * Proposito: listar codigos temporales de autorizacion POS sin exponer el codigo plano.
+     * Impacto: auditoria operativa de excepciones comerciales.
+     * Contrato: read-only; solo devuelve mascara/hash-safe.
+     */
+    private function listarCodigosAutorizacionPos($db) {
+        if (!$db || !$this->tablaExiste($db, "erp_pos_codigos_autorizacion")) {
+            return array();
+        }
+        $sql = "SELECT c.id_codigo_autorizacion, c.folio, c.id_autorizador_pos,
+                c.id_usuario_autorizador, c.codigo_mascara, c.tipo_autorizacion,
+                c.alcance, c.id_almacen, c.id_caja, c.uso_maximo, c.usos_realizados,
+                c.monto_maximo, c.descuento_max_porcentaje, c.fecha_inicio, c.fecha_fin,
+                c.estatus, c.motivo, c.creado_por, c.fecha_registro,
+                TRIM(CONCAT_WS(' ', u.nombres, u.apellido_paterno, u.apellido_materno)) AS nombre_mostrar
+            FROM erp_pos_codigos_autorizacion c
+            LEFT JOIN sys_usuarios u ON u.id_usuario=c.id_usuario_autorizador
+            ORDER BY c.fecha_registro DESC, c.id_codigo_autorizacion DESC
+            LIMIT 100";
+        return $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-01.
      * Proposito: listar terminales POS configuradas sin editar registros.
      * Impacto: alimenta pantalla Configuracion POS y evita configurar terminal desde caja de cobro.
@@ -10379,6 +10741,280 @@ class VentasErp extends CRUD {
                 "estatus" => "activo"
             )
         );
+    }
+
+    private function configuracionAutorizadorPosValidar($db, $datos, $idAutorizador = 0) {
+        $bloqueos = array();
+        $avisos = array();
+        $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+        $rol = trim((string) $this->valor($datos, "rol_autorizador", "supervisor"));
+        $alcance = trim((string) $this->valor($datos, "alcance", "global"));
+        $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+        $idCaja = intval($this->valor($datos, "id_caja", 0));
+        $tipo = trim((string) $this->valor($datos, "tipo_autorizacion", "precio_conjunto"));
+        $descuento = round(floatval($this->valor($datos, "descuento_max_porcentaje", 100)), 6);
+        $monto = round(floatval($this->valor($datos, "monto_maximo", 0)), 6);
+        $vigenciaDias = intval($this->valor($datos, "vigencia_dias", 30));
+        $observaciones = trim((string) $this->valor($datos, "observaciones", ""));
+        $tiposPermitidos = $this->tiposAutorizacionPosPermitidos();
+
+        if (!$this->tablaExiste($db, "erp_pos_autorizadores")) {
+            $bloqueos[] = "Falta esquema de autorizadores POS";
+        }
+        if (!$this->usuarioPosActivo($db, $idUsuario)) {
+            $bloqueos[] = "Selecciona un usuario activo";
+        }
+        if (!in_array($rol, array("supervisor", "gerente", "administrador"), true)) {
+            $bloqueos[] = "Selecciona rol autorizador valido";
+        }
+        if (!in_array($alcance, array("global", "almacen", "caja"), true)) {
+            $alcance = "global";
+        }
+        if (!isset($tiposPermitidos[$tipo])) {
+            $bloqueos[] = "Selecciona un tipo de autorizacion valido";
+        }
+        if ($alcance === "almacen" || $alcance === "caja") {
+            if (!$this->almacenVentaPorId($db, $idAlmacen)) {
+                $bloqueos[] = "Para alcance por tienda/caja selecciona una tienda activa";
+            }
+        } else {
+            $idAlmacen = 0;
+            $idCaja = 0;
+        }
+        if ($alcance === "caja") {
+            $caja = $this->cajaPosPorId($db, $idCaja);
+            if (!$caja) {
+                $bloqueos[] = "Para alcance por caja selecciona una caja activa";
+            } elseif ($idAlmacen > 0 && intval($this->valor($caja, "id_almacen", 0)) !== $idAlmacen) {
+                $bloqueos[] = "La caja no pertenece a la tienda seleccionada";
+            }
+        } else {
+            $idCaja = 0;
+        }
+        if ($descuento < 0 || $descuento > 100) {
+            $bloqueos[] = "El descuento maximo debe estar entre 0 y 100";
+        }
+        if ($monto < 0) {
+            $bloqueos[] = "El monto maximo no puede ser negativo";
+        }
+        if ($vigenciaDias < 0 || $vigenciaDias > 3650) {
+            $bloqueos[] = "La vigencia debe estar entre 0 y 3650 dias";
+        }
+        if ($observaciones === "") {
+            $avisos[] = "Conviene capturar por que este usuario sera autorizador.";
+        }
+
+        $fechaFin = $vigenciaDias > 0 ? date("Y-m-d H:i:s", strtotime("+" . $vigenciaDias . " days")) : null;
+        return array(
+            "bloqueos" => $bloqueos,
+            "avisos" => $avisos,
+            "propuesta" => array(
+                "id_autorizador_pos" => $idAutorizador > 0 ? $idAutorizador : null,
+                "id_usuario" => $idUsuario,
+                "rol_autorizador" => $rol,
+                "alcance" => $alcance,
+                "id_almacen" => $idAlmacen > 0 ? $idAlmacen : null,
+                "id_caja" => $idCaja > 0 ? $idCaja : null,
+                "tipos_autorizacion" => $tipo,
+                "descuento_max_porcentaje" => $descuento,
+                "monto_maximo" => $monto,
+                "fecha_fin" => $fechaFin,
+                "observaciones" => $observaciones,
+                "estatus" => "activo"
+            )
+        );
+    }
+
+    private function configuracionCodigoAutorizacionPosValidar($db, $datos) {
+        $bloqueos = array();
+        $avisos = array();
+        $idAutorizador = intval($this->valor($datos, "id_autorizador_pos", 0));
+        $tipo = trim((string) $this->valor($datos, "tipo_autorizacion", "precio_conjunto"));
+        $usoMaximo = max(1, intval($this->valor($datos, "uso_maximo", 1)));
+        $expiraMinutos = max(1, min(1440, intval($this->valor($datos, "expira_minutos", 60))));
+        $monto = round(floatval($this->valor($datos, "monto_maximo", 0)), 6);
+        $motivo = trim((string) $this->valor($datos, "motivo", ""));
+        $tiposPermitidos = $this->tiposAutorizacionPosPermitidos();
+        $autorizador = null;
+
+        if (!$this->tablaExiste($db, "erp_pos_autorizadores") || !$this->tablaExiste($db, "erp_pos_codigos_autorizacion")) {
+            $bloqueos[] = "Falta esquema de codigos/autorizadores POS";
+        }
+        if (!isset($tiposPermitidos[$tipo])) {
+            $bloqueos[] = "Selecciona un tipo de autorizacion valido";
+        }
+        if ($idAutorizador <= 0) {
+            $bloqueos[] = "Selecciona un autorizador activo";
+        } elseif ($this->tablaExiste($db, "erp_pos_autorizadores")) {
+            $stmt = $db->prepare("SELECT *
+                FROM erp_pos_autorizadores
+                WHERE id_autorizador_pos=:id
+                  AND COALESCE(estatus, 'activo')='activo'
+                  AND (fecha_inicio IS NULL OR fecha_inicio<=NOW())
+                  AND (fecha_fin IS NULL OR fecha_fin>=NOW())
+                LIMIT 1");
+            $stmt->execute(array(":id" => $idAutorizador));
+            $autorizador = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$autorizador) {
+                $bloqueos[] = "El autorizador no esta activo o esta vencido";
+            } else {
+                $tiposAutorizador = array_filter(array_map("trim", explode(",", (string) $this->valor($autorizador, "tipos_autorizacion", ""))));
+                if (!in_array($tipo, $tiposAutorizador, true) && !in_array("general", $tiposAutorizador, true)) {
+                    $bloqueos[] = "El autorizador no tiene permitido este tipo de excepcion";
+                }
+                if ($monto <= 0) {
+                    $monto = round(floatval($this->valor($autorizador, "monto_maximo", 0)), 6);
+                    $avisos[] = "Se usara el monto maximo del autorizador";
+                }
+            }
+        }
+        if ($motivo === "") {
+            $bloqueos[] = "Captura motivo para generar el codigo";
+        }
+        if ($usoMaximo > 20) {
+            $bloqueos[] = "Por seguridad el codigo no puede tener mas de 20 usos";
+        }
+
+        return array(
+            "bloqueos" => $bloqueos,
+            "avisos" => $avisos,
+            "propuesta" => array(
+                "id_autorizador_pos" => $idAutorizador,
+                "id_usuario_autorizador" => $autorizador ? intval($this->valor($autorizador, "id_usuario", 0)) : null,
+                "tipo_autorizacion" => $tipo,
+                "alcance" => $autorizador ? (string) $this->valor($autorizador, "alcance", "global") : "global",
+                "id_almacen" => $autorizador && intval($this->valor($autorizador, "id_almacen", 0)) > 0 ? intval($this->valor($autorizador, "id_almacen", 0)) : null,
+                "id_caja" => $autorizador && intval($this->valor($autorizador, "id_caja", 0)) > 0 ? intval($this->valor($autorizador, "id_caja", 0)) : null,
+                "uso_maximo" => $usoMaximo,
+                "monto_maximo" => $monto,
+                "descuento_max_porcentaje" => $autorizador ? round(floatval($this->valor($autorizador, "descuento_max_porcentaje", 0)), 6) : 0,
+                "fecha_fin" => date("Y-m-d H:i:s", strtotime("+" . $expiraMinutos . " minutes")),
+                "motivo" => $motivo,
+                "observaciones" => "Codigo temporal generado desde Configuracion POS"
+            )
+        );
+    }
+
+    private function tiposAutorizacionPosPermitidos() {
+        return array(
+            "precio_conjunto" => "Precio conjunto / paquete",
+            "precio_manual" => "Precio manual",
+            "descuento_partida" => "Descuento por partida",
+            "descuento_general" => "Descuento general",
+            "inventario_pendiente" => "Inventario pendiente",
+            "gasto_caja" => "Gasto de caja",
+            "devolucion" => "Devolucion",
+            "cierre_diferencia" => "Diferencia de caja",
+            "general" => "General POS"
+        );
+    }
+
+    private function generarCodigoAutorizacionPosPlano() {
+        return "POS-" . random_int(1000, 9999) . "-" . random_int(1000, 9999);
+    }
+
+    private function generarFolioCodigoAutorizacionPos($db) {
+        $prefijo = "AUTPOS-" . date("Ymd") . "-";
+        $stmt = $db->prepare("SELECT folio
+            FROM erp_pos_codigos_autorizacion
+            WHERE folio LIKE :prefijo
+            ORDER BY folio DESC
+            LIMIT 1");
+        $stmt->execute(array(":prefijo" => $prefijo . "%"));
+        $ultimo = (string) $stmt->fetchColumn();
+        $consecutivo = 1;
+        if ($ultimo !== "") {
+            $consecutivo = intval(substr($ultimo, -6)) + 1;
+        }
+        return $prefijo . str_pad((string) $consecutivo, 6, "0", STR_PAD_LEFT);
+    }
+
+    private function validarCodigoAutorizacionComercialPos($db, $datos = array()) {
+        $codigo = strtoupper(preg_replace('/\s+/', '', trim((string) $this->valor($datos, "codigo_autorizacion", ""))));
+        $tipo = trim((string) $this->valor($datos, "tipo_autorizacion", ""));
+        $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+        $idCaja = intval($this->valor($datos, "id_caja", 0));
+        $descuentoTotal = round(floatval($this->valor($datos, "descuento_total", 0)), 6);
+        $descuentoPorcentaje = round(floatval($this->valor($datos, "descuento_porcentaje", 0)), 6);
+
+        if ($codigo === "") {
+            return array("ok" => false, "mensaje" => "Falta codigo de autorizacion POS");
+        }
+        if (!$db || !$this->tablaExiste($db, "erp_pos_codigos_autorizacion")) {
+            return array("ok" => false, "mensaje" => "Esquema de codigos de autorizacion POS no disponible");
+        }
+
+        $stmt = $db->prepare("SELECT c.*, a.rol_autorizador, a.tipos_autorizacion
+            FROM erp_pos_codigos_autorizacion c
+            INNER JOIN erp_pos_autorizadores a ON a.id_autorizador_pos=c.id_autorizador_pos
+            WHERE c.estatus='activo'
+              AND a.estatus='activo'
+              AND c.tipo_autorizacion IN (:tipo, 'general')
+              AND (c.fecha_inicio IS NULL OR c.fecha_inicio<=NOW())
+              AND (c.fecha_fin IS NULL OR c.fecha_fin>=NOW())
+              AND c.usos_realizados < c.uso_maximo
+            ORDER BY c.fecha_registro DESC, c.id_codigo_autorizacion DESC
+            LIMIT 50");
+        $stmt->execute(array(":tipo" => $tipo));
+        $candidatos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($candidatos as $fila) {
+            if (!password_verify($codigo, (string) $this->valor($fila, "codigo_hash", ""))) {
+                continue;
+            }
+            $alcance = trim((string) $this->valor($fila, "alcance", "global"));
+            $codigoAlmacen = intval($this->valor($fila, "id_almacen", 0));
+            $codigoCaja = intval($this->valor($fila, "id_caja", 0));
+            if ($alcance === "almacen" && $codigoAlmacen > 0 && $idAlmacen > 0 && $codigoAlmacen !== $idAlmacen) {
+                return array("ok" => false, "mensaje" => "Codigo POS no corresponde a esta tienda");
+            }
+            if ($alcance === "caja" && $codigoCaja > 0 && $idCaja > 0 && $codigoCaja !== $idCaja) {
+                return array("ok" => false, "mensaje" => "Codigo POS no corresponde a esta caja");
+            }
+            $montoMaximo = round(floatval($this->valor($fila, "monto_maximo", 0)), 6);
+            $porcentajeMaximo = round(floatval($this->valor($fila, "descuento_max_porcentaje", 0)), 6);
+            if ($montoMaximo > 0 && $descuentoTotal > $montoMaximo + 0.000001) {
+                return array("ok" => false, "mensaje" => "Codigo POS excede monto maximo autorizado");
+            }
+            if ($porcentajeMaximo > 0 && $descuentoPorcentaje > $porcentajeMaximo + 0.000001) {
+                return array("ok" => false, "mensaje" => "Codigo POS excede porcentaje maximo autorizado");
+            }
+            return array(
+                "ok" => true,
+                "id_codigo_autorizacion" => intval($fila["id_codigo_autorizacion"]),
+                "folio" => $fila["folio"],
+                "codigo_mascara" => $fila["codigo_mascara"],
+                "id_autorizador_pos" => intval($fila["id_autorizador_pos"]),
+                "id_usuario_autorizador" => intval($fila["id_usuario_autorizador"]),
+                "tipo_autorizacion" => $fila["tipo_autorizacion"],
+                "alcance" => $alcance,
+                "id_almacen" => $codigoAlmacen > 0 ? $codigoAlmacen : null,
+                "id_caja" => $codigoCaja > 0 ? $codigoCaja : null,
+                "uso_maximo" => intval($fila["uso_maximo"]),
+                "usos_realizados" => intval($fila["usos_realizados"]),
+                "fecha_fin" => $fila["fecha_fin"]
+            );
+        }
+        return array("ok" => false, "mensaje" => "Codigo de autorizacion POS invalido, vencido o ya consumido");
+    }
+
+    private function consumirCodigoAutorizacionPos($db, $idCodigoAutorizacion, $idUsuario, $referencia) {
+        if (!$db || $idCodigoAutorizacion <= 0 || !$this->tablaExiste($db, "erp_pos_codigos_autorizacion")) {
+            return false;
+        }
+        $stmt = $db->prepare("UPDATE erp_pos_codigos_autorizacion
+            SET usos_realizados=usos_realizados+1,
+                estatus=CASE WHEN usos_realizados+1 >= uso_maximo THEN 'consumido' ELSE estatus END,
+                observaciones=CONCAT(COALESCE(observaciones, ''), '\nConsumido por usuario ', :usuario, ' en ', :referencia),
+                fecha_actualizacion=NOW()
+            WHERE id_codigo_autorizacion=:id
+              AND estatus='activo'
+              AND usos_realizados < uso_maximo");
+        $stmt->execute(array(
+            ":usuario" => intval($idUsuario),
+            ":referencia" => trim((string) $referencia),
+            ":id" => intval($idCodigoAutorizacion)
+        ));
+        return $stmt->rowCount() > 0;
     }
 
     private function usuarioPosActivo($db, $idUsuario) {
@@ -11510,11 +12146,29 @@ class VentasErp extends CRUD {
             || trim((string) $this->valor($item, "origen_partida", "")) === "venta_rapida_controlada";
     }
 
+    private function normalizarUnidadVentaRapidaPos($unidad) {
+        $valor = strtolower(trim((string) $unidad));
+        $valor = str_replace(array("á", "é", "í", "ó", "ú"), array("a", "e", "i", "o", "u"), $valor);
+        $mapa = array(
+            "pza" => "pza", "pieza" => "pza", "piezas" => "pza", "pz" => "pza",
+            "kg" => "kg", "kilo" => "kg", "kilos" => "kg", "kilogramo" => "kg", "kilogramos" => "kg",
+            "g" => "g", "gr" => "g", "gramo" => "g", "gramos" => "g",
+            "l" => "l", "lt" => "l", "litro" => "l", "litros" => "l",
+            "ml" => "ml", "mililitro" => "ml", "mililitros" => "ml",
+            "m" => "m", "metro" => "m", "metros" => "m",
+            "cm" => "cm", "centimetro" => "cm", "centimetros" => "cm",
+            "paquete" => "paquete", "paq" => "paquete",
+            "servicio" => "servicio", "serv" => "servicio"
+        );
+        return isset($mapa[$valor]) ? $mapa[$valor] : "pza";
+    }
+
     private function prevalidarPartidaVentaRapidaControlada($item, $idAlmacen, $renglon) {
         $descripcion = trim((string) $this->valor($item, "descripcion_manual", $this->valor($item, "descripcion", "")));
         $cantidad = round(floatval($this->valor($item, "cantidad", 0)), 6);
         $precio = round(floatval($this->valor($item, "precio_unitario", 0)), 6);
         $motivo = trim((string) $this->valor($item, "motivo", ""));
+        $unidadVenta = $this->normalizarUnidadVentaRapidaPos($this->valor($item, "unidad_venta", $this->valor($item, "unidad_venta_label", "pza")));
         $controlaInventario = intval($this->valor($item, "controla_inventario", 1)) === 1;
         $bloqueos = array();
         $avisos = array();
@@ -11547,6 +12201,8 @@ class VentasErp extends CRUD {
             "tipo_partida" => "venta_rapida",
             "descripcion" => $descripcion,
             "cantidad" => $cantidad,
+            "unidad_venta" => $unidadVenta,
+            "unidad_venta_label" => $unidadVenta,
             "precio_unitario" => $precio,
             "precio_enviado_pos" => $precio,
             "precio_base" => $precio,
@@ -11565,7 +12221,8 @@ class VentasErp extends CRUD {
                 "marca_provisional" => $this->valor($item, "marca_provisional", ""),
                 "proveedor_provisional" => $this->valor($item, "proveedor_provisional", ""),
                 "codigo_barras" => $this->valor($item, "codigo_barras", ""),
-                "observaciones" => $this->valor($item, "observaciones", "")
+                "observaciones" => $this->valor($item, "observaciones", ""),
+                "unidad_venta" => $unidadVenta
             ),
             "avisos" => $avisos,
             "bloqueos" => $bloqueos
@@ -13001,6 +13658,19 @@ class VentasErp extends CRUD {
         return $fila ?: null;
     }
 
+    private function unidadVentaDesdePendienteVentaRapida($pendiente) {
+        $unidad = trim((string) $this->valor($pendiente, "unidad_venta", ""));
+        if ($unidad !== "") {
+            return $this->normalizarUnidadVentaRapidaPos($unidad);
+        }
+        $snapshot = json_decode((string) $this->valor($pendiente, "datos_snapshot", ""), true);
+        if (!is_array($snapshot)) {
+            return "pza";
+        }
+        $partida = isset($snapshot["partida"]) && is_array($snapshot["partida"]) ? $snapshot["partida"] : array();
+        return $this->normalizarUnidadVentaRapidaPos($this->valor($partida, "unidad_venta", $this->valor($partida, "unidad_venta_label", "pza")));
+    }
+
     private function consultarSkuResolucionVentaRapida($db, $idSku) {
         $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.nombre nombre_sku, s.estatus estatus_sku,
                 s.tipo_inventario, s.id_producto_erp, p.nombre producto,
@@ -13084,6 +13754,7 @@ class VentasErp extends CRUD {
         $total = $this->redondearPosReal($this->valor($partida, "subtotal", $cantidad * $precio));
         $pendienteCatalogo = $this->valor($partida, "pendiente_catalogo", array());
         $controlaInventario = intval($this->valor($partida, "controla_inventario", 1)) === 1;
+        $unidadVenta = $this->normalizarUnidadVentaRapidaPos($this->valor($partida, "unidad_venta", $this->valor($partida, "unidad_venta_label", "pza")));
         $folioPendiente = $this->generarFolioVentaRapidaPendientePosReal($db);
         $snapshot = array(
             "venta" => array("id_venta" => intval($idVenta), "folio" => $folioVenta),
@@ -13151,6 +13822,7 @@ class VentasErp extends CRUD {
             "descripcion" => $descripcion,
             "cantidad" => $cantidad,
             "total" => $total,
+            "unidad_venta" => $unidadVenta,
             "controla_inventario" => $controlaInventario ? 1 : 0,
             "id_notificacion" => $idNotificacion
         );
