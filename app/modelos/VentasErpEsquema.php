@@ -2669,4 +2669,81 @@ class VentasErpEsquema extends DBSchema {
             "contrato" => array("no_escribe_bd" => true, "no_crea_tablas" => true, "no_genera_codigos" => true)
         );
     }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-11.
+     * Proposito: preparar campos para carga de ventas historicas sin afectar caja ni inventario.
+     * Impacto: permite registrar evidencia comercial pasada en las mismas tablas de venta para reportes.
+     * Contrato: con $ejecutar=false solo genera SQL; ejecutar requiere autorizacion externa y respaldo productivo vigente.
+     */
+    public function planActualizarVentasHistoricas($ejecutar = false) {
+        $plan = array();
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "origen_venta", "VARCHAR(40) NOT NULL DEFAULT 'pos_tiempo_real' AFTER `tipo_documento`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "modo_operacion", "VARCHAR(50) NOT NULL DEFAULT 'tiempo_real' AFTER `origen_venta`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "afecta_inventario", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `modo_operacion`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "afecta_caja", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `afecta_inventario`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "fecha_venta_real", "DATETIME NULL AFTER `fecha_venta`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "fecha_captura_historica", "DATETIME NULL AFTER `fecha_venta_real`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "capturada_por", "INT NULL AFTER `fecha_captura_historica`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "observaciones_historicas", "TEXT NULL AFTER `observaciones`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas", "idx_ventas_origen_fecha", "KEY `idx_ventas_origen_fecha` (`origen_venta`, `fecha_venta_real`, `estatus`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas", "idx_ventas_modo_afectacion", "KEY `idx_ventas_modo_afectacion` (`modo_operacion`, `afecta_inventario`, `afecta_caja`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas", "idx_ventas_captura_historica", "KEY `idx_ventas_captura_historica` (`fecha_captura_historica`, `capturada_por`)", $ejecutar);
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-11.
+     * Proposito: auditar si el esquema permite carga historica separada del POS operativo.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA.
+     * Contrato: no crea columnas, no modifica ventas, no mueve caja ni inventario.
+     */
+    public function auditarVentasHistoricas() {
+        $tabla = "erp_ventas";
+        $columnas = array(
+            "origen_venta",
+            "modo_operacion",
+            "afecta_inventario",
+            "afecta_caja",
+            "fecha_venta_real",
+            "fecha_captura_historica",
+            "capturada_por",
+            "observaciones_historicas"
+        );
+        $indices = array("idx_ventas_origen_fecha", "idx_ventas_modo_afectacion", "idx_ventas_captura_historica");
+        $faltanColumnas = array();
+        $faltanIndices = array();
+        $existe = $this->tablaExiste($tabla);
+        if ($existe) {
+            foreach ($columnas as $columna) {
+                if (!$this->columnaExiste($tabla, $columna)) {
+                    $faltanColumnas[] = $columna;
+                }
+            }
+            foreach ($indices as $indice) {
+                if (!$this->indiceExiste($tabla, $indice)) {
+                    $faltanIndices[] = $indice;
+                }
+            }
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria carga historica ventas generada",
+            "depurar" => array(
+                "tabla" => $tabla,
+                "existe" => $existe,
+                "faltan_columnas" => $faltanColumnas,
+                "faltan_indices" => $faltanIndices
+            ),
+            "contrato" => array(
+                "no_escribe_bd" => true,
+                "no_crea_ventas" => true,
+                "no_mueve_caja" => true,
+                "no_mueve_inventario" => true,
+                "ventas_historicas_deben_usar_afecta_inventario_0" => true,
+                "ventas_historicas_deben_usar_afecta_caja_0" => true
+            )
+        );
+    }
 }

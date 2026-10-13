@@ -1051,6 +1051,6 @@
             "costos" => Sesionseguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260821-skus-vendibles-acciones-1"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20261011-sku-alta-limpia-2"></script>
 </body>
 </html>

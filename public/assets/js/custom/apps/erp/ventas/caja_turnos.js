@@ -117,6 +117,22 @@
         }
     }
 
+    function nombreAlmacen(idAlmacen) {
+        var almacen = (estado.almacenes || []).find(function (item) {
+            return String(item.id_almacen || "") === String(idAlmacen || "");
+        });
+        if (!almacen) { return idAlmacen ? ("Almacen " + idAlmacen) : "-"; }
+        return (almacen.codigo_almacen ? almacen.codigo_almacen + " - " : "") + (almacen.nombre_comercial || almacen.almacen || ("Almacen " + idAlmacen));
+    }
+
+    function nombreCaja(idCaja) {
+        var caja = (estado.cajas || []).find(function (item) {
+            return String(item.id_caja || "") === String(idCaja || "");
+        });
+        if (!caja) { return idCaja ? ("Caja " + idCaja) : "-"; }
+        return (caja.codigo ? caja.codigo + " - " : "") + (caja.nombre || ("Caja " + idCaja));
+    }
+
     function renderDenominaciones() {
         var contenedor = document.getElementById("pos_caja_denominaciones");
         if (!contenedor || contenedor.childElementCount) { return; }
@@ -218,8 +234,8 @@
             "<span class=\"badge badge-light-success\">" + dinero(montoInicial) + "</span>" +
             "</div>" +
             "<div class=\"row g-2 mb-3\">" +
-            resumenCaja("Almacen", idAlmacen) +
-            resumenCaja("Caja", idCaja) +
+            resumenCaja("Almacen", nombreAlmacen(idAlmacen)) +
+            resumenCaja("Caja", nombreCaja(idCaja)) +
             "</div>" +
             "<label class=\"form-label fs-8 text-muted text-uppercase\">Observaciones de apertura</label>" +
             "<input class=\"form-control form-control-solid mb-2\" id=\"pos_caja_apertura_observaciones\" value=\"Apertura POS desde Caja/Turnos\">" +

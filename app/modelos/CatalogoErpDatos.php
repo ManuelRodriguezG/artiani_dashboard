@@ -7780,6 +7780,7 @@ class CatalogoErpDatos extends CRUD {
 
   public function agregarSku($datos, $idUsuario) {
     $idProducto = intval(isset($datos["id_producto_erp"]) ? $datos["id_producto_erp"] : 0);
+    $datos = $this->normalizarBooleanosSkuFormulario($datos);
     if ($idProducto > 0) {
       $datos = $this->aplicarBaseSkuProducto($idProducto, $datos);
     }
@@ -7807,6 +7808,26 @@ class CatalogoErpDatos extends CRUD {
       }
       return $this->respuesta(true, "danger", $e->getCode() === "23000" ? "El SKU o código de barras ya existe" : $e->getMessage());
     }
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-11
+   * Proposito: interpreta switches ausentes del formulario de SKU como apagados antes de aplicar datos base.
+   * Impacto: Catalogo ERP; evita que altas nuevas hereden venta fraccionaria, lote o trazabilidad de otro SKU.
+   * Contrato: solo normaliza banderas booleanas capturadas en el formulario; no altera unidad, factor ni textos.
+   */
+  private function normalizarBooleanosSkuFormulario($datos) {
+    foreach (array(
+      "permite_venta_sin_existencia", "requiere_lote", "requiere_caducidad", "requiere_serie",
+      "permite_existencia_negativa", "requiere_serie_fabricante", "generar_etiqueta_interna",
+      "requiere_escaneo_venta", "permite_venta_fraccionaria", "permite_etiqueta_fraccionada",
+      "incluye_impuestos", "requiere_cantidad_variable_recepcion", "requiere_unidades_fisicas_recepcion"
+    ) as $campo) {
+      if (!array_key_exists($campo, $datos)) {
+        $datos[$campo] = "0";
+      }
+    }
+    return $datos;
   }
 
   public function baseSkuProducto($idProducto) {

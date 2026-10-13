@@ -4672,3 +4672,94 @@ Actualizacion 2026-09-03:
 - Limite conocido: el booleano `es_variante` ya no alcanza para expresar que una dimension puede servir tanto para variante como para ficha tecnica; el modelo robusto futuro debe agregar ambito/uso del atributo.
 - UAT recomendado: abrir un producto con SKUs, ir a `Atributos`, seleccionar `Medidas` en el selector, preparar, capturar Largo/Ancho/Alto por SKU, guardar, reabrir y confirmar que aparecen como columnas separadas sin mostrar la columna legacy `Medidas`.
 - Pendiente: planear limpieza asistida del atributo legacy `Medidas` para convertir, cuando sea confiable, textos como `30 x 20 x 40` a Largo/Ancho/Alto sin borrar informacion original hasta tener validacion humana.
+
+## Avance 2026-10-11 - Formulario limpio para alta de SKUs
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Problema: al editar un SKU y despues intentar agregar uno nuevo dentro del mismo producto, el formulario conservaba o reinyectaba reglas del ultimo SKU, especialmente `permite_venta_fraccionaria`. Esto provocaba alertas como `La unidad base debe permitir decimales para vender a granel` aunque el operador quisiera crear una presentacion en pieza.
+- Correccion: el formulario de `Agregar SKU` ya no se precarga automaticamente desde el ultimo SKU del producto. Al abrir el modal o usar `Limpiar para nuevo SKU`, queda en modo alta neutro: sin identidad, sin codigo de barras, sin venta fraccionaria, sin etiqueta fraccionada y con campos de granel limpiados.
+- Ajuste de carga: se actualizo la version del asset `productos.js` en la vista para evitar que el navegador siga usando el JS anterior con la precarga contaminante.
+- Candado adicional: antes de guardar SKU, si `Venta fraccionaria` esta apagada se limpian nuevamente los campos dependientes de granel para evitar estados residuales del modal.
+- Correccion final: se detecto que los switches apagados no viajaban en el `POST`; por eso PHP aplicaba la base del ultimo SKU y podia reactivar `permite_venta_fraccionaria`. Ahora el serializador envia `0` para checks apagados y el modelo normaliza banderas de SKU antes de heredar datos base.
+- Regla UX: si un SKU nuevo necesita granel, el operador debe activarlo explicitamente. Catalogo no debe asumir venta fraccionaria por herencia de otro SKU, porque presentaciones, aperturas y paquetes pueden compartir producto maestro pero tener reglas operativas distintas.
+- Sin cambios de esquema, sin migraciones y sin escritura masiva de datos.
+- UAT recomendado: editar un SKU granel, presionar `Limpiar para nuevo SKU`, capturar un SKU nuevo con unidad `pieza` y guardar sin activar `Venta fraccionaria`; no debe aparecer la alerta de unidad decimal.
+
+## Avance 2026-10-11 - SKUs derivados Tropical TP-40311 y TP-76700
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Autorizacion aplicada: `CATALOGO_SKUS_DERIVADOS_TROPICAL`.
+- Respaldo externo generado antes del ajuste: `C:\xampp\panel_db_backups\catalogo_skus_derivados_tropical_20261011_193635_pre.json`.
+- Herramienta controlada: `storage/uat/uat_catalogo_skus_derivados_tropical_apply_authorized.php`.
+- Decision: el ajuste se hizo usando metodos de `CatalogoErpDatos`, no SQL directo, para respetar el mismo contrato que usa la plataforma al guardar SKUs, aperturas de empaque y presentaciones.
+- `TP-40311` quedo modelado como SKU cerrado en `PZA`, con apertura hacia `TP-40311-GRANEL` en `KG` por factor `4.000000`, y presentaciones `25GR`, `50GR`, `100GR` y `500GR` derivadas del granel con factores `0.025000`, `0.050000`, `0.100000` y `0.500000`.
+- `TP-76700` quedo modelado como SKU cerrado en `PZA`, con apertura hacia `TP-76700-GRANEL` en `KG` por factor `5.000000`, y presentaciones `25GR`, `50GR`, `100GR` y `500GR` derivadas del granel con factores `0.025000`, `0.050000`, `0.100000` y `0.500000`.
+- Validacion posterior: `resolverContextoSkuVendible` reporto los SKUs granel como `granel` y las presentaciones como `presentacion`, todos con `requiere_costo=1`, `costo_derivable=1` y sin advertencias de configuracion.
+- Verificacion de incidencias: cada SKU derivado creado/ajustado quedo con una notificacion `catalogo_sku_derivado_costo_pendiente` hacia `rentabilidad_costos`.
+- Impacto respetado: no se tocaron inventario, ventas, precios ni costos.
+- Nota operativa: las incidencias/pendientes hacia Rentabilidad se generan por el contrato de guardado de aperturas y presentaciones en `CatalogoErpDatos`. Rentabilidad debe resolver costo derivado; Listas de precios debe resolver precio comercial despues.
+- Pendiente de revision separada: confirmar si la relacion de proveedor de `TP-40311` debe ajustarse al nuevo criterio operativo de compra como empaque cerrado, porque esta tarea no modifico proveedores.
+
+## Avance 2026-10-12 - Prueba SKU granel GRAVA-5
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Autorizacion aplicada: `CATALOGO_GRAVA5_GRANEL_PRUEBA`.
+- Respaldo externo generado antes del ajuste: `C:\xampp\panel_db_backups\catalogo_grava5_granel_20261012_211638_pre.json`.
+- Herramienta controlada: `storage/uat/uat_catalogo_grava5_granel_apply_authorized.php`.
+- Decision: se aplico primero solo `GRAVA-5` para validar el patron de gravas antes de continuar con los demas SKU del codigo ERP `GRAVA`.
+- `GRAVA-5` se conservo como SKU cerrado en `PZA`, activo, inventariable, sin venta fraccionaria.
+- Se creo `GRAVA-5-GRANEL` como SKU granel en `KG`, `factor_unidad_base=1.000000`, `permite_venta_fraccionaria=1`, `precision_decimal=3`, `incremento_minimo_venta=1.000000` y etiqueta de unidad `kg`.
+- Se guardo apertura de empaque `GRAVA-5 -> GRAVA-5-GRANEL` con `factor_conversion=25.000000`, estatus `activo`, sin requerir unidad fisica y sin merma default.
+- Validacion posterior: `resolverContextoSkuVendible` reporto `GRAVA-5-GRANEL` como `granel`, con `requiere_costo=1`, `costo_derivable=1` y sin advertencias de configuracion.
+- Verificacion de incidencia: se genero `erp_notificaciones.id_notificacion=410`, tipo `catalogo_sku_derivado_costo_pendiente`, area responsable `rentabilidad_costos`, estatus `pendiente`, para `GRAVA-5-GRANEL`.
+- Impacto respetado: no se tocaron inventario, ventas, POS, ecommerce, precios ni costos.
+- Pendiente: si la prueba operativa se confirma, repetir el mismo patron para `GRAVA-1`, `GRAVA-2`, `GRAVA-4` y `GRAVA-6` con respaldo externo previo y usando metodos de `CatalogoErpDatos`.
+
+## Avance 2026-10-12 - SKUs granel restantes GRAVA
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Autorizacion aplicada: `CATALOGO_GRAVAS_RESTANTES_GRANEL`.
+- Respaldo externo generado antes del ajuste: `C:\xampp\panel_db_backups\catalogo_gravas_restantes_granel_20261012_213530_pre.json`.
+- Herramienta controlada: `storage/uat/uat_catalogo_gravas_restantes_granel_apply_authorized.php`.
+- Decision: despues de validar `GRAVA-5-GRANEL`, se aplico el mismo patron a los SKUs restantes del codigo ERP `GRAVA`: `GRAVA-2`, `GRAVA-6`, `GRAVA-1` y `GRAVA-4`.
+- Se crearon los SKUs granel:
+  - `GRAVA-2-GRANEL`, id SKU `2012`, unidad `KG`, factor unidad base `1.000000`, venta fraccionaria activa, precision `3`, etiqueta `kg`.
+  - `GRAVA-6-GRANEL`, id SKU `2013`, unidad `KG`, factor unidad base `1.000000`, venta fraccionaria activa, precision `3`, etiqueta `kg`.
+  - `GRAVA-1-GRANEL`, id SKU `2014`, unidad `KG`, factor unidad base `1.000000`, venta fraccionaria activa, precision `3`, etiqueta `kg`.
+  - `GRAVA-4-GRANEL`, id SKU `2015`, unidad `KG`, factor unidad base `1.000000`, venta fraccionaria activa, precision `3`, etiqueta `kg`.
+- Se guardaron aperturas de empaque activas con `factor_conversion=25.000000`:
+  - apertura `22`: `GRAVA-2 -> GRAVA-2-GRANEL`.
+  - apertura `23`: `GRAVA-6 -> GRAVA-6-GRANEL`.
+  - apertura `24`: `GRAVA-1 -> GRAVA-1-GRANEL`.
+  - apertura `25`: `GRAVA-4 -> GRAVA-4-GRANEL`.
+- Validacion posterior: `resolverContextoSkuVendible` reporto los cuatro SKUs nuevos como `granel`, con `requiere_costo=1`, `costo_derivable=1` y sin advertencias de configuracion.
+- Verificacion de incidencias: se generaron pendientes hacia Rentabilidad:
+  - notificacion `411`: `GRAVA-2-GRANEL`.
+  - notificacion `412`: `GRAVA-6-GRANEL`.
+  - notificacion `413`: `GRAVA-1-GRANEL`.
+  - notificacion `414`: `GRAVA-4-GRANEL`.
+- Impacto respetado: no se tocaron inventario, ventas, POS, ecommerce, precios ni costos.
+- Estado del lote `GRAVA`: los cinco SKUs cerrados `GRAVA-1`, `GRAVA-2`, `GRAVA-4`, `GRAVA-5` y `GRAVA-6` ya tienen su SKU `-GRANEL` en `KG` y apertura de empaque por factor `25`.
+
+## Avance 2026-10-12 - SKUs granel GRAVA-EST
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Autorizacion aplicada: `CATALOGO_GRAVA_EST_GRANEL`.
+- Respaldo externo generado antes del ajuste: `C:\xampp\panel_db_backups\catalogo_grava_est_granel_20261012_215723_pre.json`.
+- Herramienta controlada: `storage/uat/uat_catalogo_grava_est_granel_apply_authorized.php`.
+- Decision: se aplico el patron cerrado `PZA` -> granel `KG` con apertura de empaque factor `25` al producto maestro `GRAVA-EST`.
+- Se crearon los SKUs granel:
+  - `GRAVA-14-GRANEL`, id SKU `2016`, unidad `KG`, factor unidad base `1.000000`, venta fraccionaria activa, precision `3`, etiqueta `kg`.
+  - `GRAVA-25-GRANEL`, id SKU `2017`, unidad `KG`, factor unidad base `1.000000`, venta fraccionaria activa, precision `3`, etiqueta `kg`.
+  - `GRAVA-32-GRANEL`, id SKU `2018`, unidad `KG`, factor unidad base `1.000000`, venta fraccionaria activa, precision `3`, etiqueta `kg`.
+- Se guardaron aperturas de empaque activas con `factor_conversion=25.000000`:
+  - apertura `26`: `GRAVA-14 -> GRAVA-14-GRANEL`.
+  - apertura `27`: `GRAVA-25 -> GRAVA-25-GRANEL`.
+  - apertura `28`: `GRAVA-32 -> GRAVA-32-GRANEL`.
+- Validacion posterior: `resolverContextoSkuVendible` reporto los tres SKUs nuevos como `granel`, con `requiere_costo=1`, `costo_derivable=1` y sin advertencias de configuracion.
+- Verificacion de incidencias: se generaron pendientes hacia Rentabilidad:
+  - notificacion `415`: `GRAVA-14-GRANEL`.
+  - notificacion `416`: `GRAVA-25-GRANEL`.
+  - notificacion `417`: `GRAVA-32-GRANEL`.
+- Impacto respetado: no se tocaron inventario, ventas, POS, ecommerce, precios ni costos.
+- Estado del lote `GRAVA-EST`: `GRAVA-14`, `GRAVA-25` y `GRAVA-32` ya tienen su SKU `-GRANEL` en `KG` y apertura de empaque por factor `25`.

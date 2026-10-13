@@ -808,6 +808,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20261010-venta-rapida-unidad1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20261013-precio-backend-sync1"></script>
 </body>
 </html>

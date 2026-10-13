@@ -5979,3 +5979,321 @@ Codigos de autorizacion:
 - La base conserva hash y mascara; la UI/listados solo deben mostrar folio, mascara, estatus, vigencia y usos.
 - Si el usuario olvida el codigo, debe generar uno nuevo desde `Ventas > Configuracion POS > Autorizadores`.
 - No documentar codigos completos en handoff ni tickets.
+
+## Corte vigente 2026-10-11 - Carga historica de ventas y correccion precio POS
+
+Correccion precio POS:
+
+- Caso reportado:
+  - `FOHRS-PAFAKG` cantidad 1 precio `$50`;
+  - `A02877-500G` cantidad 1 precio `$50`;
+  - POS bloqueaba con `Precio enviado por POS no coincide...` y `El total pagado no cubre el total estimado`.
+- Diagnostico:
+  - el buscador POS mostraba ambos SKUs en `$50`;
+  - la prevalidacion resolvia `A02877-500G` en `$100`;
+  - causa: `resolverPrecioSkuDryRun` aceptaba detalles de lista de otros SKUs hermanos porque filtraba `d.id_sku=:sku OR d.id_producto_erp=:producto` y luego ordenaba por `d.id_sku DESC`;
+  - para producto `A02877`, una regla de otro SKU (`id_sku=1901`) ganaba al SKU exacto `1813`.
+- Ajuste aplicado:
+  - precio por lista ahora solo considera:
+    - detalle exacto del SKU; o
+    - detalle general del producto cuando `d.id_sku` es `NULL` o `0`;
+  - el orden prioriza `CASE WHEN d.id_sku=:sku THEN 0 ELSE 1 END`;
+  - reproduce total esperado `$100` para las dos partidas.
+- Validacion:
+  - `php -l app/modelos/VentasErp.php`: OK;
+  - prevalidacion read-only con los dos SKUs devuelve precio aplicado `$50` y total `$100`;
+  - queda solo bloqueo operativo si no hay turno abierto.
+
+Carga historica ventas:
+
+- Regla acordada:
+  - POS tiempo real debe afectar inventario o generar pendientes/alertas segun modo operativo;
+  - carga historica es evidencia y reportes, no operacion viva;
+  - venta historica no debe mover caja, turno, kardex ni inventario.
+- Preparacion realizada sin escribir BD:
+  - `VentasErpEsquema::planActualizarVentasHistoricas(false)`;
+  - `VentasErpEsquema::auditarVentasHistoricas()`;
+  - script read-only `storage/uat/uat_ventas_historicas_schema_readonly.php`.
+- DDL propuesto sobre `erp_ventas`:
+  - `origen_venta`;
+  - `modo_operacion`;
+  - `afecta_inventario`;
+  - `afecta_caja`;
+  - `fecha_venta_real`;
+  - `fecha_captura_historica`;
+  - `capturada_por`;
+  - `observaciones_historicas`;
+  - indices `idx_ventas_origen_fecha`, `idx_ventas_modo_afectacion`, `idx_ventas_captura_historica`.
+- Siguiente autorizacion sugerida:
+  - `AUTORIZO APLICAR DDL CARGA HISTORICA VENTAS usando respaldo productivo vigente con token VENTAS_HISTORICAS_DDL confirmacion="APLICAR CARGA HISTORICA VENTAS" para Ventas/POS`.
+
+Resultado DDL carga historica:
+
+- Autorizacion recibida:
+  - `AUTORIZO APLICAR DDL CARGA HISTORICA VENTAS usando respaldo productivo vigente con token VENTAS_HISTORICAS_DDL confirmacion="APLICAR CARGA HISTORICA VENTAS" para Ventas/POS`.
+- Aplicacion:
+  - script `storage/uat/uat_ventas_historicas_schema_apply_authorized.php`;
+  - por restriccion del entorno CLI, la ejecucion autorizada se hizo sin argumentos externos, inyectando `$argv` dentro de PHP para conservar la validacion de token/respaldo/confirmacion y permitir conexion normal a MySQL;
+  - no se crearon ventas, no se modificaron ventas existentes, no se movio caja, no se movio inventario y no se creo kardex.
+- Auditoria posterior:
+  - `erp_ventas` existe;
+  - columnas faltantes: `0`;
+  - indices faltantes: `0`;
+  - `storage/uat/uat_ventas_historicas_schema_readonly.php` devuelve `ddl_generado=[]`.
+- Campos disponibles:
+  - `origen_venta`;
+  - `modo_operacion`;
+  - `afecta_inventario`;
+  - `afecta_caja`;
+  - `fecha_venta_real`;
+  - `fecha_captura_historica`;
+  - `capturada_por`;
+  - `observaciones_historicas`.
+- Siguiente tarea:
+  - crear endpoints y vista `Ventas > Carga historica` para registrar ventas pasadas con `origen_venta='carga_historica'`, `modo_operacion='historica_sin_inventario'`, `afecta_inventario=0`, `afecta_caja=0`;
+  - los reportes deberan poder incluirlas o separarlas por origen/modo, sin confundirlas con POS tiempo real.
+
+## Corte vigente 2026-10-11 - Diagnostico alertas inventario POS
+
+Consulta read-only creada:
+
+- `storage/uat/diagnostico_alertas_pos_readonly.php`.
+- Contrato: no escribe BD, no mueve caja, no mueve inventario, no resuelve alertas.
+
+Hallazgo sobre ventas del 2026-10-11:
+
+- Ventas revisadas:
+  - `POS-20261011-000001`;
+  - `POS-20261011-000002`;
+  - `POS-20261011-000003`.
+- Todas usaron `id_caja=2` / `CJ-MASCOTAS971-01`.
+- Configuracion actual de la caja:
+  - `afectar_inventario=0`;
+  - `modo_operacion_inventario='piloto_sin_inventario'`;
+  - `generar_alertas_inventario=1`.
+- Resultado:
+  - los detalles quedaron en `modo_salida='sin_afectacion_piloto'`;
+  - no se generaron expedientes `PINV-*`;
+  - no se generaron notificaciones `pos_venta_inventario_pendiente`.
+
+Interpretacion:
+
+- `generar_alertas_inventario=1` no genera alertas por si solo si la caja esta en `piloto_sin_inventario`.
+- Para forzar regularizacion con mini inventario, la caja debe estar en `regularizacion_activa` con `afectar_inventario=1`.
+- Ya existen politicas globales activas para inventario pendiente:
+  - almacen `4`: `PINV-A4-GLOBAL-POS`, hasta `10` piezas y `$10000`;
+  - almacen `5`: `PINV-A5-GLOBAL-POS`, hasta `10` piezas y `$10000`.
+- En `regularizacion_activa`, si hay stock disponible descuenta con kardex; si falta stock y la politica lo permite, crea `PINV-*` y notificacion a Inventario/Existencias.
+
+Ajuste aplicado en codigo:
+
+- En `VentasErp::confirmarVentaPosReal`, el encabezado de futuras ventas ya guarda:
+  - `origen_venta='pos_tiempo_real'`;
+  - `modo_operacion` segun la caja (`normal`, `regularizacion_activa` o `piloto_sin_inventario`);
+  - `afecta_inventario=0` cuando la caja esta en piloto;
+  - `afecta_caja=1`.
+- Esto evita que reportes futuros lean `afecta_inventario=1` por default cuando el detalle realmente quedo sin afectacion piloto.
+- Las ventas ya registradas el 2026-10-11 no se modificaron; corregir su encabezado seria escritura/backfill y requiere autorizacion explicita.
+
+Siguiente autorizacion sugerida si el dueno quiere activar alertas reales:
+
+- `AUTORIZO CONFIGURAR CAJA POS EN REGULARIZACION ACTIVA usando respaldo productivo vigente con token VENTAS_POS_MODO_INVENTARIO_CAJA_REAL id_caja=2 modo=regularizacion_activa motivo="Activar ventas POS con regularizacion de inventario y alertas PINV"`.
+
+Resultado aplicado:
+
+- Autorizacion recibida y ejecutada para `id_caja=2`.
+- Antes:
+  - `afectar_inventario=0`;
+  - `modo_operacion_inventario='piloto_sin_inventario'`;
+  - `generar_alertas_inventario=1`.
+- Despues:
+  - `afectar_inventario=1`;
+  - `modo_operacion_inventario='regularizacion_activa'`;
+  - `generar_alertas_inventario=1`.
+- Verificacion read-only confirma:
+  - caja `CJ-MASCOTAS971-01`;
+  - almacen `5`;
+  - estatus `activa`.
+- Siguiente prueba recomendada:
+  - vender un SKU con existencia disponible para confirmar kardex normal;
+  - vender un SKU sin existencia o con faltante permitido para confirmar expediente `PINV-*` y notificacion a Inventario/Existencias;
+  - vender una partida de venta rapida para confirmar pendiente `VRP-*` hacia Catalogo.
+
+## Decision operativa vigente - caja principal con origen por partida
+
+Contexto:
+
+- Se analizo convertir apertura de turno/caja a modo multi-almacen.
+- Para la operacion inmediata se decidio no cambiar todavia el contrato de turnos, caja, asignaciones y cierre.
+- La caja/turno conserva un almacen principal para caja, reportes y configuracion.
+- Cada partida del POS conserva su propio `id_almacen` / `id_almacen_origen`, que define de que tienda/almacen debe salir el inventario.
+
+Regla vigente:
+
+- No se requiere abrir un turno multi-almacen formal para vender articulos de distintos origenes.
+- El operador debe revisar/cambiar el origen por partida en el carrito cuando el producto salga de otra tienda/almacen.
+- El cobro debe enviar cada renglon con su origen real para kardex, inventario pendiente, venta rapida y trazabilidad.
+
+Ajuste UI aplicado:
+
+- `public/assets/js/custom/apps/erp/ventas/pos.js` muestra en el estado del carrito un resumen de origenes.
+- Antes de prevalidar o cobrar, POS bloquea si alguna partida perdio el almacen de salida.
+- No se aplico DDL ni se modifico el modelo de turnos multi-almacen.
+
+Fase posterior opcional:
+
+- Si la operacion exige permisos por caja con multiples almacenes autorizados, crear DDL de `modo_almacen_pos` y `almacenes_permitidos_json` en caja/turno.
+- Hasta entonces, mantener el flujo simple: caja principal + origen por partida.
+
+## Corte vigente 2026-10-13 - Mejora buscador POS y apertura turno
+
+Cambios aplicados:
+
+- `public/assets/js/custom/apps/erp/ventas/caja_turnos.js`
+  - La validacion de apertura ya no muestra `Almacen $5.00` ni `Caja $2.00`.
+  - El resumen ahora muestra la etiqueta real de almacen/caja; el monto inicial sigue mostrandose como dinero.
+- `app/modelos/VentasErp.php`
+  - `buscarSkusPos` conserva busqueda por frase exacta/codigo, pero ahora tambien separa palabras utiles.
+  - Ejemplo validado read-only: `alimento iguana` devuelve productos como `Alimento iguana bits` y `Alimento para iguana...` sin exigir escribir `para`.
+  - Stopwords como `de`, `del`, `para`, `con`, `y` no obligan la coincidencia.
+
+Validaciones:
+
+- `C:\xampp\php\php.exe -l app\modelos\VentasErp.php`: OK.
+- `node --check public/assets/js/custom/apps/erp/ventas/caja_turnos.js`: OK.
+- `node --check public/assets/js/custom/apps/erp/ventas/pos.js`: OK.
+
+## Corte vigente 2026-10-13 - Precio POS vs backend e inventario por modo
+
+Hallazgo de precio:
+
+- El POS podia agregar productos con `precio` tomado de `erp_catalogo_sku_precios` general.
+- Al cobrar, el backend recalcula precio con `resolverPrecioSkuDryRun`, dando prioridad a listas activas (`erp_listas_precios`) por canal/sucursal/cliente.
+- Si la lista activa difiere del precio general, el backend bloquea con:
+  - `Precio enviado por POS no coincide con el precio autorizado por backend`.
+
+Ajuste aplicado:
+
+- `VentasErp::buscarSkusPos` ahora enriquece cada resultado con el mismo resolutor de precio que usa el cobro.
+- El campo `precio` devuelto al POS queda alineado con la lista activa aplicable.
+- Se conserva `precio_catalogo_general` para diagnostico interno, y se devuelven `lista_precio_snapshot` / `regla_precio_origen`.
+
+Validacion read-only:
+
+- Busqueda `alimento iguana`, almacen `5`:
+  - algunos SKUs muestran diferencia entre precio general y lista `LP-MENUDEO-01`;
+  - el POS debe mostrar y mandar el precio de lista activa, no el general.
+
+Estado de cajas:
+
+- Caja `1` / Acuario `id_almacen=4`: `modo_operacion_inventario='normal'`, `afectar_inventario=1`, `generar_alertas_inventario=1`.
+- Caja `2` / Mascotas `id_almacen=5`: `modo_operacion_inventario='regularizacion_activa'`, `afectar_inventario=1`, `generar_alertas_inventario=1`.
+
+Regla operativa:
+
+- `normal`: descuenta inventario si hay stock; si no hay stock, bloquea.
+- `regularizacion_activa`: descuenta si hay stock; si falta stock y existe politica PINV, cobra y genera expediente/notificacion de inventario pendiente.
+- `piloto_sin_inventario`: registra venta/caja/reportes sin kardex ni pendientes de inventario.
+
+Almacenes de origen:
+
+- El POS puede cobrar con caja principal y cambiar origen por partida.
+- Origenes visibles actuales:
+  - `4` Acuario;
+  - `5` Mascotas frontal;
+  - `3` Bodega trasera.
+- Politicas PINV activas actuales:
+  - almacen `4`;
+  - almacen `5`.
+- No hay politica PINV para bodega `3`; vender desde bodega con faltante requerira crear politica para ese almacen si se desea alerta/pendiente.
+
+## Corte vigente 2026-10-13 - Regularizacion activa multi-almacen POS
+
+Autorizacion aplicada:
+
+- `AUTORIZO CONFIGURAR POS REGULARIZACION ACTIVA Y PINV BODEGA usando respaldo productivo vigente con token VENTAS_POS_REGULARIZACION_MULTI_ALMACEN id_cajas=1,2 id_almacenes_pinv=3,4,5 motivo="Activar ventas con regularizacion activa y alertas de inventario pendiente para tiendas y bodega"`.
+
+Script creado:
+
+- `storage/uat/uat_ventas_pos_regularizacion_multi_almacen_apply_authorized.php`.
+- Contrato:
+  - bloqueado por defecto;
+  - requiere token `VENTAS_POS_REGULARIZACION_MULTI_ALMACEN`;
+  - no abre turnos;
+  - no cobra ventas;
+  - no mueve kardex;
+  - no modifica existencias;
+  - solo actualiza configuracion de cajas y politicas PINV.
+
+Resultado verificado read-only desde `VentasErp::configuracionPosReadOnly()`:
+
+- Caja `1` / Acuario:
+  - `afectar_inventario=1`;
+  - `modo_operacion_inventario='regularizacion_activa'`;
+  - `generar_alertas_inventario=1`.
+- Caja `2` / Mascotas:
+  - `afectar_inventario=1`;
+  - `modo_operacion_inventario='regularizacion_activa'`;
+  - `generar_alertas_inventario=1`.
+- Politicas PINV globales activas:
+  - `PINV-A3-GLOBAL-POS` para `Francisco Javier Mina 971 - Bodega trasera`;
+  - `PINV-A4-GLOBAL-POS` para `Francisco Javier Mina 967 - Acuario`;
+  - `PINV-A5-GLOBAL-POS` para `Francisco Javier Mina 971 - Mascotas frontal`.
+- Cada politica global permite hasta `10` unidades pendientes y `$10000` de monto maximo.
+
+Regla operativa consolidada:
+
+- La caja/turno cobra y conserva trazabilidad del operador, caja y corte.
+- Cada partida conserva su `id_almacen` de origen.
+- Si el origen tiene stock, el POS descuenta ese almacen con kardex.
+- Si el origen no tiene stock y la politica PINV lo permite, el POS debe cobrar y crear expediente/alerta de inventario pendiente para ese mismo almacen de origen.
+- La bodega puede ser origen de partida POS aunque no sea caja vendible; esto no convierte la bodega en caja, solo permite descontar/generar pendiente contra ese almacen cuando el operador la elige como origen.
+
+Nota tecnica:
+
+- La ejecucion autorizada se hizo con `$argv` inyectado desde PHP CLI para conservar el token/respaldo y usar la misma conexion confirmada por el modelo POS.
+- La invocacion directa `php script.php --args` en este entorno CLI puede no tomar la misma conexion; para futuras tareas similares, preferir el patron documentado en scripts previos o ejecutar desde endpoint protegido cuando exista.
+
+## Corte vigente 2026-10-13 - Bloqueo precio POS persistente
+
+Caso reportado:
+
+- Al cobrar, POS seguia mostrando:
+  - `Precio enviado por POS no coincide con el precio autorizado por backend; usa excepcion comercial autorizada`.
+
+Hallazgo:
+
+- El backend ya resuelve precios correctamente con listas activas.
+- La causa probable cuando el bloqueo persiste es carrito local/cacheado:
+  - partida agregada antes del ajuste de precios;
+  - partida enviada desde Atenciones con snapshot viejo;
+  - cambio de origen/almacen por partida despues de agregar el producto;
+  - navegador cargando `pos.js` anterior.
+
+Ajustes aplicados:
+
+- `VentasErp::prevalidarPartida` ahora devuelve bloqueo detallado con:
+  - SKU;
+  - precio enviado por POS;
+  - precio autorizado por backend.
+- `public/assets/js/custom/apps/erp/ventas/pos.js` ahora sincroniza precios del carrito desde la prevalidacion cuando detecta diferencia:
+  - actualiza `precio_unitario` al precio autorizado;
+  - conserva trazabilidad `lista_precio_snapshot` / `regla_precio_origen`;
+  - vuelve a renderizar carrito, pagos y totales;
+  - avisa al operador que revise total/pago y vuelva a cobrar.
+- `app/vistas/paginas/apps/erp/ventas/pos.php` actualizo version del asset:
+  - `pos.js?v=20261013-precio-backend-sync1`.
+
+Validaciones:
+
+- `php -l app/modelos/VentasErp.php`: OK.
+- `node --check public/assets/js/custom/apps/erp/ventas/pos.js`: OK.
+- `php -l app/vistas/paginas/apps/erp/ventas/pos.php`: OK.
+- Prevalidacion forzada con SKU `ALI-GLOMDM`, precio POS `$1.00`, autorizado `$550.00`, devuelve mensaje detallado.
+- Prevalidacion read-only con `FOHRS-PAFAKG`, precio `$50.00`, confirma precio autorizado `$50.00`; no hay bloqueo de precio.
+
+Uso operativo:
+
+- Despues de este ajuste, si aparece bloqueo de precio por un carrito viejo, la primera prevalidacion/cobro debe actualizar el carrito.
+- El operador debe revisar que el total y el pago coincidan y volver a cobrar.
+- Si el navegador no carga el cambio, forzar recarga completa de `/ventas/pos`.

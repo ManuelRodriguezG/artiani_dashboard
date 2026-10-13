@@ -69,6 +69,146 @@ Pendientes de negocio antes de implementar:
 - Confirmar si el vidrio cortado se quiere inventariar por pieza individual o solo como material consumido para una fabricacion especifica.
 - Confirmar si las peceras se fabrican bajo pedido, para stock, o ambas.
 
+## Decision operativa: peceras, terrarios y tortugueros fabricados internamente
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-10-11  
+Proposito: evitar que productos fabricados internamente contaminen Compras, cuentas por pagar o el catalogo vendible.  
+Impacto: Produccion, Catalogo, Compras, Almacen, Inventario, Costos y Rentabilidad.
+
+Decision:
+
+- Las peceras, terrarios y tortugueros fabricados por el negocio no deben nacer como orden de compra de producto terminado.
+- Compras solo debe usarse para adquirir materiales, componentes, insumos, servicios o cargos reales de terceros.
+- El producto terminado fabricado debe ingresar a inventario por una orden de produccion/fabricacion, no por recepcion de compra.
+- No se debe crear un proveedor ficticio para "pagarse a uno mismo" ni generar saldos pendientes por productos fabricados internamente.
+- La fabricacion puede consumir materiales previamente comprados: vidrio, silicon, tapas, malla, perfiles, accesorios, empaques, etiquetas u otros insumos.
+- Si aun no existe el modulo completo de Produccion, la alternativa temporal debe ser una entrada interna controlada de producto terminado con motivo claro, por ejemplo `fabricacion interna temporal`, sin cuenta por pagar y sin afectar Compras.
+
+Regla principal:
+
+> Compras compra lo externo. Produccion transforma. Almacen recibe o confirma fisicamente. Inventario registra existencias. Costos calcula el costo. Ventas vende solo productos autorizados por canal.
+
+### Como evitar contaminar el catalogo
+
+El catalogo ERP debe funcionar como maestro de articulos del negocio, pero no todos los articulos deben ser vendibles.
+
+No se recomienda crear un catalogo separado aislado para materia prima, porque despues Compras, Almacen, Inventario, Produccion y Costos necesitaran referenciar los mismos SKUs. Lo correcto es un catalogo unico con clasificacion operativa clara.
+
+Clasificacion recomendada:
+
+- `producto_terminado`: vendible si esta autorizado por canal. Ejemplo: pecera 60x30x30 terminada.
+- `materia_prima`: comprable e inventariable, no vendible normal. Ejemplo: vidrio 6 mm por m2.
+- `componente`: pieza fisica consumible o integrable. Ejemplo: tapa, perfil, rampa, vidrio frontal cortado.
+- `insumo`: consumible de produccion/empaque. Ejemplo: silicon, etiqueta, bolsa, caja.
+- `servicio`: no genera stock, puede afectar costo. Ejemplo: corte de vidrio, pulido, maquila.
+- `gasto`: no genera stock y normalmente no se capitaliza al producto, salvo politica contable posterior.
+
+Banderas minimas deseadas por SKU/articulo:
+
+- comprable;
+- inventariable;
+- vendible POS;
+- vendible ecommerce;
+- consumible en produccion;
+- producible como resultado;
+- requiere lote/caducidad, si aplica;
+- unidad base;
+- unidad de compra;
+- unidad de produccion;
+- controla costo;
+- requiere receta/lista de materiales.
+
+Con esto, materia prima e insumos viven en el ERP sin aparecer como productos normales de venta.
+
+### Flujo robusto para fabricar productos propios
+
+1. Catalogo define el producto terminado y los materiales/insumos.
+2. Proveedores define relaciones, costos y listas para materiales o servicios externos.
+3. Compras adquiere materiales, componentes, insumos o servicios reales.
+4. Almacen recibe materiales fisicos y confirma cantidades reales.
+5. Produccion crea una orden de fabricacion.
+6. Produccion consume materiales/insumos.
+7. Produccion genera entrada de producto terminado.
+8. Inventario registra salida de materiales y entrada de producto terminado.
+9. Costos calcula costo del producto fabricado.
+10. Ventas/POS/Ecommerce venden solo productos terminados autorizados.
+
+### Peceras, terrarios y tortugueros
+
+Producto terminado:
+
+- pecera modelo estandar;
+- terrario modelo estandar;
+- tortuguero modelo estandar;
+- proyecto personalizado bajo pedido, si aplica.
+
+Materiales/insumos frecuentes:
+
+- vidrio por espesor y unidad tecnica;
+- silicon;
+- tapa;
+- malla;
+- perfiles;
+- rampas;
+- accesorios;
+- empaque;
+- etiqueta;
+- servicio de corte o pulido.
+
+Primera version recomendada:
+
+- Mantener la calculadora de peceras como herramienta de Produccion.
+- Persistir proyectos/perfiles de peceras antes de conectarlos a Compras.
+- Permitir generar solicitud de compra solo para vidrio, materiales o servicios, no para la pecera terminada.
+- Crear orden de produccion simple para fabricar y dar entrada al producto terminado.
+- Permitir fabricacion para stock y fabricacion bajo pedido.
+
+### Insumos y materia prima
+
+No se recomienda crear un modulo aislado llamado solo "Insumos" separado del ERP. Lo recomendable es:
+
+- Catalogo: define el articulo como materia prima, componente o insumo.
+- Compras: lo compra cuando viene de proveedor externo.
+- Almacen: lo recibe y controla fisicamente.
+- Inventario: muestra su existencia y kardex.
+- Produccion: lo consume.
+- Costos: lo transfiere al producto terminado si corresponde.
+
+El modulo/pantalla de "Insumos y materia prima" puede existir como vista filtrada de Catalogo/Inventario, pero usando los mismos IDs/SKUs maestros del ERP.
+
+### Estados sugeridos de una orden de produccion
+
+- `borrador`: se esta preparando receta/cantidad.
+- `planeada`: lista para producir, sin consumir inventario.
+- `en_proceso`: materiales reservados o consumo iniciado.
+- `terminada`: producto terminado ingresado.
+- `cancelada`: no se ejecuta.
+- `cerrada`: revisada por costos/administracion, sin cambios operativos.
+
+### Movimiento de inventario esperado
+
+Al terminar produccion:
+
+- salida: materia prima, componentes e insumos consumidos;
+- entrada: producto terminado;
+- referencia: folio de produccion;
+- costo: acumulado desde materiales, insumos, merma, servicio y mano de obra si se decide controlar.
+
+### Puente temporal permitido
+
+Mientras Produccion completa no exista, se permite una entrada interna de producto terminado solo si:
+
+- no genera proveedor;
+- no genera cuenta por pagar;
+- no se registra como compra;
+- queda auditada con motivo `fabricacion interna temporal`;
+- se captura observacion clara;
+- idealmente se adjuntan notas/fotos/soporte;
+- se documenta que el costo puede ser estimado y debera ajustarse cuando exista Costos/Produccion formal.
+
+Este puente no debe usarse para materia prima comprada. La materia prima comprada debe entrar por Compras/Recepcion.
+
 ### Handoff / continuidad - Peceras
 
 Fecha: 2026-08-03

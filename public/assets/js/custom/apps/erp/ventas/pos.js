@@ -164,6 +164,39 @@
     function nombreAlmacenPartida(item) {
         return nombreAlmacen(almacenPartida(item), item && item.nombre_almacen_origen ? item.nombre_almacen_origen : "");
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-13
+     * Proposito: mantener el flujo operativo simple con un turno/caja principal y origen por partida.
+     * Impacto: evita cobrar o prevalidar partidas sin almacen de salida, sin convertir turnos a multi-almacen.
+     */
+    function resumenOrigenesCarrito() {
+        var origenes = {};
+        carrito.forEach(function (item) {
+            var idAlmacen = almacenPartida(item);
+            if (idAlmacen) {
+                origenes[String(idAlmacen)] = nombreAlmacenPartida(item);
+            }
+        });
+        var nombres = Object.keys(origenes).map(function (id) { return origenes[id]; });
+        if (!nombres.length) { return "Sin origen"; }
+        if (nombres.length === 1) { return "Origen: " + nombres[0]; }
+        return nombres.length + " origenes: " + nombres.slice(0, 2).join(", ") + (nombres.length > 2 ? "..." : "");
+    }
+    function validarOrigenesCarrito() {
+        var faltantes = [];
+        carrito.forEach(function (item, index) {
+            if (!almacenPartida(item)) {
+                faltantes.push((index + 1) + ". " + (item.sku || item.descripcion || "Partida"));
+            }
+        });
+        if (!faltantes.length) { return true; }
+        document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">" +
+            "<div class=\"fw-bold\">Falta origen de almacen en una o mas partidas.</div>" +
+            "<div class=\"fs-8 mb-2\">Cada producto debe indicar de que tienda/almacen sale antes de prevalidar o cobrar.</div>" +
+            "<ul class=\"mb-0 ps-4\">" + faltantes.map(function (texto) { return "<li>" + escapeHtml(texto) + "</li>"; }).join("") + "</ul>" +
+        "</div>";
+        return false;
+    }
     function opcionesAlmacenPartida(seleccionado, nombreSeleccionado) {
         var almacenes = (catalogos.almacenes_origen && catalogos.almacenes_origen.length) ? catalogos.almacenes_origen : (catalogos.almacenes || []);
         if (!almacenes.length) {
@@ -1683,7 +1716,7 @@
                     "<td class=\"text-end\"><button class=\"btn btn-sm btn-icon btn-light-danger\" data-pos-quitar type=\"button\" title=\"Quitar\"><i class=\"bi bi-x-lg\"></i></button></td>" +
                     "</tr>";
             }).join("") + "</tbody></table></div>";
-        document.getElementById("pos_carrito_estado").textContent = carrito.length ? (carrito.length + " partida(s)") : "Sin partidas";
+        document.getElementById("pos_carrito_estado").textContent = carrito.length ? (carrito.length + " partida(s) | " + resumenOrigenesCarrito()) : "Sin partidas";
         actualizarTotales();
         renderExcepcionActiva();
         actualizarOpcionesExcepcionSku();
@@ -2516,6 +2549,7 @@
         });
     }
     function enviarValidacion(url, renderer) {
+        if (!validarOrigenesCarrito()) { return; }
         request(url, payloadVentaPos()).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             renderer(response);
@@ -2539,6 +2573,7 @@
             document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Agrega al menos un pago antes de cobrar.</div>";
             return;
         }
+        if (!validarOrigenesCarrito()) { return; }
         var pendienteAntesSaldo = totalCobroActual();
         var saldoCrmExcede = false;
         pagos.forEach(function (pago) {
@@ -2634,6 +2669,7 @@
             document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Agrega al menos un pago antes de cobrar con faltantes.</div>";
             return;
         }
+        if (!validarOrigenesCarrito()) { return; }
         solicitarAutorizacionFaltantes().then(function (datos) {
             if (!datos) { return; }
             ejecutarCobroRealComun(true, datos.motivo || "Venta POS con faltantes autorizados", document.getElementById("pos_cobrar_faltantes_real"));
@@ -2641,6 +2677,7 @@
     }
     function ejecutarCobroRealComun(autorizarFaltantes, motivoFaltantes, boton) {
         if (boton && boton.disabled) { return; }
+        if (!validarOrigenesCarrito()) { return; }
         var payloadTmsPendiente = null;
         if (tmsPosActivo()) {
             if (!carrito.length) {
@@ -2689,7 +2726,9 @@
         var depurar = response.depurar || {};
         var bloqueos = depurar.bloqueos || [];
         if (bloqueos.length || response.tipo !== "success") {
+            var sincronizadosCobro = sincronizarPreciosCarritoDesdePrevalidacion((((depurar.prevalidacion || {}).depurar || {}).partidas) || []);
             document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(mensajeOperativo(response.mensaje || "Cobro pendiente de resolver")) + "</div>" +
+                (sincronizadosCobro ? "<div class=\"alert alert-light-info py-2 mb-2\"><div class=\"fw-bold\">Precios actualizados</div><div class=\"fs-8\">Actualice " + sincronizadosCobro + " partida(s) con el precio autorizado por backend. Revisa el total/pago y vuelve a cobrar.</div></div>" : "") +
                 "<div class=\"fw-semibold fs-8 text-muted mb-1\">Pendientes por resolver</div><ul class=\"mb-0 ps-4\">" + listaMensajesOperativos(bloqueos) + "</ul></div>";
             return;
         }
@@ -2758,8 +2797,12 @@
     function renderValidacion(response) {
         var depurar = response.depurar || {};
         var bloqueos = depurar.bloqueos || [];
+        var sincronizados = sincronizarPreciosCarritoDesdePrevalidacion(depurar.partidas || []);
         var clase = bloqueos.length ? "alert-warning" : "alert-success";
         var html = "<div class=\"alert " + clase + " py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(mensajeOperativo(response.mensaje || "Revision")) + "</div>";
+        if (sincronizados) {
+            html += "<div class=\"alert alert-light-info py-2 mb-2\"><div class=\"fw-bold\">Precios actualizados</div><div class=\"fs-8\">Actualice " + sincronizados + " partida(s) con el precio autorizado por backend. Revisa el total/pago antes de cobrar.</div></div>";
+        }
         if (bloqueos.length) {
             html += "<div class=\"fw-semibold fs-8 text-muted mb-1\">Pendientes por resolver</div><ul class=\"mb-0 ps-4\">" + listaMensajesOperativos(bloqueos) + "</ul>";
         } else {
@@ -2778,6 +2821,36 @@
             document.getElementById("pos_saldo").textContent = dinero(depurar.totales.saldo_total || 0);
             document.getElementById("pos_cambio").textContent = dinero(depurar.totales.cambio || 0);
         }
+    }
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-13.
+     * Proposito: reconciliar carritos locales/cacheados con el precio resuelto por backend.
+     * Impacto: evita bloqueos repetidos cuando el navegador conserva precio viejo o cambia el origen por partida; no autoriza descuentos.
+     */
+    function sincronizarPreciosCarritoDesdePrevalidacion(partidas) {
+        if (!Array.isArray(partidas) || !partidas.length || !carrito.length) { return 0; }
+        var cambios = 0;
+        partidas.forEach(function (partida, index) {
+            var item = carrito[index];
+            if (!item || item.tipo_partida === "venta_rapida") { return; }
+            var precioBackend = cantidad(partida.precio_aplicado || partida.precio_unitario || 0);
+            var precioEnviado = cantidad(partida.precio_enviado_pos || item.precio_unitario || 0);
+            if (precioBackend <= 0 || Math.abs(precioBackend - precioEnviado) <= 0.000001) { return; }
+            item.precio_unitario = precioBackend;
+            item.precio_manual_sin_lista = Number(partida.precio_manual_sin_lista || 0) === 1 ? 1 : 0;
+            item.precio_manual_motivo = partida.precio_manual_motivo || item.precio_manual_motivo || "";
+            item.lista_precio_snapshot = partida.lista_precio_snapshot || item.lista_precio_snapshot || "";
+            item.regla_precio_origen = partida.regla_precio_origen || item.regla_precio_origen || "";
+            cambios += 1;
+        });
+        if (cambios) {
+            guardarCuentas();
+            renderCarrito();
+            renderPagos();
+            renderCuentas();
+            actualizarEstadoCobro();
+        }
+        return cambios;
     }
     function renderInventarioPendienteDryRun(response) {
         var depurar = response.depurar || {};

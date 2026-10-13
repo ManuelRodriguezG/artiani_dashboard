@@ -1027,7 +1027,6 @@
             renderReclasificaciones(response.depurar.reclasificaciones || {esquema_disponible: false, items: []});
             renderVariantes(response.depurar.skus || [], response.depurar.variantes || {});
             renderAtributosTecnicos(response.depurar.skus || [], response.depurar.atributos_tecnicos || {});
-            precargarSkuBase(response.depurar.skus || []);
             var skusOperativosDetalle = skusOperativos(response.depurar.skus || []);
             var skusOrigenApertura = skusCandidatosOrigenApertura(skusOperativosDetalle);
             var skusDestinoApertura = skusCandidatosDestinoApertura(skusOperativosDetalle);
@@ -1096,12 +1095,7 @@
         }
         if (skuForm) {
             skuForm.reset();
-            setValor(skuForm, "id_producto_erp", producto.id_producto_erp);
-            setValor(skuForm, "id_sku", "");
-            limpiarIdentidadSkuNuevo(skuForm);
-            mostrarAvisoPlantillaSku(null);
-            actualizarModoSku(false);
-            actualizarCamposGranel(skuForm);
+            prepararFormularioSkuNuevo(skuForm, producto.id_producto_erp);
         }
         var imagenForm = document.getElementById("catalogo_form_imagen");
         if (imagenForm) {
@@ -1630,56 +1624,6 @@
         }
     }
 
-    function precargarSkuBase(skus) {
-        var form = document.getElementById("catalogo_form_sku");
-        if (!form || !skus.length || form.querySelector("[name='id_sku']").value) {
-            return;
-        }
-        var base = skus[skus.length - 1];
-        setValor(form, "id_unidad_base", base.id_unidad_base || "");
-        setValor(form, "factor_unidad_base", base.factor_unidad_base || "1");
-        setValor(form, "tipo_inventario", base.tipo_inventario || "inventariable");
-        setValor(form, "stock_minimo", base.stock_minimo || "0");
-        setValor(form, "stock_maximo", base.stock_maximo || "");
-        setValor(form, "punto_reorden", base.punto_reorden || "0");
-        setValor(form, "estrategia_salida", base.estrategia_salida || "FIFO");
-        setValor(form, "iva_porcentaje", base.iva_porcentaje || "");
-        setValor(form, "ieps_porcentaje", base.ieps_porcentaje || "");
-        setValor(form, "dias_alerta_caducidad", base.dias_alerta_caducidad || "90");
-        setValor(form, "dias_minimos_recepcion", base.dias_minimos_recepcion || "0");
-        setChecked(form, "requiere_cantidad_variable_recepcion", base.requiere_cantidad_variable_recepcion);
-        setChecked(form, "requiere_unidades_fisicas_recepcion", base.requiere_unidades_fisicas_recepcion);
-        setValor(form, "tolerancia_recepcion_porcentaje", base.tolerancia_recepcion_porcentaje || "");
-        setValor(form, "nota_recepcion_variable", base.nota_recepcion_variable || "");
-        var incluye = form.querySelector("[name='incluye_impuestos']");
-        if (incluye) { incluye.checked = String(base.incluye_impuestos) === "1"; }
-        var lote = form.querySelector("[name='requiere_lote']");
-        if (lote) { lote.checked = String(base.requiere_lote) === "1"; }
-        var caducidad = form.querySelector("[name='requiere_caducidad']");
-        if (caducidad) { caducidad.checked = String(base.requiere_caducidad) === "1"; }
-        var serie = form.querySelector("[name='requiere_serie']");
-        if (serie) { serie.checked = String(base.requiere_serie) === "1"; }
-        setChecked(form, "requiere_serie_fabricante", base.requiere_serie_fabricante);
-        setChecked(form, "generar_etiqueta_interna", base.generar_etiqueta_interna);
-        setChecked(form, "requiere_escaneo_venta", base.requiere_escaneo_venta);
-        setChecked(form, "permite_venta_fraccionaria", base.permite_venta_fraccionaria);
-        setValor(form, "precision_decimal", base.precision_decimal || "0");
-        setValor(form, "incremento_minimo_venta", base.incremento_minimo_venta || "1");
-        setValor(form, "unidad_venta_label", base.unidad_venta_label || "");
-        setChecked(form, "permite_etiqueta_fraccionada", base.permite_etiqueta_fraccionada);
-        actualizarCamposGranel(form);
-        setValor(form, "prefijo_etiqueta_interna", base.prefijo_etiqueta_interna || "");
-        setValor(form, "plantilla_etiqueta", base.plantilla_etiqueta || "");
-        setValor(form, "tipo_etiqueta_seguridad", base.tipo_etiqueta_seguridad || "");
-        setValor(form, "instrucciones_etiquetado", base.instrucciones_etiquetado || "");
-        var ventaSinStock = form.querySelector("[name='permite_venta_sin_existencia']");
-        if (ventaSinStock) { ventaSinStock.checked = String(base.permite_venta_sin_existencia) === "1"; }
-        var negativa = form.querySelector("[name='permite_existencia_negativa']");
-        if (negativa) { negativa.checked = String(base.permite_existencia_negativa) === "1"; }
-        limpiarIdentidadSkuNuevo(form);
-        mostrarAvisoPlantillaSku(base);
-    }
-
     function editarSku(idSku) {
         var form = document.getElementById("catalogo_form_sku");
         var sku = (detalleActual.skus || []).find(function (item) { return String(item.id_sku) === String(idSku); });
@@ -1744,15 +1688,56 @@
             return;
         }
         form.reset();
-        setValor(form, "id_producto_erp", productoActualId);
-        setValor(form, "id_sku", "");
-        form.dataset.skuOriginal = "";
-        form.dataset.codigoBarrasOriginal = "";
-        form.dataset.impactoIdentidad = "";
-        actualizarAlertaIdentidadSku(form);
-        actualizarModoSku(false);
-        precargarSkuBase(detalleActual.skus || []);
+        prepararFormularioSkuNuevo(form, productoActualId);
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-11
+     * Proposito: deja el formulario de SKU en modo alta limpio, sin heredar granel ni reglas de identidad de otro SKU.
+     * Impacto: Catalogo ERP > Productos > SKUs; evita que presentaciones o aperturas nuevas arrastren validaciones de venta fraccionaria.
+     * Contrato: no copia datos de SKUs existentes; solo establece valores operativos neutros para una alta nueva.
+     */
+    function prepararFormularioSkuNuevo(form, idProducto) {
+        if (!form) {
+            return;
+        }
+        setValor(form, "id_producto_erp", idProducto || productoActualId || "");
         limpiarIdentidadSkuNuevo(form);
+        setValor(form, "factor_unidad_base", "1");
+        setValor(form, "tipo_inventario", "inventariable");
+        setValor(form, "stock_minimo", "0");
+        setValor(form, "stock_maximo", "");
+        setValor(form, "punto_reorden", "0");
+        setValor(form, "estrategia_salida", "FIFO");
+        setValor(form, "iva_porcentaje", "");
+        setValor(form, "ieps_porcentaje", "");
+        setValor(form, "clave_producto_sat", "");
+        setValor(form, "clave_unidad_sat", "");
+        setValor(form, "objeto_impuesto", "");
+        setValor(form, "dias_alerta_caducidad", "90");
+        setValor(form, "dias_minimos_recepcion", "0");
+        setChecked(form, "requiere_cantidad_variable_recepcion", 0);
+        setChecked(form, "requiere_unidades_fisicas_recepcion", 0);
+        setValor(form, "tolerancia_recepcion_porcentaje", "");
+        setValor(form, "nota_recepcion_variable", "");
+        setChecked(form, "requiere_lote", 0);
+        setChecked(form, "requiere_caducidad", 0);
+        setChecked(form, "requiere_serie", 0);
+        setChecked(form, "permite_existencia_negativa", 0);
+        setChecked(form, "permite_venta_sin_existencia", 0);
+        setChecked(form, "incluye_impuestos", 0);
+        setChecked(form, "requiere_serie_fabricante", 0);
+        setChecked(form, "generar_etiqueta_interna", 0);
+        setChecked(form, "requiere_escaneo_venta", 0);
+        setChecked(form, "permite_venta_fraccionaria", 0);
+        setChecked(form, "permite_etiqueta_fraccionada", 0);
+        limpiarCamposGranel(form);
+        setValor(form, "prefijo_etiqueta_interna", "");
+        setValor(form, "plantilla_etiqueta", "");
+        setValor(form, "tipo_etiqueta_seguridad", "");
+        setValor(form, "instrucciones_etiquetado", "");
+        mostrarAvisoPlantillaSku(null);
+        actualizarModoSku(false);
         actualizarCamposGranel(form);
     }
 
@@ -1780,7 +1765,7 @@
             alerta.textContent = "";
             return;
         }
-        alerta.textContent = "Formulario listo para crear un SKU nuevo. Solo se copiaron reglas de inventario y fiscal desde " + (base.sku || "el ultimo SKU") + "; captura SKU, nombre y codigo antes de guardar. El precio se define en Listas de precios.";
+        alerta.textContent = "Formulario listo para crear un SKU nuevo. Revisa unidad base, factor y reglas operativas antes de guardar. El precio se define en Listas de precios.";
         alerta.classList.remove("d-none");
     }
 
@@ -2563,6 +2548,7 @@
     function guardarSku(event) {
         event.preventDefault();
         var currentForm = event.currentTarget;
+        normalizarFormularioSkuAntesDeGuardar(currentForm);
         var idSku = currentForm.querySelector("[name='id_sku']").value;
         var skuActual = currentForm.querySelector("[name='sku']").value.trim();
         var codigoActual = currentForm.querySelector("[name='codigo_barras']").value.trim();
@@ -2584,6 +2570,21 @@
             cargar();
             abrirDetalle(productoActualId);
         });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-11
+     * Proposito: sincroniza switches dependientes antes de enviar SKU para evitar estados residuales del modal.
+     * Impacto: Catalogo ERP > Productos > SKUs; evita que venta fraccionaria viaje activada cuando el operador la desmarco.
+     * Contrato: si `permite_venta_fraccionaria` esta apagado, limpia campos granel antes de validar/enviar.
+     */
+    function normalizarFormularioSkuAntesDeGuardar(currentForm) {
+        var fraccionaria = currentForm ? currentForm.querySelector("[name='permite_venta_fraccionaria']") : null;
+        if (!fraccionaria || fraccionaria.checked) {
+            return;
+        }
+        limpiarCamposGranel(currentForm);
+        actualizarCamposGranel(currentForm);
     }
 
     function guardarImagen(event) {
@@ -3194,17 +3195,7 @@
         var button = currentForm.querySelector("[type='submit']");
         button.disabled = true;
         errorBox.classList.add("d-none");
-        var data = {};
-        new FormData(currentForm).forEach(function (value, key) {
-            if (Object.prototype.hasOwnProperty.call(data, key)) {
-                if (!Array.isArray(data[key])) {
-                    data[key] = [data[key]];
-                }
-                data[key].push(value);
-            } else {
-                data[key] = value;
-            }
-        });
+        var data = serializarFormulario(currentForm);
         request(url, data).then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje);
@@ -3216,6 +3207,32 @@
         }).finally(function () {
             button.disabled = false;
         });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-11
+     * Proposito: serializa formularios enviando tambien `0` para switches apagados.
+     * Impacto: Catalogo ERP; evita que PHP herede valores viejos cuando un checkbox desmarcado no viaja en FormData.
+     * Contrato: conserva campos multiples como arreglo y representa cada checkbox con `1` o `0`.
+     */
+    function serializarFormulario(currentForm) {
+        var data = {};
+        new FormData(currentForm).forEach(function (value, key) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                if (!Array.isArray(data[key])) {
+                    data[key] = [data[key]];
+                }
+                data[key].push(value);
+            } else {
+                data[key] = value;
+            }
+        });
+        currentForm.querySelectorAll("input[type='checkbox'][name]").forEach(function (checkbox) {
+            if (!checkbox.disabled) {
+                data[checkbox.name] = checkbox.checked ? (checkbox.value || "1") : "0";
+            }
+        });
+        return data;
     }
 
     /**
@@ -3493,11 +3510,21 @@
             });
         });
         if (!activo) {
-            setValor(currentForm, "precision_decimal", "0");
-            setValor(currentForm, "incremento_minimo_venta", "1");
-            setValor(currentForm, "unidad_venta_label", "");
-            setChecked(currentForm, "permite_etiqueta_fraccionada", 0);
+            limpiarCamposGranel(currentForm);
         }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-11
+     * Proposito: limpia de forma explicita los campos dependientes de venta fraccionaria cuando el SKU no sera granel.
+     * Impacto: Catalogo ERP > Productos > SKUs; evita validaciones fantasma por valores heredados en campos ocultos.
+     * Contrato: no modifica unidad base ni factor de conversion; solo resetea campos propios de venta fraccionaria.
+     */
+    function limpiarCamposGranel(currentForm) {
+        setValor(currentForm, "precision_decimal", "0");
+        setValor(currentForm, "incremento_minimo_venta", "1");
+        setValor(currentForm, "unidad_venta_label", "");
+        setChecked(currentForm, "permite_etiqueta_fraccionada", 0);
     }
 
     function validarFactorUnidadBase(currentForm, errorBox) {

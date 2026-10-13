@@ -4257,10 +4257,28 @@ class VentasErp extends CRUD {
             $termino = trim((string) $this->valor($filtros, "q", ""));
             $idAlmacen = intval($this->valor($filtros, "id_almacen", 0));
             $limite = max(10, min(80, intval($this->valor($filtros, "limite", 40))));
+            $schemaListasPendiente = !$this->tablaExiste($db, "erp_listas_precios") || !$this->tablaExiste($db, "erp_listas_precios_detalle");
 
             if (strlen($termino) < 2) {
                 return $this->respuesta(false, "success", "Escribe al menos dos caracteres", array());
             }
+            $tokensBusqueda = $this->tokensBusquedaPos($termino);
+            $whereTokens = array();
+            $paramsTokens = array();
+            foreach ($tokensBusqueda as $idx => $token) {
+                $param = ":token_busqueda_" . $idx;
+                $paramCodigo = ":token_codigo_" . $idx;
+                $whereTokens[] = "(
+                    s.sku LIKE $param OR s.nombre LIKE $param OR p.nombre LIKE $param OR p.codigo_producto LIKE $param
+                    OR EXISTS (
+                        SELECT 1 FROM erp_catalogo_sku_codigos codt
+                        WHERE codt.id_sku=s.id_sku AND codt.estatus='activo' AND codt.codigo LIKE $paramCodigo
+                    )
+                )";
+                $paramsTokens[$param] = "%" . $token . "%";
+                $paramsTokens[$paramCodigo] = "%" . $token . "%";
+            }
+            $condicionTokens = !empty($whereTokens) ? " OR (" . implode(" AND ", $whereTokens) . ")" : "";
 
             $sql = "SELECT s.id_sku, s.id_producto_erp, s.sku, COALESCE(s.nombre, p.nombre) nombre_sku,
                     p.codigo_producto, p.nombre producto,
@@ -4345,8 +4363,13 @@ class VentasErp extends CRUD {
                         SELECT 1 FROM erp_catalogo_sku_codigos cod
                         WHERE cod.id_sku=s.id_sku AND cod.estatus='activo' AND cod.codigo LIKE :termino_cod
                     )
+                    $condicionTokens
                   )
-                ORDER BY CASE WHEN s.sku=:exacto THEN 0 ELSE 1 END, p.nombre, s.sku
+                ORDER BY CASE WHEN s.sku=:exacto THEN 0
+                     WHEN s.sku LIKE :prefijo OR s.nombre LIKE :prefijo OR p.nombre LIKE :prefijo THEN 1
+                     WHEN s.sku LIKE :termino OR s.nombre LIKE :termino OR p.nombre LIKE :termino THEN 2
+                     ELSE 3 END,
+                    p.nombre, s.sku
                 LIMIT " . intval($limite);
             $stmt = $db->prepare($sql);
             $params = array(
@@ -4360,13 +4383,58 @@ class VentasErp extends CRUD {
                 ":almacen_ua_filtro" => $idAlmacen,
                 ":termino" => "%" . $termino . "%",
                 ":termino_cod" => "%" . $termino . "%",
-                ":exacto" => $termino
+                ":exacto" => $termino,
+                ":prefijo" => $termino . "%"
             );
+            foreach ($paramsTokens as $param => $valor) {
+                $params[$param] = $valor;
+            }
             $stmt->execute($params);
-            return $this->respuesta(false, "success", "SKUs POS consultados", $stmt->fetchAll(PDO::FETCH_ASSOC));
+            $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($filas as &$fila) {
+                $precioResuelto = $this->resolverPrecioSkuDryRun($db, $fila, array(), "pos", $idAlmacen, $schemaListasPendiente);
+                $fila["precio_catalogo_general"] = round(floatval($this->valor($fila, "precio", 0)), 6);
+                $fila["precio"] = round(floatval($this->valor($precioResuelto, "precio_aplicado", $fila["precio"])), 6);
+                $fila["precio_base"] = round(floatval($this->valor($precioResuelto, "precio_base", $fila["precio"])), 6);
+                $fila["id_lista_precio"] = $this->valor($precioResuelto, "id_lista_precio", null);
+                $fila["lista_precio_snapshot"] = $this->valor($precioResuelto, "lista_precio_snapshot", "general");
+                $fila["regla_precio_origen"] = $this->valor($precioResuelto, "regla_precio_origen", "catalogo_general");
+            }
+            unset($fila);
+            return $this->respuesta(false, "success", "SKUs POS consultados", $filas);
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-13.
+     * Proposito: permitir busquedas POS por palabras separadas sin exigir frase exacta.
+     * Impacto: consultas como "alimento iguana" encuentran "alimento para iguana" sin relajar codigos exactos.
+     */
+    private function tokensBusquedaPos($termino) {
+        $termino = trim(preg_replace('/\s+/', ' ', (string) $termino));
+        if ($termino === "") {
+            return array();
+        }
+        $stopwords = array("de" => true, "del" => true, "la" => true, "las" => true, "el" => true, "los" => true, "para" => true, "por" => true, "con" => true, "y" => true, "en" => true);
+        $tokens = preg_split('/\s+/', $termino);
+        $resultado = array();
+        foreach ($tokens as $token) {
+            $token = trim($token);
+            if ($token === "" || strlen($token) < 2) {
+                continue;
+            }
+            $minuscula = function_exists("mb_strtolower") ? mb_strtolower($token, "UTF-8") : strtolower($token);
+            if (isset($stopwords[$minuscula])) {
+                continue;
+            }
+            $resultado[$minuscula] = $token;
+            if (count($resultado) >= 6) {
+                break;
+            }
+        }
+        return array_values($resultado);
     }
 
     /**
@@ -6630,6 +6698,20 @@ class VentasErp extends CRUD {
                 );
             }
 
+            $columnasModoVenta = "";
+            $valoresModoVenta = "";
+            $paramsModoVenta = array();
+            if ($this->columnaExiste($db, "erp_ventas", "origen_venta")) {
+                $columnasModoVenta = ", origen_venta, modo_operacion, afecta_inventario, afecta_caja";
+                $valoresModoVenta = ", :origen_venta, :modo_operacion, :afecta_inventario, :afecta_caja";
+                $paramsModoVenta = array(
+                    ":origen_venta" => "pos_tiempo_real",
+                    ":modo_operacion" => $this->valor($modoInventarioVenta, "modo_operacion_inventario", "normal"),
+                    ":afecta_inventario" => $afectarInventarioVenta ? 1 : 0,
+                    ":afecta_caja" => 1
+                );
+            }
+
             $folio = $this->generarFolioVentaPosReal($db, "POS");
             $subtotal = $this->redondearPosReal($this->valorRutaPosReal($totales, array("subtotal"), 0));
             $descuentoTotal = $this->redondearPosReal($this->valorRutaPosReal($totales, array("descuento_total"), 0));
@@ -6643,10 +6725,10 @@ class VentasErp extends CRUD {
                  id_cliente$columnasClienteCrm, cliente_nombre_publico, cliente_identificador_publico,
                  subtotal, descuento_total, impuestos_total, total,
                  pagado_total, saldo_total, fecha_venta, creado_por, observaciones, descuento_motivo,
-                 autorizado_comercial_por, fecha_autorizacion_comercial)
+                 autorizado_comercial_por, fecha_autorizacion_comercial$columnasModoVenta)
                 VALUES (:folio, 'pos', 'venta', :estatus, :almacen, :caja, :turno,
                  :id_cliente$valoresClienteCrm, :cliente, :identificador_cliente, :subtotal, :descuento_total, 0, :total, :pagado, :saldo, :fecha_venta, :usuario, :observaciones,
-                 :descuento_motivo, :autorizado_comercial_por, :fecha_autorizacion_comercial)");
+                 :descuento_motivo, :autorizado_comercial_por, :fecha_autorizacion_comercial$valoresModoVenta)");
             $stmt->execute(array_merge(array(
                 ":folio" => $folio,
                 ":estatus" => $estatus,
@@ -6667,7 +6749,7 @@ class VentasErp extends CRUD {
                 ":descuento_motivo" => $excepcionBloqueada ? $this->valor($excepcionBloqueada, "motivo", null) : null,
                 ":autorizado_comercial_por" => $excepcionBloqueada ? intval($this->valor($excepcionBloqueada, "autorizado_por", 0)) : null,
                 ":fecha_autorizacion_comercial" => $excepcionBloqueada ? $this->valor($excepcionBloqueada, "fecha_autorizacion", null) : null
-            ), $paramsClienteCrm));
+            ), $paramsClienteCrm, $paramsModoVenta));
             $idVenta = intval($db->lastInsertId());
             if (!$afectarInventarioVenta && $this->columnaExiste($db, "erp_ventas", "inventario_validacion_estado")) {
                 $db->prepare("UPDATE erp_ventas SET inventario_validacion_estado=:estado WHERE id_venta=:venta")
@@ -11527,7 +11609,7 @@ class VentasErp extends CRUD {
             $whereSegmento
             WHERE l.estatus='activa'
               AND d.estatus='activo'
-              AND (d.id_sku=:sku OR d.id_producto_erp=:producto)
+              AND (d.id_sku=:sku OR ((d.id_sku IS NULL OR d.id_sku=0) AND d.id_producto_erp=:producto))
               AND (l.canal IS NULL OR l.canal='' OR l.canal=:canal)
               AND (l.id_almacen IS NULL OR l.id_almacen=0 OR l.id_almacen=:almacen)
               AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=:ahora)
@@ -11544,7 +11626,7 @@ class VentasErp extends CRUD {
               prioridad_cliente ASC,
               prioridad_segmento ASC,
               l.prioridad ASC,
-              d.id_sku DESC,
+              CASE WHEN d.id_sku=:sku THEN 0 ELSE 1 END ASC,
               d.id_lista_precio_detalle DESC
             LIMIT 1";
         $params[":lista_default_crm"] = $idListaDefaultCrm;
@@ -12106,7 +12188,11 @@ class VentasErp extends CRUD {
         $precioBackend = round(floatval($this->valor($precioResuelto, "precio_aplicado", $sku["precio"])), 6);
         $precioEnviado = round(floatval($this->valor($item, "precio_unitario", $precioBackend)), 6);
         if (abs($precioEnviado - $precioBackend) > 0.000001) {
-            $bloqueos[] = "Precio enviado por POS no coincide con el precio autorizado por backend; usa excepcion comercial autorizada";
+            $bloqueos[] = "Precio enviado por POS no coincide con el precio autorizado por backend para SKU "
+                . $sku["sku"]
+                . " (POS $" . number_format($precioEnviado, 2, ".", "")
+                . " vs autorizado $" . number_format($precioBackend, 2, ".", "")
+                . "); actualiza el carrito o usa excepcion comercial autorizada";
         }
         $precio = $precioBackend;
         $subtotal = round(max(0, $cantidad) * max(0, $precio), 6);
