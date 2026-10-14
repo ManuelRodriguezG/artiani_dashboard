@@ -256,8 +256,16 @@
         document.getElementById("inventario_pendientes_pos").innerHTML = items.map(function (item) {
             var estado = badgePendientePos(item.estatus);
             var folio = item.folio || "";
+            var contexto = "";
+            if (item.id_sku_presentacion_regla) {
+                if (item.consume_stock_base_en === "venta" || item.modo_disponibilidad === "bajo_demanda") {
+                    contexto = "<div class=\"badge badge-light-info mt-1\">Contar base: " + escapeHtml(item.sku_base_presentacion || "") + "</div>";
+                } else {
+                    contexto = "<div class=\"badge badge-light-warning mt-1\">Presentacion preparada</div>";
+                }
+            }
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(folio) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.folio_venta || "-") + "</div></td>" +
-                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.descripcion || "") + "</div></td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.descripcion || "") + "</div>" + contexto + "</td>" +
                 "<td>" + escapeHtml(item.almacen || "-") + "</td>" +
                 "<td><div>Vendida <span class=\"fw-bold\">" + Number(item.cantidad_vendida || 0).toFixed(2) + "</span></div><div class=\"text-muted fs-8\">Pendiente " + Number(item.cantidad_pendiente || 0).toFixed(2) + " " + escapeHtml(item.unidad_base || "") + "</div><div class=\"text-success fs-8\">Disp. actual " + Number(item.disponible_actual || 0).toFixed(2) + "</div></td>" +
                 "<td><span class=\"badge " + estado.clase + "\">" + estado.texto + "</span><div class=\"text-muted fs-8\">" + escapeHtml(item.prioridad || "") + "</div></td>" +
@@ -286,6 +294,16 @@
         var estado = badgePendientePos(pendiente.estatus);
         var existencias = data.existencias_actuales || [];
         var eventos = data.eventos || [];
+        var contexto = data.regularizacion_contexto || {};
+        var contextoHtml = "";
+        if (contexto.tipo && contexto.tipo !== "sku_directo") {
+            contextoHtml = "<div class=\"alert " + (contexto.requiere_resolucion_base ? "alert-info" : "alert-warning") + " mb-6\">" +
+                "<div class=\"fw-bold mb-1\">Contexto de regularizacion</div>" +
+                "<div>" + escapeHtml(contexto.mensaje || "") + "</div>" +
+                "<div class=\"fs-8 mt-2\">SKU vendido: <strong>" + escapeHtml(contexto.sku_vendido || pendiente.sku || "") + "</strong> | SKU a contar: <strong>" + escapeHtml(contexto.sku_conteo || pendiente.sku || "") + "</strong></div>" +
+                (contexto.factor_conteo && Number(contexto.factor_conteo) !== 1 ? "<div class=\"fs-8\">Factor: 1 vendido = " + Number(contexto.factor_conteo || 1).toFixed(4) + " del SKU a contar. Pendiente a reconocer: " + Number(contexto.cantidad_pendiente_conteo || 0).toFixed(4) + "</div>" : "") +
+                "</div>";
+        }
         var existenciasHtml = existencias.length ? existencias.map(function (item) {
             return "<tr><td class=\"fw-bold\">" + escapeHtml(item.codigo_existencia || "") + "</td><td>" + escapeHtml(item.lote || "-") + "</td><td>" + escapeHtml(item.ubicacion || "-") + "</td><td>" + Number(item.cantidad || 0).toFixed(2) + "</td><td class=\"text-success fw-bold\">" + Number(item.cantidad_disponible || 0).toFixed(2) + "</td><td>" + escapeHtml(item.ultimo_movimiento_id || "-") + "</td></tr>";
         }).join("") : "<tr><td colspan=\"6\" class=\"text-center text-muted py-5\">Sin existencias actuales relacionadas</td></tr>";
@@ -297,7 +315,7 @@
             formularioDryRun = "<div class=\"border rounded p-4 mb-6\"><div class=\"fw-bold mb-1\">Previsualizar resolucion</div>" +
                 "<div class=\"text-muted fs-8 mb-3\">No mueve inventario. Sirve para revisar la formula antes de resolver: conteo fisico actual despues de la venta + cantidad vendida pendiente = existencia que debio haber antes de registrar la salida.</div>" +
                 "<form data-pendiente-pos-dryrun=\"" + escapeHtml(pendiente.folio || "") + "\" class=\"row g-3 align-items-end\">" +
-                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Cantidad fisica actual</label><input class=\"form-control form-control-solid\" name=\"cantidad_fisica\" type=\"number\" min=\"0\" step=\"0.0001\" value=\"" + Number(pendiente.cantidad_pendiente || 0).toFixed(4) + "\"><div class=\"text-muted fs-9 mt-1\">Lo que cuentas ahora, despues de la venta.</div></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Cantidad fisica actual</label><input class=\"form-control form-control-solid\" name=\"cantidad_fisica\" type=\"number\" min=\"0\" step=\"0.0001\" value=\"" + Number((contexto && contexto.cantidad_pendiente_conteo) || pendiente.cantidad_pendiente || 0).toFixed(4) + "\"><div class=\"text-muted fs-9 mt-1\">Lo que cuentas ahora del SKU: " + escapeHtml((contexto && contexto.sku_conteo) || pendiente.sku || "") + "</div></div>" +
                 "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Decision</label><select class=\"form-select form-select-solid\" name=\"decision\"><option value=\"ajustar_a_conteo\">Ajustar a conteo</option><option value=\"cerrar_sin_ajuste\">Cerrar sin ajuste</option><option value=\"mantener_pendiente\">Mantener pendiente</option></select></div>" +
                 "<div class=\"col-md-4\"><label class=\"form-label fs-8 text-muted\">Motivo</label><input class=\"form-control form-control-solid\" name=\"motivo\" placeholder=\"Conteo fisico y evidencia\"></div>" +
                 "<div class=\"col-md-2\"><button class=\"btn btn-light-primary w-100\" type=\"submit\"><i class=\"bi bi-calculator\"></i> Previsualizar</button></div>" +
@@ -308,6 +326,7 @@
             "<span class=\"badge badge-light-primary fs-7\">" + escapeHtml(pendiente.folio || "") + "</span>" +
             "<span class=\"badge badge-light-info fs-7\">Venta " + escapeHtml(pendiente.folio_venta || "-") + "</span>" +
             "</div>" +
+            contextoHtml +
             "<div class=\"row g-4 mb-6\"><div class=\"col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"fw-bold mb-2\">Producto</div><div>" + escapeHtml(pendiente.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(pendiente.descripcion || "") + "</div><div class=\"mt-3 text-muted fs-8\">Almacen: " + escapeHtml(pendiente.almacen || "-") + "</div></div></div>" +
             "<div class=\"col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"fw-bold mb-2\">Conteo y resolucion</div><div>Vendida: <span class=\"fw-bold\">" + Number(pendiente.cantidad_vendida || 0).toFixed(2) + "</span></div><div>Pendiente: <span class=\"fw-bold\">" + Number(pendiente.cantidad_pendiente || 0).toFixed(2) + "</span></div><div>Fisica validada: <span class=\"fw-bold\">" + Number(pendiente.cantidad_fisica_validada || 0).toFixed(2) + "</span></div><div class=\"text-muted fs-8 mt-2\">Movimiento ajuste: " + escapeHtml(pendiente.id_movimiento_ajuste || "-") + "</div></div></div></div>" +
             formularioDryRun +
@@ -318,12 +337,14 @@
         var pendiente = data.pendiente || {};
         var propuesta = data.propuesta || {};
         var conteo = data.conteo || {};
+        var contexto = data.regularizacion_contexto || {};
         var bloqueos = data.bloqueos || [];
         var avisos = data.avisos || [];
         var clase = bloqueos.length ? "alert-warning" : "alert-success";
         var partes = [
             "<div class=\"fw-bold mb-2\">Resultado de previsualizacion</div>",
             "<div>Decision: <span class=\"fw-bold\">" + escapeHtml(conteo.decision || "-") + "</span></div>",
+            contexto.sku_conteo ? "<div>SKU contado: <span class=\"fw-bold\">" + escapeHtml(contexto.sku_conteo || conteo.sku_conteo || "-") + "</span></div>" : "",
             "<div>Conteo actual despues de venta: <span class=\"fw-bold\">" + Number(conteo.cantidad_fisica || 0).toFixed(4) + "</span></div>",
             "<div>Vendido pendiente: <span class=\"fw-bold\">" + Number(conteo.cantidad_pendiente_vendida || 0).toFixed(4) + "</span></div>",
             "<div>Formula: <span class=\"fw-bold\">" + Number(conteo.cantidad_fisica || 0).toFixed(4) + " + " + Number(conteo.cantidad_pendiente_vendida || 0).toFixed(4) + " = " + Number(conteo.existencia_objetivo_antes_salida || 0).toFixed(4) + "</span> antes de reconocer la salida</div>",

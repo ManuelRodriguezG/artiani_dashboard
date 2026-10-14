@@ -1,7 +1,7 @@
 <?php
 /**
  * Documentacion IA: Codex GPT-5, 2026-10-10.
- * Proposito: generar codigo temporal POS real con autorizacion explicita.
+ * Proposito: generar codigo POS real temporal o maestro con autorizacion explicita.
  * Impacto: escribe en `erp_pos_codigos_autorizacion`; no crea ventas, no mueve caja ni inventario.
  * Contrato: bloqueado por token, respaldo vigente, usuario ejecutor, autorizador activo y motivo.
  */
@@ -15,8 +15,12 @@ $params = array(
     "tipo" => "precio_conjunto",
     "uso_maximo" => 1,
     "expira_minutos" => 60,
+    "codigo_maestro" => 0,
+    "uso_ilimitado" => 0,
+    "sin_caducidad" => 0,
     "monto_maximo" => 0,
-    "motivo" => ""
+    "motivo" => "",
+    "server_name" => ""
 );
 
 foreach ($args as $arg) {
@@ -32,7 +36,18 @@ $params["id_usuario_ejecuta"] = intval($params["id_usuario_ejecuta"]);
 $params["id_autorizador_pos"] = intval($params["id_autorizador_pos"]);
 $params["uso_maximo"] = intval($params["uso_maximo"]);
 $params["expira_minutos"] = intval($params["expira_minutos"]);
+$params["codigo_maestro"] = intval($params["codigo_maestro"]);
+$params["uso_ilimitado"] = intval($params["uso_ilimitado"]);
+$params["sin_caducidad"] = intval($params["sin_caducidad"]);
 $params["monto_maximo"] = floatval($params["monto_maximo"]);
+
+$serverName = trim((string) $params["server_name"]);
+if ($serverName === "" && strtolower(trim((string) $params["respaldo"])) === "productivo vigente") {
+    $serverName = "sys.artiani.com.mx";
+}
+if ($serverName !== "") {
+    $_SERVER["SERVER_NAME"] = $serverName;
+}
 
 $validacionRespaldo = validarRespaldo($params["respaldo"]);
 $bloqueos = array();
@@ -73,6 +88,9 @@ $datos = array(
     "tipo_autorizacion" => $params["tipo"],
     "uso_maximo" => $params["uso_maximo"],
     "expira_minutos" => $params["expira_minutos"],
+    "codigo_maestro" => $params["codigo_maestro"],
+    "uso_ilimitado" => $params["uso_ilimitado"],
+    "sin_caducidad" => $params["sin_caducidad"],
     "monto_maximo" => $params["monto_maximo"],
     "motivo" => $params["motivo"]
 );

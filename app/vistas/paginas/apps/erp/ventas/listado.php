@@ -52,8 +52,8 @@
                         <div class="app-container container-fluid">
                             <input type="hidden" id="ventas_tipo_inicial" value="<?= htmlspecialchars(isset($datos['tipo_inicial']) ? $datos['tipo_inicial'] : '', ENT_QUOTES, 'UTF-8') ?>">
                             <div class="row g-3 mb-4" id="ventas_kpis">
-                                <div class="col-md-3"><div class="ventas-kpi p-4"><div class="text-muted fs-8 text-uppercase">Ventas hoy</div><div class="fw-bold fs-2" id="ventas_kpi_hoy">0</div></div></div>
-                                <div class="col-md-3"><div class="ventas-kpi p-4"><div class="text-muted fs-8 text-uppercase">Total hoy</div><div class="fw-bold fs-2" id="ventas_kpi_total">$0.00</div></div></div>
+                                <div class="col-md-3"><div class="ventas-kpi p-4"><div class="text-muted fs-8 text-uppercase" id="ventas_kpi_hoy_label">Ventas netas hoy</div><div class="fw-bold fs-2" id="ventas_kpi_hoy">0</div><div class="text-muted fs-8" id="ventas_kpi_canceladas_hoy">0 canceladas</div></div></div>
+                                <div class="col-md-3"><div class="ventas-kpi p-4"><div class="text-muted fs-8 text-uppercase" id="ventas_kpi_total_label">Total neto hoy</div><div class="fw-bold fs-2" id="ventas_kpi_total">$0.00</div><div class="text-muted fs-8" id="ventas_kpi_total_cancelado">$0.00 cancelado</div></div></div>
                                 <div class="col-md-3"><div class="ventas-kpi p-4"><div class="text-muted fs-8 text-uppercase">Pedidos abiertos</div><div class="fw-bold fs-2" id="ventas_kpi_pedidos">0</div></div></div>
                                 <div class="col-md-3"><div class="ventas-kpi p-4"><div class="text-muted fs-8 text-uppercase">Turnos abiertos</div><div class="fw-bold fs-2" id="ventas_kpi_turnos">0</div></div></div>
                             </div>
@@ -89,7 +89,21 @@
                                         </div>
                                     </div>
                                     <div class="col-lg-2">
+                                        <label class="form-label text-muted fs-8 text-uppercase">Desde</label>
+                                        <input class="form-control form-control-solid" id="ventas_filtro_fecha_desde" type="date">
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label text-muted fs-8 text-uppercase">Hasta</label>
+                                        <input class="form-control form-control-solid" id="ventas_filtro_fecha_hasta" type="date">
+                                    </div>
+                                    <div class="col-lg-2">
                                         <button class="btn btn-light-primary w-100" id="ventas_recargar" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <button class="btn btn-light w-100" id="ventas_filtro_hoy" type="button"><i class="bi bi-calendar-day"></i> Hoy</button>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <button class="btn btn-light w-100" id="ventas_filtro_limpiar" type="button"><i class="bi bi-eraser"></i> Limpiar</button>
                                     </div>
                                 </div>
                             </div>
@@ -150,6 +164,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listado.js?v=20260725-operativo1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listado.js?v=20261014-neto-devueltas1"></script>
 </body>
 </html>

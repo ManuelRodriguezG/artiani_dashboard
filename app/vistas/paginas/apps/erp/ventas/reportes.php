@@ -19,6 +19,17 @@
         .pos-report-kpi { min-height: 104px; }
         .pos-report-table { max-height: 560px; overflow: auto; }
         .pos-corte-pre { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; line-height: 1.35; }
+        .pos-chart-list { display: grid; gap: 12px; }
+        .pos-chart-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(110px, 2.2fr) auto; gap: 10px; align-items: center; }
+        .pos-chart-track { height: 12px; border-radius: 999px; background: #f0f2f6; overflow: hidden; }
+        .pos-chart-bar { height: 100%; border-radius: 999px; background: #1b84ff; min-width: 3px; }
+        .pos-chart-bar.success { background: #17c653; }
+        .pos-chart-bar.warning { background: #f6c000; }
+        .pos-chart-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        @media (max-width: 768px) {
+            .pos-chart-row { grid-template-columns: 1fr; gap: 5px; }
+            .pos-chart-label { white-space: normal; }
+        }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -84,6 +95,73 @@
                                         <div class="d-flex gap-2">
                                             <button class="btn btn-primary flex-grow-1" id="pos_rep_consultar" type="button"><i class="bi bi-bar-chart"></i> Consultar</button>
                                             <button class="btn btn-light-primary" id="pos_rep_exportar" type="button" title="Exportar CSV"><i class="bi bi-download"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-3"><div class="pos-report-card pos-report-kpi p-4"><div class="text-muted fs-8 text-uppercase">Venta POS neta</div><div class="fw-bold fs-4 text-primary" id="pos_rep_ventas_kpi_total">$0.00</div><div class="text-muted fs-8" id="pos_rep_ventas_kpi_periodo">Periodo actual</div></div></div>
+                                <div class="col-md-3"><div class="pos-report-card pos-report-kpi p-4"><div class="text-muted fs-8 text-uppercase">Tickets</div><div class="fw-bold fs-2" id="pos_rep_ventas_kpi_tickets">0</div><div class="text-muted fs-8" id="pos_rep_ventas_kpi_partidas">0 partidas</div></div></div>
+                                <div class="col-md-3"><div class="pos-report-card pos-report-kpi p-4"><div class="text-muted fs-8 text-uppercase">Ticket promedio</div><div class="fw-bold fs-4" id="pos_rep_ventas_kpi_promedio">$0.00</div><div class="text-muted fs-8">Ventas no canceladas</div></div></div>
+                                <div class="col-md-3"><div class="pos-report-card pos-report-kpi p-4"><div class="text-muted fs-8 text-uppercase">Venta rapida</div><div class="fw-bold fs-4 text-warning" id="pos_rep_ventas_kpi_rapida">0</div><div class="text-muted fs-8">Partidas por clasificar</div></div></div>
+                            </div>
+                            <div class="row g-4 mb-4">
+                                <div class="col-xl-6">
+                                    <div class="pos-report-card p-4 h-100">
+                                        <div class="d-flex justify-content-between align-items-start mb-4">
+                                            <div>
+                                                <div class="fw-bold fs-5">Ventas por dia</div>
+                                                <div class="text-muted fs-7">Importe vendido por fecha en el rango seleccionado.</div>
+                                            </div>
+                                            <span class="badge badge-light-primary">POS</span>
+                                        </div>
+                                        <div class="pos-chart-list" id="pos_rep_ventas_chart_dias"></div>
+                                    </div>
+                                </div>
+                                <div class="col-xl-6">
+                                    <div class="pos-report-card p-4 h-100">
+                                        <div class="d-flex justify-content-between align-items-start mb-4">
+                                            <div>
+                                                <div class="fw-bold fs-5">Metodos de pago</div>
+                                                <div class="text-muted fs-7">Cobra visibilidad de efectivo, tarjeta, transferencia o saldo cliente.</div>
+                                            </div>
+                                            <span class="badge badge-light-success">Cobros</span>
+                                        </div>
+                                        <div class="pos-chart-list" id="pos_rep_ventas_chart_metodos"></div>
+                                    </div>
+                                </div>
+                                <div class="col-xl-6">
+                                    <div class="pos-report-card p-4 h-100">
+                                        <div class="d-flex justify-content-between align-items-start mb-4">
+                                            <div>
+                                                <div class="fw-bold fs-5">Origen de mercancia</div>
+                                                <div class="text-muted fs-7">Ventas agrupadas por almacen de la partida cuando existe.</div>
+                                            </div>
+                                            <span class="badge badge-light-info">Almacen</span>
+                                        </div>
+                                        <div class="pos-chart-list" id="pos_rep_ventas_chart_almacenes"></div>
+                                    </div>
+                                </div>
+                                <div class="col-xl-6">
+                                    <div class="pos-report-card p-4 h-100">
+                                        <div class="d-flex justify-content-between align-items-start mb-4">
+                                            <div>
+                                                <div class="fw-bold fs-5">Productos mas vendidos</div>
+                                                <div class="text-muted fs-7">Ranking por importe para detectar productos fuertes y pendientes de catalogo.</div>
+                                            </div>
+                                            <span class="badge badge-light-warning">Top 15</span>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table align-middle table-row-dashed gy-3 mb-0">
+                                                <thead>
+                                                    <tr class="text-muted fw-bold fs-8 text-uppercase">
+                                                        <th>Producto</th>
+                                                        <th class="text-end">Cant.</th>
+                                                        <th class="text-end">Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="pos_rep_ventas_top_productos"></tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
@@ -240,6 +318,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/reportes.js?v=20260725-operativo1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/reportes.js?v=20261014-neto-devueltas1"></script>
 </body>
 </html>

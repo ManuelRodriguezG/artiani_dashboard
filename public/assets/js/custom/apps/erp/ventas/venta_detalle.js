@@ -91,9 +91,11 @@
 
     function tablaPartidas(items) {
         if (!items.length) { return empty("Sin partidas"); }
-        return "<div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>SKU</th><th>Cantidad</th><th>Precio</th><th>Origen precio</th><th>Total</th><th>Garantia</th></tr></thead><tbody>" +
+        return "<div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>SKU</th><th>Almacen origen</th><th>Cantidad</th><th>Precio</th><th>Origen precio</th><th>Total</th><th>Garantia</th></tr></thead><tbody>" +
             items.map(function (item) {
+                var almacen = item.nombre_comercial_partida || item.almacen_partida || item.codigo_almacen_partida || item.id_almacen || "-";
                 return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.sku || "-") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.descripcion || "") + "</div></td>" +
+                    "<td><div class=\"fw-semibold\">" + escapeHtml(almacen) + "</div><div class=\"text-muted fs-9\">ID " + escapeHtml(item.id_almacen || "-") + "</div></td>" +
                     "<td>" + numero(item.cantidad_venta || item.cantidad_base || 0) + " " + escapeHtml(item.unidad_venta || item.unidad_base || "") + "</td>" +
                     "<td>" + dinero(item.precio_unitario || 0) + "</td>" +
                     "<td><div class=\"fw-semibold fs-8\">" + escapeHtml(item.regla_precio_origen || "catalogo_general") + "</div><div class=\"text-muted fs-9\">" + escapeHtml(item.lista_precio_snapshot || "general") + "</div></td>" +

@@ -309,7 +309,8 @@
     function renderCodigosAutorizacion(filas) {
         document.getElementById("pos_config_codigos_autorizacion").innerHTML = (filas || []).map(function (item) {
             var activo = String(item.estatus || "") === "activo";
-            var uso = String(item.usos_realizados || "0") + " / " + String(item.uso_maximo || "1");
+            var usoMaximo = Number(item.uso_maximo || 0);
+            var uso = String(item.usos_realizados || "0") + " / " + (usoMaximo <= 0 ? "ilimitado" : String(usoMaximo));
             var vigencia = (item.fecha_inicio || "-") + " a " + (item.fecha_fin || "sin limite");
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.folio || "-") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.codigo_mascara || "") + "</div></td>" +
                 "<td>" + escapeHtml(item.nombre_mostrar || ("Usuario " + (item.id_usuario_autorizador || "-"))) + "</td>" +
@@ -427,11 +428,16 @@
     }
 
     function datosCodigoAutorizacion() {
+        var maestro = document.getElementById("pos_cfg_codigo_maestro");
+        var esMaestro = maestro && maestro.checked;
         return {
             id_autorizador_pos: document.getElementById("pos_cfg_codigo_autorizador").value,
             tipo_autorizacion: document.getElementById("pos_cfg_codigo_tipo").value,
-            uso_maximo: document.getElementById("pos_cfg_codigo_usos").value,
-            expira_minutos: document.getElementById("pos_cfg_codigo_minutos").value,
+            uso_maximo: esMaestro ? "0" : document.getElementById("pos_cfg_codigo_usos").value,
+            expira_minutos: esMaestro ? "0" : document.getElementById("pos_cfg_codigo_minutos").value,
+            uso_ilimitado: esMaestro ? "1" : (String(document.getElementById("pos_cfg_codigo_usos").value || "") === "0" ? "1" : "0"),
+            sin_caducidad: esMaestro ? "1" : (String(document.getElementById("pos_cfg_codigo_minutos").value || "") === "0" ? "1" : "0"),
+            codigo_maestro: esMaestro ? "1" : "0",
             monto_maximo: document.getElementById("pos_cfg_codigo_monto").value,
             motivo: document.getElementById("pos_cfg_codigo_motivo").value.trim()
         };
@@ -666,7 +672,10 @@
         }
         html += "</div><pre class=\"bg-light p-3 rounded fs-8 mb-0\">" + escapeHtml(JSON.stringify(propuesta, null, 2)) + "</pre>";
         if (propuesta.codigo_autorizacion) {
-            html = "<div class=\"alert alert-warning py-4 mb-3\"><div class=\"fw-bold fs-5\">Codigo generado: " + escapeHtml(propuesta.codigo_autorizacion) + "</div><div class=\"fs-7\">Entregalo solo para esta operacion. Despues el sistema conservara mascara y auditoria, no el codigo visible.</div></div>" + html;
+            var textoCodigo = propuesta.codigo_maestro
+                ? "Codigo maestro: guardalo en un lugar seguro. Puede usarse mientras este activo y debe revocarse si se comparte indebidamente."
+                : "Entregalo solo para esta operacion. Despues el sistema conservara mascara y auditoria, no el codigo visible.";
+            html = "<div class=\"alert alert-warning py-4 mb-3\"><div class=\"fw-bold fs-5\">Codigo generado: " + escapeHtml(propuesta.codigo_autorizacion) + "</div><div class=\"fs-7\">" + escapeHtml(textoCodigo) + "</div></div>" + html;
         }
         document.getElementById("pos_config_validacion_resultado").innerHTML = html;
     }
@@ -698,6 +707,11 @@
         document.getElementById("pos_cfg_ticket_guardar").addEventListener("click", guardarTicket);
         document.getElementById("pos_cfg_aut_guardar").addEventListener("click", guardarAutorizador);
         document.getElementById("pos_cfg_codigo_generar").addEventListener("click", generarCodigoAutorizacion);
+        document.getElementById("pos_cfg_codigo_maestro").addEventListener("change", function () {
+            var maestro = this.checked;
+            document.getElementById("pos_cfg_codigo_usos").value = maestro ? "0" : (document.getElementById("pos_cfg_codigo_usos").value === "0" ? "1" : document.getElementById("pos_cfg_codigo_usos").value);
+            document.getElementById("pos_cfg_codigo_minutos").value = maestro ? "0" : (document.getElementById("pos_cfg_codigo_minutos").value === "0" ? "60" : document.getElementById("pos_cfg_codigo_minutos").value);
+        });
         document.getElementById("pos_cfg_limpiar").addEventListener("click", limpiarCaptura);
         document.addEventListener("click", function (event) {
             var filtroBoton = event.target.closest("[data-pos-filtro]");

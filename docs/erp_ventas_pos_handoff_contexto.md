@@ -6297,3 +6297,640 @@ Uso operativo:
 - Despues de este ajuste, si aparece bloqueo de precio por un carrito viejo, la primera prevalidacion/cobro debe actualizar el carrito.
 - El operador debe revisar que el total y el pago coincidan y volver a cobrar.
 - Si el navegador no carga el cambio, forzar recarga completa de `/ventas/pos`.
+
+## Corte vigente 2026-10-13 - Ticket POS sin leyenda "Sin garantia"
+
+Caso reportado:
+
+- El ticket del cliente mostraba `Garantia: Sin garantia`.
+- Operativamente el snapshot interno de garantias es util para auditoria futura, pero por ahora no debe aparecer en el comprobante del cliente si no hay una garantia real configurada.
+
+Ajuste aplicado:
+
+- `VentasErp::formatearTicketVenta` ahora solo imprime la linea de garantia cuando el resumen es informativo y distinto de:
+  - `Sin garantia`;
+  - `sin_garantia`;
+  - `No aplica`;
+  - `N/A`.
+- Se agrego helper `garantiaVisibleEnTicketCliente`.
+- `public/assets/js/custom/apps/erp/ventas/pos.js` tambien filtra `Garantia: Sin garantia` al mostrar o imprimir tickets antiguos desde el modal del POS.
+- `app/vistas/paginas/apps/erp/ventas/pos.php` actualizo version del asset:
+  - `pos.js?v=20261013-ticket-garantia-visible1`.
+
+Validaciones:
+
+- `php -l app/modelos/VentasErp.php`: OK.
+- `node --check public/assets/js/custom/apps/erp/ventas/pos.js`: OK.
+- `php -l app/vistas/paginas/apps/erp/ventas/pos.php`: OK.
+- Prueba directa del helper:
+  - `Sin garantia` devuelve no visible;
+  - `30 dias por defecto de fabrica` devuelve visible.
+
+Nota:
+
+- Este cambio no modifica ventas historicas ni snapshots guardados en BD.
+- Cuando se implemente la configuracion de garantias por producto, las garantias reales volveran a mostrarse en ticket automaticamente.
+
+## Corte vigente 2026-10-13 - Aplicacion de precio manual autorizado en POS
+
+Caso reportado:
+
+- En `Ventas > POS`, al cambiar precio manual y pulsar `Validar`, el POS mostraba la revision pero no dejaba aplicado el cambio de precio para cobrar.
+- El flujo era correcto tecnicamente, pero confuso operativamente: `Validar` solo hacia dry-run; despues habia que registrar folio y aplicar folio en otro paso.
+
+Ajuste aplicado:
+
+- En `app/vistas/paginas/apps/erp/ventas/pos.php`:
+  - el boton `Validar` ahora dice `Solo validar`;
+  - el boton `Registrar folio autorizado` ahora dice `Registrar y aplicar`;
+  - se aclara que validar solo revisa reglas y que registrar/aplicar deja el cambio activo en el carrito;
+  - se actualizo cache del asset a `pos.js?v=20261013-excepcion-aplicar1`.
+- En `public/assets/js/custom/apps/erp/ventas/pos.js`:
+  - `excepcionComercialRegistrar()` registra el folio real y, si no hay bloqueos, llama automaticamente a `aplicarFolioExcepcionComercial()`;
+  - el folio queda en `excepcionActiva`, recalcula totales visibles y se envia despues en `payloadVentaPos()` como `folio_excepcion`;
+  - el mensaje de dry-run indica que se debe pulsar `Registrar y aplicar`;
+  - el mensaje de consumo indica claramente si el folio quedo aplicado al carrito.
+
+Regla operativa vigente:
+
+- `Solo validar` no cambia el carrito ni habilita el cobro con precio distinto; sirve para revisar si la regla pasaria.
+- `Registrar y aplicar` crea la autorizacion comercial real y la deja lista para cobrar.
+- El cobro real vuelve a validar backend antes de confirmar venta, caja, ticket e inventario.
+
+Validaciones:
+
+- `node --check public/assets/js/custom/apps/erp/ventas/pos.js`.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\pos.php`.
+
+## Corte vigente 2026-10-13 - Cancelacion POS debe cerrar incidencias
+
+Caso reportado:
+
+- Se capturaron ventas recientes con almacen/origen incorrecto.
+- El dueno necesita cancelarlas y volver a generarlas sin dejar pendientes de inventario, venta rapida, catalogo o notificaciones abiertas del folio cancelado.
+
+Hallazgo:
+
+- `VentasErp::confirmarReversaPosReal()` ya podia crear una cancelacion/devolucion POS.
+- El flujo existente marcaba la venta como cancelada, pero no cerraba automaticamente:
+  - `erp_pos_inventario_pendientes`;
+  - `erp_pos_venta_rapida_pendientes`;
+  - notificaciones operativas ligadas;
+  - incidencias de catalogo creadas desde venta rapida.
+- El script historico `uat_ventas_pos_reversa_apply_authorized.php` exige una partida/cantidad, por lo que no es adecuado para cancelacion completa multipartida sin riesgo operativo.
+
+Ajuste aplicado en codigo:
+
+- `VentasErp::confirmarReversaPosReal()` ahora:
+  - valida que `tipo=cancelacion` cubra todas las partidas vigentes de la venta;
+  - marca todas las partidas de la venta como `cancelada`;
+  - cancela pendientes PINV activos ligados a la venta;
+  - cancela asignaciones `erp_ventas_detalle_inventario` de tipo `inventario_pendiente`;
+  - cancela pendientes de venta rapida ligados a la venta;
+  - descarta incidencias de catalogo de venta rapida pendientes;
+  - cancela notificaciones activas relacionadas;
+  - devuelve resumen `incidencias_canceladas` en la respuesta.
+- Se agrego `storage/uat/uat_ventas_pos_cancelacion_completa_apply_authorized.php` para ejecutar cancelacion completa por folio/id venta sin pasar partida por partida.
+
+Regla operativa vigente:
+
+- Si una venta fue capturada contra almacen equivocado y ya genero caja/incidencias, no se cambia el almacen directo en la venta historica.
+- Se debe cancelar formalmente la venta completa y recapturarla con el origen correcto.
+- Para correccion sin retorno fisico real, usar `decision_inventario=sin_reingreso`.
+- Si se va a recapturar la venta y se requiere que caja quede balanceada, usar `decision_financiera=reembolso_caja` con turno abierto correspondiente.
+
+Pendiente antes de ejecutar:
+
+- Requiere autorizacion explicita por folio o lote de folios porque escribe en base productiva.
+
+## Corte vigente 2026-10-13 - Listado de ventas con filtro de fechas e inicio de reversas
+
+Caso reportado:
+
+- El dueno no quiere cancelar ventas desde script; quiere aprender a hacerlo desde interfaz.
+- En `Ventas > Mostrar` faltaba filtrar por fecha especifica o rango.
+- Para cancelar/devolver era incomodo recordar o copiar el folio y cambiar de pantalla manualmente.
+
+Ajuste aplicado:
+
+- `VentasErp::listarVentasErp()` acepta filtros `fecha_desde` y `fecha_hasta` en formato `YYYY-MM-DD`.
+- `app/vistas/paginas/apps/erp/ventas/listado.php` agrega:
+  - fecha desde;
+  - fecha hasta;
+  - boton `Hoy`;
+  - boton `Limpiar`.
+- `public/assets/js/custom/apps/erp/ventas/listado.js` envia los filtros de fecha y agrega acciones visibles por venta POS pagada:
+  - `Devolver`;
+  - `Cancelar`.
+- Las acciones abren `/ventas/devoluciones` con folio y tipo prellenado.
+- `public/assets/js/custom/apps/erp/ventas/devoluciones.js` ahora lee `tipo=cancelacion|devolucion` y precarga:
+  - folio venta;
+  - motivo base;
+  - para cancelacion, `sin_reingreso` y `reembolso_caja` como sugerencia operativa.
+
+Regla operativa:
+
+- La interfaz facilita encontrar e iniciar el flujo, pero la reversa real sigue protegida.
+- Primero se prevalidan reglas; la aplicacion real de cancelacion/devolucion debe quedar en un flujo confirmado, con permisos, turno/caja y auditoria.
+
+## Corte vigente 2026-10-13 - Boton real de reversa POS en UI
+
+Caso reportado:
+
+- Al probar `POS-20261013-000005`, la pantalla mostraba `Prevalidar reversa` en verde y parecia que ya habia aplicado la cancelacion.
+- En realidad solo era dry-run: no cancelaba, no generaba folio CAN/DEV, no movia caja y no cerraba incidencias.
+
+Ajuste aplicado:
+
+- `Ventas::devolucion_confirmar_real_erp()` expone un endpoint POST protegido por:
+  - sesion;
+  - permiso `ventas.operar`;
+  - CSRF;
+  - confirmacion textual exacta `APLICAR REVERSA POS`.
+- `app/vistas/paginas/apps/erp/ventas/devoluciones.php` agrega una seccion separada de `Aplicacion real`.
+- `public/assets/js/custom/apps/erp/ventas/devoluciones.js` ahora:
+  - deja claro que prevalidar no aplica cambios;
+  - solo permite aplicar despues de una prevalidacion exitosa;
+  - pide confirmacion escrita;
+  - muestra `window.confirm`;
+  - llama al endpoint real y muestra folio de reversa/incidencias cerradas.
+
+Uso operativo:
+
+1. Entrar desde `Ventas > Mostrar`, boton `Cancelar` o `Devolver`.
+2. Pulsar `Prevalidar reversa`.
+3. Si sale verde y la decision es correcta, escribir `APLICAR REVERSA POS`.
+4. Pulsar `Aplicar reversa real`.
+5. Confirmar el dialogo del navegador.
+6. Revisar folio CAN/DEV y recapturar venta si era correccion operativa.
+
+## Corte vigente 2026-10-13 - Detalle de venta muestra almacen por partida
+
+Caso reportado:
+
+- En `Ventas > Detalle`, el dueno no podia ver que almacen/origen selecciono para cada producto.
+- Esto impedia identificar con seguridad que ventas cancelar por haber elegido almacen incorrecto.
+
+Ajuste aplicado:
+
+- `VentasErp::ticketVentaFormalReadOnly()` ahora devuelve por partida:
+  - `id_almacen`;
+  - `codigo_almacen_partida`;
+  - `almacen_partida`;
+  - `nombre_comercial_partida`.
+- `public/assets/js/custom/apps/erp/ventas/venta_detalle.js` agrega columna `Almacen origen` en la tabla de partidas.
+- `app/vistas/paginas/apps/erp/ventas/venta_detalle.php` actualizo cache del asset.
+
+Validacion:
+
+- Folio `POS-20261013-000005` devuelve la partida `FL11002` con `id_almacen=5`, codigo `MASCOTAS971`, nombre comercial `Mascotas Mina 971`.
+
+## Corte vigente 2026-10-13 - Tablero comercial POS en Reportes
+
+Objetivo:
+
+- Agregar una primera vista grafica en `Ventas > POS > Reportes` para supervisar ventas sin mover caja, inventario ni alertas.
+
+Ajuste aplicado:
+
+- `VentasErp::reporteVentasPosReadOnly()` consulta solo lectura:
+  - total vendido POS;
+  - tickets;
+  - ticket promedio;
+  - partidas vendidas;
+  - partidas de venta rapida por clasificar;
+  - ventas por dia;
+  - metodos de pago;
+  - origen de mercancia por almacen de partida cuando existe;
+  - productos mas vendidos;
+  - estatus de ventas.
+- `Ventas::reportes_ventas_pos_erp()` expone el endpoint GET protegido por `ventas.ver`.
+- `app/vistas/paginas/apps/erp/ventas/reportes.php` agrega tarjetas y graficas visuales arriba del reporte de caja.
+- `public/assets/js/custom/apps/erp/ventas/reportes.js` consulta el tablero comercial junto con caja/diferencias y dibuja barras HTML sin dependencia nueva.
+
+Reglas:
+
+- El tablero excluye ventas canceladas de los importes operativos.
+- Las ventas canceladas siguen disponibles en distribucion de estatus para supervision.
+- El filtro de sucursal/caja usa los controles existentes de reportes.
+- No hay escritura de BD ni cambios de inventario.
+
+Validacion:
+
+- Sintaxis PHP y JS correcta.
+- MySQL no estaba disponible durante la prueba funcional del endpoint; validar en navegador cuando el servicio este levantado.
+
+## Corte vigente 2026-10-13 - Ventas del dia deben ser netas sin canceladas
+
+Caso reportado:
+
+- El dueno pregunto si era correcto que el total de ventas del dia contemplara ventas canceladas.
+
+Decision:
+
+- No es correcto mezclar canceladas dentro del total operativo del dia.
+- El total principal debe ser venta neta operativa: ventas POS del dia con estatus distinto de `cancelada`/`cancelado`.
+- Las canceladas deben verse aparte para auditoria, supervision y explicacion de caja, pero no como venta efectiva.
+
+Ajuste aplicado:
+
+- `VentasErp::resumenVentasModulo()` ahora calcula:
+  - `ventas_hoy` sin canceladas;
+  - `total_hoy` sin canceladas;
+  - `ventas_canceladas_hoy`;
+  - `total_cancelado_hoy`.
+- `Ventas > Mostrar` cambia etiquetas a:
+  - `Ventas netas hoy`;
+  - `Total neto hoy`;
+  - muestra debajo cuantas ventas/monto fueron canceladas.
+- Reportes de caja ajustan subconsultas para excluir `cancelada` y `cancelado`.
+
+Regla:
+
+- Reportes gerenciales pueden mostrar bruto, cancelado y neto, pero el numero principal operativo debe ser neto.
+
+## Corte vigente 2026-10-13 - Codigos maestros de autorizacion POS
+
+Necesidad:
+
+- El dueno necesita operar excepciones POS sin que el codigo expire constantemente durante el arranque.
+- Para uso personal/gerencia se acepta un codigo general controlado, mientras que para otros usuarios se conservaran codigos temporales.
+
+Ajuste aplicado:
+
+- En `Ventas > POS > Configuracion > Autorizadores`, la generacion de codigo ahora permite:
+  - `Usos = 0`: uso ilimitado mientras el codigo este activo;
+  - `Expira en min. = 0`: sin caducidad;
+  - casilla `Codigo maestro sin caducidad`, que envia ambos valores en cero.
+- `VentasErp::configuracionCodigoAutorizacionPosValidar()` interpreta:
+  - `uso_maximo=0` como ilimitado;
+  - `fecha_fin=NULL` como no caduca;
+  - `codigo_maestro=1` como aviso de seguridad reforzado.
+- La validacion y consumo de codigos acepta codigos activos con uso ilimitado.
+- El consumo sigue incrementando `usos_realizados` para auditoria, pero no marca `consumido` cuando `uso_maximo=0`.
+- La lista muestra `ilimitado` en vez de `0`.
+
+Regla operativa:
+
+- Codigo maestro es aceptable para dueno/gerencia durante arranque.
+- Debe mantenerse con alcance y tipo controlado, idealmente `general` solo para el dueno.
+- Si se comparte indebidamente, se revoca desactivando el codigo/autorizador desde configuracion.
+- Para empleados, usar codigos temporales con caducidad y usos limitados.
+
+Pendiente:
+
+- Crear el codigo maestro real requiere autorizacion explicita porque escribe en base productiva.
+
+## Corte vigente 2026-10-13 - Autorizadores POS en productivo
+
+Estado:
+
+- Se verifico que el proyecto activo es `C:\xampp\htdocs\panel_de_control`.
+- Para acciones autorizadas de BD ya no debe asumirse MySQL local; se debe usar la conexion productiva configurada por el proyecto.
+- Las tablas `erp_pos_autorizadores` y `erp_pos_codigos_autorizacion` ya existen en productivo y estan completas.
+- Se preparo soporte para `server_name`/`productivo vigente` en scripts autorizados de POS para evitar caer accidentalmente al entorno local.
+
+Acciones realizadas:
+
+- Se valido DDL de autorizadores POS contra productivo; no creo tablas porque ya existian.
+- Se creo un autorizador POS adicional para `id_usuario=1` como gerente global de `precio_conjunto`; quedo como `id_autorizador_pos=2`.
+- Ya existia otro autorizador activo para el mismo usuario con `id_autorizador_pos=1`.
+- Al intentar generar codigo maestro tipo `general`, el modelo bloqueo correctamente la accion porque el autorizador `1` solo permite `precio_conjunto`.
+
+Decision pendiente:
+
+- Para tener un codigo maestro realmente general se debe ampliar/crear un autorizador con `tipos_autorizacion=general` o definir que `general` represente una lista cerrada de permisos POS.
+- No generar codigo maestro general si el autorizador no tiene permiso explicito para ese tipo.
+- Queda pendiente desactivar o consolidar el autorizador duplicado `id_autorizador_pos=2` con autorizacion explicita del dueno.
+
+## Corte vigente 2026-10-13 - Codigo maestro general POS creado
+
+Acciones autorizadas ejecutadas en productivo:
+
+- Se actualizo `id_autorizador_pos=1` para `id_usuario=1` con:
+  - rol `gerente`;
+  - alcance `global`;
+  - tipo de autorizacion `general`;
+  - descuento maximo `100`;
+  - monto maximo `999999`;
+  - vigencia del autorizador hasta 2027-10-13.
+- Se genero codigo maestro POS general:
+  - `id_codigo_autorizacion=2`;
+  - folio `AUTPOS-20261013-000001`;
+  - uso ilimitado (`uso_maximo=0`);
+  - sin caducidad (`fecha_fin=NULL`);
+  - no crea venta, no mueve caja, no mueve inventario.
+
+Regla operativa:
+
+- El codigo maestro debe usarse solo por dueno/gerencia durante arranque operativo.
+- El sistema guarda hash y mascara; el codigo completo solo se muestra una vez al generarlo.
+- Revisar usos periodicamente y revocarlo si se comparte indebidamente.
+
+Pendientes:
+
+- Desactivar o consolidar el autorizador duplicado `id_autorizador_pos=2` si el dueno lo autoriza.
+- Revisar visualmente en `Ventas > POS > Configuracion > Autorizadores` que el codigo aparezca como activo/ilimitado.
+
+## Corte vigente 2026-10-13 - Excepcion comercial no debe bloquearse por venta rapida
+
+Caso reportado:
+
+- Al intentar cambiar precio con codigo maestro, el backend validaba el codigo pero mostraba `SKU no encontrado o inactivo: 0`.
+- La causa operativa es que el carrito podia mezclar partidas normales con venta rapida/producto por clasificar (`id_sku=0`).
+
+Ajuste aplicado:
+
+- En POS, la lista de SKU objetivo para autorizacion comercial ahora muestra solo SKUs registrados.
+- Para `precio_manual` y `descuento_partida`, el POS envia al backend solo la partida objetivo, no todo el carrito.
+- Para `precio_conjunto`, el POS excluye ventas rapidas del calculo de paquete y recalcula indices sobre los SKUs registrados enviados.
+- Para `descuento_general`, el POS envia solo SKUs registrados; las ventas rapidas mantienen su flujo propio de clasificacion/catalogo.
+
+Regla:
+
+- Venta rapida no debe bloquear una excepcion comercial de un SKU real.
+- Venta rapida no debe entrar a paquete/precio conjunto hasta que se clasifique y se relacione con SKU real.
+
+## Corte vigente 2026-10-13 - Consumo de excepcion comercial conserva contexto completo
+
+Caso reportado:
+
+- Despues de registrar una excepcion `precio_manual`, al aplicarla aparecian bloqueos:
+  - `SKU no encontrado o inactivo`;
+  - inventario pendiente;
+  - SKU sin precio formal.
+
+Causa:
+
+- El POS aplicaba el folio con un payload reducido que no llevaba:
+  - precio unitario;
+  - precio provisional/motivo;
+  - tipo de partida venta rapida;
+  - almacen de salida por partida.
+- El backend normalizaba el carrito para precio sin conservar todo ese contexto.
+
+Ajuste aplicado:
+
+- `aplicarFolioExcepcionComercial()` ahora envia `itemsPayloadActual()` completo, igual que el cobro.
+- `VentasErp::normalizarItemsParaPrecioBackend()` conserva contexto operativo de partidas:
+  - almacen/origen;
+  - tipo/origen de partida;
+  - descripcion manual;
+  - precio provisional y motivo;
+  - datos auxiliares de venta rapida;
+  - control de inventario.
+- `VentasErp::excepcionComercialConsumoDryRun()` filtra bloqueos que no deben impedir aplicar un folio comercial:
+  - diferencia de precio enviado;
+  - SKU sin precio formal cuando el precio manual ya fue autorizado;
+  - avisos de inventario pendiente, que se atienden al cobrar con regularizacion/alerta.
+
+Regla:
+
+- Aplicar una excepcion comercial no mueve caja ni inventario.
+- La autorizacion de precio no sustituye el flujo de inventario pendiente; solo evita que el precio manual autorizado quede bloqueado por validaciones que corresponden al cobro.
+
+## Corte vigente 2026-10-13 - Carrito muestra precio autorizado aplicado
+
+Caso reportado:
+
+- El folio de excepcion comercial ya se aplicaba y el total cambiaba, pero el renglon del carrito seguia mostrando el precio anterior.
+
+Ajuste aplicado:
+
+- El carrito ahora busca la partida aplicada dentro de `excepcionActiva.partidas`.
+- Si la partida tiene excepcion comercial aplicada, muestra:
+  - precio original tachado cuando cambia;
+  - precio final autorizado en verde;
+  - badge `Precio autorizado`;
+  - importe de renglon usando `total_final`.
+- No se modifica `item.precio_unitario` local; el precio real sigue dependiendo del folio y se recalcula en backend al cobrar.
+
+Regla:
+
+- La vista debe ayudar al cajero a entender el precio aplicado, pero el backend sigue siendo la autoridad del total final.
+
+## Corte vigente 2026-10-13 - Totales del carrito consideran precio autorizado
+
+Caso reportado:
+
+- El renglon del carrito ya mostraba el precio autorizado, pero el subtotal visible seguia tomando el precio anterior.
+
+Ajuste aplicado:
+
+- Se agrego `subtotalCarritoVisual()` para sumar los importes visibles por partida.
+- `actualizarTotales()` ahora usa el subtotal visual cuando hay excepcion aplicada.
+- `totalCobroActual()` tambien usa el subtotal visual cuando no hay total backend de excepcion.
+- Despues de aplicar un folio, el subtotal mostrado se actualiza con los importes finales visibles.
+
+Regla:
+
+- Los totales visibles del POS deben coincidir con los importes visibles del carrito.
+- El backend sigue recalculando y validando el total final al cobrar.
+
+## Corte vigente 2026-10-13 - Pagos no limpian excepcion comercial aplicada
+
+Caso reportado:
+
+- Despues de aplicar un precio autorizado, al agregar metodo de pago o editar el pago se borraba la excepcion y el carrito regresaba al precio anterior.
+
+Causa:
+
+- El JS limpiaba `excepcionActiva` al agregar, quitar o editar pagos.
+- Eso era incorrecto: el pago no cambia la partida ni el precio autorizado; solo cambia saldo/cambio.
+
+Ajuste aplicado:
+
+- `agregarPago()`, `agregarPagoRapido()`, quitar pago, editar monto/referencia y cambiar metodo ya no llaman `limpiarExcepcionActiva()`.
+- La excepcion sigue limpiandose cuando cambia el carrito operativo:
+  - producto;
+  - cantidad;
+  - origen/almacen;
+  - precio provisional/base;
+  - seleccion de paquete.
+
+Regla:
+
+- Cambiar pagos no invalida un folio de excepcion comercial.
+- Cambiar partidas si invalida el folio, porque el snapshot autorizado podria dejar de corresponder.
+
+## Corte vigente 2026-10-14 - Resumen de Ventas respeta filtros de fecha
+
+Caso reportado:
+
+- En `Ventas > Mostrar`, al pasar de medianoche y filtrar solo el dia anterior, la tabla podia listar ventas del dia filtrado pero las tarjetas superiores seguian sumando "hoy".
+
+Causa:
+
+- `public/assets/js/custom/apps/erp/ventas/listado.js` enviaba filtros solo a `/ventas/ventas_listar_erp`.
+- `/ventas/ventas_resumen_erp` se llamaba sin parametros.
+- `VentasErp::resumenVentasModulo()` calculaba fijo con `date("Y-m-d")`.
+
+Ajuste aplicado:
+
+- `VentasErp::resumenVentasModulo()` ahora acepta `tipo`, `estatus`, `q`, `fecha_desde` y `fecha_hasta`.
+- El JS manda los mismos filtros al resumen y al listado.
+- Las etiquetas KPI cambian de "hoy" a la fecha/rango filtrado cuando corresponde.
+- Se actualizo version del asset en `app/vistas/paginas/apps/erp/ventas/listado.php`.
+
+Regla:
+
+- Los KPIs del tablero de ventas deben sumar el mismo universo que la tabla visible, excluyendo ventas canceladas del total neto y mostrando canceladas aparte.
+
+## Corte vigente 2026-10-14 - Reportes POS excluyen canceladas y devueltas del neto
+
+Caso revisado:
+
+- El dueno pregunto si en reportes se estaban sumando ventas canceladas.
+
+Decision operativa:
+
+- La metrica principal debe ser venta neta operativa.
+- `cancelada`, `cancelado` y `devuelta` completa quedan fuera del neto.
+- `devolucion_parcial` permanece dentro por ahora hasta implementar neteo por importe devuelto.
+- Las ventas fuera del neto deben mostrarse como referencia, no mezclarse con venta neta.
+
+Ajuste aplicado:
+
+- `VentasErp::reporteVentasPosReadOnly()` excluye `cancelada`, `cancelado` y `devuelta` de:
+  - KPI venta total;
+  - tickets;
+  - ticket promedio;
+  - ventas por dia;
+  - metodos de pago;
+  - origen de mercancia;
+  - top productos.
+- El tablero comercial muestra `Venta POS neta`.
+- Si existen canceladas/devueltas en el periodo, el subtitulo del KPI indica cuantas quedaron fuera del neto.
+- Reporte de caja/diferencias y corte de turno tambien excluyen `devuelta` al calcular ventas operativas.
+
+Pendiente futuro:
+
+- Implementar neto financiero exacto para `devolucion_parcial`, restando importes devueltos/reembolsados sin ocultar la venta original.
+
+## Corte vigente 2026-10-14 - Corte de caja separa ventas netas y movimientos reales
+
+Caso revisado:
+
+- El dueno pidio revisar si el corte de caja podia estar contando ventas canceladas.
+
+Hallazgo:
+
+- `cierreTurnoDryRun()` y `corteTurnoFormalReadOnly()` ya excluian ventas `cancelada/cancelado/devuelta` del resumen de ventas.
+- Pero los pagos y movimientos podian inflar la lectura si:
+  - un pago registrado pertenecia a una venta cancelada/devuelta;
+  - un movimiento de caja `venta_pos` seguia ligado a una venta cancelada/devuelta.
+
+Decision operativa:
+
+- Ventas/pagos de venta en corte deben representar venta neta operativa:
+  - excluir `cancelada`;
+  - excluir `cancelado`;
+  - excluir `devuelta`;
+  - excluir pagos con `tipo_pago='reembolso'` de la seccion "Pagos por metodo".
+- Movimientos reales de caja deben seguir visibles:
+  - gastos;
+  - retiros;
+  - entradas;
+  - reembolsos;
+  - vales;
+  - otros movimientos administrativos registrados.
+- Los movimientos `venta_pos` solo cuentan si la venta ligada no esta cancelada/devuelta.
+
+Ajuste aplicado:
+
+- `cierreTurnoDryRun()`:
+  - pagos por metodo ahora excluyen `reembolso`;
+  - movimientos `venta_pos` requieren venta activa/no devuelta.
+- `corteTurnoFormalReadOnly()`:
+  - pagos por metodo ahora se unen a `erp_ventas` y excluyen ventas canceladas/devueltas;
+  - pagos por metodo excluyen `reembolso`;
+  - movimientos `venta_pos` requieren venta activa/no devuelta.
+- Recalculo de monto esperado para venta con inventario pendiente tambien filtra movimientos `venta_pos` ligados a ventas activas/no devueltas.
+
+Regla:
+
+- Una cancelacion/devolucion no debe inflar venta ni pagos de venta en corte.
+- Un reembolso real si debe verse como movimiento de caja, pero no como pago positivo de venta.
+
+## Corte vigente 2026-10-14 - Carga historica en sidebar y acciones de regularizacion
+
+Necesidad operativa:
+
+- El dueno necesita capturar ventas que no son del dia para ordenar el negocio sin mezclar esas ventas con POS en tiempo real.
+- Ademas quiere aprovechar esas ventas historicas para detectar productos con rotacion y generar pendientes de regularizacion cuando haya tiempo libre.
+
+Decision:
+
+- La carga historica debe ser una pantalla separada del POS.
+- La venta historica no afecta caja, turno, kardex ni existencias.
+- La venta historica puede crear acciones/incidencias de regularizacion, pero solo al guardar la venta historica real, no al armar borradores.
+- Acciones contempladas por partida:
+  - revisar inventario;
+  - clasificar o vincular SKU;
+  - revisar proveedor;
+  - completar precio;
+  - preparar publicacion ecommerce.
+
+Ajuste aplicado sin escritura BD:
+
+- Nueva ruta visual `Ventas::carga_historica()`.
+- Nueva vista `app/vistas/paginas/apps/erp/ventas/carga_historica.php`.
+- Entrada en sidebar `Ventas y POS > Carga historica`.
+- Entrada en buscador global `Carga historica`.
+
+## Corte vigente 2026-10-14 - Modelo preparado para venta historica con acciones
+
+Autorizacion recibida:
+
+- `VENTAS_HISTORICAS_ACCIONES_REAL` para preparar el modelo real de carga historica con acciones.
+
+Ajuste preparado en codigo:
+
+- Endpoints:
+  - `GET /ventas/ventas_historicas_catalogos_erp`
+  - `POST /ventas/ventas_historicas_dryrun_erp`
+  - `POST /ventas/ventas_historicas_guardar_erp`
+  - `GET /ventas/esquema_auditar_ventas_historicas`
+  - `POST /ventas/esquema_actualizar_ventas_historicas`
+- Modelo:
+  - `VentasErp::ventasHistoricasCatalogosReadOnly()`
+  - `VentasErp::ventaHistoricaDryRun()`
+  - `VentasErp::ventaHistoricaGuardarReal()`
+- UI:
+  - `app/vistas/paginas/apps/erp/ventas/carga_historica.php`
+  - `public/assets/js/custom/apps/erp/ventas/carga_historica.js`
+
+Reglas implementadas:
+
+- La venta historica se guarda como `canal='historico'`, `origen_venta='carga_historica'`, `modo_operacion='historico_sin_afectacion'`.
+- Siempre usa `afecta_inventario=0` y `afecta_caja=0`.
+- No requiere turno abierto.
+- No crea movimiento de caja.
+- No crea kardex ni modifica existencias.
+- Puede registrar pago documental en `erp_ventas_pagos` con `tipo_pago='pago_historico'`, sin caja/turno/movimiento.
+- Las acciones de regularizacion se crean como notificaciones operativas con tipo `venta_historica_regularizacion`.
+- Cada accion queda ligada al detalle de venta historica y usa huella unica por detalle/accion para evitar duplicados abiertos.
+
+Acciones soportadas:
+
+- `revision_inventario`: area `inventario`, permiso `inventario.ver`, ruta `/inventario/productos_existencias`.
+- `clasificar_sku`: area `catalogo`, permiso `catalogo.ver`, ruta `/catalogoerp`.
+- `revisar_proveedor`: area `compras`, permiso `compras.ver`, ruta `/compra/mostrar_solicitudes`.
+- `completar_precio`: area `comercial`, permiso `ventas.listas.ver`, ruta `/ventas/listas_precios`.
+- `preparar_ecommerce`: area `catalogo`, permiso `catalogo.ver`, ruta `/catalogoerp`.
+
+Guardrails:
+
+- Si faltan columnas historicas en `erp_ventas`, el dry-run lo reporta y el guardado real queda bloqueado.
+- Guardar real exige token `VENTAS_HISTORICAS_ACCIONES_REAL`.
+- La pantalla muestra token solo para guardar; prevalidar no escribe datos.
+
+Pendiente con autorizacion/operacion:
+
+- Si la auditoria de esquema reporta columnas faltantes, aplicar DDL historico con token `VENTAS_HISTORICAS_DDL` y confirmacion `APLICAR VENTAS HISTORICAS`.
+- Ejecutar una primera prueba real controlada desde UI o endpoint y confirmar:
+  - venta `VHIS-*`;
+  - `afecta_caja=0`;
+  - `afecta_inventario=0`;
+  - pagos historicos no aparecen en corte de caja;
+  - notificaciones por accion aparecen en la bandeja global.

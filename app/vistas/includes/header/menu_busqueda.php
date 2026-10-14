@@ -42,6 +42,7 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Manual POS', 'ruta' => '/ventas/manual_pos', 'permiso' => 'ventas.ver', 'detalle' => 'Ayuda punto de venta'),
             array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver', 'detalle' => 'Consultar precio SKU producto'),
             array('titulo' => 'Pendientes venta rapida', 'ruta' => '/ventas/venta_rapida_pendientes', 'permiso' => 'ventas.ver', 'detalle' => 'Ventas rapidas pendientes'),
+            array('titulo' => 'Carga historica', 'ruta' => '/ventas/carga_historica', 'permiso' => 'ventas.ver', 'detalle' => 'Captura ventas pasadas sin afectar caja inventario'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver', 'detalle' => 'Pedidos ventas clientes'),
             array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver', 'detalle' => 'Devoluciones ventas'),
             array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver', 'detalle' => 'Turnos caja apertura cierre'),

@@ -94,6 +94,20 @@
                                             <div class="col-12">
                                                 <button class="btn btn-light-danger w-100" id="dev_simular" type="button"><i class="bi bi-arrow-counterclockwise"></i> Prevalidar reversa</button>
                                             </div>
+                                            <div class="col-12">
+                                                <div class="alert alert-warning py-3 mb-0">
+                                                    <div class="fw-bold">Aplicacion real</div>
+                                                    <div class="fs-8">Prevalidar solo revisa. Para cancelar/devolver realmente, escribe la confirmacion y usa el boton rojo.</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-7">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Confirmacion</label>
+                                                <input class="form-control form-control-solid" id="dev_confirmacion_real" placeholder="APLICAR REVERSA POS">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Accion real</label>
+                                                <button class="btn btn-danger w-100" id="dev_aplicar_real" type="button"><i class="bi bi-exclamation-octagon"></i> Aplicar reversa real</button>
+                                            </div>
                                         </div>
                                         <div id="dev_resultado" class="dev-result mt-4"></div>
                                     </div>
@@ -226,6 +240,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ventas/devoluciones.js?v=20260725-operativo1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/devoluciones.js?v=20261013-aplicar-reversa-real1"></script>
 </body>
 </html>

@@ -23,21 +23,60 @@ class VentasErp extends CRUD {
                 ));
             }
 
-            $hoy = date("Y-m-d");
+            $tipo = trim((string) $this->valor($filtros, "tipo", ""));
+            $estatus = trim((string) $this->valor($filtros, "estatus", ""));
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $fechaDesde = trim((string) $this->valor($filtros, "fecha_desde", ""));
+            $fechaHasta = trim((string) $this->valor($filtros, "fecha_hasta", ""));
+            $wherePeriodo = array("1=1");
+            $paramsPeriodo = array();
+            if ($tipo !== "") {
+                $wherePeriodo[] = "tipo_documento=:tipo";
+                $paramsPeriodo[":tipo"] = $tipo;
+            }
+            if ($estatus !== "") {
+                $wherePeriodo[] = "estatus=:estatus";
+                $paramsPeriodo[":estatus"] = $estatus;
+            }
+            if ($q !== "") {
+                $wherePeriodo[] = "(folio LIKE :q OR cliente_nombre_publico LIKE :q)";
+                $paramsPeriodo[":q"] = "%" . $q . "%";
+            }
+            if ($fechaDesde !== "" && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
+                $wherePeriodo[] = "DATE(fecha_venta)>=:fecha_desde";
+                $paramsPeriodo[":fecha_desde"] = $fechaDesde;
+            }
+            if ($fechaHasta !== "" && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+                $wherePeriodo[] = "DATE(fecha_venta)<=:fecha_hasta";
+                $paramsPeriodo[":fecha_hasta"] = $fechaHasta;
+            }
+
+            $whereSql = implode(" AND ", $wherePeriodo);
             $stmt = $db->prepare("SELECT
-                    SUM(CASE WHEN tipo_documento='venta' AND DATE(fecha_venta)=:hoy THEN 1 ELSE 0 END) ventas_hoy,
-                    SUM(CASE WHEN tipo_documento='venta' AND DATE(fecha_venta)=:hoy THEN total ELSE 0 END) total_hoy,
+                    SUM(CASE WHEN tipo_documento='venta' AND estatus NOT IN ('cancelada','cancelado','devuelta') THEN 1 ELSE 0 END) ventas_hoy,
+                    SUM(CASE WHEN tipo_documento='venta' AND estatus NOT IN ('cancelada','cancelado','devuelta') THEN total ELSE 0 END) total_hoy,
+                    SUM(CASE WHEN tipo_documento='venta' AND estatus IN ('cancelada','cancelado','devuelta') THEN 1 ELSE 0 END) ventas_canceladas_hoy,
+                    SUM(CASE WHEN tipo_documento='venta' AND estatus IN ('cancelada','cancelado','devuelta') THEN total ELSE 0 END) total_cancelado_hoy,
                     SUM(CASE WHEN tipo_documento='pedido' AND estatus IN ('borrador','reservado','pendiente_pago','pagado') THEN 1 ELSE 0 END) pedidos_abiertos,
                     SUM(CASE WHEN tipo_documento IN ('pedido','apartado') AND estatus IN ('reservado','pendiente_pago') THEN 1 ELSE 0 END) reservas_pendientes
-                FROM erp_ventas");
-            $stmt->execute(array(":hoy" => $hoy));
+                FROM erp_ventas
+                WHERE $whereSql");
+            $stmt->execute($paramsPeriodo);
             $resumen = $stmt->fetch(PDO::FETCH_ASSOC);
+            $resumen = is_array($resumen) ? $resumen : array();
             $turnos = 0;
             if ($this->tablaExiste($db, "erp_pos_turnos")) {
                 $turnos = intval($db->query("SELECT COUNT(*) FROM erp_pos_turnos WHERE estatus='abierto'")->fetchColumn());
             }
             $resumen["schema_pendiente"] = false;
             $resumen["turnos_abiertos"] = $turnos;
+            $resumen["filtros"] = array(
+                "tipo" => $tipo,
+                "estatus" => $estatus,
+                "q" => $q,
+                "fecha_desde" => $fechaDesde,
+                "fecha_hasta" => $fechaHasta
+            );
             return $this->respuesta(false, "success", "Resumen Ventas/POS consultado", $resumen);
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
@@ -64,6 +103,8 @@ class VentasErp extends CRUD {
             $tipo = trim((string) $this->valor($filtros, "tipo", ""));
             $estatus = trim((string) $this->valor($filtros, "estatus", ""));
             $q = trim((string) $this->valor($filtros, "q", ""));
+            $fechaDesde = trim((string) $this->valor($filtros, "fecha_desde", ""));
+            $fechaHasta = trim((string) $this->valor($filtros, "fecha_hasta", ""));
             $limite = max(20, min(100, intval($this->valor($filtros, "limite", 50))));
             $where = array("1=1");
             $params = array();
@@ -78,6 +119,14 @@ class VentasErp extends CRUD {
             if ($q !== "") {
                 $where[] = "(v.folio LIKE :q OR v.cliente_nombre_publico LIKE :q)";
                 $params[":q"] = "%" . $q . "%";
+            }
+            if ($fechaDesde !== "" && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
+                $where[] = "DATE(v.fecha_venta)>=:fecha_desde";
+                $params[":fecha_desde"] = $fechaDesde;
+            }
+            if ($fechaHasta !== "" && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+                $where[] = "DATE(v.fecha_venta)<=:fecha_hasta";
+                $params[":fecha_hasta"] = $fechaHasta;
             }
 
             $sql = "SELECT v.id_venta, v.folio, v.canal, v.tipo_documento, v.estatus,
@@ -100,6 +149,318 @@ class VentasErp extends CRUD {
             ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: entregar catalogos minimos para captura historica de ventas.
+     * Impacto: Ventas/POS; reutiliza almacenes y metodos sin abrir turno ni afectar caja/inventario.
+     * Contrato: read-only; no crea ventas, pagos, notificaciones ni movimientos.
+     */
+    public function ventasHistoricasCatalogosReadOnly() {
+        try {
+            $db = $this->getConexion();
+            return $this->respuesta(false, "success", "Catalogos de ventas historicas consultados", array(
+                "almacenes" => $this->listarAlmacenesOrigenPos($db),
+                "metodos_pago" => $this->listarMetodosPago($db),
+                "acciones_regularizacion" => $this->catalogoAccionesVentaHistorica(),
+                "schema_historico_listo" => $this->schemaVentasHistoricasCompleto($db),
+                "contrato" => array(
+                    "no_abre_turno" => true,
+                    "no_mueve_caja" => true,
+                    "no_mueve_inventario" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: prevalidar una venta historica y sus acciones de regularizacion.
+     * Impacto: permite revisar datos y areas responsables antes de escribir en productivo.
+     * Contrato: dry-run; no inserta venta, detalle, pagos, eventos ni notificaciones.
+     */
+    public function ventaHistoricaDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $schemaListo = $this->schemaVentasHistoricasCompleto($db);
+            $bloqueos = array();
+            $avisos = array();
+            if (!$this->schemaVentaPosCompleto($db)) {
+                $bloqueos[] = "Esquema Ventas/POS base incompleto";
+            }
+            if (!$schemaListo) {
+                $bloqueos[] = "Faltan columnas de carga historica en erp_ventas";
+            }
+
+            $fechaVenta = $this->normalizarFechaVentaHistorica($this->valor($datos, "fecha_venta_real", $this->valor($datos, "fecha_venta", "")));
+            if ($fechaVenta === "") {
+                $bloqueos[] = "Fecha real de venta historica obligatoria";
+            } elseif (strtotime($fechaVenta) > time() + 60) {
+                $bloqueos[] = "La venta historica no puede quedar con fecha futura";
+            }
+
+            $idAlmacenDefault = intval($this->valor($datos, "id_almacen", 0));
+            if ($idAlmacenDefault <= 0) {
+                $bloqueos[] = "Almacen/sucursal de referencia obligatorio";
+            }
+            $items = $this->decodificarItems($this->valor($datos, "items", array()));
+            if (empty($items)) {
+                $bloqueos[] = "Agrega al menos una partida historica";
+            }
+
+            $partidas = array();
+            $subtotal = 0;
+            $acciones = array();
+            $accionesCatalogo = $this->catalogoAccionesVentaHistorica();
+            $renglon = 1;
+            foreach ($items as $item) {
+                if (!is_array($item)) { continue; }
+                $idSku = intval($this->valor($item, "id_sku", $this->valor($item, "id_sku_erp", 0)));
+                $cantidad = $this->redondearPosReal($this->valor($item, "cantidad", 0));
+                $precio = $this->redondearPosReal($this->valor($item, "precio_unitario", $this->valor($item, "precio", 0)));
+                $idAlmacen = $this->idAlmacenPartidaPos($item, $idAlmacenDefault);
+                $descripcion = trim((string) $this->valor($item, "descripcion", ""));
+                $skuCodigo = trim((string) $this->valor($item, "sku", ""));
+                $sku = null;
+                if ($idSku > 0) {
+                    $sku = $this->consultarSkuVenta($db, $idSku);
+                    if (!$sku) {
+                        $bloqueos[] = "Renglon " . $renglon . ": SKU no encontrado o inactivo";
+                    } else {
+                        $descripcion = $descripcion !== "" ? $descripcion : $this->valor($sku, "nombre_sku", $this->valor($sku, "producto", ""));
+                        $skuCodigo = $this->valor($sku, "sku", $skuCodigo);
+                    }
+                }
+                if ($descripcion === "") {
+                    $bloqueos[] = "Renglon " . $renglon . ": descripcion obligatoria";
+                }
+                if ($cantidad <= 0) {
+                    $bloqueos[] = "Renglon " . $renglon . ": cantidad obligatoria";
+                }
+                if ($precio < 0) {
+                    $bloqueos[] = "Renglon " . $renglon . ": precio invalido";
+                }
+                $importe = $this->redondearPosReal($cantidad * $precio);
+                $subtotal += $importe;
+                $accion = $this->normalizarAccionVentaHistorica($this->valor($item, "accion_regularizacion", ""));
+                if ($accion !== "") {
+                    $acciones[] = array(
+                        "renglon" => $renglon,
+                        "accion" => $accion,
+                        "area_responsable" => $accionesCatalogo[$accion]["area"],
+                        "permiso_requerido" => $accionesCatalogo[$accion]["permiso"],
+                        "titulo" => $accionesCatalogo[$accion]["nombre"]
+                    );
+                    if ($accion === "clasificar_sku" && $idSku > 0) {
+                        $avisos[] = "Renglon " . $renglon . ": clasificar SKU normalmente aplica cuando aun no existe SKU definitivo.";
+                    }
+                    if ($accion === "revision_inventario" && $idAlmacen <= 0) {
+                        $bloqueos[] = "Renglon " . $renglon . ": revision de inventario requiere almacen";
+                    }
+                }
+                $partidas[] = array(
+                    "renglon" => $renglon,
+                    "id_sku" => $idSku,
+                    "sku" => $skuCodigo,
+                    "descripcion" => $descripcion,
+                    "id_almacen" => $idAlmacen,
+                    "cantidad" => $cantidad,
+                    "unidad_venta" => trim((string) $this->valor($item, "unidad_venta", $sku ? $this->valor($sku, "unidad_venta_label", "pza") : "pza")),
+                    "precio_unitario" => $precio,
+                    "subtotal" => $importe,
+                    "accion_regularizacion" => $accion
+                );
+                $renglon++;
+            }
+
+            $descuento = $this->redondearPosReal($this->valor($datos, "descuento_total", 0));
+            if ($descuento < 0) { $bloqueos[] = "Descuento historico invalido"; }
+            $total = $this->redondearPosReal(max(0, $subtotal - $descuento));
+            $pagado = $this->redondearPosReal($this->valor($datos, "pagado_total", $this->valor($datos, "pago", $total)));
+            if ($pagado < 0) { $bloqueos[] = "Pago historico invalido"; }
+
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Dry-run de venta historica valido" : "Venta historica con pendientes por resolver", array(
+                "dry_run" => true,
+                "schema_historico_listo" => $schemaListo,
+                "fecha_venta_real" => $fechaVenta,
+                "partidas" => $partidas,
+                "acciones" => $acciones,
+                "totales" => array(
+                    "subtotal" => $this->redondearPosReal($subtotal),
+                    "descuento_total" => $descuento,
+                    "total" => $total,
+                    "pagado_total" => min($pagado, $total),
+                    "saldo_total" => max(0, $total - $pagado)
+                ),
+                "avisos" => array_values(array_unique($avisos)),
+                "bloqueos" => array_values(array_unique($bloqueos)),
+                "contrato" => array(
+                    "no_escribe_bd" => true,
+                    "no_mueve_caja" => true,
+                    "no_mueve_inventario" => true,
+                    "acciones_solo_al_guardar" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: guardar venta historica documental y crear acciones operativas por partida.
+     * Impacto: escribe erp_ventas/erp_ventas_detalle, pagos documentales, eventos y notificaciones; no toca caja ni inventario.
+     * Contrato: requiere token VENTAS_HISTORICAS_ACCIONES_REAL; siempre usa afecta_caja=0 y afecta_inventario=0.
+     */
+    public function ventaHistoricaGuardarReal($datos = array()) {
+        $db = $this->getConexion();
+        $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+        $token = trim((string) $this->valor($datos, "token", $this->valor($datos, "autorizar", "")));
+        if ($idUsuario <= 0) {
+            return $this->respuesta(true, "warning", "Usuario operador obligatorio");
+        }
+        if ($token !== "VENTAS_HISTORICAS_ACCIONES_REAL") {
+            return $this->respuesta(true, "warning", "Token de venta historica requerido", array(
+                "token_requerido" => "VENTAS_HISTORICAS_ACCIONES_REAL"
+            ));
+        }
+        $dryRun = $this->ventaHistoricaDryRun($datos);
+        $bloqueos = $this->valorRutaPosReal($dryRun, array("depurar", "bloqueos"), array());
+        if (!empty($bloqueos)) {
+            return $this->respuesta(false, "warning", "Venta historica bloqueada por prevalidacion", array("bloqueos" => $bloqueos, "dry_run" => $dryRun));
+        }
+        try {
+            $db->beginTransaction();
+            $depurarDry = $this->valor($dryRun, "depurar", array());
+            $fechaVenta = $this->valor($depurarDry, "fecha_venta_real", date("Y-m-d H:i:s"));
+            $partidas = $this->valor($depurarDry, "partidas", array());
+            $totales = $this->valor($depurarDry, "totales", array());
+            $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+            $folio = $this->generarFolioVentaPosReal($db, "VHIS");
+            $cliente = trim((string) $this->valor($datos, "cliente_nombre_publico", $this->valor($datos, "cliente", "Cliente historico")));
+            $identificador = trim((string) $this->valor($datos, "identificador_cliente", ""));
+            $observaciones = trim((string) $this->valor($datos, "observaciones", "Carga historica de ventas"));
+
+            $stmt = $db->prepare("INSERT INTO erp_ventas
+                (folio, canal, tipo_documento, origen_venta, modo_operacion, afecta_inventario, afecta_caja,
+                 estatus, id_almacen, id_caja, id_turno_caja, id_cliente,
+                 cliente_nombre_publico, cliente_identificador_publico, subtotal, descuento_total,
+                 impuestos_total, total, pagado_total, saldo_total, fecha_venta, fecha_venta_real,
+                 fecha_captura_historica, capturada_por, creado_por, observaciones, observaciones_historicas)
+                VALUES (:folio, 'historico', 'venta', 'carga_historica', 'historico_sin_afectacion', 0, 0,
+                 'pagada', :almacen, NULL, NULL, NULL,
+                 :cliente, :identificador, :subtotal, :descuento,
+                 0, :total, :pagado, :saldo, :fecha_venta, :fecha_real,
+                 NOW(), :capturada_por, :usuario, :observaciones, :observaciones_historicas)");
+            $stmt->execute(array(
+                ":folio" => $folio,
+                ":almacen" => $idAlmacen,
+                ":cliente" => $cliente !== "" ? $cliente : "Cliente historico",
+                ":identificador" => $identificador !== "" ? $identificador : null,
+                ":subtotal" => $this->redondearPosReal($this->valor($totales, "subtotal", 0)),
+                ":descuento" => $this->redondearPosReal($this->valor($totales, "descuento_total", 0)),
+                ":total" => $this->redondearPosReal($this->valor($totales, "total", 0)),
+                ":pagado" => $this->redondearPosReal($this->valor($totales, "pagado_total", 0)),
+                ":saldo" => $this->redondearPosReal($this->valor($totales, "saldo_total", 0)),
+                ":fecha_venta" => $fechaVenta,
+                ":fecha_real" => $fechaVenta,
+                ":capturada_por" => $idUsuario,
+                ":usuario" => $idUsuario,
+                ":observaciones" => $observaciones,
+                ":observaciones_historicas" => trim((string) $this->valor($datos, "observaciones_historicas", $observaciones))
+            ));
+            $idVenta = intval($db->lastInsertId());
+
+            $accionesCreadas = array();
+            foreach ($partidas as $partida) {
+                $stmtDetalle = $db->prepare("INSERT INTO erp_ventas_detalle
+                    (id_venta, renglon, id_almacen, id_producto_erp, id_sku_erp, sku, descripcion,
+                     tipo_partida, controla_inventario, modo_salida, cantidad_venta, unidad_venta,
+                     cantidad_base, unidad_base, precio_unitario, precio_unitario_sin_impuesto,
+                     precio_base, precio_aplicado, regla_precio_origen, descuento, impuestos,
+                     subtotal, total, estatus)
+                    VALUES (:venta, :renglon, :almacen, NULL, :sku_id, :sku, :descripcion,
+                     :tipo_partida, 0, 'historico_sin_inventario', :cantidad, :unidad,
+                     :cantidad_base, :unidad_base, :precio, :precio,
+                     :precio_base, :precio_aplicado, 'carga_historica', 0, 0,
+                     :subtotal, :total, 'confirmada')");
+                $stmtDetalle->execute(array(
+                    ":venta" => $idVenta,
+                    ":renglon" => intval($this->valor($partida, "renglon", 1)),
+                    ":almacen" => intval($this->valor($partida, "id_almacen", $idAlmacen)),
+                    ":sku_id" => intval($this->valor($partida, "id_sku", 0)) > 0 ? intval($this->valor($partida, "id_sku", 0)) : null,
+                    ":sku" => trim((string) $this->valor($partida, "sku", "")) ?: null,
+                    ":descripcion" => $this->valor($partida, "descripcion", "Producto historico"),
+                    ":tipo_partida" => intval($this->valor($partida, "id_sku", 0)) > 0 ? "producto" : "venta_rapida",
+                    ":cantidad" => $this->redondearPosReal($this->valor($partida, "cantidad", 0)),
+                    ":unidad" => $this->valor($partida, "unidad_venta", "pza"),
+                    ":cantidad_base" => $this->redondearPosReal($this->valor($partida, "cantidad", 0)),
+                    ":unidad_base" => $this->valor($partida, "unidad_venta", "pza"),
+                    ":precio" => $this->redondearPosReal($this->valor($partida, "precio_unitario", 0)),
+                    ":precio_base" => $this->redondearPosReal($this->valor($partida, "precio_unitario", 0)),
+                    ":precio_aplicado" => $this->redondearPosReal($this->valor($partida, "precio_unitario", 0)),
+                    ":subtotal" => $this->redondearPosReal($this->valor($partida, "subtotal", 0)),
+                    ":total" => $this->redondearPosReal($this->valor($partida, "subtotal", 0))
+                ));
+                $idDetalle = intval($db->lastInsertId());
+                $accion = $this->normalizarAccionVentaHistorica($this->valor($partida, "accion_regularizacion", ""));
+                if ($accion !== "") {
+                    $accionesCreadas[] = $this->registrarAccionVentaHistoricaReal($db, $idVenta, $idDetalle, $folio, $partida, $accion, $idUsuario);
+                }
+            }
+
+            $pagado = $this->redondearPosReal($this->valor($totales, "pagado_total", 0));
+            if ($pagado > 0 && $this->tablaExiste($db, "erp_ventas_pagos")) {
+                $idMetodo = intval($this->valor($datos, "id_metodo_pago", 0));
+                $metodoNombre = "Historico";
+                foreach ($this->listarMetodosPago($db) as $metodo) {
+                    if (intval($this->valor($metodo, "id_metodo_pago", 0)) === $idMetodo) {
+                        $metodoNombre = $this->valor($metodo, "metodo_pago", $this->valor($metodo, "nombre", "Historico"));
+                        break;
+                    }
+                }
+                $stmtPago = $db->prepare("INSERT INTO erp_ventas_pagos
+                    (id_venta, id_caja, id_turno_caja, id_movimiento_caja, id_metodo_pago,
+                     metodo_pago, tipo_pago, monto, moneda, referencia, estatus, fecha_pago, creado_por)
+                    VALUES (:venta, NULL, NULL, NULL, :metodo_id,
+                     :metodo, 'pago_historico', :monto, 'MXN', :referencia, 'registrado', :fecha_pago, :usuario)");
+                $stmtPago->execute(array(
+                    ":venta" => $idVenta,
+                    ":metodo_id" => $idMetodo > 0 ? $idMetodo : null,
+                    ":metodo" => $metodoNombre,
+                    ":monto" => $pagado,
+                    ":referencia" => trim((string) $this->valor($datos, "referencia_pago", "")) ?: null,
+                    ":fecha_pago" => $fechaVenta,
+                    ":usuario" => $idUsuario
+                ));
+            }
+
+            $this->registrarEventoVentaPosReal($db, $idVenta, $folio, "venta_historica_cargada", null, "pagada", $this->valor($totales, "total", 0), "", array(
+                "fecha_venta_real" => $fechaVenta,
+                "acciones_regularizacion" => $accionesCreadas,
+                "contrato" => array("afecta_caja" => false, "afecta_inventario" => false)
+            ), $idUsuario);
+
+            $db->commit();
+            return $this->respuesta(false, "success", "Venta historica registrada", array(
+                "folio" => $folio,
+                "id_venta" => $idVenta,
+                "acciones_regularizacion" => $accionesCreadas,
+                "totales" => $totales,
+                "contrato" => array("afecta_caja" => 0, "afecta_inventario" => 0)
+            ));
+        } catch (Exception $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage(), array("rollback" => true, "modo" => "venta_historica_real"));
         }
     }
 
@@ -165,7 +526,7 @@ class VentasErp extends CRUD {
                 LEFT JOIN (
                     SELECT id_turno_caja, COUNT(*) operaciones, COALESCE(SUM(total), 0) total
                     FROM erp_ventas
-                    WHERE estatus NOT IN ('cancelada')
+                    WHERE estatus NOT IN ('cancelada','cancelado','devuelta')
                     GROUP BY id_turno_caja
                 ) v ON v.id_turno_caja=t.id_turno_caja
                 LEFT JOIN (
@@ -336,6 +697,183 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-10-13.
+     * Proposito: alimentar el tablero comercial POS con ventas, metodos de pago, almacenes y productos.
+     * Impacto: consulta indicadores gerenciales sin modificar ventas, caja, inventario ni alertas.
+     * Contrato: read-only; filtra por fecha, almacen y caja; excluye ventas canceladas de importes operativos.
+     */
+    public function reporteVentasPosReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            foreach (array("erp_ventas", "erp_ventas_detalle", "erp_ventas_pagos") as $tabla) {
+                if (!$this->tablaExiste($db, $tabla)) {
+                    return $this->respuesta(false, "warning", "Esquema de ventas POS pendiente", array(
+                        "schema_pendiente" => true,
+                        "resumen" => array(),
+                        "por_dia" => array(),
+                        "por_metodo_pago" => array(),
+                        "por_almacen_origen" => array(),
+                        "top_productos" => array(),
+                        "por_estatus" => array()
+                    ));
+                }
+            }
+
+            $fechaDesde = trim((string) $this->valor($filtros, "fecha_desde", date("Y-m-d", strtotime("-30 days"))));
+            $fechaHasta = trim((string) $this->valor($filtros, "fecha_hasta", date("Y-m-d")));
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
+                $fechaDesde = date("Y-m-d", strtotime("-30 days"));
+            }
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
+                $fechaHasta = date("Y-m-d");
+            }
+            $idAlmacen = intval($this->valor($filtros, "id_almacen", 0));
+            $idCaja = intval($this->valor($filtros, "id_caja", 0));
+
+            $whereBase = array("v.tipo_documento='venta'", "v.canal='pos'", "DATE(v.fecha_venta) BETWEEN :desde AND :hasta");
+            $paramsBase = array(":desde" => $fechaDesde, ":hasta" => $fechaHasta);
+            if ($idAlmacen > 0) {
+                $whereBase[] = "v.id_almacen=:almacen";
+                $paramsBase[":almacen"] = $idAlmacen;
+            }
+            if ($idCaja > 0) {
+                $whereBase[] = "v.id_caja=:caja";
+                $paramsBase[":caja"] = $idCaja;
+            }
+            $whereOperativo = array_merge($whereBase, array("v.estatus NOT IN ('cancelada','cancelado','devuelta')"));
+            $sqlBase = implode(" AND ", $whereBase);
+            $sqlOperativo = implode(" AND ", $whereOperativo);
+
+            $stmt = $db->prepare("SELECT
+                    COUNT(*) ventas,
+                    COALESCE(SUM(v.total), 0) total,
+                    COALESCE(SUM(v.pagado_total), 0) pagado_total,
+                    COALESCE(SUM(v.saldo_total), 0) saldo_total,
+                    COALESCE(AVG(v.total), 0) ticket_promedio
+                FROM erp_ventas v
+                WHERE $sqlOperativo");
+            $stmt->execute($paramsBase);
+            $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+
+            $stmt = $db->prepare("SELECT
+                    COUNT(d.id_venta_detalle) partidas,
+                    COALESCE(SUM(d.cantidad_venta), 0) cantidad_vendida,
+                    COALESCE(SUM(d.total), 0) total_partidas,
+                    COALESCE(SUM(CASE WHEN d.tipo_partida='venta_rapida' OR d.sku='VENTA-RAPIDA' THEN 1 ELSE 0 END), 0) partidas_venta_rapida
+                FROM erp_ventas_detalle d
+                INNER JOIN erp_ventas v ON v.id_venta=d.id_venta
+                WHERE $sqlOperativo");
+            $stmt->execute($paramsBase);
+            $detalleResumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+
+            $stmt = $db->prepare("SELECT DATE(v.fecha_venta) fecha,
+                    COUNT(*) ventas,
+                    COALESCE(SUM(v.total), 0) total,
+                    COALESCE(AVG(v.total), 0) ticket_promedio
+                FROM erp_ventas v
+                WHERE $sqlOperativo
+                GROUP BY DATE(v.fecha_venta)
+                ORDER BY fecha ASC");
+            $stmt->execute($paramsBase);
+            $porDia = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt = $db->prepare("SELECT p.metodo_pago, COALESCE(p.tipo_pago, 'pago') tipo_pago,
+                    COUNT(*) operaciones,
+                    COALESCE(SUM(p.monto), 0) monto
+                FROM erp_ventas_pagos p
+                INNER JOIN erp_ventas v ON v.id_venta=p.id_venta
+                WHERE $sqlOperativo AND p.estatus='registrado' AND COALESCE(p.tipo_pago, 'pago') <> 'reembolso'
+                GROUP BY p.metodo_pago, COALESCE(p.tipo_pago, 'pago')
+                ORDER BY monto DESC, operaciones DESC
+                LIMIT 12");
+            $stmt->execute($paramsBase);
+            $porMetodoPago = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $detalleAlmacenExpr = $this->columnaExiste($db, "erp_ventas_detalle", "id_almacen")
+                ? "COALESCE(d.id_almacen, v.id_almacen)"
+                : "v.id_almacen";
+            $stmt = $db->prepare("SELECT $detalleAlmacenExpr id_almacen,
+                    a.codigo_almacen, a.almacen, a.nombre_comercial,
+                    COUNT(DISTINCT v.id_venta) ventas,
+                    COALESCE(SUM(d.total), 0) total,
+                    COALESCE(SUM(d.cantidad_venta), 0) cantidad
+                FROM erp_ventas_detalle d
+                INNER JOIN erp_ventas v ON v.id_venta=d.id_venta
+                LEFT JOIN erp_almacenes a ON a.id_almacen=$detalleAlmacenExpr
+                WHERE $sqlOperativo
+                GROUP BY $detalleAlmacenExpr, a.codigo_almacen, a.almacen, a.nombre_comercial
+                ORDER BY total DESC
+                LIMIT 12");
+            $stmt->execute($paramsBase);
+            $porAlmacenOrigen = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt = $db->prepare("SELECT d.id_sku_erp, d.sku, d.descripcion,
+                    COUNT(*) partidas,
+                    COALESCE(SUM(d.cantidad_venta), 0) cantidad,
+                    COALESCE(SUM(d.total), 0) total
+                FROM erp_ventas_detalle d
+                INNER JOIN erp_ventas v ON v.id_venta=d.id_venta
+                WHERE $sqlOperativo
+                GROUP BY d.id_sku_erp, d.sku, d.descripcion
+                ORDER BY total DESC, cantidad DESC
+                LIMIT 15");
+            $stmt->execute($paramsBase);
+            $topProductos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt = $db->prepare("SELECT v.estatus, COUNT(*) ventas, COALESCE(SUM(v.total), 0) total
+                FROM erp_ventas v
+                WHERE $sqlBase
+                GROUP BY v.estatus
+                ORDER BY ventas DESC");
+            $stmt->execute($paramsBase);
+            $porEstatus = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $ventasExcluidas = 0;
+            $totalExcluido = 0;
+            foreach ($porEstatus as $estatusResumen) {
+                if (in_array($this->valor($estatusResumen, "estatus", ""), array("cancelada", "cancelado", "devuelta"), true)) {
+                    $ventasExcluidas += intval($this->valor($estatusResumen, "ventas", 0));
+                    $totalExcluido += floatval($this->valor($estatusResumen, "total", 0));
+                }
+            }
+
+            $resumen = array_merge(array(
+                "ventas" => 0,
+                "total" => 0,
+                "pagado_total" => 0,
+                "saldo_total" => 0,
+                "ticket_promedio" => 0,
+                "ventas_excluidas_neto" => 0,
+                "total_excluido_neto" => 0
+            ), $resumen, array(
+                "partidas" => intval($this->valor($detalleResumen, "partidas", 0)),
+                "cantidad_vendida" => round(floatval($this->valor($detalleResumen, "cantidad_vendida", 0)), 6),
+                "total_partidas" => round(floatval($this->valor($detalleResumen, "total_partidas", 0)), 6),
+                "partidas_venta_rapida" => intval($this->valor($detalleResumen, "partidas_venta_rapida", 0)),
+                "ventas_excluidas_neto" => $ventasExcluidas,
+                "total_excluido_neto" => round($totalExcluido, 6)
+            ));
+
+            return $this->respuesta(false, "success", "Tablero de ventas POS consultado", array(
+                "schema_pendiente" => false,
+                "filtros" => array(
+                    "fecha_desde" => $fechaDesde,
+                    "fecha_hasta" => $fechaHasta,
+                    "id_almacen" => $idAlmacen,
+                    "id_caja" => $idCaja
+                ),
+                "resumen" => $resumen,
+                "por_dia" => $porDia,
+                "por_metodo_pago" => $porMetodoPago,
+                "por_almacen_origen" => $porAlmacenOrigen,
+                "top_productos" => $topProductos,
+                "por_estatus" => $porEstatus
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-03.
      * Proposito: listar diferencias de caja pendientes de seguimiento formal.
      * Impacto: permite ver faltantes/sobrantes cerrados por turno antes de crear flujo de resolucion.
@@ -408,7 +946,7 @@ class VentasErp extends CRUD {
                 LEFT JOIN (
                     SELECT id_turno_caja, COUNT(*) operaciones, COALESCE(SUM(total), 0) total
                     FROM erp_ventas
-                    WHERE estatus NOT IN ('cancelada')
+                    WHERE estatus NOT IN ('cancelada','cancelado','devuelta')
                     GROUP BY id_turno_caja
                 ) v ON v.id_turno_caja=t.id_turno_caja
                 " . $joinRevision . "
@@ -1335,7 +1873,7 @@ class VentasErp extends CRUD {
                             COALESCE(SUM(saldo_total), 0) saldo
                         FROM erp_ventas
                         WHERE id_turno_caja=:turno AND id_caja=:caja
-                            AND estatus NOT IN ('cancelada')");
+                            AND estatus NOT IN ('cancelada','cancelado','devuelta')");
                     $stmt->execute(array(":turno" => $idTurno, ":caja" => $idCaja));
                     $ventas = $stmt->fetch(PDO::FETCH_ASSOC);
                 }
@@ -1347,7 +1885,8 @@ class VentasErp extends CRUD {
                         INNER JOIN erp_ventas v ON v.id_venta=p.id_venta
                         WHERE p.id_turno_caja=:turno AND p.id_caja=:caja
                             AND p.estatus='registrado'
-                            AND v.estatus NOT IN ('cancelada','cancelado')
+                            AND COALESCE(p.tipo_pago, 'pago') <> 'reembolso'
+                            AND v.estatus NOT IN ('cancelada','cancelado','devuelta')
                         GROUP BY p.metodo_pago, p.tipo_pago
                         ORDER BY p.metodo_pago, p.tipo_pago");
                     $stmt->execute(array(":turno" => $idTurno, ":caja" => $idCaja));
@@ -1361,7 +1900,7 @@ class VentasErp extends CRUD {
                         LEFT JOIN erp_ventas v ON v.id_venta=mc.id_venta
                         WHERE mc.id_turno_caja=:turno
                           AND mc.estatus IN ('registrado','aprobado')
-                          AND (mc.categoria<>'venta_pos' OR v.id_venta IS NOT NULL)
+                          AND (mc.categoria<>'venta_pos' OR (v.id_venta IS NOT NULL AND v.estatus NOT IN ('cancelada','cancelado','devuelta')))
                         GROUP BY mc.tipo, mc.motivo
                         ORDER BY mc.tipo, mc.motivo");
                     $stmt->execute(array(":turno" => $idTurno));
@@ -3045,10 +3584,14 @@ class VentasErp extends CRUD {
                 ));
             }
 
-            $stmt = $db->prepare("SELECT d.*, g.id_venta_detalle_garantia, g.tipo_garantia_snapshot,
+            $stmt = $db->prepare("SELECT d.*, ad.almacen almacen_partida, ad.nombre_comercial nombre_comercial_partida,
+                    ad.codigo_almacen codigo_almacen_partida,
+                    g.id_venta_detalle_garantia, g.tipo_garantia_snapshot,
                     g.nombre_politica_snapshot, g.duracion_valor_snapshot, g.unidad_duracion_snapshot,
                     g.resumen_ticket, g.fecha_inicio, g.fecha_vencimiento, g.estatus garantia_estatus
                 FROM erp_ventas_detalle d
+                INNER JOIN erp_ventas v ON v.id_venta=d.id_venta
+                LEFT JOIN erp_almacenes ad ON ad.id_almacen=COALESCE(d.id_almacen, v.id_almacen)
                 LEFT JOIN erp_ventas_detalle_garantias g ON g.id_venta_detalle=d.id_venta_detalle
                 WHERE d.id_venta=:venta
                 ORDER BY d.renglon ASC, d.id_venta_detalle ASC");
@@ -3997,6 +4540,12 @@ class VentasErp extends CRUD {
         if ($idVenta <= 0 || empty($partidasDry)) {
             return $this->respuesta(false, "warning", "Reversa POS sin venta o partidas validas", array("bloqueos" => array("reversa_sin_partidas")));
         }
+        if ($tipo === "cancelacion" && !$this->cancelacionCubreVentaCompletaPosReal($db, $idVenta, $partidasDry)) {
+            return $this->respuesta(false, "warning", "Cancelacion POS incompleta", array(
+                "bloqueos" => array("cancelacion_requiere_todas_las_partidas"),
+                "mensaje_operativo" => "La cancelacion debe cubrir todas las partidas vigentes de la venta. Para una sola partida usa devolucion."
+            ));
+        }
         if (in_array($decisionFinanciera, array("reembolso_caja", "reintegro_saldo_crm", "mixta_saldo_crm"), true) && $montoEstimado <= 0) {
             return $this->respuesta(false, "warning", "Reembolso de caja sin monto valido", array("bloqueos" => array("reembolso_sin_monto")));
         }
@@ -4166,6 +4715,15 @@ class VentasErp extends CRUD {
                 $componentesRegistrados = $this->registrarComponentesFinancierosReversaPosReal($db, $idDevolucion, $idVenta, $folioDevolucion, $componentesFinancieros, $idAlmacen, $idCaja, $idTurno, $idMovimientoCaja, $motivo, $idUsuario);
             }
 
+            $incidenciasCanceladas = array();
+            if ($tipo === "cancelacion") {
+                $db->prepare("UPDATE erp_ventas_detalle
+                    SET estatus='cancelada', fecha_actualizacion=NOW()
+                    WHERE id_venta=:venta AND estatus<>'cancelada'")
+                    ->execute(array(":venta" => $idVenta));
+                $incidenciasCanceladas = $this->cancelarIncidenciasVentaCanceladaPosReal($db, $idVenta, $folioDevolucion, $motivo, $idUsuario);
+            }
+
             $estatusVenta = $this->estatusVentaDespuesReversaPosReal($db, $idVenta, $tipo);
             $db->prepare("UPDATE erp_ventas
                 SET estatus=:estatus,
@@ -4200,6 +4758,7 @@ class VentasErp extends CRUD {
                 "id_movimiento_caja" => $idMovimientoCaja,
                 "id_venta_pago_reembolso" => $idVentaPagoReembolso,
                 "componentes_financieros" => $componentesRegistrados,
+                "incidencias_canceladas" => $incidenciasCanceladas,
                 "estatus_venta" => $estatusVenta,
                 "detalles" => $evidenciaDetalle
             ));
@@ -4209,6 +4768,217 @@ class VentasErp extends CRUD {
             }
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-13.
+     * Proposito: impedir que una cancelacion POS deje partidas activas o venta parcialmente cancelada.
+     * Impacto: protege la trazabilidad de ventas, caja, pendientes de inventario y pendientes de catalogo.
+     * Contrato: solo lectura; devuelve true unicamente si todas las partidas vigentes quedan cubiertas.
+     */
+    private function cancelacionCubreVentaCompletaPosReal($db, $idVenta, $partidasDry) {
+        $stmt = $db->prepare("SELECT id_venta_detalle, cantidad_base
+            FROM erp_ventas_detalle
+            WHERE id_venta=:venta AND estatus<>'cancelada'");
+        $stmt->execute(array(":venta" => intval($idVenta)));
+        $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($detalles)) {
+            return false;
+        }
+
+        $cantidades = array();
+        foreach ($partidasDry as $partida) {
+            $idDetalle = intval($this->valor($partida, "id_venta_detalle", 0));
+            if ($idDetalle <= 0) {
+                continue;
+            }
+            if (!isset($cantidades[$idDetalle])) {
+                $cantidades[$idDetalle] = 0;
+            }
+            $cantidades[$idDetalle] += floatval($this->valor($partida, "cantidad_solicitada", 0));
+        }
+
+        foreach ($detalles as $detalle) {
+            $idDetalle = intval($detalle["id_venta_detalle"]);
+            $cantidadVenta = round(floatval($detalle["cantidad_base"]), 6);
+            $cantidadCancelada = round(floatval($this->valor($cantidades, $idDetalle, 0)), 6);
+            if ($cantidadCancelada + 0.0001 < $cantidadVenta) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-13.
+     * Proposito: cerrar pendientes operativos ligados a una venta POS cancelada.
+     * Impacto: cancela PINV, venta rapida, notificaciones e incidencias de catalogo para permitir recaptura limpia.
+     * Contrato: se ejecuta dentro de la transaccion de cancelacion POS; no mueve inventario ni borra historicos.
+     */
+    private function cancelarIncidenciasVentaCanceladaPosReal($db, $idVenta, $folioCancelacion, $motivo, $idUsuario) {
+        $resumen = array(
+            "inventario_pendientes" => array("cancelados" => 0, "folios" => array()),
+            "venta_rapida" => array("cancelados" => 0, "folios" => array()),
+            "catalogo_incidencias" => array("descartadas" => 0, "ids" => array()),
+            "notificaciones" => array("canceladas" => 0)
+        );
+        $observacion = "Cancelado por " . trim((string) $folioCancelacion) . ". " . trim((string) $motivo);
+
+        if ($this->tablaExiste($db, "erp_pos_inventario_pendientes")) {
+            $stmt = $db->prepare("SELECT *
+                FROM erp_pos_inventario_pendientes
+                WHERE id_venta=:venta
+                  AND estatus IN ('pendiente_revision','en_revision','bloqueada')
+                FOR UPDATE");
+            $stmt->execute(array(":venta" => intval($idVenta)));
+            $pendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($pendientes as $pendiente) {
+                $idPendiente = intval($pendiente["id_inventario_pendiente"]);
+                $db->prepare("UPDATE erp_pos_inventario_pendientes
+                    SET estatus='cancelada',
+                        fecha_revision=NOW(),
+                        revisado_por=:usuario,
+                        fecha_resolucion=NOW(),
+                        motivo_revision=:motivo
+                    WHERE id_inventario_pendiente=:pendiente")
+                    ->execute(array(
+                        ":usuario" => intval($idUsuario),
+                        ":motivo" => $observacion,
+                        ":pendiente" => $idPendiente
+                    ));
+                if ($this->tablaExiste($db, "erp_pos_inventario_pendientes_eventos")) {
+                    $db->prepare("INSERT INTO erp_pos_inventario_pendientes_eventos
+                        (id_inventario_pendiente, tipo_evento, estatus_anterior, estatus_nuevo,
+                         cantidad, referencia, observaciones, datos_snapshot, creado_por)
+                        VALUES (:pendiente, 'cancelacion_venta_pos', :anterior, 'cancelada',
+                         :cantidad, :referencia, :observaciones, :snapshot, :usuario)")
+                        ->execute(array(
+                            ":pendiente" => $idPendiente,
+                            ":anterior" => $this->valor($pendiente, "estatus", ""),
+                            ":cantidad" => floatval($this->valor($pendiente, "cantidad_pendiente", 0)),
+                            ":referencia" => $folioCancelacion,
+                            ":observaciones" => $observacion,
+                            ":snapshot" => json_encode(array("pendiente" => $pendiente, "folio_cancelacion" => $folioCancelacion), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                            ":usuario" => intval($idUsuario) ?: null
+                        ));
+                }
+                $resumen["inventario_pendientes"]["cancelados"]++;
+                $resumen["inventario_pendientes"]["folios"][] = $this->valor($pendiente, "folio", "");
+                $resumen["notificaciones"]["canceladas"] += $this->cancelarNotificacionesEntidadPosReal($db, "erp_pos_inventario_pendientes", $idPendiente, $idUsuario);
+            }
+        }
+
+        if ($this->tablaExiste($db, "erp_ventas_detalle_inventario")) {
+            $db->prepare("UPDATE erp_ventas_detalle_inventario
+                SET estatus='cancelada'
+                WHERE id_venta=:venta
+                  AND tipo_asignacion='inventario_pendiente'
+                  AND estatus IN ('pendiente_validacion','pendiente')")
+                ->execute(array(":venta" => intval($idVenta)));
+        }
+
+        if ($this->tablaExiste($db, "erp_pos_venta_rapida_pendientes")) {
+            $stmt = $db->prepare("SELECT *
+                FROM erp_pos_venta_rapida_pendientes
+                WHERE id_venta=:venta
+                  AND estatus IN ('pendiente_catalogo','pendiente','en_revision','bloqueada')
+                FOR UPDATE");
+            $stmt->execute(array(":venta" => intval($idVenta)));
+            $pendientesVr = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($pendientesVr as $pendiente) {
+                $idPendiente = intval($pendiente["id_venta_rapida_pendiente"]);
+                $db->prepare("UPDATE erp_pos_venta_rapida_pendientes
+                    SET estatus='cancelada',
+                        observaciones_resolucion=:motivo,
+                        resuelto_por=:usuario,
+                        fecha_resolucion=NOW(),
+                        fecha_actualizacion=NOW()
+                    WHERE id_venta_rapida_pendiente=:pendiente")
+                    ->execute(array(
+                        ":motivo" => $observacion,
+                        ":usuario" => intval($idUsuario),
+                        ":pendiente" => $idPendiente
+                    ));
+                $this->registrarEventoVentaRapidaPosReal($db, $idPendiente, $this->valor($pendiente, "folio", ""), "cancelacion_venta_pos", $this->valor($pendiente, "estatus", ""), "cancelada", null, $observacion, array(
+                    "pendiente" => $pendiente,
+                    "folio_cancelacion" => $folioCancelacion
+                ), $idUsuario);
+                $resumen["venta_rapida"]["cancelados"]++;
+                $resumen["venta_rapida"]["folios"][] = $this->valor($pendiente, "folio", "");
+                $resumen["notificaciones"]["canceladas"] += $this->cancelarNotificacionesEntidadPosReal($db, "erp_pos_venta_rapida_pendientes", $idPendiente, $idUsuario);
+                $resumenCatalogo = $this->descartarIncidenciasCatalogoVentaRapidaCanceladaPosReal($db, $idPendiente, $folioCancelacion, $observacion, $idUsuario);
+                $resumen["catalogo_incidencias"]["descartadas"] += intval($this->valor($resumenCatalogo, "descartadas", 0));
+                $resumen["catalogo_incidencias"]["ids"] = array_merge($resumen["catalogo_incidencias"]["ids"], $this->valor($resumenCatalogo, "ids", array()));
+                $resumen["notificaciones"]["canceladas"] += intval($this->valor($resumenCatalogo, "notificaciones_canceladas", 0));
+            }
+        }
+
+        $resumen["inventario_pendientes"]["folios"] = array_values(array_filter(array_unique($resumen["inventario_pendientes"]["folios"])));
+        $resumen["venta_rapida"]["folios"] = array_values(array_filter(array_unique($resumen["venta_rapida"]["folios"])));
+        $resumen["catalogo_incidencias"]["ids"] = array_values(array_unique($resumen["catalogo_incidencias"]["ids"]));
+        return $resumen;
+    }
+
+    private function cancelarNotificacionesEntidadPosReal($db, $entidadOrigen, $idEntidad, $idUsuario) {
+        if (!$this->tablaExiste($db, "erp_notificaciones")) {
+            return 0;
+        }
+        $stmt = $db->prepare("UPDATE erp_notificaciones
+            SET estatus='cancelada',
+                fecha_resolucion=NOW(),
+                fecha_actualizacion=NOW()
+            WHERE modulo_origen='ventas_pos'
+              AND entidad_origen=:entidad
+              AND id_entidad_origen=:id
+              AND estatus IN ('pendiente','en_revision','bloqueada')");
+        $stmt->execute(array(
+            ":entidad" => $entidadOrigen,
+            ":id" => intval($idEntidad)
+        ));
+        return $stmt->rowCount();
+    }
+
+    private function descartarIncidenciasCatalogoVentaRapidaCanceladaPosReal($db, $idPendiente, $folioCancelacion, $observacion, $idUsuario) {
+        $resumen = array("descartadas" => 0, "ids" => array(), "notificaciones_canceladas" => 0);
+        if (!$this->tablaExiste($db, "erp_catalogo_incidencias_calidad")) {
+            return $resumen;
+        }
+        $stmt = $db->prepare("SELECT id_incidencia_calidad
+            FROM erp_catalogo_incidencias_calidad
+            WHERE origen='ventas_pos'
+              AND tipo_incidencia='venta_rapida_sku_sin_match'
+              AND referencia_tipo='erp_pos_venta_rapida_pendientes'
+              AND id_referencia=:pendiente
+              AND estatus IN ('pendiente','en_revision','bloqueada')
+            FOR UPDATE");
+        $stmt->execute(array(":pendiente" => intval($idPendiente)));
+        $incidencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($incidencias as $incidencia) {
+            $idIncidencia = intval($incidencia["id_incidencia_calidad"]);
+            $resolucion = json_encode(array(
+                "decision" => "descartada_por_cancelacion_venta_pos",
+                "folio_cancelacion" => $folioCancelacion,
+                "observacion" => $observacion,
+                "id_venta_rapida_pendiente" => intval($idPendiente),
+                "resuelto_por" => intval($idUsuario)
+            ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $db->prepare("UPDATE erp_catalogo_incidencias_calidad
+                SET estatus='descartada',
+                    resolucion_json=:resolucion,
+                    resuelto_por=:usuario,
+                    fecha_resolucion=NOW(),
+                    fecha_actualizacion=NOW()
+                WHERE id_incidencia_calidad=:incidencia")
+                ->execute(array(
+                    ":resolucion" => $resolucion,
+                    ":usuario" => intval($idUsuario),
+                    ":incidencia" => $idIncidencia
+                ));
+            $resumen["descartadas"]++;
+            $resumen["ids"][] = $idIncidencia;
+            $resumen["notificaciones_canceladas"] += $this->cancelarNotificacionesEntidadPosReal($db, "erp_catalogo_incidencias_calidad", $idIncidencia, $idUsuario);
+        }
+        return $resumen;
     }
 
     /**
@@ -5297,7 +6067,7 @@ class VentasErp extends CRUD {
                     LEFT JOIN erp_ventas v ON v.id_venta=mc.id_venta
                     WHERE mc.id_turno_caja=t.id_turno_caja
                       AND mc.estatus IN ('registrado','aprobado')
-                      AND (mc.categoria<>'venta_pos' OR v.id_venta IS NOT NULL)
+                          AND (mc.categoria<>'venta_pos' OR (v.id_venta IS NOT NULL AND v.estatus NOT IN ('cancelada','cancelado','devuelta')))
                 ), 0), 6)
                 WHERE t.id_turno_caja=:turno")
                 ->execute(array(":turno" => $idTurno));
@@ -6470,9 +7240,6 @@ class VentasErp extends CRUD {
                 if (!$this->schemaVentaRapidaControladaCompleto($db)) {
                     return $this->respuesta(true, "warning", "Esquema venta rapida controlada pendiente", array("bloqueos" => array("schema_venta_rapida_pendiente")));
                 }
-                if ($folioExcepcion !== "") {
-                    return $this->respuesta(true, "warning", "Venta rapida no debe mezclarse con excepcion comercial por SKU", array("bloqueos" => array("venta_rapida_excepcion_comercial_no_soportada")));
-                }
                 if (!$this->ventaRapidaRealAutorizada($datos)) {
                     return $this->respuesta(true, "warning", "Venta rapida controlada aun no tiene endpoint real autorizado", array(
                         "bloqueos" => array("venta_rapida_controlada_endpoint_pendiente"),
@@ -7550,7 +8317,7 @@ class VentasErp extends CRUD {
 
     /**
      * Documentacion IA: Codex GPT-5, 2026-10-10.
-     * Proposito: validar emision de codigo temporal de autorizacion POS.
+     * Proposito: validar emision de codigo de autorizacion POS temporal o maestro.
      * Impacto: evita codigos sin responsable, sin motivo o fuera de alcance.
      * Contrato: dry-run; no genera codigo real y no lo persiste.
      */
@@ -7576,7 +8343,7 @@ class VentasErp extends CRUD {
 
     /**
      * Documentacion IA: Codex GPT-5, 2026-10-10.
-     * Proposito: generar codigo temporal de autorizacion POS con hash y folio auditable.
+     * Proposito: generar codigo de autorizacion POS con hash y folio auditable.
      * Impacto: habilita aprobaciones controladas para precio manual, paquetes y excepciones; no crea venta.
      * Contrato: guarda hash; el codigo plano se devuelve una sola vez para entregarlo al cajero.
      */
@@ -7636,7 +8403,7 @@ class VentasErp extends CRUD {
             return $this->respuesta(false, "success", "Codigo de autorizacion POS generado", array(
                 "id_codigo_autorizacion" => $idCodigo,
                 "propuesta" => $p,
-                "aviso_seguridad" => "El codigo completo se muestra solo en esta respuesta; despues se conserva solo mascara y hash.",
+                "aviso_seguridad" => $p["codigo_maestro"] ? "Codigo maestro POS: guardalo en un lugar seguro, revisa usos periodicamente y revocalo cuando ya no deba operar." : "El codigo completo se muestra solo en esta respuesta; despues se conserva solo mascara y hash.",
                 "no_crea_venta" => true,
                 "no_mueve_caja" => true,
                 "no_mueve_inventario" => true
@@ -8997,10 +9764,15 @@ class VentasErp extends CRUD {
             $depurarBase = isset($prevalidacionBase["depurar"]) && is_array($prevalidacionBase["depurar"]) ? $prevalidacionBase["depurar"] : array();
             $partidasBase = isset($depurarBase["partidas"]) && is_array($depurarBase["partidas"]) ? $depurarBase["partidas"] : array();
             $bloqueosBase = isset($depurarBase["bloqueos"]) && is_array($depurarBase["bloqueos"]) ? $depurarBase["bloqueos"] : array();
+            $bloqueosBaseFiltrados = array();
             foreach ($bloqueosBase as $bloqueoBase) {
-                if (stripos($bloqueoBase, "Precio enviado por POS no coincide") === false) {
+                if (!$this->bloqueoPrevalidacionIgnorableParaExcepcionComercial($bloqueoBase)) {
                     $bloqueos[] = $bloqueoBase;
+                    $bloqueosBaseFiltrados[] = $bloqueoBase;
                 }
+            }
+            if (isset($prevalidacionBase["depurar"]) && is_array($prevalidacionBase["depurar"])) {
+                $prevalidacionBase["depurar"]["bloqueos"] = array_values(array_unique($bloqueosBaseFiltrados));
             }
 
             $partidasAjustadas = array();
@@ -9181,25 +9953,32 @@ class VentasErp extends CRUD {
                         COALESCE(SUM(saldo_total), 0) saldo
                     FROM erp_ventas
                     WHERE id_turno_caja=:turno AND id_caja=:caja
-                        AND estatus NOT IN ('cancelada')");
+                        AND estatus NOT IN ('cancelada','cancelado','devuelta')");
                 $stmt->execute(array(":turno" => $idTurno, ":caja" => $idCaja));
                 $ventas = $stmt->fetch(PDO::FETCH_ASSOC);
             }
             if ($this->tablaExiste($db, "erp_ventas_pagos")) {
-                $stmt = $db->prepare("SELECT metodo_pago, tipo_pago, COUNT(*) operaciones, COALESCE(SUM(monto), 0) monto
-                    FROM erp_ventas_pagos
-                    WHERE id_turno_caja=:turno AND id_caja=:caja AND estatus='registrado'
-                    GROUP BY metodo_pago, tipo_pago
-                    ORDER BY metodo_pago, tipo_pago");
+                $stmt = $db->prepare("SELECT p.metodo_pago, p.tipo_pago, COUNT(*) operaciones, COALESCE(SUM(p.monto), 0) monto
+                    FROM erp_ventas_pagos p
+                    INNER JOIN erp_ventas v ON v.id_venta=p.id_venta
+                    WHERE p.id_turno_caja=:turno AND p.id_caja=:caja
+                        AND p.estatus='registrado'
+                        AND COALESCE(p.tipo_pago, 'pago') <> 'reembolso'
+                        AND v.estatus NOT IN ('cancelada','cancelado','devuelta')
+                    GROUP BY p.metodo_pago, p.tipo_pago
+                    ORDER BY p.metodo_pago, p.tipo_pago");
                 $stmt->execute(array(":turno" => $idTurno, ":caja" => $idCaja));
                 $pagos = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
             if ($this->tablaExiste($db, "erp_pos_movimientos_caja")) {
-                $stmt = $db->prepare("SELECT tipo, motivo, COUNT(*) operaciones, COALESCE(SUM(monto), 0) monto
-                    FROM erp_pos_movimientos_caja
-                    WHERE id_turno_caja=:turno
-                    GROUP BY tipo, motivo
-                    ORDER BY tipo, motivo");
+                $stmt = $db->prepare("SELECT mc.tipo, mc.motivo, COUNT(*) operaciones, COALESCE(SUM(mc.monto), 0) monto
+                    FROM erp_pos_movimientos_caja mc
+                    LEFT JOIN erp_ventas v ON v.id_venta=mc.id_venta
+                    WHERE mc.id_turno_caja=:turno
+                        AND mc.estatus IN ('registrado','aprobado')
+                        AND (mc.categoria<>'venta_pos' OR (v.id_venta IS NOT NULL AND v.estatus NOT IN ('cancelada','cancelado','devuelta')))
+                    GROUP BY mc.tipo, mc.motivo
+                    ORDER BY mc.tipo, mc.motivo");
                 $stmt->execute(array(":turno" => $idTurno));
                 $movimientos = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
@@ -10912,8 +11691,21 @@ class VentasErp extends CRUD {
         $avisos = array();
         $idAutorizador = intval($this->valor($datos, "id_autorizador_pos", 0));
         $tipo = trim((string) $this->valor($datos, "tipo_autorizacion", "precio_conjunto"));
-        $usoMaximo = max(1, intval($this->valor($datos, "uso_maximo", 1)));
-        $expiraMinutos = max(1, min(1440, intval($this->valor($datos, "expira_minutos", 60))));
+        $codigoMaestro = intval($this->valor($datos, "codigo_maestro", 0)) === 1;
+        $sinCaducidad = $codigoMaestro || intval($this->valor($datos, "sin_caducidad", 0)) === 1;
+        $usoIlimitado = $codigoMaestro || intval($this->valor($datos, "uso_ilimitado", 0)) === 1;
+        $usoMaximo = intval($this->valor($datos, "uso_maximo", 1));
+        $expiraMinutos = intval($this->valor($datos, "expira_minutos", 60));
+        if ($usoIlimitado) {
+            $usoMaximo = 0;
+        } else {
+            $usoMaximo = max(1, min(9999, $usoMaximo));
+        }
+        if ($sinCaducidad) {
+            $expiraMinutos = 0;
+        } else {
+            $expiraMinutos = max(1, min(1440, $expiraMinutos));
+        }
         $monto = round(floatval($this->valor($datos, "monto_maximo", 0)), 6);
         $motivo = trim((string) $this->valor($datos, "motivo", ""));
         $tiposPermitidos = $this->tiposAutorizacionPosPermitidos();
@@ -10953,9 +11745,13 @@ class VentasErp extends CRUD {
         if ($motivo === "") {
             $bloqueos[] = "Captura motivo para generar el codigo";
         }
-        if ($usoMaximo > 20) {
-            $bloqueos[] = "Por seguridad el codigo no puede tener mas de 20 usos";
+        if (!$usoIlimitado && $usoMaximo > 20) {
+            $avisos[] = "Codigo con mas de 20 usos: considera usar codigo maestro si sera operativo permanente";
         }
+        if ($codigoMaestro) {
+            $avisos[] = "Codigo maestro sin caducidad: debe usarse solo por el dueno/gerencia y revocarse si se comparte indebidamente.";
+        }
+        $fechaFin = $sinCaducidad ? null : date("Y-m-d H:i:s", strtotime("+" . $expiraMinutos . " minutes"));
 
         return array(
             "bloqueos" => $bloqueos,
@@ -10970,9 +11766,12 @@ class VentasErp extends CRUD {
                 "uso_maximo" => $usoMaximo,
                 "monto_maximo" => $monto,
                 "descuento_max_porcentaje" => $autorizador ? round(floatval($this->valor($autorizador, "descuento_max_porcentaje", 0)), 6) : 0,
-                "fecha_fin" => date("Y-m-d H:i:s", strtotime("+" . $expiraMinutos . " minutes")),
+                "fecha_fin" => $fechaFin,
                 "motivo" => $motivo,
-                "observaciones" => "Codigo temporal generado desde Configuracion POS"
+                "codigo_maestro" => $codigoMaestro,
+                "uso_ilimitado" => $usoIlimitado,
+                "sin_caducidad" => $sinCaducidad,
+                "observaciones" => $codigoMaestro ? "Codigo maestro POS generado desde Configuracion POS" : "Codigo temporal generado desde Configuracion POS"
             )
         );
     }
@@ -11034,7 +11833,7 @@ class VentasErp extends CRUD {
               AND c.tipo_autorizacion IN (:tipo, 'general')
               AND (c.fecha_inicio IS NULL OR c.fecha_inicio<=NOW())
               AND (c.fecha_fin IS NULL OR c.fecha_fin>=NOW())
-              AND c.usos_realizados < c.uso_maximo
+              AND (c.uso_maximo=0 OR c.usos_realizados < c.uso_maximo)
             ORDER BY c.fecha_registro DESC, c.id_codigo_autorizacion DESC
             LIMIT 50");
         $stmt->execute(array(":tipo" => $tipo));
@@ -11085,12 +11884,12 @@ class VentasErp extends CRUD {
         }
         $stmt = $db->prepare("UPDATE erp_pos_codigos_autorizacion
             SET usos_realizados=usos_realizados+1,
-                estatus=CASE WHEN usos_realizados+1 >= uso_maximo THEN 'consumido' ELSE estatus END,
+                estatus=CASE WHEN uso_maximo>0 AND usos_realizados+1 >= uso_maximo THEN 'consumido' ELSE estatus END,
                 observaciones=CONCAT(COALESCE(observaciones, ''), '\nConsumido por usuario ', :usuario, ' en ', :referencia),
                 fecha_actualizacion=NOW()
             WHERE id_codigo_autorizacion=:id
               AND estatus='activo'
-              AND usos_realizados < uso_maximo");
+              AND (uso_maximo=0 OR usos_realizados < uso_maximo)");
         $stmt->execute(array(
             ":usuario" => intval($idUsuario),
             ":referencia" => trim((string) $referencia),
@@ -11834,16 +12633,50 @@ class VentasErp extends CRUD {
         $normalizados = array();
         foreach ($items as $item) {
             $normalizados[] = array(
+                "id_almacen" => intval($this->valor($item, "id_almacen", $this->valor($item, "id_almacen_origen", 0))),
+                "id_almacen_origen" => intval($this->valor($item, "id_almacen_origen", $this->valor($item, "id_almacen", 0))),
                 "id_sku" => intval($this->valor($item, "id_sku", 0)),
+                "tipo_partida" => trim((string) $this->valor($item, "tipo_partida", "sku")),
+                "origen_partida" => trim((string) $this->valor($item, "origen_partida", "")),
+                "descripcion_manual" => trim((string) $this->valor($item, "descripcion_manual", "")),
                 "cantidad" => round(floatval($this->valor($item, "cantidad", 0)), 6),
+                "unidad_venta" => trim((string) $this->valor($item, "unidad_venta", "")),
                 "precio_unitario" => round(floatval($this->valor($item, "precio_unitario", 0)), 6),
                 "precio_manual_sin_lista" => intval($this->valor($item, "precio_manual_sin_lista", 0)),
                 "precio_manual_motivo" => trim((string) $this->valor($item, "precio_manual_motivo", "")),
                 "modo_salida" => trim((string) $this->valor($item, "modo_salida", "")),
-                "id_inventario_unidad" => intval($this->valor($item, "id_inventario_unidad", 0))
+                "id_inventario_unidad" => intval($this->valor($item, "id_inventario_unidad", 0)),
+                "motivo" => trim((string) $this->valor($item, "motivo", "")),
+                "categoria_provisional" => trim((string) $this->valor($item, "categoria_provisional", "")),
+                "marca_provisional" => trim((string) $this->valor($item, "marca_provisional", "")),
+                "proveedor_provisional" => trim((string) $this->valor($item, "proveedor_provisional", "")),
+                "codigo_barras" => trim((string) $this->valor($item, "codigo_barras", "")),
+                "observaciones" => trim((string) $this->valor($item, "observaciones", "")),
+                "controla_inventario" => $this->valor($item, "controla_inventario", "")
             );
         }
         return $normalizados;
+    }
+
+    private function bloqueoPrevalidacionIgnorableParaExcepcionComercial($bloqueo) {
+        $texto = strtolower(trim((string) $bloqueo));
+        if ($texto === "") {
+            return true;
+        }
+        $ignorables = array(
+            "precio enviado por pos no coincide",
+            "sku no tiene precio formal",
+            "captura precio provisional",
+            "politica pos autoriza inventario pendiente",
+            "flujo real de inventario pendiente",
+            "inventario pendiente"
+        );
+        foreach ($ignorables as $fragmento) {
+            if (strpos($texto, $fragmento) !== false) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function normalizarIdentificadorCliente($valor) {
@@ -12762,9 +13595,9 @@ class VentasErp extends CRUD {
             $lineas = array_merge($lineas, $this->lineasProductoTicket($sku, $descripcion, $ancho));
             $lineas[] = $cantidad . " " . $unidad . " x $" . $precio . str_pad("$" . $total, max(1, $ancho - strlen($cantidad . " " . $unidad . " x $" . $precio)), " ", STR_PAD_LEFT);
             $garantia = trim((string) $this->valor($detalle, "resumen_ticket", ""));
-            if ($garantia !== "") {
+            if ($this->garantiaVisibleEnTicketCliente($garantia)) {
                 $lineas[] = "  Garantia: " . $this->textoTicket($garantia, $ancho - 13);
-            } else {
+            } elseif ($garantia === "") {
                 $hallazgos[] = array(
                     "id" => "VENTAS-TICKET-001",
                     "severidad" => "media",
@@ -12812,6 +13645,22 @@ class VentasErp extends CRUD {
             "hallazgos" => $hallazgos,
             "configuracion" => $configuracionTicket
         );
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-13.
+     * Proposito: mantener el snapshot interno de garantia sin imprimir "Sin garantia" en el ticket del cliente.
+     * Impacto: el ticket solo muestra garantia cuando existe una condicion informativa real; no cambia ventas historicas ni snapshots.
+     */
+    private function garantiaVisibleEnTicketCliente($texto) {
+        $texto = trim((string) $texto);
+        if ($texto === "") {
+            return false;
+        }
+        $normalizado = strtolower($texto);
+        $normalizado = str_replace(array("á", "é", "í", "ó", "ú", "ü"), array("a", "e", "i", "o", "u", "u"), $normalizado);
+        $normalizado = preg_replace('/\s+/', ' ', $normalizado);
+        return !in_array($normalizado, array("sin garantia", "sin_garantia", "no aplica", "n/a"), true);
     }
 
     private function formatearTicketDevolucion($devolucion, $detalles, $pagosReembolso, $movimientoCaja, $componentesFinancieros = array()) {
@@ -14916,6 +15765,169 @@ class VentasErp extends CRUD {
             WHERE folio LIKE :prefijo");
         $stmt->execute(array(":prefijo" => $prefijo . "%"));
         return $prefijo . str_pad((string) (intval($stmt->fetchColumn()) + 1), 6, "0", STR_PAD_LEFT);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: definir acciones permitidas desde carga historica.
+     * Impacto: evita que UI y backend usen codigos distintos para regularizacion.
+     * Contrato: catalogo local; no consulta ni escribe BD.
+     */
+    private function catalogoAccionesVentaHistorica() {
+        return array(
+            "revision_inventario" => array(
+                "codigo" => "revision_inventario",
+                "nombre" => "Revisar inventario",
+                "area" => "inventario",
+                "permiso" => "inventario.ver",
+                "prioridad" => "alta",
+                "url" => "/inventario/productos_existencias",
+                "descripcion" => "Revisar conteo/stock por rotacion historica"
+            ),
+            "clasificar_sku" => array(
+                "codigo" => "clasificar_sku",
+                "nombre" => "Clasificar o crear SKU",
+                "area" => "catalogo",
+                "permiso" => "catalogo.ver",
+                "prioridad" => "alta",
+                "url" => "/catalogoerp",
+                "descripcion" => "Producto historico requiere alta, vinculacion o limpieza de SKU"
+            ),
+            "revisar_proveedor" => array(
+                "codigo" => "revisar_proveedor",
+                "nombre" => "Revisar proveedor",
+                "area" => "compras",
+                "permiso" => "compras.ver",
+                "prioridad" => "normal",
+                "url" => "/compra/mostrar_solicitudes",
+                "descripcion" => "Producto con rotacion historica requiere validar proveedor/reorden"
+            ),
+            "completar_precio" => array(
+                "codigo" => "completar_precio",
+                "nombre" => "Completar precio",
+                "area" => "comercial",
+                "permiso" => "ventas.listas.ver",
+                "prioridad" => "normal",
+                "url" => "/ventas/listas_precios",
+                "descripcion" => "Producto vendido historicamente requiere precio formal/lista"
+            ),
+            "preparar_ecommerce" => array(
+                "codigo" => "preparar_ecommerce",
+                "nombre" => "Preparar ecommerce",
+                "area" => "catalogo",
+                "permiso" => "catalogo.ver",
+                "prioridad" => "normal",
+                "url" => "/catalogoerp",
+                "descripcion" => "Producto con rotacion historica conviene publicarlo o completar contenido web"
+            )
+        );
+    }
+
+    private function normalizarAccionVentaHistorica($accion) {
+        $accion = trim((string) $accion);
+        $catalogo = $this->catalogoAccionesVentaHistorica();
+        return isset($catalogo[$accion]) ? $accion : "";
+    }
+
+    private function normalizarFechaVentaHistorica($fecha) {
+        $fecha = trim((string) $fecha);
+        if ($fecha === "") {
+            return "";
+        }
+        $fecha = str_replace("T", " ", $fecha);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            $fecha .= " 12:00:00";
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/', $fecha)) {
+            return "";
+        }
+        if (strlen($fecha) === 16) {
+            $fecha .= ":00";
+        }
+        return date("Y-m-d H:i:s", strtotime($fecha));
+    }
+
+    private function schemaVentasHistoricasCompleto($db) {
+        return $this->schemaVentaPosCompleto($db)
+            && $this->columnaExiste($db, "erp_ventas", "origen_venta")
+            && $this->columnaExiste($db, "erp_ventas", "modo_operacion")
+            && $this->columnaExiste($db, "erp_ventas", "afecta_inventario")
+            && $this->columnaExiste($db, "erp_ventas", "afecta_caja")
+            && $this->columnaExiste($db, "erp_ventas", "fecha_venta_real")
+            && $this->columnaExiste($db, "erp_ventas", "fecha_captura_historica")
+            && $this->columnaExiste($db, "erp_ventas", "capturada_por")
+            && $this->columnaExiste($db, "erp_ventas", "observaciones_historicas");
+    }
+
+    private function registrarAccionVentaHistoricaReal($db, $idVenta, $idDetalle, $folioVenta, $partida, $accion, $idUsuario) {
+        $catalogo = $this->catalogoAccionesVentaHistorica();
+        if (!isset($catalogo[$accion])) {
+            return array();
+        }
+        $config = $catalogo[$accion];
+        $idSku = intval($this->valor($partida, "id_sku", 0));
+        $sku = trim((string) $this->valor($partida, "sku", ""));
+        $descripcion = trim((string) $this->valor($partida, "descripcion", ""));
+        $idAlmacen = intval($this->valor($partida, "id_almacen", 0));
+        $huella = "venta_historica|" . intval($idDetalle) . "|" . $accion;
+        $payload = array(
+            "huella" => $huella,
+            "folio_venta" => $folioVenta,
+            "id_venta" => intval($idVenta),
+            "id_venta_detalle" => intval($idDetalle),
+            "accion" => $accion,
+            "id_sku" => $idSku,
+            "sku" => $sku,
+            "descripcion" => $descripcion,
+            "id_almacen" => $idAlmacen,
+            "cantidad" => $this->redondearPosReal($this->valor($partida, "cantidad", 0)),
+            "precio_unitario" => $this->redondearPosReal($this->valor($partida, "precio_unitario", 0)),
+            "contrato" => array(
+                "origen_historico" => true,
+                "no_mover_kardex" => true,
+                "no_mover_caja" => true
+            )
+        );
+        $idNotificacion = 0;
+        if ($this->tablaExiste($db, "erp_notificaciones")) {
+            require_once __DIR__ . "/NotificacionesErp.php";
+            $notificaciones = new NotificacionesErp();
+            $idNotificacion = $notificaciones->guardarOperativaEnConexion($db, array(
+                "tipo" => "venta_historica_regularizacion",
+                "modulo_origen" => "ventas_pos",
+                "entidad_origen" => "erp_ventas_detalle",
+                "id_entidad_origen" => intval($idDetalle),
+                "area_responsable" => $config["area"],
+                "permiso_requerido" => $config["permiso"],
+                "titulo" => $config["nombre"] . " - " . $folioVenta,
+                "descripcion" => $config["descripcion"] . ": " . substr($descripcion !== "" ? $descripcion : $sku, 0, 220),
+                "prioridad" => $config["prioridad"],
+                "url_accion" => $this->urlAccionVentaHistorica($config["url"], $accion, $idSku, $idAlmacen, $folioVenta),
+                "payload_json" => $payload,
+                "creado_por" => intval($idUsuario) ?: null
+            ));
+        }
+        $this->registrarEventoVentaPosReal($db, $idVenta, $folioVenta, "accion_historica_" . $accion, null, "pendiente", 0, $accion, array(
+            "id_venta_detalle" => intval($idDetalle),
+            "id_notificacion" => intval($idNotificacion),
+            "payload" => $payload
+        ), $idUsuario);
+        return array(
+            "accion" => $accion,
+            "id_venta_detalle" => intval($idDetalle),
+            "id_notificacion" => intval($idNotificacion),
+            "area_responsable" => $config["area"],
+            "permiso_requerido" => $config["permiso"]
+        );
+    }
+
+    private function urlAccionVentaHistorica($urlBase, $accion, $idSku, $idAlmacen, $folioVenta) {
+        $params = array("origen" => "venta_historica", "folio" => $folioVenta);
+        if ($idSku > 0) { $params["id_sku"] = $idSku; }
+        if ($idAlmacen > 0) { $params["id_almacen"] = $idAlmacen; }
+        if ($accion !== "") { $params["accion"] = $accion; }
+        return $urlBase . "?" . http_build_query($params);
     }
 
     private function valor($datos, $campo, $default = null) {

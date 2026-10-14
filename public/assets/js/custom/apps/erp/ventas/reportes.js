@@ -6,6 +6,7 @@
      * Impacto: muestra diferencias de caja por turno y permite cerrar expedientes sin mover caja/inventario.
      */
     var ultimoReporte = null;
+    var ultimoReporteVentas = null;
     var cajasConfiguracion = [];
     var corteActual = "";
 
@@ -107,7 +108,25 @@
         }).catch(function (error) {
             document.getElementById("pos_reportes_alerta").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
         });
+        consultarVentasPos(params);
         consultarDiferencias(params);
+    }
+
+    function consultarVentasPos(paramsBase) {
+        var params = new URLSearchParams(paramsBase.toString());
+        request("/ventas/reportes_ventas_pos_erp?" + params.toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderVentasPos(response.depurar || {});
+        }).catch(function (error) {
+            renderVentasPos({
+                error_visual: error.message || String(error),
+                resumen: {},
+                por_dia: [],
+                por_metodo_pago: [],
+                por_almacen_origen: [],
+                top_productos: []
+            });
+        });
     }
 
     function consultarDiferencias(paramsBase) {
@@ -138,6 +157,78 @@
         renderTurnos(data.turnos || []);
         renderUsuarios(data.por_usuario || []);
         renderCajas(data.por_caja || []);
+    }
+
+    function renderVentasPos(data) {
+        ultimoReporteVentas = data;
+        var resumen = data.resumen || {};
+        document.getElementById("pos_rep_ventas_kpi_total").textContent = dinero(resumen.total || 0);
+        document.getElementById("pos_rep_ventas_kpi_tickets").textContent = Number(resumen.ventas || 0);
+        document.getElementById("pos_rep_ventas_kpi_promedio").textContent = dinero(resumen.ticket_promedio || 0);
+        document.getElementById("pos_rep_ventas_kpi_partidas").textContent = Number(resumen.partidas || 0) + " partidas";
+        document.getElementById("pos_rep_ventas_kpi_rapida").textContent = Number(resumen.partidas_venta_rapida || 0);
+        var filtros = data.filtros || {};
+        var periodo = (filtros.fecha_desde || "") + " a " + (filtros.fecha_hasta || "");
+        var excluidas = Number(resumen.ventas_excluidas_neto || 0);
+        document.getElementById("pos_rep_ventas_kpi_periodo").textContent = periodo + (excluidas > 0 ? " | " + excluidas + " canceladas/devueltas fuera del neto" : "");
+        if (data.error_visual) {
+            document.getElementById("pos_rep_ventas_chart_dias").innerHTML = "<div class=\"alert alert-warning mb-0 py-3\">" + escapeHtml(data.error_visual) + "</div>";
+            document.getElementById("pos_rep_ventas_chart_metodos").innerHTML = "";
+            document.getElementById("pos_rep_ventas_chart_almacenes").innerHTML = "";
+            document.getElementById("pos_rep_ventas_top_productos").innerHTML = "<tr><td colspan=\"3\" class=\"text-center text-muted py-6\">No se pudo consultar ventas</td></tr>";
+            return;
+        }
+        renderBarList("pos_rep_ventas_chart_dias", data.por_dia || [], function (item) {
+            return item.fecha || "-";
+        }, function (item) {
+            return Number(item.total || 0);
+        }, dinero, "primary", "ventas");
+        renderBarList("pos_rep_ventas_chart_metodos", data.por_metodo_pago || [], function (item) {
+            return (item.metodo_pago || "Metodo") + (item.tipo_pago && item.tipo_pago !== "pago" ? " / " + item.tipo_pago : "");
+        }, function (item) {
+            return Number(item.monto || 0);
+        }, dinero, "success", "operaciones");
+        renderBarList("pos_rep_ventas_chart_almacenes", data.por_almacen_origen || [], function (item) {
+            return item.nombre_comercial || item.almacen || item.codigo_almacen || ("Almacen " + (item.id_almacen || "-"));
+        }, function (item) {
+            return Number(item.total || 0);
+        }, dinero, "warning", "cantidad");
+        renderTopProductos(data.top_productos || []);
+    }
+
+    function renderBarList(id, filas, labelFn, valueFn, formatFn, color, metaKey) {
+        var contenedor = document.getElementById(id);
+        if (!contenedor) { return; }
+        if (!filas.length) {
+            contenedor.innerHTML = "<div class=\"text-center text-muted py-6\">Sin informacion en el rango</div>";
+            return;
+        }
+        var max = filas.reduce(function (actual, item) {
+            return Math.max(actual, Number(valueFn(item) || 0));
+        }, 0);
+        contenedor.innerHTML = filas.map(function (item) {
+            var valor = Number(valueFn(item) || 0);
+            var ancho = max > 0 ? Math.max(3, Math.round((valor / max) * 100)) : 0;
+            var meta = "";
+            if (metaKey && item[metaKey] != null) {
+                meta = "<div class=\"text-muted fs-8\">" + escapeHtml(item[metaKey]) + "</div>";
+            }
+            return "<div class=\"pos-chart-row\">" +
+                "<div class=\"pos-chart-label fw-semibold\" title=\"" + escapeHtml(labelFn(item)) + "\">" + escapeHtml(labelFn(item)) + meta + "</div>" +
+                "<div class=\"pos-chart-track\"><div class=\"pos-chart-bar " + escapeHtml(color || "primary") + "\" style=\"width:" + ancho + "%\"></div></div>" +
+                "<div class=\"text-end fw-bold\">" + escapeHtml(formatFn ? formatFn(valor) : valor) + "</div>" +
+                "</div>";
+        }).join("");
+    }
+
+    function renderTopProductos(filas) {
+        document.getElementById("pos_rep_ventas_top_productos").innerHTML = filas.map(function (item) {
+            var descripcion = item.descripcion || item.sku || "Producto";
+            var sku = item.sku || (item.id_sku_erp ? ("SKU " + item.id_sku_erp) : "");
+            return "<tr><td><div class=\"fw-semibold\">" + escapeHtml(descripcion) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(sku) + "</div></td>" +
+                "<td class=\"text-end\">" + Number(item.cantidad || 0).toLocaleString("es-MX", {maximumFractionDigits: 3}) + "</td>" +
+                "<td class=\"text-end fw-bold\">" + dinero(item.total || 0) + "</td></tr>";
+        }).join("") || "<tr><td colspan=\"3\" class=\"text-center text-muted py-6\">Sin productos vendidos en el rango</td></tr>";
     }
 
     function renderTurnos(filas) {

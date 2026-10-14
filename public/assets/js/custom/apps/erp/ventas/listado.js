@@ -42,8 +42,32 @@
             tipo: document.getElementById("ventas_filtro_tipo").value,
             estatus: document.getElementById("ventas_filtro_estatus").value,
             q: document.getElementById("ventas_filtro_q").value.trim(),
+            fecha_desde: document.getElementById("ventas_filtro_fecha_desde").value,
+            fecha_hasta: document.getElementById("ventas_filtro_fecha_hasta").value,
             limite: "50"
         };
+    }
+
+    function fechaHoy() {
+        var fecha = new Date();
+        var mes = String(fecha.getMonth() + 1).padStart(2, "0");
+        var dia = String(fecha.getDate()).padStart(2, "0");
+        return fecha.getFullYear() + "-" + mes + "-" + dia;
+    }
+
+    function etiquetaPeriodo(f) {
+        var desde = f.fecha_desde || "";
+        var hasta = f.fecha_hasta || "";
+        if (!desde && !hasta) {
+            return "periodo";
+        }
+        if (desde && hasta && desde === hasta) {
+            return desde === fechaHoy() ? "hoy" : desde;
+        }
+        if (desde && hasta) {
+            return desde + " a " + hasta;
+        }
+        return desde ? ("desde " + desde) : ("hasta " + hasta);
     }
 
     /**
@@ -52,11 +76,30 @@
      * Impacto: muestra si el esquema nuevo ya esta listo para operar.
      */
     function cargarResumen() {
-        request("/ventas/ventas_resumen_erp").then(function (response) {
+        var f = filtros();
+        var params = new URLSearchParams(f);
+        request("/ventas/ventas_resumen_erp?" + params.toString()).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var data = response.depurar || {};
+            var periodo = etiquetaPeriodo(f);
+            var tituloVentas = document.getElementById("ventas_kpi_hoy_label");
+            var tituloTotal = document.getElementById("ventas_kpi_total_label");
+            if (tituloVentas) {
+                tituloVentas.textContent = periodo === "hoy" ? "Ventas netas hoy" : "Ventas netas " + periodo;
+            }
+            if (tituloTotal) {
+                tituloTotal.textContent = periodo === "hoy" ? "Total neto hoy" : "Total neto " + periodo;
+            }
             document.getElementById("ventas_kpi_hoy").textContent = Number(data.ventas_hoy || 0);
             document.getElementById("ventas_kpi_total").textContent = dinero(data.total_hoy || 0);
+            var canceladas = document.getElementById("ventas_kpi_canceladas_hoy");
+            var totalCancelado = document.getElementById("ventas_kpi_total_cancelado");
+            if (canceladas) {
+                canceladas.textContent = Number(data.ventas_canceladas_hoy || 0) + " canceladas/devueltas";
+            }
+            if (totalCancelado) {
+                totalCancelado.textContent = dinero(data.total_cancelado_hoy || 0) + " fuera del neto";
+            }
             document.getElementById("ventas_kpi_pedidos").textContent = Number(data.pedidos_abiertos || 0);
             document.getElementById("ventas_kpi_turnos").textContent = Number(data.turnos_abiertos || 0);
             renderAlertaSchema(data.schema_pendiente);
@@ -208,9 +251,18 @@
             pendiente_pago: "badge-light-info",
             pagado: "badge-light-success",
             entregado: "badge-light-primary",
-            cancelado: "badge-light-danger"
+            cancelado: "badge-light-danger",
+            cancelada: "badge-light-danger",
+            devuelta: "badge-light-danger",
+            devolucion_parcial: "badge-light-warning"
         };
         return "<span class=\"badge " + (clases[estatus] || "badge-light") + "\">" + escapeHtml(estatus || "sin estatus") + "</span>";
+    }
+
+    function puedeReversar(item) {
+        return (item.canal || "") === "pos" &&
+            (item.tipo_documento || "") === "venta" &&
+            ["pagada", "pendiente_pago"].indexOf(item.estatus || "") !== -1;
     }
 
     /**
@@ -224,6 +276,10 @@
         document.getElementById("ventas_vacio").classList.toggle("d-flex", items.length === 0);
         tbody.innerHTML = items.map(function (item) {
             var folio = escapeHtml(item.folio || "");
+            var accionesReversa = puedeReversar(item)
+                ? "<a class=\"btn btn-sm btn-light-warning\" href=\"/ventas/devoluciones?tipo=devolucion&folio=" + encodeURIComponent(item.folio || "") + "\" title=\"Iniciar devolucion\"><i class=\"bi bi-arrow-counterclockwise\"></i> Devolver</a>" +
+                  "<a class=\"btn btn-sm btn-light-danger\" href=\"/ventas/devoluciones?tipo=cancelacion&folio=" + encodeURIComponent(item.folio || "") + "\" title=\"Iniciar cancelacion\"><i class=\"bi bi-x-octagon\"></i> Cancelar</a>"
+                : "";
             return "<tr>" +
                 "<td><div class=\"fw-bold\">" + folio + "</div><div class=\"text-muted fs-8\">#" + escapeHtml(item.id_venta) + "</div></td>" +
                 "<td><div class=\"fw-semibold\">" + escapeHtml(item.tipo_documento) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.canal) + "</div></td>" +
@@ -233,10 +289,10 @@
                 "<td class=\"fw-bold\">" + dinero(item.total || 0) + "</td>" +
                 "<td>" + badgeEstatus(item.estatus) + "</td>" +
                 "<td><div>" + escapeHtml(item.fecha_venta || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.fecha_entrega_compromiso || "") + "</div></td>" +
-                "<td class=\"text-end\"><div class=\"d-inline-flex gap-2\">" +
+                "<td class=\"text-end\"><div class=\"d-inline-flex flex-wrap justify-content-end gap-2\">" +
                     "<a class=\"btn btn-sm btn-icon btn-light\" href=\"/ventas/venta_detalle?folio=" + encodeURIComponent(item.folio || "") + "\" title=\"Detalle\"><i class=\"bi bi-eye\"></i></a>" +
                     "<button class=\"btn btn-sm btn-icon btn-light-primary\" data-ticket-folio=\"" + folio + "\" type=\"button\" title=\"Ticket\"><i class=\"bi bi-receipt\"></i></button>" +
-                    "<a class=\"btn btn-sm btn-icon btn-light-warning\" href=\"/ventas/devoluciones?folio=" + encodeURIComponent(item.folio || "") + "\" title=\"Prevalidar devolucion\"><i class=\"bi bi-arrow-counterclockwise\"></i></a>" +
+                    accionesReversa +
                 "</div></td>" +
                 "</tr>";
         }).join("");
@@ -313,6 +369,22 @@
             cargarResumen();
             cargarListado();
         });
+        document.getElementById("ventas_filtro_hoy").addEventListener("click", function () {
+            var hoy = fechaHoy();
+            document.getElementById("ventas_filtro_fecha_desde").value = hoy;
+            document.getElementById("ventas_filtro_fecha_hasta").value = hoy;
+            cargarResumen();
+            cargarListado();
+        });
+        document.getElementById("ventas_filtro_limpiar").addEventListener("click", function () {
+            document.getElementById("ventas_filtro_tipo").value = "";
+            document.getElementById("ventas_filtro_estatus").value = "";
+            document.getElementById("ventas_filtro_q").value = "";
+            document.getElementById("ventas_filtro_fecha_desde").value = "";
+            document.getElementById("ventas_filtro_fecha_hasta").value = "";
+            cargarResumen();
+            cargarListado();
+        });
         document.getElementById("ventas_ticket_imprimir").addEventListener("click", imprimirTicket);
         document.getElementById("ventas_listado").addEventListener("click", function (event) {
             var boton = event.target.closest("[data-ticket-folio]");
@@ -320,12 +392,18 @@
                 abrirTicket(boton.getAttribute("data-ticket-folio"));
             }
         });
-        ["ventas_filtro_tipo", "ventas_filtro_estatus"].forEach(function (id) {
-            document.getElementById(id).addEventListener("change", cargarListado);
+        ["ventas_filtro_tipo", "ventas_filtro_estatus", "ventas_filtro_fecha_desde", "ventas_filtro_fecha_hasta"].forEach(function (id) {
+            document.getElementById(id).addEventListener("change", function () {
+                cargarResumen();
+                cargarListado();
+            });
         });
         document.getElementById("ventas_filtro_q").addEventListener("input", function () {
             clearTimeout(temporizador);
-            temporizador = setTimeout(cargarListado, 250);
+            temporizador = setTimeout(function () {
+                cargarResumen();
+                cargarListado();
+            }, 250);
         });
     });
 })();

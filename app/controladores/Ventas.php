@@ -68,6 +68,18 @@ class Ventas extends Controlador {
     $this->vista("apps/erp/ventas/venta_rapida_pendientes");
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-14
+   * Proposito: abrir captura planificada de ventas historicas separada del POS en tiempo real.
+   * Impacto: permite preparar carga de ventas pasadas y acciones de regularizacion sin afectar caja ni inventario.
+   * Contrato: vista informativa/preparatoria; el guardado real e incidencias requieren endpoint autorizado.
+   */
+  public function carga_historica() {
+    $this->requerirPermiso("ventas.ver");
+    $this->vista("apps/erp/ventas/carga_historica");
+  }
+
   public function editar() {
     $this->requerirPermiso("ventas.ver");
     $this->vista("apps/erp/ventas/listado");
@@ -1063,6 +1075,43 @@ class Ventas extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-14
+   * Proposito: consultar catalogos para carga historica de ventas.
+   * Impacto: reutiliza almacenes/metodos POS sin abrir turno ni afectar inventario/caja.
+   * Contrato: GET protegido por ventas.ver; no escribe BD.
+   */
+  public function ventas_historicas_catalogos_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->ventasHistoricasCatalogosReadOnly());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-14
+   * Proposito: prevalidar captura de venta historica con acciones de regularizacion.
+   * Impacto: permite revisar totales, partidas y acciones antes de generar venta/alertas.
+   * Contrato: POST protegido por ventas.ver; no crea ventas, pagos, notificaciones ni movimientos.
+   */
+  public function ventas_historicas_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->ventaHistoricaDryRun($_POST));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-14
+   * Proposito: guardar venta historica real sin caja/inventario y generar acciones operativas.
+   * Impacto: escribe venta historica, detalle, pagos documentales, eventos y notificaciones por accion.
+   * Contrato: requiere ventas.operar y token VENTAS_HISTORICAS_ACCIONES_REAL; no mueve kardex ni caja.
+   */
+  public function ventas_historicas_guardar_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->ventaHistoricaGuardarReal($_POST));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-07-03.
    * Proposito: consultar reporte de caja POS con diferencias por turno.
    * Impacto: supervision gerencial sin escrituras.
@@ -1071,6 +1120,17 @@ class Ventas extends Controlador {
   public function reportes_caja_erp() {
     $this->requerirPermiso("ventas.ver");
     return json_encode($this->modelo("VentasErp")->reporteCajaPosReadOnly($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-10-13.
+   * Proposito: consultar tablero comercial POS para graficas de ventas.
+   * Impacto: solo lectura; no mueve caja, ventas, inventario ni alertas.
+   * Contrato: GET protegido por `ventas.ver`; responde resumen, series y rankings.
+   */
+  public function reportes_ventas_pos_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->reporteVentasPosReadOnly($_GET));
   }
 
   /**
@@ -1569,6 +1629,31 @@ class Ventas extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5, 2026-10-13.
+   * Proposito: aplicar desde UI una cancelacion/devolucion POS real despues de prevalidar.
+   * Impacto: puede cancelar venta, registrar reversa financiera, cerrar incidencias POS y afectar caja/inventario segun decision.
+   * Contrato: POST con CSRF, permiso `ventas.operar` y confirmacion textual exacta; no se ejecuta desde dry-run.
+   */
+  public function devolucion_confirmar_real_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $confirmacion = trim((string) ($_POST["confirmacion"] ?? ""));
+    if ($confirmacion !== "APLICAR REVERSA POS") {
+      return json_encode(array(
+        "error" => false,
+        "tipo" => "warning",
+        "mensaje" => "Confirmacion requerida para aplicar reversa real",
+        "depurar" => array(
+          "bloqueos" => array("Escribe APLICAR REVERSA POS para confirmar la operacion real."),
+          "dry_run" => false
+        )
+      ));
+    }
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    unset($_POST["confirmacion"]);
+    return json_encode($this->modelo("VentasErp")->confirmarReversaPosReal($_POST));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-06-30.
    * Proposito: consultar devoluciones POS pendientes de decision fisica de inventario/almacen.
    * Impacto: permite seguimiento de cuarentena, merma o reintegro sin mover stock.
@@ -1664,6 +1749,57 @@ class Ventas extends Controlador {
   public function esquema_auditar_envios_foraneos() {
     $this->requerirPermiso("ventas.ver");
     return json_encode($this->modelo("VentasErpEsquema")->auditarEnviosForaneos());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-14
+   * Proposito: auditar columnas requeridas para carga historica de ventas.
+   * Impacto: consulta metadata; no modifica ventas, caja ni inventario.
+   * Contrato: GET protegido por ventas.ver.
+   */
+  public function esquema_auditar_ventas_historicas() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarVentasHistoricas());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-14
+   * Proposito: generar o aplicar DDL de campos de carga historica.
+   * Impacto: prepara origen/mode/afectacion historica en erp_ventas; no crea ventas.
+   * Contrato: con ejecutar=1 requiere token, confirmacion y respaldo externo/productivo vigente.
+   */
+  public function esquema_actualizar_ventas_historicas() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $confirmacion = isset($_POST["confirmacion"]) ? trim((string) $_POST["confirmacion"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_HISTORICAS_DDL" || $confirmacion !== "APLICAR VENTAS HISTORICAS" || !$validacionRespaldo["ok"]) {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se ejecuto DDL de ventas historicas. Falta autorizacion, confirmacion o respaldo valido.",
+          "depurar" => array(
+            "requerido" => array(
+              "autorizar" => "VENTAS_HISTORICAS_DDL",
+              "confirmacion" => "APLICAR VENTAS HISTORICAS",
+              "respaldo" => "RUTA_O_REFERENCIA"
+            ),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array(
+              "No crea ventas historicas.",
+              "No afecta caja ni inventario.",
+              "Solo prepara columnas de trazabilidad historica."
+            )
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarVentasHistoricas($ejecutar));
   }
 
   /**

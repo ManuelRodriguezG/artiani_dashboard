@@ -176,10 +176,17 @@
                                         <div class="row g-3 align-items-end">
                                             <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Autorizador</label><select class="form-select form-select-solid" id="pos_cfg_codigo_autorizador"></select></div>
                                             <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Tipo de autorizacion</label><select class="form-select form-select-solid" id="pos_cfg_codigo_tipo"><option value="precio_conjunto">Precio conjunto / paquete</option><option value="precio_manual">Precio manual</option><option value="descuento_partida">Descuento partida</option><option value="descuento_general">Descuento general</option><option value="inventario_pendiente">Inventario pendiente</option><option value="gasto_caja">Gasto de caja</option><option value="devolucion">Devolucion</option><option value="cierre_diferencia">Diferencia de caja</option><option value="general">General POS</option></select></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Usos</label><input class="form-control form-control-solid" id="pos_cfg_codigo_usos" inputmode="numeric" value="1"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Expira en min.</label><input class="form-control form-control-solid" id="pos_cfg_codigo_minutos" inputmode="numeric" value="60"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Usos</label><input class="form-control form-control-solid" id="pos_cfg_codigo_usos" inputmode="numeric" value="1"><div class="form-text">0 = ilimitado</div></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Expira en min.</label><input class="form-control form-control-solid" id="pos_cfg_codigo_minutos" inputmode="numeric" value="60"><div class="form-text">0 = no caduca</div></div>
                                             <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Monto max.</label><input class="form-control form-control-solid" id="pos_cfg_codigo_monto" inputmode="decimal" value="0"></div>
-                                            <div class="col-md-8"><label class="form-label text-muted fs-8 text-uppercase">Motivo</label><input class="form-control form-control-solid" id="pos_cfg_codigo_motivo" placeholder="Ej. Autorizar paquete armado en mostrador"></div>
+                                            <div class="col-md-4">
+                                                <label class="form-check form-check-custom form-check-solid mt-8">
+                                                    <input class="form-check-input" id="pos_cfg_codigo_maestro" type="checkbox">
+                                                    <span class="form-check-label">Codigo maestro sin caducidad</span>
+                                                </label>
+                                                <div class="form-text">Para dueno/gerencia. Puede revocarse desactivando el codigo.</div>
+                                            </div>
+                                            <div class="col-md-8"><label class="form-label text-muted fs-8 text-uppercase">Motivo</label><input class="form-control form-control-solid" id="pos_cfg_codigo_motivo" placeholder="Ej. Codigo maestro operativo del dueno"></div>
                                             <div class="col-md-4 d-flex flex-wrap gap-2"><button class="btn btn-light-primary flex-grow-1" id="pos_cfg_codigo_validar" type="button"><i class="bi bi-shield-check"></i> Validar codigo</button><button class="btn btn-warning flex-grow-1" id="pos_cfg_codigo_generar" type="button"><i class="bi bi-key"></i> Generar codigo</button></div>
                                         </div>
                                     </div>
@@ -345,6 +352,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20261010-autorizadores-pos1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20261013-codigo-maestro1"></script>
 </body>
 </html>

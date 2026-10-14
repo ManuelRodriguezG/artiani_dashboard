@@ -617,11 +617,11 @@
                                 <input class="form-control form-control-solid" id="pos_excepcion_autorizacion" placeholder="Codigo o usuario">
                             </div>
                             <div class="col-md-3">
-                                <button class="btn btn-warning w-100" id="pos_excepcion_dryrun" type="button"><i class="bi bi-shield-check"></i> Validar</button>
+                                <button class="btn btn-warning w-100" id="pos_excepcion_dryrun" type="button"><i class="bi bi-shield-check"></i> Solo validar</button>
                             </div>
                             <div class="col-12">
-                                <div class="text-muted fs-8">Para precio conjunto, marca las partidas del carrito que forman el paquete y captura el total final autorizado.</div>
-                                <button class="btn btn-light-warning w-100" id="pos_excepcion_registrar" type="button"><i class="bi bi-file-earmark-lock"></i> Registrar folio autorizado</button>
+                                <div class="text-muted fs-8">Para precio conjunto, marca las partidas del carrito que forman el paquete y captura el total final autorizado. Solo validar revisa reglas; Registrar y aplicar deja el cambio activo en el carrito.</div>
+                                <button class="btn btn-light-warning w-100" id="pos_excepcion_registrar" type="button"><i class="bi bi-file-earmark-lock"></i> Registrar y aplicar</button>
                             </div>
                         </div>
                     </div>
@@ -808,6 +808,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20261013-precio-backend-sync1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20261013-excepcion-pagos-no-limpian1"></script>
 </body>
 </html>

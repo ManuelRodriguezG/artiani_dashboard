@@ -20,7 +20,8 @@ $params = array(
     "monto_maximo" => 0,
     "descuento_max_porcentaje" => 0,
     "vigencia_dias" => 365,
-    "motivo" => ""
+    "motivo" => "",
+    "server_name" => ""
 );
 
 foreach ($args as $arg) {
@@ -39,6 +40,14 @@ $params["id_caja"] = intval($params["id_caja"]);
 $params["monto_maximo"] = floatval($params["monto_maximo"]);
 $params["descuento_max_porcentaje"] = floatval($params["descuento_max_porcentaje"]);
 $params["vigencia_dias"] = intval($params["vigencia_dias"]);
+
+$serverName = trim((string) $params["server_name"]);
+if ($serverName === "" && strtolower(trim((string) $params["respaldo"])) === "productivo vigente") {
+    $serverName = "sys.artiani.com.mx";
+}
+if ($serverName !== "") {
+    $_SERVER["SERVER_NAME"] = $serverName;
+}
 
 $validacionRespaldo = validarRespaldo($params["respaldo"]);
 $bloqueos = array();

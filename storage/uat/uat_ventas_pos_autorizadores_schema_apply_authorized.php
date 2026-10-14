@@ -10,6 +10,7 @@ $args = isset($argv) ? $argv : array();
 $autorizar = "";
 $respaldo = "";
 $confirmacion = "";
+$serverName = "";
 
 foreach ($args as $arg) {
     if (strpos($arg, "--autorizar=") === 0) {
@@ -18,7 +19,16 @@ foreach ($args as $arg) {
         $respaldo = trim(substr($arg, 11), "\"' ");
     } elseif (strpos($arg, "--confirmacion=") === 0) {
         $confirmacion = strtoupper(trim(substr($arg, 15), "\"' "));
+    } elseif (strpos($arg, "--server_name=") === 0) {
+        $serverName = trim(substr($arg, 14), "\"' ");
     }
+}
+
+if ($serverName === "" && strtolower($respaldo) === "productivo vigente") {
+    $serverName = "sys.artiani.com.mx";
+}
+if ($serverName !== "") {
+    $_SERVER["SERVER_NAME"] = $serverName;
 }
 
 $validacionRespaldo = validarRespaldo($respaldo);
@@ -49,6 +59,7 @@ $despues = $esquema->auditarAutorizadoresPos();
 responder(array(
     "ok" => !hayErrores($plan),
     "modo" => "ventas_pos_autorizadores_schema_apply_authorized",
+    "server_name_activo" => isset($_SERVER["SERVER_NAME"]) ? $_SERVER["SERVER_NAME"] : "",
     "respaldo_ref" => $respaldo,
     "validacion_respaldo" => $validacionRespaldo,
     "auditoria_antes" => $antes,

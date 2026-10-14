@@ -1,5 +1,7 @@
 "use strict";
 (function () {
+    var ultimaPrevalidacionOk = false;
+
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-01
      * Proposito: operar pantalla separada de devoluciones POS con prevalidacion y acciones controladas.
@@ -30,6 +32,7 @@
     }
 
     function simular() {
+        ultimaPrevalidacionOk = false;
         request("/ventas/devolucion_dryrun_erp", {
             tipo: document.getElementById("dev_tipo").value,
             folio: document.getElementById("dev_folio").value.trim(),
@@ -41,13 +44,71 @@
             if (response.error) { throw new Error(response.mensaje); }
             var data = response.depurar || {};
             var bloqueos = data.bloqueos || [];
-            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Reversa prevalidada") + "</div><div class=\"fs-8 text-muted\">Revision completada sin aplicar devolucion, reembolso ni movimiento de inventario.</div>";
+            ultimaPrevalidacionOk = bloqueos.length === 0 && response.tipo === "success";
+            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Reversa prevalidada") + "</div><div class=\"fs-8 text-muted\">Prevalidacion completada: no cancelo venta, no genero folio de devolucion, no movio caja y no cambio inventario.</div>";
             html += "<div class=\"fs-8\">Tipo: " + escapeHtml(data.tipo || "") + " | Inventario: " + escapeHtml(data.decision_inventario || "") + " | Financiera: " + escapeHtml(document.getElementById("dev_decision_financiera").value) + "</div>";
+            if (bloqueos.length) {
+                html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            } else {
+                html += "<div class=\"fs-8 mt-2 fw-semibold\">Si todo es correcto, escribe APLICAR REVERSA POS y pulsa Aplicar reversa real.</div>";
+            }
+            html += "</div>";
+            document.getElementById("dev_resultado").innerHTML = html;
+        }).catch(function (error) {
+            document.getElementById("dev_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function datosReversa() {
+        return {
+            tipo: document.getElementById("dev_tipo").value,
+            folio: document.getElementById("dev_folio").value.trim(),
+            decision_inventario: document.getElementById("dev_decision_inventario").value,
+            decision_financiera: document.getElementById("dev_decision_financiera").value,
+            motivo: document.getElementById("dev_motivo").value.trim(),
+            observaciones: document.getElementById("dev_motivo").value.trim(),
+            confirmacion: document.getElementById("dev_confirmacion_real").value.trim(),
+            items: JSON.stringify([])
+        };
+    }
+
+    function aplicarReal() {
+        var datos = datosReversa();
+        if (!ultimaPrevalidacionOk) {
+            document.getElementById("dev_resultado").innerHTML = "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Primero prevalida la reversa</div><div class=\"fs-8\">El boton real queda protegido para evitar cancelaciones por error.</div></div>";
+            return;
+        }
+        if (datos.confirmacion !== "APLICAR REVERSA POS") {
+            document.getElementById("dev_resultado").innerHTML = "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Confirmacion requerida</div><div class=\"fs-8\">Escribe exactamente APLICAR REVERSA POS.</div></div>";
+            return;
+        }
+        if (!window.confirm("Esto aplicara una reversa REAL. Puede cancelar la venta, generar salida/entrada financiera y cerrar incidencias relacionadas. ¿Continuar?")) {
+            return;
+        }
+        document.getElementById("dev_resultado").innerHTML = "<div class=\"text-muted fs-8 py-3\">Aplicando reversa real...</div>";
+        request("/ventas/devolucion_confirmar_real_erp", datos).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var data = response.depurar || {};
+            var bloqueos = data.bloqueos || [];
+            var tipo = bloqueos.length || response.tipo === "warning" ? "alert-warning" : "alert-success";
+            var html = "<div class=\"alert " + tipo + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Reversa procesada") + "</div>";
+            if (data.folio_devolucion) {
+                html += "<div class=\"fs-8\">Folio reversa: " + escapeHtml(data.folio_devolucion) + " | Venta: " + escapeHtml(data.folio_venta || datos.folio) + "</div>";
+            }
+            if (data.estatus_venta) {
+                html += "<div class=\"fs-8\">Estatus venta: " + escapeHtml(data.estatus_venta) + "</div>";
+            }
+            if (data.incidencias_canceladas) {
+                html += "<div class=\"fs-8 mt-2\">Incidencias cerradas: " + escapeHtml(JSON.stringify(data.incidencias_canceladas)) + "</div>";
+            }
             if (bloqueos.length) {
                 html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
             }
             html += "</div>";
             document.getElementById("dev_resultado").innerHTML = html;
+            ultimaPrevalidacionOk = false;
+            document.getElementById("dev_confirmacion_real").value = "";
+            consultarFisicas();
         }).catch(function (error) {
             document.getElementById("dev_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
         });
@@ -233,11 +294,24 @@
 
     function aplicarParametrosUrl() {
         var params = new URLSearchParams(window.location.search || "");
+        var tipo = params.get("tipo") || "";
         var folioVenta = params.get("folio") || params.get("folio_venta") || "";
         var folioDevolucion = params.get("folio_devolucion") || "";
+        if (tipo === "cancelacion" || tipo === "devolucion") {
+            document.getElementById("dev_tipo").value = tipo;
+        }
         if (folioVenta) {
             document.getElementById("dev_folio").value = folioVenta;
-            document.getElementById("dev_resultado").innerHTML = "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Folio precargado desde ventas</div><div class=\"fs-8 text-muted\">Puedes prevalidar la devolucion antes de aplicar cambios reales.</div></div>";
+            if (tipo === "cancelacion") {
+                document.getElementById("dev_decision_inventario").value = "sin_reingreso";
+                document.getElementById("dev_decision_financiera").value = "reembolso_caja";
+                if (!document.getElementById("dev_motivo").value.trim()) {
+                    document.getElementById("dev_motivo").value = "Cancelacion completa de venta POS " + folioVenta;
+                }
+            } else if (tipo === "devolucion" && !document.getElementById("dev_motivo").value.trim()) {
+                document.getElementById("dev_motivo").value = "Devolucion de venta POS " + folioVenta;
+            }
+            document.getElementById("dev_resultado").innerHTML = "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Venta precargada desde el listado</div><div class=\"fs-8 text-muted\">Tipo: " + escapeHtml(document.getElementById("dev_tipo").value) + ". Primero prevalida; la aplicacion real queda separada y protegida.</div></div>";
         }
         if (folioDevolucion) {
             document.getElementById("dev_ticket_folio").value = folioDevolucion;
@@ -247,6 +321,7 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("dev_simular").addEventListener("click", simular);
+        document.getElementById("dev_aplicar_real").addEventListener("click", aplicarReal);
         document.getElementById("dev_fisicas_consultar").addEventListener("click", consultarFisicas);
         document.getElementById("dev_ticket_consultar").addEventListener("click", consultarTicket);
         document.getElementById("dev_inspeccion_prevalidar").addEventListener("click", prevalidarInspeccion);

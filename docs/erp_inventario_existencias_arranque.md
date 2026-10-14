@@ -3040,6 +3040,81 @@ Pendiente de autorizacion:
 - Ejecutar reclasificacion UAT con SKU/lote/cantidad definidos por el dueno.
 - Validar movimientos `origen_tipo='reclasificacion_inventario'`, folio unico y detalle ligado a salida/entrada.
 
+## Incidencias POS - Presentaciones bajo demanda
+
+Fecha: 2026-10-13
+
+Origen operativo:
+
+- Pruebas reales POS generaron incidencias de inventario para ventas autorizadas sin salida inmediata.
+- Folio analizado: `PINV-20261013-000001`.
+- SKU vendido: `ALI-TEBRIO1K-50P`.
+- Regla de catalogo detectada:
+  - SKU base: `ALI-TEBRIO1K-PZA`.
+  - Factor: `1` presentacion vendida = `50` piezas base.
+  - `modo_disponibilidad='bajo_demanda'`.
+  - `consume_stock_base_en='venta'`.
+
+Hallazgo `INV-PINV-H001`:
+
+- El flujo anterior ofrecia conteo sobre el SKU vendido `ALI-TEBRIO1K-50P`.
+- Para presentaciones bajo demanda eso no es correcto, porque no existe necesariamente una unidad cerrada de `50P` en inventario.
+- La regularizacion debe contar las piezas individuales del SKU base y reconocer despues la salida de las piezas consumidas por la presentacion vendida.
+
+Decision ERP:
+
+- Si la incidencia POS corresponde a un SKU directo, se cuenta el SKU vendido.
+- Si corresponde a una presentacion bajo demanda o con consumo de base en venta:
+  - se muestra el SKU vendido para trazabilidad comercial;
+  - se muestra el SKU base como SKU a contar;
+  - el dry-run usa `cantidad_pendiente * factor_salida_base`;
+  - la resolucion real queda bloqueada hasta implementar salida/ajuste contra el SKU base.
+- Si corresponde a una presentacion preparada:
+  - se debe confirmar existencia fisica de la presentacion o preparar desde base antes de resolver;
+  - no se debe convertir automaticamente en conteo de base sin revisar el flujo operativo.
+
+Evidencia read-only:
+
+| Folio | SKU vendido | Tipo | SKU a contar | Factor | Pendiente vendido | Pendiente a reconocer |
+| --- | --- | --- | --- | ---: | ---: | ---: |
+| `PINV-20261013-000001` | `ALI-TEBRIO1K-50P` | bajo demanda | `ALI-TEBRIO1K-PZA` | `50` | `1` | `50` |
+| `PINV-20260730-000001` | `ALI-TEBRIO1K-50P` | bajo demanda | `ALI-TEBRIO1K-PZA` | `50` | pendiente | pendiente x `50` |
+| `PINV-20261013-000003` | `TP-40372-25GR` | preparada | `TP-40372-25GR` | `1` | `1` | `1` |
+| `PINV-20260711-000001` | `TP-40352-500GR` | preparada | `TP-40352-500GR` | `1` | `1` | `1` |
+| `PINV-20260712-000001` | `TP-40352-500GR` | preparada | `TP-40352-500GR` | `1` | `1` | `1` |
+| `PINV-20260717-000001` | `TP-40352-500GR` | preparada | `TP-40352-500GR` | `1` | `1` | `1` |
+| `PINV-20261013-000002` | `ALI-ZOBAPZ` | directo | `ALI-ZOBAPZ` | `1` | `5` | `5` |
+| `PINV-20261013-000004` | `FL7906` | directo | `FL7906` | `1` | `2` | `2` |
+| `PINV-20261013-000005` | `FL11002` | directo | `FL11002` | `1` | `1` | `1` |
+
+Prueba tecnica sin escritura:
+
+- Dry-run de `PINV-20261013-000001` con conteo fisico `120` piezas:
+  - SKU contado: `ALI-TEBRIO1K-PZA`.
+  - Vendido pendiente convertido: `50`.
+  - Formula: `120 + 50 = 170` piezas antes de reconocer la salida.
+  - Propuesta teorica: ajustar a `170`, registrar salida `50`, cerrar en `120`.
+  - Resultado: bloqueado correctamente para evitar afectar el SKU equivocado hasta implementar resolucion real contra base.
+
+Regla por almacen equivocado:
+
+- No se debe cambiar directamente el almacen de una venta POS pagada ni de su incidencia con una actualizacion manual.
+- Si la venta se hizo desde una tienda equivocada, el camino robusto es cancelar/reversar/devolver y volver a vender desde la caja/almacen correcto, o crear un flujo administrativo auditado de correccion de almacen de venta.
+- Si la venta esta bien pero el stock fisico esta en otra tienda, no se corrige la venta: se debe traspasar o regularizar inventario hacia el almacen de la venta antes de resolver la incidencia.
+
+Estado:
+
+- Consulta y dry-run preparados para distinguir SKU vendido, SKU a contar y factor.
+- Listado de pendientes muestra etiqueta `Contar base` para presentaciones bajo demanda.
+- Resolucion real de presentaciones bajo demanda sigue pendiente de implementacion con respaldo y autorizacion.
+- No se ejecutaron escrituras de BD.
+
+Siguiente paso recomendado:
+
+1. Implementar resolucion real de `presentacion_bajo_demanda` contra SKU base, con kardex de ajuste y salida sobre `id_sku_base`.
+2. Mantener el bloqueo actual hasta tener respaldo externo y autorizacion expresa.
+3. Revisar si POS debe generar desde origen el pendiente ya ligado a `id_sku_base` para reducir ambiguedad futura.
+
 ## Prompt sugerido para nuevo chat
 
 ```text

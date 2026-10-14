@@ -110,6 +110,8 @@
             /No hay politica POS activa/i,
             /politica POS autoriza inventario pendiente/i,
             /flujo real de inventario pendiente/i,
+            /Garantia:\s*Sin garantia/i,
+            /Garant[ií]a:\s*Sin garant[ií]a/i,
             /token/i,
             /respaldo/i
         ];
@@ -1338,7 +1340,47 @@
      * Proposito: permitir precio provisional solo cuando Catalogo/Listas aun no tienen precio formal.
      * Impacto: POS puede operar en regularizacion sin convertir el precio manual en una regla silenciosa.
      */
-    function precioPartidaControl(item) {
+    function partidaExcepcionAplicada(index, item) {
+        if (!excepcionActiva || !Array.isArray(excepcionActiva.partidas)) { return null; }
+        var idSku = Number((item || {}).id_sku || 0);
+        var porRenglon = excepcionActiva.partidas.find(function (partida) {
+            var aplica = Number(partida.aplica_excepcion_comercial || 0) === 1;
+            var mismoRenglon = Number(partida.renglon || 0) === Number(index + 1);
+            var mismoSku = idSku <= 0 || Number(partida.id_sku || 0) === idSku;
+            return aplica && mismoRenglon && mismoSku;
+        });
+        if (porRenglon) { return porRenglon; }
+        if (idSku <= 0) { return null; }
+        return excepcionActiva.partidas.find(function (partida) {
+            return Number(partida.aplica_excepcion_comercial || 0) === 1 && Number(partida.id_sku || 0) === idSku;
+        }) || null;
+    }
+    function precioPartidaVisual(item, index) {
+        var partida = partidaExcepcionAplicada(index, item);
+        if (partida && partida.precio_unitario_final != null) {
+            return cantidad(partida.precio_unitario_final);
+        }
+        return cantidad(item.precio_unitario);
+    }
+    function importePartidaVisual(item, index) {
+        var partida = partidaExcepcionAplicada(index, item);
+        if (partida && partida.total_final != null) {
+            return cantidad(partida.total_final);
+        }
+        return cantidad(item.precio_unitario) * cantidad(item.cantidad);
+    }
+    function precioPartidaControl(item, index) {
+        var partidaExcepcion = partidaExcepcionAplicada(index, item);
+        if (partidaExcepcion) {
+            var original = cantidad(partidaExcepcion.precio_unitario_original || item.precio_unitario || 0);
+            var final = cantidad(partidaExcepcion.precio_unitario_final || item.precio_unitario || 0);
+            var cambio = Math.abs(original - final) > 0.0001;
+            return "<div class=\"d-flex flex-column align-items-end gap-1\">" +
+                (cambio ? "<span class=\"text-muted text-decoration-line-through fs-8\">" + dinero(original) + "</span>" : "") +
+                "<span class=\"fw-bold text-success\">" + dinero(final) + "</span>" +
+                "<span class=\"badge badge-light-success\">Precio autorizado</span>" +
+            "</div>";
+        }
         if (Number(item.precio_manual_sin_lista || 0) !== 1) {
             return dinero(item.precio_unitario);
         }
@@ -1409,6 +1451,11 @@
     function subtotalCarritoBase() {
         return carrito.reduce(function (suma, item) {
             return suma + (cantidad(item.cantidad) * cantidad(item.precio_unitario));
+        }, 0);
+    }
+    function subtotalCarritoVisual() {
+        return carrito.reduce(function (suma, item, index) {
+            return suma + importePartidaVisual(item, index);
         }, 0);
     }
     function actualizarTotalesPaqueteModal() {
@@ -1701,7 +1748,7 @@
         contenedor.innerHTML = resumenPaqueteAplicado() + "<div class=\"table-responsive\"><table class=\"table table-row-dashed align-middle pos-cart-table mb-0\"><thead><tr><th title=\"Marcar para ajuste o paquete\">Paquete</th><th>Producto</th><th class=\"text-end\">Cantidad</th><th class=\"text-end\">Precio</th><th class=\"text-end\">Importe</th><th></th></tr></thead><tbody>" +
             carrito.map(function (item, index) {
                 var capturaFraccionaria = item.modo_salida === "granel_unidad_abierta" || (item.modo_salida === "existencia_agregada" && Number(item.permite_venta_fraccionaria || 0) === 1);
-                var importePartida = cantidad(item.precio_unitario) * cantidad(item.cantidad);
+                var importePartida = importePartidaVisual(item, index);
                 var paqueteAplicado = partidaTienePaqueteAplicado(index);
                 var inputClase = capturaFraccionaria ? "form-control form-control-sm pos-weight-input" : "form-control form-control-sm text-center";
                 var controlCantidad = capturaFraccionaria
@@ -1711,7 +1758,7 @@
                     "<td><label class=\"pos-ajuste-label\" title=\"Incluir esta partida en precio conjunto\"><input class=\"form-check-input pos-ajuste-check m-0\" type=\"checkbox\" data-pos-ajuste-partida " + (item.ajuste_comercial_seleccionado ? "checked" : "") + "> <i class=\"bi bi-box-seam\"></i> Paq.</label></td>" +
                     "<td><div class=\"d-flex align-items-center gap-2\"><img class=\"pos-cart-img\" src=\"" + escapeHtml(imagen(item)) + "\" alt=\"\"><div class=\"min-w-0\"><div class=\"fw-bold\">" + escapeHtml(item.sku) + "</div><div class=\"text-muted fs-8 text-truncate\" style=\"max-width:220px\">" + escapeHtml(textoLegible(item.descripcion)) + "</div><div class=\"text-muted fs-9\">Sale de: " + escapeHtml(nombreAlmacenPartida(item)) + "</div>" + (paqueteAplicado ? "<span class=\"pos-paquete-badge mt-1\"><i class=\"bi bi-box-seam\"></i> Paquete aplicado</span>" : "") + "</div></div>" + origenPartidaControl(item) + "</td>" +
                     "<td class=\"text-end\"><div class=\"d-flex flex-column align-items-end gap-1\"><span class=\"text-muted fs-8 pos-qty-label\">" + etiquetaCantidad(item) + " " + escapeHtml(item.unidad_venta_label || "") + "</span>" + controlCantidad + "</div></td>" +
-                    "<td class=\"text-end\">" + precioPartidaControl(item) + "</td>" +
+                    "<td class=\"text-end\">" + precioPartidaControl(item, index) + "</td>" +
                     "<td class=\"text-end fw-bold\" data-pos-importe>" + dinero(importePartida) + "</td>" +
                     "<td class=\"text-end\"><button class=\"btn btn-sm btn-icon btn-light-danger\" data-pos-quitar type=\"button\" title=\"Quitar\"><i class=\"bi bi-x-lg\"></i></button></td>" +
                     "</tr>";
@@ -1727,10 +1774,13 @@
         var select = document.getElementById("pos_excepcion_sku_objetivo");
         if (!select) { return; }
         var actual = select.value;
-        select.innerHTML = carrito.map(function (item, index) {
+        var partidasSku = carrito.filter(function (item) {
+            return Number(item.id_sku || 0) > 0;
+        });
+        select.innerHTML = partidasSku.map(function (item, index) {
             var texto = (index + 1) + ". " + (item.sku || item.id_sku || "") + " - " + textoLegible(item.descripcion || "");
             return "<option value=\"" + escapeHtml(item.id_sku || "") + "\">" + escapeHtml(texto) + "</option>";
-        }).join("") || "<option value=\"\">Sin partidas</option>";
+        }).join("") || "<option value=\"\">Sin SKUs registrados</option>";
         if (actual && Array.prototype.some.call(select.options, function (option) { return option.value === actual; })) {
             select.value = actual;
         }
@@ -1752,12 +1802,11 @@
         if (porcentaje) { porcentaje.disabled = tipo === "precio_manual" || tipo === "precio_conjunto"; }
     }
     function actualizarTotales() {
-        var subtotal = carrito.reduce(function (suma, item) { return suma + (cantidad(item.cantidad) * cantidad(item.precio_unitario)); }, 0);
+        var subtotal = subtotalCarritoVisual();
         var pagado = pagos.reduce(function (suma, item) { return suma + cantidad(item.monto); }, 0);
         var total = subtotal;
         if (excepcionActiva && excepcionActiva.totales && excepcionActiva.totales.total_con_excepcion != null) {
             total = cantidad(excepcionActiva.totales.total_con_excepcion);
-            subtotal = cantidad(excepcionActiva.totales.subtotal_original || subtotal);
         }
         document.getElementById("pos_subtotal").textContent = dinero(subtotal);
         document.getElementById("pos_total").textContent = dinero(total);
@@ -1770,7 +1819,7 @@
         if (excepcionActiva && excepcionActiva.totales && excepcionActiva.totales.total_con_excepcion != null) {
             return cantidad(excepcionActiva.totales.total_con_excepcion);
         }
-        return carrito.reduce(function (suma, item) { return suma + (cantidad(item.cantidad) * cantidad(item.precio_unitario)); }, 0);
+        return subtotalCarritoVisual();
     }
     function actualizarEstadoCobro() {
         var boton = document.getElementById("pos_cobrar_real");
@@ -1879,7 +1928,6 @@
             monto: Math.max(0, total - pagado),
             referencia: ""
         });
-        limpiarExcepcionActiva();
         renderPagos();
     }
     function agregarPagoRapido(tipo) {
@@ -1908,7 +1956,6 @@
                 monto: montoSugerido,
                 referencia: "saldo_cliente"
             });
-            limpiarExcepcionActiva();
             renderPagos();
             return;
         }
@@ -1918,7 +1965,6 @@
             monto: Math.max(0, total - pagado),
             referencia: ""
         });
-        limpiarExcepcionActiva();
         renderPagos();
     }
     function prevalidar() {
@@ -2106,6 +2152,8 @@
         var codigoAutorizacion = (document.getElementById("pos_excepcion_autorizacion").value || "")
             .replace(/\s+/g, "")
             .toUpperCase();
+        var itemsExcepcion = itemsParaExcepcionComercial(tipo, idSkuObjetivo);
+        var indicesConjunto = tipo === "precio_conjunto" ? indicesPaqueteSeleccionadosEnItems(itemsExcepcion) : [];
         return {
             id_almacen: almacenActual(),
             canal: document.getElementById("pos_canal").value || "pos",
@@ -2119,8 +2167,8 @@
             descuento_porcentaje: document.getElementById("pos_excepcion_descuento_porcentaje").value,
             motivo: document.getElementById("pos_excepcion_motivo").value,
             codigo_autorizacion: codigoAutorizacion,
-            indices_ajuste_conjunto: tipo === "precio_conjunto" ? JSON.stringify(indicesPaqueteSeleccionados()) : "",
-            items: JSON.stringify(carrito.map(function (item) {
+            indices_ajuste_conjunto: tipo === "precio_conjunto" ? JSON.stringify(indicesConjunto) : "",
+            items: JSON.stringify(itemsExcepcion.map(function (item) {
                 return {
                     id_sku: item.id_sku,
                     cantidad: cantidad(item.cantidad),
@@ -2132,9 +2180,33 @@
             }))
         };
     }
+    function itemsParaExcepcionComercial(tipo, idSkuObjetivo) {
+        var objetivo = String(idSkuObjetivo || "");
+        if (tipo === "precio_manual" || tipo === "descuento_partida") {
+            return carrito.filter(function (item) {
+                return Number(item.id_sku || 0) > 0 && String(item.id_sku || "") === objetivo;
+            });
+        }
+        if (tipo === "precio_conjunto") {
+            return carrito.filter(function (item) {
+                return Number(item.id_sku || 0) > 0;
+            });
+        }
+        return carrito.filter(function (item) {
+            return Number(item.id_sku || 0) > 0;
+        });
+    }
+    function indicesPaqueteSeleccionadosEnItems(items) {
+        return (items || []).reduce(function (indices, item, index) {
+            if (item.ajuste_comercial_seleccionado) {
+                indices.push(index);
+            }
+            return indices;
+        }, []);
+    }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-29
-     * Proposito: registrar folio real de excepcion comercial desde POS.
+     * Proposito: registrar folio real de excepcion comercial desde POS y aplicarlo al carrito.
      * Impacto: escribe solo autorizacion comercial; no crea venta, caja ni kardex.
      */
     function excepcionComercialRegistrar() {
@@ -2150,13 +2222,13 @@
     function confirmarRegistroExcepcion() {
         var payload = payloadExcepcionComercial();
         var tipo = payload.tipo_excepcion || "precio_manual";
-        var mensaje = "Se creara un folio real de autorizacion comercial. No crea venta, no mueve caja y no descuenta inventario.";
+        var mensaje = "Se creara un folio real de autorizacion comercial y se aplicara al carrito. No crea venta, no mueve caja y no descuenta inventario hasta que cobres.";
         if (window.Swal) {
             return Swal.fire({
                 text: mensaje,
                 icon: "warning",
                 showCancelButton: true,
-                confirmButtonText: "Registrar folio",
+                confirmButtonText: "Registrar y aplicar",
                 cancelButtonText: "Cancelar"
             }).then(function (resultado) {
                 return !!resultado.isConfirmed;
@@ -2174,17 +2246,34 @@
         }
         request("/ventas/pos_excepcion_comercial_registrar_erp", payloadExcepcionComercial()).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
-            renderExcepcionComercialRegistrada(response);
+            renderExcepcionComercialRegistrada(response, true);
+            var folio = ((response.depurar || {}).folio || "").trim();
+            if (!folio || ((response.depurar || {}).bloqueos || []).length) {
+                return null;
+            }
+            if (boton) {
+                boton.innerHTML = "<span class=\"spinner-border spinner-border-sm me-2\"></span>Aplicando...";
+            }
+            return aplicarFolioExcepcionComercial(folio, 0, "pos_cliente_precio_resultado");
+        }).then(function (response) {
+            if (!response) { return; }
+            var bloqueos = ((response.depurar || {}).bloqueos || []);
+            if (!bloqueos.length && window.bootstrap) {
+                var modal = document.getElementById("pos_cliente_precio_modal");
+                if (modal) {
+                    bootstrap.Modal.getOrCreateInstance(modal).hide();
+                }
+            }
         }).catch(function (error) {
             document.getElementById("pos_cliente_precio_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
         }).finally(function () {
             if (boton) {
                 boton.disabled = false;
-                boton.innerHTML = boton.getAttribute("data-original-text") || "<i class=\"bi bi-file-earmark-lock\"></i> Registrar folio autorizado";
+                boton.innerHTML = boton.getAttribute("data-original-text") || "<i class=\"bi bi-file-earmark-lock\"></i> Registrar y aplicar";
             }
         });
     }
-    function renderExcepcionComercialRegistrada(response) {
+    function renderExcepcionComercialRegistrada(response, aplicando) {
         var depurar = response.depurar || {};
         var bloqueos = depurar.bloqueos || [];
         var folio = depurar.folio || "";
@@ -2197,7 +2286,7 @@
         if (bloqueos.length) {
             html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         } else {
-            html += "<div class=\"fs-8 text-muted mt-2\">No crea venta, no mueve caja y no descuenta inventario. Valida el folio contra el carrito antes de cobrar.</div>";
+            html += "<div class=\"fs-8 text-muted mt-2\">" + (aplicando ? "Aplicando folio al carrito..." : "No crea venta, no mueve caja y no descuenta inventario. Aplica el folio contra el carrito antes de cobrar.") + "</div>";
         }
         html += "</div>";
         document.getElementById("pos_cliente_precio_resultado").innerHTML = html;
@@ -2235,15 +2324,7 @@
             id_cliente: idClienteCrmActivo(),
             identificador_cliente: document.getElementById("pos_cliente_identificador").value || identificadorClienteActivo(),
             exigir_pago_completo: exigirPagoCompleto == null ? exigePagoCompleto() : exigirPagoCompleto,
-            items: JSON.stringify(carrito.map(function (item) {
-                return {
-                    id_sku: item.id_sku,
-                    cantidad: cantidad(item.cantidad),
-                    unidad_venta: item.unidad_venta || item.unidad_venta_label || "",
-                    modo_salida: item.modo_salida,
-                    id_inventario_unidad: item.id_inventario_unidad || ""
-                };
-            })),
+            items: JSON.stringify(itemsPayloadActual()),
             pagos: JSON.stringify(pagos)
         }).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
@@ -3233,7 +3314,7 @@
             "</tr>";
         }).join("") || "<tr><td colspan=\"6\" class=\"text-muted text-center py-4\">Sin partidas.</td></tr>";
         html += "</tbody></table></div>";
-        html += "<div class=\"fs-8 text-muted\">Precio final revisado por backend. La venta real solo se permite con autorizacion de supervisor cuando aplique.</div>";
+        html += "<div class=\"fs-8 text-muted\">" + (bloqueos.length ? "Corrige los bloqueos antes de registrar la autorizacion." : "Validacion correcta. Para usar este precio en el cobro, pulsa Registrar y aplicar.") + "</div>";
         document.getElementById("pos_cliente_precio_resultado").innerHTML = html;
     }
     function renderExcepcionConsumo(response) {
@@ -3271,7 +3352,7 @@
             "</tr>";
         }).join("") || "<tr><td colspan=\"6\" class=\"text-muted text-center py-4\">Sin partidas.</td></tr>";
         html += "</tbody></table></div>";
-        html += "<div class=\"fs-8 text-muted\">Folio autorizado validado. No se puede reutilizar y el total se recalcula antes del cobro.</div>";
+        html += "<div class=\"fs-8 text-muted\">" + (bloqueos.length ? "El folio no quedo aplicado. Revisa los bloqueos antes de cobrar." : "Folio autorizado aplicado al carrito. Revisa el total/pago y cobra; el backend volvera a validar antes de confirmar la venta.") + "</div>";
         document.getElementById("pos_cliente_precio_resultado").innerHTML = html;
         if (!bloqueos.length) {
             excepcionActiva = {
@@ -3295,7 +3376,7 @@
                 },
                 partidas: depurar.partidas || []
             };
-            document.getElementById("pos_subtotal").textContent = dinero(totales.subtotal_original || 0);
+            document.getElementById("pos_subtotal").textContent = dinero(subtotalCarritoVisual());
             document.getElementById("pos_total").textContent = dinero(totales.total_con_excepcion || 0);
             document.getElementById("pos_pagado").textContent = dinero(totales.pagado_total || 0);
             document.getElementById("pos_saldo").textContent = dinero(totales.saldo_total || 0);
@@ -4419,7 +4500,6 @@
             var node = event.target.closest("[data-pos-pago]");
             if (!node || !event.target.closest("[data-pos-pago-quitar]")) { return; }
             pagos.splice(Number(node.getAttribute("data-pos-pago")), 1);
-            limpiarExcepcionActiva();
             guardarCuentas();
             renderPagos();
         });
@@ -4433,7 +4513,6 @@
             if (event.target.matches("[data-pos-pago-ref]")) {
                 pago.referencia = event.target.value;
             }
-            limpiarExcepcionActiva();
             guardarCuentas();
             renderCuentas();
             actualizarTotales();
@@ -4442,7 +4521,6 @@
             var node = event.target.closest("[data-pos-pago]");
             if (!node || !event.target.matches("[data-pos-pago-metodo]")) { return; }
             pagos[Number(node.getAttribute("data-pos-pago"))].id_metodo_pago = event.target.value;
-            limpiarExcepcionActiva();
             guardarCuentas();
         });
     });
