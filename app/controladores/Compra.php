@@ -504,6 +504,20 @@ class Compra extends Controlador {
         ));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: mostrar el dry-run de pendientes de una compra cerrada sin recepcion.
+     * Impacto: Compras; no escribe base de datos ni afecta inventario.
+     * Contrato: requiere compras.ver y devuelve clasificacion para Catalogo, Inventario y cargos.
+     */
+    public function orden_incidencias_preoperativas_previsualizar_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("OrdenesCompraErp")->previsualizarIncidenciasComprasPreoperativas(
+            isset($_GET["id_orden_compra"]) ? $_GET["id_orden_compra"] : 0
+        ));
+    }
+
     public function orden_guardar_erp() {
         $idOrden = isset($_POST["id_orden_compra"]) ? intval($_POST["id_orden_compra"]) : 0;
         $this->requerirPermiso($idOrden > 0 ? "compras.editar" : "compras.crear");
@@ -857,6 +871,21 @@ class Compra extends Controlador {
         $esquema = $this->modelo("ComprasEsquema");
         return json_encode($esquema->planActualizarGastosCompra($ejecutar));
     }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: auditar o preparar la tabla de incidencias de inventario de compras preoperativas.
+     * Impacto: Compras/Inventario; no afecta existencias ni crea movimientos.
+     * Contrato: requiere sistema.soporte; ejecutar=1 sólo después de respaldo externo autorizado.
+     */
+    public function esquema_actualizar_incidencias_compras_preoperativas() {
+        $this->requerirPermiso("sistema.soporte");
+        $ejecutar = isset($_POST['ejecutar']) && $_POST['ejecutar'] == 1;
+        $esquema = $this->modelo("ComprasEsquema");
+        return json_encode($esquema->planActualizarIncidenciasComprasPreoperativas($ejecutar));
+    }
+
     /**
      * IA: Codex GPT-5
      * Fecha: 2026-08-20

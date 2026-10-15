@@ -1397,7 +1397,7 @@ class InventarioErp extends CRUD {
                 return $this->respuesta(false, "warning", "Esquema de pendientes POS no disponible", array("pendientes" => array()));
             }
             $idAlmacen = intval(isset($filtros["id_almacen"]) ? $filtros["id_almacen"] : 0);
-            $estatus = trim(isset($filtros["estatus"]) ? (string) $filtros["estatus"] : "pendiente_revision");
+            $estatus = trim(isset($filtros["estatus"]) ? (string) $filtros["estatus"] : "abiertos");
             $q = trim(isset($filtros["q"]) ? (string) $filtros["q"] : "");
             $where = array("1=1");
             $params = array();
@@ -1405,12 +1405,24 @@ class InventarioErp extends CRUD {
                 $where[] = "p.id_almacen=:almacen";
                 $params[":almacen"] = $idAlmacen;
             }
-            if ($estatus !== "" && $estatus !== "todos") {
+            if ($estatus === "abiertos") {
+                $where[] = "p.estatus IN ('pendiente_revision','en_revision','bloqueada')";
+            } elseif ($estatus === "pendientes_revision") {
+                $where[] = "p.estatus='pendiente_revision'";
+            } elseif ($estatus === "en_revision") {
+                $where[] = "p.estatus='en_revision'";
+            } elseif ($estatus === "bloqueados") {
+                $where[] = "p.estatus='bloqueada'";
+            } elseif ($estatus === "resueltos") {
+                $where[] = "p.estatus='resuelto'";
+            } elseif ($estatus === "cancelados") {
+                $where[] = "p.estatus IN ('cancelada','cancelado')";
+            } elseif ($estatus !== "" && $estatus !== "todos") {
                 $where[] = "p.estatus=:estatus";
                 $params[":estatus"] = $estatus;
             }
             if ($q !== "") {
-                $where[] = "(p.folio LIKE :q OR p.sku LIKE :q OR p.descripcion LIKE :q OR v.folio LIKE :q)";
+                $where[] = "(p.folio LIKE :q OR p.sku LIKE :q OR p.descripcion LIKE :q OR v.folio LIKE :q OR a.almacen LIKE :q)";
                 $params[":q"] = "%" . $q . "%";
             }
             $joinPresentacion = $this->tablaExiste($db, "erp_catalogo_sku_presentaciones")
@@ -1422,6 +1434,11 @@ class InventarioErp extends CRUD {
                    pres.modo_disponibilidad, base_pres.sku AS sku_base_presentacion, base_pres.nombre AS nombre_base_presentacion,"
                 : "NULL AS id_sku_presentacion_regla, NULL AS id_sku_base, NULL AS factor_salida_base, NULL AS consume_stock_base_en,
                    NULL AS modo_disponibilidad, NULL AS sku_base_presentacion, NULL AS nombre_base_presentacion,";
+            $skuExistenciaJoin = $this->tablaExiste($db, "erp_catalogo_sku_presentaciones")
+                ? "CASE WHEN pres.id_sku_base IS NOT NULL
+                            AND (pres.consume_stock_base_en='venta' OR pres.modo_disponibilidad='bajo_demanda')
+                       THEN pres.id_sku_base ELSE p.id_sku_erp END"
+                : "p.id_sku_erp";
             $sql = "SELECT p.id_inventario_pendiente, p.folio, p.id_venta, v.folio folio_venta,
                     p.id_venta_detalle, p.id_almacen, a.almacen, p.id_sku_erp, p.sku, p.descripcion,
                     p.cantidad_vendida, p.cantidad_cubierta, p.cantidad_pendiente, p.unidad_base,
@@ -1436,13 +1453,21 @@ class InventarioErp extends CRUD {
                     SELECT id_almacen_clave, id_sku_erp, SUM(cantidad_disponible) disponible_actual
                     FROM erp_inventario_existencias
                     GROUP BY id_almacen_clave, id_sku_erp
-                ) ex ON ex.id_almacen_clave=p.id_almacen AND ex.id_sku_erp=p.id_sku_erp
+                ) ex ON ex.id_almacen_clave=p.id_almacen
+                    AND ex.id_sku_erp={$skuExistenciaJoin}
                 WHERE " . implode(" AND ", $where) . "
                 ORDER BY FIELD(p.prioridad, 'critica', 'alta', 'normal', 'info'), p.fecha_registro ASC, p.id_inventario_pendiente ASC
                 LIMIT 200";
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             $pendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($pendientes as &$pendienteItem) {
+                $contextoItem = $this->contextoRegularizacionPendientePos($db, $pendienteItem);
+                $pendienteItem["unidad_conteo"] = $contextoItem["unidad_conteo"];
+                $pendienteItem["unidad_catalogo"] = $contextoItem["unidad_catalogo"];
+                $pendienteItem["unidad_inconsistente"] = $contextoItem["unidad_inconsistente"];
+            }
+            unset($pendienteItem);
             return $this->respuesta(false, "success", "Pendientes POS de inventario consultados", array(
                 "pendientes" => $pendientes,
                 "total" => count($pendientes),
@@ -1466,10 +1491,15 @@ class InventarioErp extends CRUD {
             if (!$pendiente) {
                 return $this->respuesta(false, "warning", "Pendiente POS de inventario no encontrado", array("pendiente" => null));
             }
+            $contextoRegularizacion = $this->contextoRegularizacionPendientePos($db, $pendiente);
+            $idSkuConsulta = intval(isset($contextoRegularizacion["id_sku_conteo"]) ? $contextoRegularizacion["id_sku_conteo"] : $pendiente["id_sku_erp"]);
+            $unidadesFisicas = $this->unidadesPendientePos($db, $idSkuConsulta, intval($pendiente["id_almacen"]));
             return $this->respuesta(false, "success", "Pendiente POS de inventario consultado", array(
                 "pendiente" => $pendiente,
-                "existencias_actuales" => $this->existenciasPendientePos($db, intval($pendiente["id_sku_erp"]), intval($pendiente["id_almacen"])),
-                "regularizacion_contexto" => $this->contextoRegularizacionPendientePos($db, $pendiente),
+                "existencias_actuales" => $this->existenciasPendientePos($db, $idSkuConsulta, intval($pendiente["id_almacen"])),
+                "regularizacion_contexto" => $contextoRegularizacion,
+                "unidades_fisicas" => $unidadesFisicas["items"],
+                "resumen_unidades_fisicas" => $unidadesFisicas["resumen"],
                 "eventos" => $this->eventosPendientePos($db, intval($pendiente["id_inventario_pendiente"])),
                 "read_only" => true
             ));
@@ -1494,6 +1524,7 @@ class InventarioErp extends CRUD {
             $cantidadFisica = round(floatval(isset($datos["cantidad_fisica"]) ? $datos["cantidad_fisica"] : 0), 6);
             $decision = trim(isset($datos["decision"]) ? (string) $datos["decision"] : "ajustar_a_conteo");
             $motivo = trim(isset($datos["motivo"]) ? (string) $datos["motivo"] : "");
+            $unidadEnviada = strtoupper(trim((string) (isset($datos["unidad_conteo"]) ? $datos["unidad_conteo"] : "")));
             $bloqueos = array();
             $avisos = array();
             if (!in_array($decision, array("ajustar_a_conteo", "cerrar_sin_ajuste", "mantener_pendiente"), true)) {
@@ -1510,6 +1541,12 @@ class InventarioErp extends CRUD {
             }
 
             $contextoRegularizacion = $this->contextoRegularizacionPendientePos($db, $pendiente);
+            $unidadActual = strtoupper(trim((string) $this->valor($contextoRegularizacion, "unidad_conteo", "")));
+            if ($unidadActual !== "" && $unidadEnviada === "") {
+                $bloqueos[] = "La unidad de conteo vigente es obligatoria; actualiza el expediente antes de continuar";
+            } elseif ($unidadEnviada !== "" && $unidadActual !== "" && $unidadEnviada !== $unidadActual) {
+                $bloqueos[] = "La unidad de conteo cambio en Catalogo; actualiza el expediente antes de continuar (actual: " . $unidadActual . ")";
+            }
             $idSkuConteo = intval(isset($contextoRegularizacion["id_sku_conteo"]) ? $contextoRegularizacion["id_sku_conteo"] : $pendiente["id_sku_erp"]);
             $factorConteo = floatval(isset($contextoRegularizacion["factor_conteo"]) ? $contextoRegularizacion["factor_conteo"] : 1);
             if ($factorConteo <= 0) {
@@ -1556,6 +1593,8 @@ class InventarioErp extends CRUD {
                     "factor_conteo" => $factorConteo,
                     "id_sku_conteo" => $idSkuConteo,
                     "sku_conteo" => isset($contextoRegularizacion["sku_conteo"]) ? $contextoRegularizacion["sku_conteo"] : $pendiente["sku"],
+                    "unidad_conteo" => $unidadActual,
+                    "unidad_enviada" => $unidadEnviada,
                     "existencia_objetivo_antes_salida" => $existenciaObjetivoAntesSalida,
                     "diferencia_ajuste" => $diferenciaAjuste,
                     "decision" => $decision,
@@ -1830,6 +1869,58 @@ class InventarioErp extends CRUD {
 
     /**
      * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: identificar unidades fisicas candidatas para revisar un pendiente POS.
+     * Impacto: solo lectura; evita confundir el SKU comercial vendido con la unidad fisica
+     * del SKU base en presentaciones bajo demanda.
+     * Contrato: devuelve items trazables y resumen por estatus/estado fisico/contenido.
+     */
+    private function unidadesPendientePos($db, $idSku, $idAlmacen) {
+        if (!$this->tablaExiste($db, "erp_inventario_unidades")) {
+            return array("items" => array(), "resumen" => array("total" => 0, "disponibles" => 0, "cerradas" => 0, "abiertas" => 0, "contenido_disponible" => 0));
+        }
+        $sql = "SELECT u.id_inventario_unidad, u.id_existencia_inventario, u.codigo_unico,
+                u.tipo_identidad, u.serie_fabricante, u.codigo_etiqueta_interna,
+                u.estado_etiqueta, u.estatus, u.estado_fisico,
+                u.cantidad_base_original, u.cantidad_base_disponible, u.unidad_base,
+                u.id_almacen, a.almacen, u.lote, u.fecha_caducidad, u.ubicacion_id,
+                COALESCE(ub.nombre, u.ubicacion_id) ubicacion, u.origen_tipo, u.origen_id,
+                COALESCE(rec.folio, prep.folio, mov.referencia) folio_origen
+            FROM erp_inventario_unidades u
+            LEFT JOIN erp_almacenes a ON a.id_almacen=u.id_almacen
+            LEFT JOIN erp_almacen_ubicaciones ub ON ub.id_ubicacion=u.ubicacion_id
+            LEFT JOIN erp_almacen_recepciones rec ON rec.id_recepcion_almacen=u.id_recepcion_almacen
+            LEFT JOIN erp_almacen_preparaciones prep ON u.origen_tipo='preparacion_presentacion' AND prep.id_preparacion_almacen=u.origen_id
+            LEFT JOIN erp_inventario_movimientos mov ON u.origen_tipo='inventario_inicial' AND mov.id_movimiento_inventario=u.origen_id
+            WHERE u.id_almacen=:almacen AND u.id_sku_erp=:sku
+              AND u.estatus <> 'cancelada'
+            ORDER BY FIELD(u.estatus, 'disponible', 'pendiente', 'consumida', 'agotada', 'vendida'),
+                FIELD(u.estado_fisico, 'abierta', 'cerrada', 'consumida', 'agotada', 'vendida', 'cancelada'),
+                u.fecha_caducidad ASC, u.id_inventario_unidad ASC
+            LIMIT 500";
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array(":almacen" => intval($idAlmacen), ":sku" => intval($idSku)));
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $resumen = array("total" => count($items), "disponibles" => 0, "cerradas" => 0, "abiertas" => 0, "contenido_disponible" => 0);
+        foreach ($items as &$item) {
+            $item["candidata_conteo"] = $item["estatus"] === "disponible" && floatval($item["cantidad_base_disponible"]) > 0;
+            if ($item["candidata_conteo"]) {
+                $resumen["disponibles"]++;
+                $resumen["contenido_disponible"] += floatval($item["cantidad_base_disponible"]);
+            }
+            if ($item["estado_fisico"] === "cerrada" && $item["candidata_conteo"]) {
+                $resumen["cerradas"]++;
+            }
+            if ($item["estado_fisico"] === "abierta" && $item["candidata_conteo"]) {
+                $resumen["abiertas"]++;
+            }
+        }
+        unset($item);
+        return array("items" => $items, "resumen" => $resumen);
+    }
+
+    /**
+     * IA: Codex GPT-5
      * Fecha: 2026-10-13
      * Proposito: identificar si un pendiente POS debe regularizarse contra el SKU vendido
      * o contra el SKU base de una presentacion bajo demanda/preparada.
@@ -1837,6 +1928,7 @@ class InventarioErp extends CRUD {
      * Contrato: recibe un pendiente POS y devuelve sku_conteo, factor_conteo y banderas operativas.
      */
     private function contextoRegularizacionPendientePos($db, $pendiente) {
+        $unidadPendiente = strtoupper(trim((string) $this->valor($pendiente, "unidad_base", "")));
         $contexto = array(
             "tipo" => "sku_directo",
             "mensaje" => "Contar el SKU vendido",
@@ -1844,22 +1936,43 @@ class InventarioErp extends CRUD {
             "sku_vendido" => $this->valor($pendiente, "sku", ""),
             "id_sku_conteo" => intval($this->valor($pendiente, "id_sku_erp", 0)),
             "sku_conteo" => $this->valor($pendiente, "sku", ""),
+            "unidad_pendiente" => $unidadPendiente,
+            "unidad_catalogo" => "",
+            "unidad_conteo" => $unidadPendiente,
+            "unidad_inconsistente" => false,
             "factor_conteo" => 1,
             "cantidad_pendiente_presentacion" => round(floatval($this->valor($pendiente, "cantidad_pendiente", 0)), 6),
             "cantidad_pendiente_conteo" => round(floatval($this->valor($pendiente, "cantidad_pendiente", 0)), 6),
             "requiere_resolucion_base" => false,
             "requiere_preparacion_previa" => false
         );
+        if ($this->tablaExiste($db, "erp_catalogo_skus") && $this->tablaExiste($db, "erp_catalogo_unidades")) {
+            $stmtUnidad = $db->prepare("SELECT COALESCE(u.abreviatura, u.codigo, '')
+                FROM erp_catalogo_skus s
+                LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base
+                WHERE s.id_sku=:sku LIMIT 1");
+            $stmtUnidad->execute(array(":sku" => intval($this->valor($pendiente, "id_sku_erp", 0))));
+            $unidadCatalogo = strtoupper(trim((string) $stmtUnidad->fetchColumn()));
+            $contexto["unidad_catalogo"] = $unidadCatalogo;
+            if ($unidadCatalogo !== "") {
+                $contexto["unidad_conteo"] = $unidadCatalogo;
+            }
+            $contexto["unidad_inconsistente"] = $unidadPendiente !== "" && $unidadCatalogo !== "" && $unidadPendiente !== $unidadCatalogo;
+        }
         if (!$this->tablaExiste($db, "erp_catalogo_sku_presentaciones")) {
             return $contexto;
         }
         $stmt = $db->prepare("SELECT pr.id_sku_presentacion_regla, pr.id_sku_base, pr.id_sku_presentacion,
                 pr.factor_salida_base, pr.modo_disponibilidad, pr.consume_stock_base_en,
                 base.sku AS sku_base, base.nombre AS nombre_base,
+                COALESCE(ub_base.abreviatura, ub_base.codigo, '') AS unidad_base_catalogo,
+                COALESCE(ub_pres.abreviatura, ub_pres.codigo, '') AS unidad_presentacion_catalogo,
                 pres.sku AS sku_presentacion, pres.nombre AS nombre_presentacion
             FROM erp_catalogo_sku_presentaciones pr
             INNER JOIN erp_catalogo_skus base ON base.id_sku=pr.id_sku_base
             INNER JOIN erp_catalogo_skus pres ON pres.id_sku=pr.id_sku_presentacion
+            LEFT JOIN erp_catalogo_unidades ub_base ON ub_base.id_unidad=base.id_unidad_base
+            LEFT JOIN erp_catalogo_unidades ub_pres ON ub_pres.id_unidad=pres.id_unidad_base
             WHERE pr.id_sku_presentacion=:sku AND pr.estatus IN ('activo','activa')
             LIMIT 1");
         $stmt->execute(array(":sku" => intval($this->valor($pendiente, "id_sku_erp", 0))));
@@ -1878,6 +1991,9 @@ class InventarioErp extends CRUD {
         $contexto["nombre_base"] = $regla["nombre_base"];
         $contexto["sku_presentacion"] = $regla["sku_presentacion"];
         $contexto["nombre_presentacion"] = $regla["nombre_presentacion"];
+        $contexto["unidad_conteo"] = strtoupper(trim((string) ($regla["unidad_base_catalogo"] ?: $this->valor($pendiente, "unidad_base", ""))));
+        $contexto["unidad_catalogo"] = strtoupper(trim((string) $regla["unidad_presentacion_catalogo"]));
+        $contexto["unidad_inconsistente"] = $unidadPendiente !== "" && $contexto["unidad_catalogo"] !== "" && $unidadPendiente !== $contexto["unidad_catalogo"];
         $contexto["factor_conteo"] = $factor;
         $contexto["modo_disponibilidad"] = $this->valor($regla, "modo_disponibilidad", "");
         $contexto["consume_stock_base_en"] = $this->valor($regla, "consume_stock_base_en", "");
@@ -1888,6 +2004,9 @@ class InventarioErp extends CRUD {
             $contexto["mensaje"] = "Contar el SKU base/piezas individuales; la presentacion se descuenta al vender";
             $contexto["id_sku_conteo"] = intval($regla["id_sku_base"]);
             $contexto["sku_conteo"] = $regla["sku_base"];
+            $contexto["unidad_catalogo"] = strtoupper(trim((string) $regla["unidad_base_catalogo"]));
+            $contexto["unidad_conteo"] = $contexto["unidad_catalogo"] ?: $unidadPendiente;
+            $contexto["unidad_inconsistente"] = $unidadPendiente !== "" && $contexto["unidad_catalogo"] !== "" && $unidadPendiente !== $contexto["unidad_catalogo"];
             $contexto["requiere_resolucion_base"] = true;
         } elseif ($contexto["consume_stock_base_en"] === "preparacion" || $contexto["modo_disponibilidad"] === "preparada") {
             $contexto["tipo"] = "presentacion_preparada";
@@ -1895,6 +2014,7 @@ class InventarioErp extends CRUD {
             $contexto["id_sku_conteo"] = intval($this->valor($pendiente, "id_sku_erp", 0));
             $contexto["sku_conteo"] = $this->valor($pendiente, "sku", "");
             $contexto["factor_conteo"] = 1;
+            $contexto["unidad_conteo"] = $contexto["unidad_catalogo"] ?: $unidadPendiente;
             $contexto["cantidad_pendiente_conteo"] = $cantidadPresentacion;
             $contexto["requiere_preparacion_previa"] = true;
         }
@@ -1905,14 +2025,38 @@ class InventarioErp extends CRUD {
         if (!$this->tablaExiste($db, "erp_pos_inventario_pendientes_eventos")) {
             return array();
         }
-        $stmt = $db->prepare("SELECT id_evento_inventario_pendiente, id_inventario_pendiente,
-                tipo_evento, estatus_anterior, estatus_nuevo, cantidad, referencia,
-                observaciones, creado_por, fecha_registro
-            FROM erp_pos_inventario_pendientes_eventos
-            WHERE id_inventario_pendiente=:pendiente
-            ORDER BY fecha_registro ASC, id_evento_inventario_pendiente ASC");
+        $usuarioExpr = $this->expresionNombreUsuarioInventario($db, "u");
+        $stmt = $db->prepare("SELECT e.id_evento_inventario_pendiente, e.id_inventario_pendiente,
+                e.tipo_evento, e.estatus_anterior, e.estatus_nuevo, e.cantidad, e.referencia,
+                e.observaciones, e.creado_por, {$usuarioExpr} AS creado_por_nombre, e.fecha_registro
+            FROM erp_pos_inventario_pendientes_eventos e
+            LEFT JOIN sys_usuarios u ON u.id_usuario=e.creado_por
+            WHERE e.id_inventario_pendiente=:pendiente
+            ORDER BY e.fecha_registro ASC, e.id_evento_inventario_pendiente ASC");
         $stmt->execute(array(":pendiente" => intval($idPendiente)));
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function expresionNombreUsuarioInventario($db, $alias = "") {
+        $prefijo = trim((string) $alias) !== "" ? trim((string) $alias) . "." : "";
+        $opciones = array();
+        if ($this->columnaExiste($db, "sys_usuarios", "nombre_mostrar")) {
+            $opciones[] = "NULLIF(TRIM(" . $prefijo . "nombre_mostrar), '')";
+        }
+        if ($this->columnaExiste($db, "sys_usuarios", "nombres")) {
+            $partes = array("COALESCE(" . $prefijo . "nombres,'')");
+            if ($this->columnaExiste($db, "sys_usuarios", "apellido_paterno")) {
+                $partes[] = "COALESCE(" . $prefijo . "apellido_paterno,'')";
+            }
+            if ($this->columnaExiste($db, "sys_usuarios", "apellido_materno")) {
+                $partes[] = "COALESCE(" . $prefijo . "apellido_materno,'')";
+            }
+            $opciones[] = "NULLIF(TRIM(CONCAT(" . implode(", ' ', ", $partes) . ")), '')";
+        }
+        if ($this->columnaExiste($db, "sys_usuarios", "alias")) {
+            $opciones[] = "NULLIF(TRIM(" . $prefijo . "alias), '')";
+        }
+        return !empty($opciones) ? "COALESCE(" . implode(", ", $opciones) . ")" : "NULL";
     }
 
     private function tablaExiste($db, $tabla) {
@@ -1922,6 +2066,15 @@ class InventarioErp extends CRUD {
         $stmt = $db->prepare("SHOW TABLES LIKE :tabla");
         $stmt->execute(array(":tabla" => $tabla));
         return (bool) $stmt->fetchColumn();
+    }
+
+    private function columnaExiste($db, $tabla, $columna) {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', (string) $tabla) || !preg_match('/^[a-zA-Z0-9_]+$/', (string) $columna)) {
+            return false;
+        }
+        $stmt = $db->prepare("SHOW COLUMNS FROM `" . $tabla . "` LIKE :columna");
+        $stmt->execute(array(":columna" => $columna));
+        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     private function valor($datos, $campo, $default = null) {

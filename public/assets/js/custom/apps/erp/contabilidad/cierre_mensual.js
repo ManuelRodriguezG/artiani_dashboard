@@ -316,7 +316,7 @@
         {id: "actividad", label: "Actividad", align: "", sort: function (m) { return m.actividad || ""; }, text: function (m) { return label(m.actividad); }, html: function (m) { return escapeHtml(label(m.actividad)); }},
         {id: "categoria", label: "Categoria", align: "", sort: function (m) { return m.categoria || ""; }, text: function (m) { return label(m.categoria); }, html: function (m) { return escapeHtml(label(m.categoria)); }},
         {id: "pago", label: "Pago", align: "", sort: function (m) { return m.forma_pago || ""; }, text: function (m) { return label(m.forma_pago); }, html: function (m) { return escapeHtml(label(m.forma_pago)); }},
-        {id: "cfdi", label: "CFDI", align: "", sort: function (m) { return m.cfdi_uuid || m.cfdi || ""; }, text: function (m) { var cfdi = cfdiLigadoMovimiento(m); return [m.cfdi_uuid || m.cfdi || "", cfdi.emisor || ""].filter(Boolean).join(" | "); }, html: function (m) { var cfdi = cfdiLigadoMovimiento(m); var cfdiTexto = m.cfdi_uuid || m.cfdi || ""; var fiscal = cfdi.emisor ? "<div class=\"text-muted fs-9\">" + escapeHtml(cfdi.emisor) + "</div>" : ""; return "<div class=\"fs-8\">" + escapeHtml(cfdiTexto) + "</div>" + fiscal; }},
+        {id: "cfdi", label: "CFDI", align: "", sort: function (m) { return textoCfdisLigados(m) || m.cfdi || ""; }, text: function (m) { var cfdiTexto = textoCfdisLigados(m) || m.cfdi || ""; var emisores = textoCfdisLigados(m, "emisor"); return [cfdiTexto, emisores].filter(Boolean).join(" | "); }, html: function (m) { var cfdiTexto = textoCfdisLigados(m) || m.cfdi || ""; var emisores = textoCfdisLigados(m, "emisor"); var fiscal = emisores ? "<div class=\"text-muted fs-9\">" + escapeHtml(emisores) + "</div>" : ""; return "<div class=\"fs-8\">" + escapeHtml(cfdiTexto) + "</div>" + fiscal; }},
         {id: "monto", label: "Monto", align: "text-end", sort: function (m) { return Number(m.monto || 0); }, text: function (m) { return m.monto || 0; }, html: function (m) { return money(m.monto || 0); }}
     ];
     /**
@@ -2766,11 +2766,21 @@
         var uuids = movimientoCfdiUuids(mov);
         return cfdis.find(function (cfdi) { return uuids.indexOf(cfdi.uuid) >= 0; }) || {};
     }
+    function cfdisLigadosMovimiento(mov) {
+        var uuids = movimientoCfdiUuids(mov);
+        return cfdis.filter(function (cfdi) { return cfdi.uuid && uuids.indexOf(cfdi.uuid) >= 0; });
+    }
+    function textoCfdisLigados(mov, campo) {
+        return cfdisLigadosMovimiento(mov).map(function (cfdi) {
+            return campo ? (cfdi[campo] || "") : (cfdi.uuid || "");
+        }).filter(Boolean).join(" | ");
+    }
     function headersReporteMovimientos() {
         return ["periodo", "fecha", "origen", "descripcion", "movimiento", "actividad", "categoria", "cuenta", "forma_pago", "monto", "folio_factura", "cfdi", "cfdi_uuid", "traspaso_grupo", "traspaso_relacionado", "rfc_emisor", "emisor", "uso_cfdi", "metodo_pago_sat", "forma_pago_sat", "subtotal_cfdi", "iva", "ret_iva", "ret_isr", "conceptos_cfdi", "es_complemento_pago", "pago_fecha", "pago_monto", "pago_operacion", "pago_doctos_relacionados", "archivo_estado_cuenta", "notas"];
     }
     function filaReporteMovimiento(m, periodoFallback, cuentaFallback) {
         var cfdi = cfdiLigadoMovimiento(m);
+        var cfdiRelacionados = cfdisLigadosMovimiento(m);
         return [
             m.periodo || periodoFallback || periodoEstadoPorId(m.estado_cuenta_id),
             m.fecha,
@@ -2784,11 +2794,11 @@
             m.monto,
             m.referencia,
             m.cfdi,
-            m.cfdi_uuid,
+            textoCfdisLigados(m),
             m.traspaso_grupo || "",
             m.traspaso_relacionado || "",
-            cfdi.rfc_emisor || "",
-            cfdi.emisor || "",
+            cfdiRelacionados.map(function (item) { return item.rfc_emisor || ""; }).filter(Boolean).join(" | "),
+            cfdiRelacionados.map(function (item) { return item.emisor || ""; }).filter(Boolean).join(" | "),
             cfdi.uso_cfdi || "",
             cfdi.metodo_pago || "",
             cfdi.forma_pago_sat || "",
@@ -2796,12 +2806,12 @@
             cfdi.iva_trasladado || "",
             cfdi.iva_retenido || "",
             cfdi.isr_retenido || "",
-            cfdi.conceptos_resumen || "",
-            cfdi.pago_complemento ? "si" : "no",
-            cfdi.pago_fecha || "",
-            cfdi.pago_monto || "",
-            cfdi.num_operacion || "",
-            cfdi.doctos_relacionados || "",
+            cfdiRelacionados.map(function (item) { return item.conceptos_resumen || ""; }).filter(Boolean).join(" | "),
+            cfdiRelacionados.some(function (item) { return item.pago_complemento; }) ? "si" : "no",
+            cfdiRelacionados.map(function (item) { return item.pago_fecha || ""; }).filter(Boolean).join(" | "),
+            cfdiRelacionados.map(function (item) { return item.pago_monto || ""; }).filter(Boolean).join(" | "),
+            cfdiRelacionados.map(function (item) { return item.num_operacion || ""; }).filter(Boolean).join(" | "),
+            cfdiRelacionados.map(function (item) { return item.doctos_relacionados || ""; }).filter(Boolean).join(" | "),
             m.archivo_estado_cuenta,
             m.notas
         ];
@@ -2855,7 +2865,7 @@
                 m.forma_pago,
                 m.monto,
                 m.cfdi,
-                m.cfdi_uuid,
+                textoCfdisLigados(m),
                 m.traspaso_grupo || "",
                 m.origen || (m.estado_cuenta_id ? "estado_cuenta" : "manual"),
                 m.notas

@@ -410,6 +410,141 @@ class OrdenesCompraErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: previsualizar los pendientes que generaria una compra preoperativa cerrada.
+     * Impacto: Compras/Inventario/Catalogo; solo lectura, sin insertar incidencias ni mover inventario.
+     * Contrato: recibe id_orden_compra y clasifica partidas en catalogo, inventario o no inventariable.
+     */
+    public function previsualizarIncidenciasComprasPreoperativas($idOrden) {
+        try {
+            $db = $this->getConexion();
+            $idOrden = intval($idOrden);
+            if ($idOrden <= 0) {
+                return $this->respuesta(true, "warning", "Selecciona una orden valida");
+            }
+
+            $stmt = $db->prepare("SELECT o.id_orden_compra, o.folio, o.estatus,
+                    o.id_proveedor, o.id_almacen_destino, p.proveedor
+                FROM erp_compras_ordenes o
+                LEFT JOIN erp_proveedores p ON p.id_proveedor=o.id_proveedor
+                WHERE o.id_orden_compra=:id LIMIT 1");
+            $stmt->execute(array(":id" => $idOrden));
+            $orden = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$orden) {
+                return $this->respuesta(true, "warning", "Orden de compra no encontrada");
+            }
+            if (trim((string) $orden["estatus"]) !== "cerrada_sin_recepcion") {
+                return $this->respuesta(true, "warning", "La previsualizacion requiere una orden cerrada sin recepcion", array(
+                    "estatus_actual" => $orden["estatus"]
+                ));
+            }
+
+            $stmt = $db->prepare("SELECT d.*
+                FROM erp_compras_ordenes_detalle d
+                WHERE d.id_orden_compra=:id
+                ORDER BY d.id_detalle");
+            $stmt->execute(array(":id" => $idOrden));
+            $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $catalogo = array();
+            $inventario = array();
+            $noInventariables = array();
+            $almacenOrden = intval(isset($orden["id_almacen_destino"]) ? $orden["id_almacen_destino"] : 0);
+            $politicaStmt = null;
+            try {
+                $politicaStmt = $db->prepare("SELECT controla_inventario, requiere_lote,
+                        requiere_caducidad, requiere_serie, requiere_serie_fabricante,
+                        generar_etiqueta_interna, dias_alerta_caducidad, dias_minimos_recepcion
+                    FROM erp_catalogo_sku_reglas_inventario
+                    WHERE id_sku=:sku LIMIT 1");
+            } catch (Exception $e) {
+                // El esquema de reglas puede no existir en instalaciones antiguas; el dry-run sigue siendo util.
+                $politicaStmt = null;
+            }
+
+            foreach ($detalle as $item) {
+                $tipoItem = strtolower(trim((string) (isset($item["tipo_item"]) ? $item["tipo_item"] : "producto")));
+                $idSku = intval(isset($item["id_sku_erp"]) ? $item["id_sku_erp"] : 0);
+                $cantidad = round(floatval(isset($item["cantidad"]) ? $item["cantidad"] : 0), 6);
+                $costo = floatval(isset($item["costo_unitario"]) ? $item["costo_unitario"] : 0);
+                $base = array(
+                    "id_detalle" => intval(isset($item["id_detalle"]) ? $item["id_detalle"] : 0),
+                    "id_sku_erp" => $idSku,
+                    "id_sku_proveedor" => intval(isset($item["id_sku_proveedor"]) ? $item["id_sku_proveedor"] : 0),
+                    "sku" => trim((string) (isset($item["sku"]) ? $item["sku"] : "")),
+                    "nombre_producto" => trim((string) (isset($item["nombre_producto"]) ? $item["nombre_producto"] : "")),
+                    "tipo_item" => $tipoItem,
+                    "cantidad_comprada" => $cantidad,
+                    "costo_unitario" => round($costo, 6),
+                    "valor_estimado" => round($cantidad * $costo, 6),
+                    "id_almacen_sugerido" => $almacenOrden
+                );
+
+                $base["politica_inventario"] = array(
+                    "controla_inventario" => $idSku > 0 ? 1 : 0,
+                    "requiere_lote" => 0,
+                    "requiere_caducidad" => 0,
+                    "requiere_serie" => 0,
+                    "requiere_serie_fabricante" => 0,
+                    "generar_etiqueta_interna" => 0,
+                    "dias_alerta_caducidad" => 0,
+                    "dias_minimos_recepcion" => 0,
+                    "fuente" => "predeterminada"
+                );
+                if ($politicaStmt !== null && $idSku > 0) {
+                    $politicaStmt->execute(array(":sku" => $idSku));
+                    $politica = $politicaStmt->fetch(PDO::FETCH_ASSOC);
+                    if (is_array($politica)) {
+                        foreach ($base["politica_inventario"] as $campo => $valor) {
+                            if ($campo === "fuente") {
+                                continue;
+                            }
+                            if (array_key_exists($campo, $politica)) {
+                                $base["politica_inventario"][$campo] = intval($politica[$campo]);
+                            }
+                        }
+                        $base["politica_inventario"]["fuente"] = "catalogo_erp";
+                    }
+                }
+
+                if ($this->esTipoItemNoInventariable($tipoItem)) {
+                    $noInventariables[] = $base;
+                } elseif ($idSku <= 0) {
+                    $base["responsable"] = "catalogo";
+                    $base["tipo_pendiente"] = "producto_pendiente_alta";
+                    $catalogo[] = $base;
+                } else {
+                    $base["responsable"] = "inventario";
+                    $base["tipo_pendiente"] = "conteo_por_almacen";
+                    $base["requiere_seleccion_almacen"] = $almacenOrden <= 0;
+                    $base["almacenes_sugeridos"] = $almacenOrden > 0 ? array($almacenOrden) : array();
+                    $inventario[] = $base;
+                }
+            }
+
+            return $this->respuesta(false, "success", "Previsualizacion de pendientes generada", array(
+                "dry_run" => true,
+                "sin_escrituras" => true,
+                "orden" => $orden,
+                "resumen" => array(
+                    "partidas" => count($detalle),
+                    "catalogo" => count($catalogo),
+                    "inventario" => count($inventario),
+                    "no_inventariables" => count($noInventariables),
+                    "requieren_almacen" => count(array_filter($inventario, function ($item) {
+                        return !empty($item["requiere_seleccion_almacen"]);
+                    }))
+                ),
+                "catalogo" => $catalogo,
+                "inventario" => $inventario,
+                "no_inventariables" => $noInventariables
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
     private function enriquecerDetalleConsultadoConProveedor($db, $detalle, $idProveedor) {
         // [Codex: GPT-5 2026-06-16] Reconciliacion al cargar: si Catalogo/Proveedores ya resolvio el SKU, Compras lo ve sin recapturar.
         if (!is_array($detalle) || intval($idProveedor) <= 0) {

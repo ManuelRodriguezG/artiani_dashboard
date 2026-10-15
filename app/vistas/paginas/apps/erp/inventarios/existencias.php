@@ -75,8 +75,15 @@
                                             <div class="table-responsive"><table class="table align-middle table-row-dashed gy-4"><thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU / producto</th><th>Almacen</th><th>Existencias</th><th>Cantidad</th><th>Disponible</th><th>Apartada</th><th>Costo prom.</th><th>Valor</th></tr></thead><tbody id="inventario_valuacion"></tbody></table></div>
                                         </div>
                                         <div class="tab-pane fade" id="inventario_tab_pendientes_pos">
+                                            <div class="alert alert-light-info d-flex align-items-center py-3 mb-5"><i class="bi bi-info-circle fs-2 me-3"></i><div><div class="fw-bold">Bandeja operativa POS</div><div class="fs-8">Estos filtros son independientes de Existencias, Kardex, Unidades y Valuacion. Por defecto solo muestra trabajo abierto.</div></div></div>
+                                            <div class="row g-3 mb-5">
+                                                <div class="col-md-4"><div class="position-relative"><i class="bi bi-search fs-3 position-absolute ms-5 mt-3"></i><input class="form-control form-control-solid ps-12" id="inventario_pos_filtro_buscar" placeholder="Buscar PINV, venta, SKU o almacen"></div></div>
+                                                <div class="col-md-3"><select class="form-select form-select-solid" id="inventario_pos_filtro_almacen"><option value="">Todos los almacenes</option></select></div>
+                                                <div class="col-md-3"><select class="form-select form-select-solid" id="inventario_pos_filtro_estatus"><option value="abiertos">Abiertos</option><option value="pendientes_revision">Pendientes por revisar</option><option value="en_revision">En revision</option><option value="bloqueados">Bloqueados</option><option value="resueltos">Resueltos</option><option value="cancelados">Cancelados</option><option value="todos">Todos los historicos</option></select></div>
+                                                <div class="col-md-2"><button class="btn btn-light-primary w-100" id="inventario_pos_recargar" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div>
+                                            </div>
                                             <div class="d-flex flex-wrap gap-3 mb-5" id="inventario_pendientes_pos_resumen"></div>
-                                            <div class="table-responsive"><table class="table align-middle table-row-dashed gy-4"><thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Pendiente / venta</th><th>SKU</th><th>Almacen</th><th>Cantidades</th><th>Estado</th><th>Fechas</th><th class="text-end">Acciones</th></tr></thead><tbody id="inventario_pendientes_pos"></tbody></table></div>
+                                            <div class="table-responsive"><table class="table align-middle table-row-dashed gy-4"><thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Pendiente / venta</th><th>SKU / descripcion</th><th>Almacen</th><th>Cantidades</th><th>Estado</th><th>Prioridad</th><th>Registro / transcurrido</th><th>Accion recomendada</th></tr></thead><tbody id="inventario_pendientes_pos"></tbody></table></div>
                                         </div>
                                     </div>
                                 </div>
@@ -118,6 +125,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/inventarios/existencias_erp.js?v=20260712-pospend1"></script>
+<script src="/assets/js/custom/apps/erp/inventarios/existencias_erp.js?v=20261014-pospend4"></script>
 </body>
 </html>

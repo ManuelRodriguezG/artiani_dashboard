@@ -113,6 +113,168 @@ Decision:
 - Almacen recibe fisicamente lo inventariable y conserva lote, caducidad, ubicacion y cantidad; no recibe cargos/servicios como inventario.
 - Fabricacion consumira materia prima/insumos desde Inventario por orden de produccion o receta/BOM, no directamente desde Compras.
 
+## Decision operativa: variantes, unidades, lotes y caducidad
+
+Documentacion IA: Codex GPT-5
+Fecha: 2026-10-14
+Proposito: asegurar que Compras identifique la variante correcta y que Almacen reciba con trazabilidad fisica completa.
+Impacto: Compras/Catalogo/Proveedores/Almacen/Inventario.
+
+- El producto maestro no es suficiente para operar inventario. La unidad operativa es `id_sku_erp`, que identifica la variante vendible o comprable, por ejemplo color, medida, presentacion o modelo.
+- La relacion proveedor conserva `id_sku_proveedor`, el SKU y la descripcion reales del proveedor. La partida de Compras debe guardar ambos identificadores y sus snapshots de texto.
+- Compras no debe inferir una variante solamente por nombre. Si el mismo codigo del proveedor representa varios colores o variantes, el dato no es determinista: debe existir una seleccion explicita de `id_sku_erp`, una descripcion/atributo verificable o una incidencia de relacion ambigua.
+- La orden puede comprar en unidad de proveedor, pero Almacen debe convertir a unidad base mediante la unidad de compra y `factor_conversion`. No se deben sumar cajas como si fueran piezas.
+- Lote, caducidad, ubicacion, serie o codigo unico se capturan definitivamente en Recepcion de Almacen, porque antes de recibir la mercancia normalmente no se conocen.
+- Compras puede conservar datos esperados del documento, como lote o caducidad declarada en XML, como evidencia; esos datos no crean existencia oficial hasta la recepcion.
+- Si una misma partida llega en dos lotes o con distintas caducidades, Almacen debe dividir la recepcion en renglones de lote independientes, manteniendo el mismo SKU ERP y el costo correspondiente.
+- Las reglas del SKU deben indicar si requiere lote, caducidad, serie/codigo unico, fecha minima de caducidad o tolerancia. Recepcion debe bloquear el cierre fisico si falta un dato obligatorio.
+- Una compra preoperativa puede generar el pendiente por `id_sku_erp` y almacen, pero no puede crear lote, caducidad, existencia ni kardex.
+
+## Decision operativa: compras preoperativas con incidencias de inventario
+
+Documentacion IA: Codex GPT-5
+Fecha: 2026-10-14
+Proposito: permitir que el negocio registre compras reales antes de tener el inventario formal completamente ordenado.
+Impacto: Compras, Catalogo, Almacen, Inventario, Costos y Notificaciones.
+
+### Necesidad
+
+El negocio necesita comenzar a registrar compras para obtener valor operativo de ellas, aunque todavia no pueda enviar todas las compras a recepcion de Almacen ni afectar existencias oficiales. La compra debe servir para:
+
+- conservar costo y proveedor;
+- identificar productos nuevos;
+- detectar productos existentes que necesitan regularizacion de inventario;
+- capturar una cantidad conocida o estimada por almacen;
+- crear pendientes para las areas responsables;
+- preparar la transicion posterior a inventario formal.
+
+### Regla de frontera
+
+Una compra preoperativa puede registrar el documento, partidas, XML, adjuntos, pagos y costos, pero no debe crear por si sola:
+
+- existencia oficial;
+- movimiento de kardex;
+- recepcion de almacen;
+- reserva o disponibilidad de inventario;
+- saldo de inventario confiable;
+- ajuste automatico de cantidades por almacen.
+
+La cantidad capturada por almacen se llamara `cantidad_reportada_operativa` o `conteo_declarado`, no `existencia oficial`. Es una evidencia operativa pendiente de conciliacion.
+
+### Clasificacion automatica al cerrar la compra
+
+Cuando una orden se cierre sin recepcion formal, Compras debe revisar cada partida inventariable:
+
+1. Si no existe SKU ERP, crear o actualizar una incidencia para Catalogo/Proveedores de producto pendiente de alta o relacion.
+2. Si existe SKU ERP y la compra corresponde a un articulo ya conocido, crear o actualizar una incidencia de Inventario por cada almacen que el usuario seleccione.
+3. Si la partida es servicio, cargo, adicional o gasto no inventariable, no crear incidencia de inventario.
+4. Si el usuario no conoce el almacen o la cantidad fisica, dejar el pendiente sin cantidad reportada y no inventar un cero.
+5. Si el usuario conoce una cantidad aproximada, guardarla con indicador de precision `estimada`; si fue conteo fisico, usar `revisada`.
+
+La incidencia debe ser idempotente por orden, SKU, almacen y tipo de pendiente. Reabrir o guardar nuevamente la orden no debe duplicarla.
+
+### Resultado de auditoria y primera preparacion
+
+Fecha: 2026-10-14
+
+- `cerrada_sin_recepcion` ya existe en Compras y no prepara una recepcion de Almacen.
+- Las partidas no inventariables ya se separan de la logica de productos fisicos.
+- La incidencia de producto nuevo ya utiliza `erp_catalogo_incidencias_calidad`; no se debe duplicar en otra tabla de Compras.
+- La bandeja `erp_pos_inventario_pendientes` no se reutilizara para compras: su resolucion esta ligada a ventas POS y puede generar movimientos de inventario.
+- Se preparo el dry-run `Compra/esquema_actualizar_incidencias_compras_preoperativas` para proponer la tabla `erp_inventario_incidencias_operativas`. No se ejecuto DDL ni se escribio la base productiva.
+- Se agrego la consulta `Compra/orden_incidencias_preoperativas_previsualizar_erp`, que clasifica una orden `cerrada_sin_recepcion` en pendientes de Catalogo, Inventario y partidas no inventariables sin escribir datos.
+- La previsualizacion tambien devuelve la politica de inventario del SKU (`requiere_lote`, `requiere_caducidad`, `requiere_serie`, `requiere_serie_fabricante` y alertas de caducidad) para que la futura captura de Recepcion sepa que datos son obligatorios.
+- Con autorizacion explicita del dueno, se creo `erp_inventario_incidencias_operativas` en la base operativa. Verificacion: tabla presente, 25 columnas y 12 indices.
+- Respaldo previo validado: `C:\\xampp\\panel_db_backups\\productivo_artianicom_sys_20261015_074449_pdo_antes_compras_incidencias_inventario.sql`.
+- SHA-256 del respaldo: `814C519984E4523B5521178D43320A4AA8596512C1E46FB203DD9D202E91EF73`.
+- La ejecucion no inserto incidencias, no modifico existencias, no creo recepciones y no genero movimientos de kardex.
+
+La tabla propuesta conserva el origen de la compra, SKU, proveedor, almacen, cantidad comprada, cantidad reportada, precision del reporte, costo estimado y ciclo de atencion. Su huella unica evita duplicados al guardar o cerrar nuevamente la orden.
+
+### Incidencia para producto nuevo
+
+Destino: Catalogo/Proveedores.
+
+Debe conservar como minimo:
+
+- orden y detalle de origen;
+- proveedor y SKU del proveedor;
+- descripcion capturada;
+- SKU ERP si posteriormente se relaciona;
+- costo y unidad de compra;
+- datos fiscales disponibles;
+- imagen o XML relacionado cuando exista;
+- estatus de atencion;
+- responsable y observaciones.
+
+La notificacion visible debe ser algo como: `Catalogo tiene un producto pendiente de alta desde la compra OC-...`. La incidencia es la fuente de trabajo; la notificacion solo avisa y enlaza.
+
+### Incidencia para producto existente
+
+Destino: Inventario/Almacen.
+
+Debe permitir seleccionar uno o varios almacenes y capturar por cada uno:
+
+- cantidad reportada;
+- unidad;
+- precision: `estimada` o `conteo_fisico`;
+- fecha del reporte;
+- persona que la informo;
+- observaciones;
+- evidencia opcional, como foto o documento.
+
+El sistema puede mostrar como referencia la cantidad oficial actual si existe, pero debe distinguirla visualmente de la cantidad reportada. No debe reemplazar la existencia oficial hasta que Almacen/Inventario realice una conciliacion o ajuste autorizado.
+
+Ejemplo:
+
+- SKU `PCE-001`, compra cerrada sin recepcion;
+- almacen `Tienda`, cantidad reportada `4`, precision `estimada`;
+- almacen `Bodega`, cantidad reportada `8`, precision `conteo_fisico`;
+- existencia oficial: se muestra aparte y puede quedar vacia;
+- resultado: dos pendientes de inventario, no dos entradas de kardex.
+
+### Estado operativo recomendado
+
+La orden puede usar `cerrada_sin_recepcion` cuando Compras termina su parte. El pendiente de inventario debe tener su propio ciclo:
+
+- `pendiente`: creado y sin atender;
+- `en_revision`: Almacen/Inventario lo esta verificando;
+- `capturado`: ya tiene cantidad reportada y evidencia suficiente;
+- `conciliado`: fue comparado contra inventario oficial;
+- `resuelto`: se aplico el ajuste o se confirmo que no hacia falta;
+- `descartado`: se determino que no corresponde.
+
+No conviene cambiar la orden a `recibida` o `parcial` por este flujo. Esos estados pertenecen a una recepcion fisica formal.
+
+### Vista operativa propuesta
+
+Dentro de Compras puede existir una accion `Cerrar sin recepcion y generar pendientes`. Antes de confirmar debe mostrar un resumen:
+
+- productos nuevos para Catalogo;
+- productos existentes pendientes de conteo por almacen;
+- cargos/servicios sin incidencia de inventario;
+- partidas que no tienen almacen o cantidad reportada.
+
+Despues, el listado debe mostrar una columna `Pendientes` con enlaces a Catalogo o Inventario. Al reabrir la orden se debe ver el estado de cada pendiente, no volver a crearla.
+
+### Fases de implementacion
+
+| ID | Tarea | Modulo | Escritura BD | Estado |
+| --- | --- | --- | --- | --- |
+| COM-PRE-001 | Auditar el contrato actual de cierre sin recepcion y partidas no inventariables | Compras | No | Lista |
+| COM-PRE-002 | Auditar incidencias existentes de Catalogo y pendientes POS de Inventario | Catalogo/Inventario | No | Lista |
+| COM-PRE-003 | Definir contrato idempotente de pendiente por SKU/almacen/orden | Compras/Inventario | No | Lista |
+| COM-PRE-004 | Preparar dry-run de generacion de incidencias desde una orden cerrada | Compras | No | Implementada, pendiente UAT |
+| COM-PRE-005 | Agregar captura de almacenes y cantidades reportadas en la orden | Compras | Si, requiere respaldo/autorizacion |
+| COM-PRE-006 | Generar incidencia de Catalogo para SKU nuevo o no relacionado | Compras/Catalogo | Si, requiere respaldo/autorizacion |
+| COM-PRE-007 | Generar incidencia de Inventario por SKU y almacen | Compras/Inventario | Si, requiere respaldo/autorizacion |
+| COM-PRE-008 | Mostrar seguimiento y notificacion en navbar por permiso | Notificaciones | Si, requiere respaldo/autorizacion |
+| COM-PRE-009 | UAT con compra mixta: nuevo, existente, cargo y varios almacenes | Compras/Inventario | Si, con respaldo |
+
+### Criterio de cierre de esta fase
+
+El flujo queda listo cuando una compra pueda cerrarse sin recepcion, genere pendientes unicos para cada responsable, permita capturar cantidades por almacen sin mover inventario y deje preparada la conciliacion posterior.
+
 Regla para Catalogo:
 
 - No abrir una seccion completamente separada que duplique productos. Debe existir una seccion o campo dentro de Catalogo ERP para clasificar el tipo operativo del SKU.

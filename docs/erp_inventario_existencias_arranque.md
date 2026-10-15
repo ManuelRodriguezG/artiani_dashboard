@@ -3115,6 +3115,104 @@ Siguiente paso recomendado:
 2. Mantener el bloqueo actual hasta tener respaldo externo y autorizacion expresa.
 3. Revisar si POS debe generar desde origen el pendiente ya ligado a `id_sku_base` para reducir ambiguedad futura.
 
+## Pendientes POS - Bandeja y filtros independientes
+
+Fecha: 2026-10-14
+
+Hallazgo `INV-PINV-H002`:
+
+- La pantalla compartia los filtros superiores de Existencias con la bandeja Pendientes POS.
+- Buscar un SKU o cambiar almacen parecia filtrar Pendientes POS, aunque el usuario no tenia un filtro propio de estado ni una forma clara de consultar historial.
+- El contador de abiertos tampoco consideraba `bloqueada`.
+
+Decision aplicada:
+
+- Pendientes POS ahora tiene sus propios filtros de texto, almacen y estado.
+- La carga de Pendientes POS es independiente de Existencias, Kardex, Unidades, Diagnostico y Valuacion.
+- El estado inicial es `abiertos`, que incluye unicamente `pendiente_revision`, `en_revision` y `bloqueada`.
+- Opciones visibles: `Abiertos`, `Pendientes por revisar`, `En revision`, `Bloqueados`, `Resueltos`, `Cancelados` y `Todos los historicos`.
+- La tabla separa estado y prioridad, muestra transcurrido y recomienda la siguiente accion.
+- Filas resueltas y canceladas solo abren expediente/historial; no muestran formulario de resolucion.
+- El expediente muestra aviso segun estado y linea de tiempo con fecha, evento, estado, cantidad, usuario y motivo/referencia.
+- Para presentaciones bajo demanda, la existencia actual del expediente se consulta contra el SKU base, igual que el dry-run.
+
+UAT read-only recomendado:
+
+1. Abrir `/inventario/productos_existencias#pendientes-pos` y confirmar que la bandeja inicia en `Abiertos`.
+2. Buscar `PINV-20261014-000001`; no debe aparecer en `Abiertos` si esta `cancelada`.
+3. Seleccionar `Cancelados`; el folio debe aparecer con `Ver historial` y sin formulario de resolucion.
+4. Seleccionar `Todos los historicos`; confirmar que el folio de venta y el folio `PINV` aparecen juntos.
+5. Cambiar el buscador superior de Existencias y comprobar que solo cambian Existencias/Kardex/Unidades/Valuacion.
+6. Usar el buscador propio de Pendientes POS y confirmar que solo cambia esa bandeja.
+7. Confirmar que un pendiente `bloqueada` cuenta como abierto y muestra `Ver bloqueo`.
+
+No se modificaron cantidades, ventas, caja, existencias ni notificaciones con este ajuste.
+
+## Incidencias POS - Identificacion de unidad fisica para conteo
+
+Fecha: 2026-10-14
+
+Hallazgo `INV-PINV-H003`:
+
+- La revision fisica de una incidencia no debe depender solo del saldo agregado de `erp_inventario_existencias`.
+- El expediente debe indicar el SKU fisico que se debe buscar y mostrar sus unidades registradas por codigo, lote, caducidad, ubicacion, estado fisico, contenido disponible y origen.
+- En una presentacion bajo demanda, el SKU fisico es el SKU base; por ejemplo, `ALI-TEBRIO1K-50P` debe buscar unidades de `ALI-TEBRIO1K-PZA`.
+- Si no hay unidades fisicas registradas, el sistema debe decirlo expresamente y tratar el conteo como conteo manual agregado, evitando que el usuario seleccione accidentalmente una etiqueta de otra presentacion.
+
+Auditoria read-only de incidencias abiertas del 2026-10-14:
+
+| Folio | SKU vendido | SKU fisico a revisar | Unidades registradas | Disponibles |
+| --- | --- | --- | ---: | ---: |
+| `PINV-20260730-000001` | `ALI-TEBRIO1K-50P` | `ALI-TEBRIO1K-PZA` | `0` | `0` |
+| `PINV-20261013-000004` | `FL7906` | `FL7906` | `0` | `0` |
+| `PINV-20261013-000006` | `FCCICL-030` | `FCCICL-030` | `0` | `0` |
+| `PINV-20261013-000007` | `GRAVA-32-GRANEL` | `GRAVA-32-GRANEL` | `0` | `0` |
+| `PINV-20261013-000008` | `TP-40372-25GR` | `TP-40372-25GR` | `0` | `0` |
+| `PINV-20261013-000009` | `FL11002` | `FL11002` | `0` | `0` |
+
+Decision aplicada:
+
+- El expediente ahora consulta unidades fisicas del SKU correcto y almacen de la incidencia.
+- Las unidades disponibles se marcan como `Candidata para conteo`; consumidas, agotadas, vendidas o sin contenido quedan como `Solo historial`.
+- La pantalla muestra el resumen de unidades cerradas, abiertas, disponibles y contenido base.
+- La captura de cantidad sigue siendo read-only/previsualizacion; todavia no se persiste una seleccion de unidad ni se permite resolver automaticamente una incidencia por elegir una etiqueta.
+
+Siguiente mejora recomendada:
+
+1. Permitir seleccionar una o varias unidades candidatas cuando el conteo corresponda a unidades etiquetadas.
+2. Guardar esa seleccion como evidencia del conteo antes de autorizar el ajuste.
+3. Mantener el conteo agregado para productos sin unidades fisicas trazables, con motivo obligatorio y evidencia operativa.
+
+Correccion aclaratoria `INV-PINV-H004`:
+
+- `GRAVA-32-GRANEL` si esta configurado en Catalogo con unidad base `KG`.
+- La auditoria no encontro una fila en `erp_inventario_unidades` ni una existencia contable para el almacen de la incidencia; por eso el resultado fue `0` unidades fisicas.
+- Eso no significa que el SKU no sea de kilogramos. La pantalla ahora muestra por separado:
+  - `SKU fisico a revisar`: `GRAVA-32-GRANEL`.
+  - `Unidad de medida del conteo`: `KG`.
+  - `Unidades fisicas registradas`: `0`.
+- Si no existe etiqueta/unidad fisica, el usuario debe capturar el conteo agregado manual en `KG`, documentando lote, ubicacion y motivo operativo si aplica.
+
+Auditoria de unidad de medida POS:
+
+| Folio | SKU | Tipo | Unidad pendiente | Unidad catalogo usada para conteo | Resultado |
+| --- | --- | --- | --- | --- | --- |
+| `PINV-20261013-000007` | `GRAVA-32-GRANEL` | directo | `KG` | `KG` | Consistente |
+| `PINV-20260730-000001` | `ALI-TEBRIO1K-50P` | bajo demanda | `PZA` | `PZA` del SKU base `ALI-TEBRIO1K-PZA` | Consistente |
+| `PINV-20260711-000001` | `TP-40352-500GR` | preparada | `KG` | `PZA` de la presentacion | Revisar antes de resolver |
+| `PINV-20261013-000008` | `TP-40372-25GR` | preparada | `G` | `G` de la presentacion | Consistente con Catalogo; validar cantidad comercial |
+
+La pantalla ahora muestra `Contar en KG`, `Contar en PZA` o `Contar en G` en cada incidencia y presenta un bloqueo visual cuando la unidad pendiente no coincide con la unidad del Catalogo aplicable. La unidad visible no queda congelada en la incidencia: se vuelve a consultar del Catalogo al listar pendientes y al abrir el expediente.
+
+Correccion aplicada `INV-PINV-H005` - unidad vigente y expediente actualizable:
+
+- Para un SKU directo, la unidad de conteo visible ahora es la unidad vigente del SKU en Catalogo; la unidad guardada historicamente en el pendiente se conserva solo como evidencia de origen.
+- Para una presentacion, se mantiene la regla operativa: bajo demanda cuenta el SKU base; preparada cuenta la presentacion preparada. La unidad se toma de la ficha aplicable en Catalogo.
+- Al abrir el conteo se muestra un campo de solo lectura `Unidad de conteo` con la unidad vigente y la accion `Actualizar expediente`, que vuelve a consultar Catalogo, existencias, unidades fisicas y eventos.
+- El dry-run y la resolucion real reciben la unidad mostrada. Si el Catalogo cambio mientras el formulario estaba abierto, el backend bloquea la accion y obliga a actualizar el expediente antes de continuar.
+- Ejemplo: si `TP-40372-25GR` cambia de unidad en Catalogo, al cerrar y volver a abrir su incidencia debe verse la unidad nueva; el valor historico anterior se reporta como diferencia y no se usa silenciosamente para contar.
+- Esta mejora no escribe BD, no cambia incidencias existentes y no modifica ventas ni ecommerce.
+
 ## Prompt sugerido para nuevo chat
 
 ```text

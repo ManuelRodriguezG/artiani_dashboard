@@ -4722,6 +4722,18 @@ class VentasErp extends CRUD {
                     WHERE id_venta=:venta AND estatus<>'cancelada'")
                     ->execute(array(":venta" => $idVenta));
                 $incidenciasCanceladas = $this->cancelarIncidenciasVentaCanceladaPosReal($db, $idVenta, $folioDevolucion, $motivo, $idUsuario);
+
+                $setsInventarioCancelacion = array();
+                if ($this->columnaExiste($db, "erp_ventas", "inventario_validacion_estado")) {
+                    $setsInventarioCancelacion[] = "inventario_validacion_estado='cancelada'";
+                }
+                if ($this->columnaExiste($db, "erp_ventas", "inventario_pendiente_total")) {
+                    $setsInventarioCancelacion[] = "inventario_pendiente_total=0";
+                }
+                if (!empty($setsInventarioCancelacion)) {
+                    $db->prepare("UPDATE erp_ventas SET " . implode(", ", $setsInventarioCancelacion) . " WHERE id_venta=:venta")
+                        ->execute(array(":venta" => $idVenta));
+                }
             }
 
             $estatusVenta = $this->estatusVentaDespuesReversaPosReal($db, $idVenta, $tipo);

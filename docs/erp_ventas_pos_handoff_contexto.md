@@ -6934,3 +6934,13 @@ Pendiente con autorizacion/operacion:
   - `afecta_inventario=0`;
   - pagos historicos no aparecen en corte de caja;
   - notificaciones por accion aparecen en la bandeja global.
+
+## Hallazgo 2026-10-14 - Incidencia visible despues de cancelar venta POS
+
+- Folio revisado: `POS-20261014-000001`.
+- La venta, su detalle y el pendiente `PINV-20261014-000001` quedaron con estatus `cancelada`.
+- La notificacion asociada tambien quedo `cancelada`; se conserva por trazabilidad y no debe borrarse.
+- La bandeja de Inventario estaba solicitando `estatus=todos`, por lo que podia traer registros cancelados y pintarlos como pendientes. Ademas, la UI reconocia `cancelado` pero el backend guarda `cancelada`.
+- La lista ahora solicita estados abiertos (`pendiente_revision`, `en_revision`, `bloqueada`) y reconoce ambos nombres para mostrar correctamente el estado.
+- Las futuras cancelaciones completas ponen `erp_ventas.inventario_pendiente_total` en cero y `inventario_validacion_estado='cancelada'` cuando esas columnas existen.
+- El registro historico existente no se corrigio directamente durante el diagnostico; cualquier regularizacion de datos debe autorizarse de forma expresa.

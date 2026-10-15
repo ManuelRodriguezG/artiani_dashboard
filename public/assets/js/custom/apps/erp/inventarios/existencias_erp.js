@@ -26,9 +26,11 @@
     function cargarCatalogos() {
         return request("/inventario/catalogos_erp").then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
-            document.getElementById("inventario_filtro_almacen").innerHTML = "<option value=\"\">Todos los almacenes</option>" + (response.depurar.almacenes || []).map(function (item) {
+            var opcionesAlmacenes = "<option value=\"\">Todos los almacenes</option>" + (response.depurar.almacenes || []).map(function (item) {
                 return "<option value=\"" + item.id_almacen + "\">" + escapeHtml(item.almacen) + "</option>";
             }).join("");
+            document.getElementById("inventario_filtro_almacen").innerHTML = opcionesAlmacenes;
+            document.getElementById("inventario_pos_filtro_almacen").innerHTML = opcionesAlmacenes;
         });
     }
     function cargar() {
@@ -37,8 +39,7 @@
             request("/inventario/movimientos_erp?" + filtros()),
             request("/inventario/unidades_erp?" + filtros()),
             request("/inventario/diagnostico_erp?" + filtrosDiagnostico()),
-            request("/inventario/valuacion_erp?" + filtros()),
-            request("/inventario/pos_pendientes_inventario_erp?" + filtrosPendientesPos())
+            request("/inventario/valuacion_erp?" + filtros())
         ]).then(function (responses) {
             responses.forEach(function (response) { if (response.error) { throw new Error(response.mensaje); } });
             renderExistencias(responses[0].depurar || []);
@@ -46,16 +47,23 @@
             renderUnidades(responses[2].depurar || []);
             renderDiagnostico(responses[3].depurar || {});
             renderValuacion(responses[4].depurar || {});
-            renderPendientesPos(responses[5].depurar || {});
         }).catch(function (error) {
             Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
         });
     }
+    function cargarPendientesPos() {
+        request("/inventario/pos_pendientes_inventario_erp?" + filtrosPendientesPos()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderPendientesPos(response.depurar || {});
+        }).catch(function (error) {
+            document.getElementById("inventario_pendientes_pos").innerHTML = "<tr><td colspan=\"8\" class=\"text-center\"><div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div></td></tr>";
+        });
+    }
     function filtrosPendientesPos() {
         return new URLSearchParams({
-            q: document.getElementById("inventario_filtro_buscar").value.trim(),
-            id_almacen: document.getElementById("inventario_filtro_almacen").value,
-            estatus: "todos"
+            q: document.getElementById("inventario_pos_filtro_buscar").value.trim(),
+            id_almacen: document.getElementById("inventario_pos_filtro_almacen").value,
+            estatus: document.getElementById("inventario_pos_filtro_estatus").value
         }).toString();
     }
     function dinero(value) {
@@ -240,21 +248,58 @@
     function badgePendientePos(estatus) {
         if (estatus === "resuelto") { return {clase: "badge-light-success", texto: "Resuelto"}; }
         if (estatus === "en_revision") { return {clase: "badge-light-warning", texto: "En revision"}; }
-        if (estatus === "cancelado") { return {clase: "badge-light-secondary", texto: "Cancelado"}; }
-        return {clase: "badge-light-danger", texto: "Pendiente"};
+        if (estatus === "bloqueada") { return {clase: "badge-light-danger", texto: "Bloqueado"}; }
+        if (estatus === "cancelado" || estatus === "cancelada") { return {clase: "badge-light-secondary", texto: "Cancelado"}; }
+        if (estatus === "pendiente_revision") { return {clase: "badge-light-primary", texto: "Pendiente por revisar"}; }
+        return {clase: "badge-light-secondary", texto: estatus || "Sin estado"};
+    }
+    function prioridadPendientePos(prioridad) {
+        if (prioridad === "critica") { return {clase: "badge-light-danger", texto: "Critica"}; }
+        if (prioridad === "alta") { return {clase: "badge-light-warning", texto: "Alta"}; }
+        if (prioridad === "normal") { return {clase: "badge-light-info", texto: "Normal"}; }
+        return {clase: "badge-light-secondary", texto: prioridad || "Sin prioridad"};
+    }
+    function transcurridoPendientePos(fecha) {
+        if (!fecha) { return "-"; }
+        var valor = new Date(String(fecha).replace(" ", "T"));
+        if (isNaN(valor.getTime())) { return "-"; }
+        var minutos = Math.max(0, Math.floor((Date.now() - valor.getTime()) / 60000));
+        if (minutos < 60) { return minutos + " min"; }
+        var horas = Math.floor(minutos / 60);
+        if (horas < 24) { return horas + " h"; }
+        return Math.floor(horas / 24) + " d " + (horas % 24) + " h";
+    }
+    function accionPendientePos(estatus) {
+        if (estatus === "pendiente_revision") { return "Abrir conteo"; }
+        if (estatus === "en_revision") { return "Continuar revision"; }
+        if (estatus === "bloqueada") { return "Ver bloqueo"; }
+        if (estatus === "resuelto") { return "Ver expediente"; }
+        if (estatus === "cancelada" || estatus === "cancelado") { return "Ver historial"; }
+        return "Abrir expediente";
+    }
+    function recomendadoPendientePos(estatus) {
+        if (estatus === "pendiente_revision") { return "Realizar conteo fisico"; }
+        if (estatus === "en_revision") { return "Continuar la revision iniciada"; }
+        if (estatus === "bloqueada") { return "Revisar condicion o autorizacion"; }
+        if (estatus === "resuelto") { return "Solo consulta historica"; }
+        if (estatus === "cancelada" || estatus === "cancelado") { return "Sin accion; conservar historial"; }
+        return "Consultar expediente";
     }
     function renderPendientesPos(data) {
         var items = data.pendientes || [];
-        var abiertos = items.filter(function (item) { return item.estatus === "pendiente_revision" || item.estatus === "en_revision"; }).length;
+        var abiertos = items.filter(function (item) { return item.estatus === "pendiente_revision" || item.estatus === "en_revision" || item.estatus === "bloqueada"; }).length;
         var resueltos = items.filter(function (item) { return item.estatus === "resuelto"; }).length;
+        var cancelados = items.filter(function (item) { return item.estatus === "cancelada" || item.estatus === "cancelado"; }).length;
         var cantidadPendiente = items.reduce(function (suma, item) { return suma + Number(item.cantidad_pendiente || 0); }, 0);
         document.getElementById("inventario_pendientes_pos_resumen").innerHTML =
             "<span class=\"badge badge-light-primary fs-7\">Registros " + items.length + "</span>" +
             "<span class=\"badge badge-light-danger fs-7\">Abiertos " + abiertos + "</span>" +
             "<span class=\"badge badge-light-success fs-7\">Resueltos " + resueltos + "</span>" +
+            "<span class=\"badge badge-light-secondary fs-7\">Cancelados " + cancelados + "</span>" +
             "<span class=\"badge badge-light-warning fs-7\">Pendiente " + cantidadPendiente.toFixed(2) + "</span>";
         document.getElementById("inventario_pendientes_pos").innerHTML = items.map(function (item) {
             var estado = badgePendientePos(item.estatus);
+            var prioridad = prioridadPendientePos(item.prioridad);
             var folio = item.folio || "";
             var contexto = "";
             if (item.id_sku_presentacion_regla) {
@@ -264,14 +309,18 @@
                     contexto = "<div class=\"badge badge-light-warning mt-1\">Presentacion preparada</div>";
                 }
             }
+            var unidad = item.unidad_conteo || item.unidad_base || "";
+            var unidadBadge = unidad ? "<div class=\"badge badge-light-secondary mt-1\">Contar en " + escapeHtml(unidad.toUpperCase()) + "</div>" : "";
+            if (item.unidad_inconsistente) { unidadBadge += "<div class=\"badge badge-light-danger mt-1\">Revisar unidad</div>"; }
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(folio) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.folio_venta || "-") + "</div></td>" +
-                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.descripcion || "") + "</div>" + contexto + "</td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.descripcion || "") + "</div>" + unidadBadge + contexto + "</td>" +
                 "<td>" + escapeHtml(item.almacen || "-") + "</td>" +
                 "<td><div>Vendida <span class=\"fw-bold\">" + Number(item.cantidad_vendida || 0).toFixed(2) + "</span></div><div class=\"text-muted fs-8\">Pendiente " + Number(item.cantidad_pendiente || 0).toFixed(2) + " " + escapeHtml(item.unidad_base || "") + "</div><div class=\"text-success fs-8\">Disp. actual " + Number(item.disponible_actual || 0).toFixed(2) + "</div></td>" +
-                "<td><span class=\"badge " + estado.clase + "\">" + estado.texto + "</span><div class=\"text-muted fs-8\">" + escapeHtml(item.prioridad || "") + "</div></td>" +
-                "<td><div class=\"fs-8\">" + escapeHtml(item.fecha_registro || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.fecha_resolucion || "") + "</div></td>" +
-                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-info\" type=\"button\" data-pendiente-pos=\"" + escapeHtml(folio) + "\"><i class=\"bi bi-folder2-open\"></i> Expediente</button></td></tr>";
-        }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\"><div class=\"fw-semibold\">Sin pendientes POS</div><div class=\"fs-8 mt-1\">Las ventas autorizadas con inventario pendiente apareceran aqui para seguimiento y mini inventario.</div></td></tr>";
+                "<td><span class=\"badge " + estado.clase + "\">" + estado.texto + "</span></td>" +
+                "<td><span class=\"badge " + prioridad.clase + "\">" + prioridad.texto + "</span></td>" +
+                "<td><div class=\"fs-8\">" + escapeHtml(item.fecha_registro || "") + "</div><div class=\"text-muted fs-8\">" + transcurridoPendientePos(item.fecha_registro) + " transcurrido</div></td>" +
+                "<td><div class=\"fw-semibold fs-8 mb-2\">" + escapeHtml(recomendadoPendientePos(item.estatus)) + "</div><button class=\"btn btn-sm btn-light-info\" type=\"button\" data-pendiente-pos=\"" + escapeHtml(folio) + "\"><i class=\"bi bi-folder2-open\"></i> " + escapeHtml(accionPendientePos(item.estatus)) + "</button></td></tr>";
+        }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\"><div class=\"fw-semibold\">Sin pendientes POS</div><div class=\"fs-8 mt-1\">Ajusta el filtro de estado para consultar historial.</div></td></tr>";
     }
     function abrirPendientePos(folio) {
         var titulo = document.getElementById("inventario_pendiente_pos_titulo");
@@ -294,8 +343,22 @@
         var estado = badgePendientePos(pendiente.estatus);
         var existencias = data.existencias_actuales || [];
         var eventos = data.eventos || [];
+        var unidadesFisicas = data.unidades_fisicas || [];
+        var resumenUnidadesFisicas = data.resumen_unidades_fisicas || {};
         var contexto = data.regularizacion_contexto || {};
         var contextoHtml = "";
+        var avisoEstado = "";
+        if (pendiente.estatus === "cancelada" || pendiente.estatus === "cancelado") {
+            avisoEstado = "<div class=\"alert alert-secondary mb-6\"><div class=\"fw-bold\">Esta incidencia esta cancelada y no requiere accion.</div><div class=\"fs-8\">Se conserva aqui unicamente como historial.</div></div>";
+        } else if (pendiente.estatus === "resuelto") {
+            avisoEstado = "<div class=\"alert alert-success mb-6\"><div class=\"fw-bold\">Esta incidencia esta resuelta y no requiere nuevo ajuste.</div><div class=\"fs-8\">Consulta los eventos para revisar la evidencia y el kardex asociado.</div></div>";
+        } else if (pendiente.estatus === "en_revision") {
+            avisoEstado = "<div class=\"alert alert-warning mb-6\"><div class=\"fw-bold\">Esta incidencia esta en revision por otro usuario.</div><div class=\"fs-8\">Continua la revision desde este expediente y evita duplicar el conteo.</div></div>";
+        } else if (pendiente.estatus === "pendiente_revision") {
+            avisoEstado = "<div class=\"alert alert-info mb-6\"><div class=\"fw-bold\">Esta incidencia requiere conteo fisico.</div><div class=\"fs-8\">Registra el conteo antes de preparar una resolucion.</div></div>";
+        } else if (pendiente.estatus === "bloqueada") {
+            avisoEstado = "<div class=\"alert alert-danger mb-6\"><div class=\"fw-bold\">Esta incidencia esta bloqueada.</div><div class=\"fs-8\">Revisa la condicion o autorizacion indicada en los eventos.</div></div>";
+        }
         if (contexto.tipo && contexto.tipo !== "sku_directo") {
             contextoHtml = "<div class=\"alert " + (contexto.requiere_resolucion_base ? "alert-info" : "alert-warning") + " mb-6\">" +
                 "<div class=\"fw-bold mb-1\">Contexto de regularizacion</div>" +
@@ -304,20 +367,34 @@
                 (contexto.factor_conteo && Number(contexto.factor_conteo) !== 1 ? "<div class=\"fs-8\">Factor: 1 vendido = " + Number(contexto.factor_conteo || 1).toFixed(4) + " del SKU a contar. Pendiente a reconocer: " + Number(contexto.cantidad_pendiente_conteo || 0).toFixed(4) + "</div>" : "") +
                 "</div>";
         }
+        if (contexto.unidad_inconsistente) {
+            contextoHtml += "<div class=\"alert alert-danger mb-6\"><div class=\"fw-bold\">Unidad pendiente distinta a la unidad del catalogo</div><div class=\"fs-8\">Pendiente registrado en <strong>" + escapeHtml(contexto.unidad_pendiente || "-") + "</strong>; catalogo indica <strong>" + escapeHtml(contexto.unidad_catalogo || "-") + "</strong>. No cierres la incidencia hasta confirmar la unidad fisica correcta.</div></div>";
+        }
         var existenciasHtml = existencias.length ? existencias.map(function (item) {
             return "<tr><td class=\"fw-bold\">" + escapeHtml(item.codigo_existencia || "") + "</td><td>" + escapeHtml(item.lote || "-") + "</td><td>" + escapeHtml(item.ubicacion || "-") + "</td><td>" + Number(item.cantidad || 0).toFixed(2) + "</td><td class=\"text-success fw-bold\">" + Number(item.cantidad_disponible || 0).toFixed(2) + "</td><td>" + escapeHtml(item.ultimo_movimiento_id || "-") + "</td></tr>";
         }).join("") : "<tr><td colspan=\"6\" class=\"text-center text-muted py-5\">Sin existencias actuales relacionadas</td></tr>";
+        var unidadesFisicasHtml = unidadesFisicas.length ? unidadesFisicas.map(function (item) {
+            var codigo = item.codigo_etiqueta_interna || item.codigo_unico || item.serie_fabricante || "Sin codigo";
+            var disponible = Number(item.cantidad_base_disponible || 0).toFixed(4);
+            var candidata = item.candidata_conteo ? "<span class=\"badge badge-light-success\">Candidata para conteo</span>" : "<span class=\"badge badge-light-secondary\">Solo historial</span>";
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(codigo) + "</div><div class=\"text-muted fs-8\">ID unidad #" + escapeHtml(item.id_inventario_unidad || "-") + "</div></td><td>" + escapeHtml(item.estado_fisico || "-") + "<div class=\"text-muted fs-8\">" + escapeHtml(item.estatus || "-") + "</div></td><td class=\"fw-bold\">" + disponible + " " + escapeHtml(item.unidad_base || "") + "<div class=\"text-muted fs-8\">original " + Number(item.cantidad_base_original || 0).toFixed(4) + "</div></td><td>" + escapeHtml(item.lote || "-") + "<div class=\"text-muted fs-8\">" + escapeHtml(item.fecha_caducidad || "") + "</div></td><td>" + escapeHtml(item.ubicacion || "-") + "</td><td>" + escapeHtml(item.folio_origen || item.origen_tipo || "-") + "</td><td>" + candidata + "</td></tr>";
+        }).join("") : "<tr><td colspan=\"7\" class=\"text-center text-muted py-5\">No se detectaron unidades fisicas trazables para el SKU que debe contarse.</td></tr>";
+        var unidadesFisicasBloque = "<h4 class=\"fs-6 fw-bold mb-3\">Revision fisica</h4>" +
+            "<div class=\"alert " + (unidadesFisicas.length ? "alert-light-success" : "alert-light-warning") + " mb-4\"><div class=\"fw-bold\">SKU fisico a revisar: " + escapeHtml(contexto.sku_conteo || pendiente.sku || "-") + "</div><div class=\"fs-8\">Unidad de medida del conteo: <strong>" + escapeHtml(contexto.unidad_conteo || pendiente.unidad_base || "-") + "</strong> · Unidades fisicas registradas: " + Number(resumenUnidadesFisicas.total || 0) + " · Disponibles: " + Number(resumenUnidadesFisicas.disponibles || 0) + " · Cerradas: " + Number(resumenUnidadesFisicas.cerradas || 0) + " · Abiertas: " + Number(resumenUnidadesFisicas.abiertas || 0) + " · Contenido disponible trazable: " + Number(resumenUnidadesFisicas.contenido_disponible || 0).toFixed(4) + "</div>" + (!unidadesFisicas.length ? "<div class=\"fs-8 mt-2\">No hay unidad fisica etiquetada para este SKU/almacen. El conteo debe capturarse manualmente en la unidad indicada; no significa que el producto no pueda medirse en esa unidad.</div>" : "<div class=\"fs-8 mt-2\">Revisa fisicamente el codigo, lote y ubicacion antes de capturar la cantidad.</div>") + "</div>" +
+            "<div class=\"table-responsive mb-6\"><table class=\"table align-middle table-row-dashed gy-3\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Codigo fisico</th><th>Estado</th><th>Contenido disponible</th><th>Lote / caducidad</th><th>Ubicacion</th><th>Origen</th><th>Revision</th></tr></thead><tbody>" + unidadesFisicasHtml + "</tbody></table></div>";
         var eventosHtml = eventos.length ? eventos.map(function (item) {
-            return "<tr><td>" + escapeHtml(item.fecha_registro || "") + "</td><td><span class=\"badge badge-light-primary\">" + escapeHtml(item.tipo_evento || "") + "</span></td><td>" + escapeHtml(item.estatus_anterior || "-") + " / " + escapeHtml(item.estatus_nuevo || "-") + "</td><td>" + Number(item.cantidad || 0).toFixed(2) + "</td><td>" + escapeHtml(item.referencia || "-") + "<div class=\"text-muted fs-8\">" + escapeHtml(item.observaciones || "") + "</div></td></tr>";
-        }).join("") : "<tr><td colspan=\"5\" class=\"text-center text-muted py-5\">Sin eventos registrados</td></tr>";
+            var usuario = item.creado_por_nombre || (item.creado_por ? "Usuario #" + item.creado_por : "-");
+            return "<tr><td>" + escapeHtml(item.fecha_registro || "") + "</td><td><span class=\"badge badge-light-primary\">" + escapeHtml(item.tipo_evento || "") + "</span></td><td>" + escapeHtml(item.estatus_anterior || "-") + " / " + escapeHtml(item.estatus_nuevo || "-") + "</td><td>" + Number(item.cantidad || 0).toFixed(2) + "</td><td>" + escapeHtml(usuario) + "</td><td>" + escapeHtml(item.referencia || "-") + "<div class=\"text-muted fs-8\">" + escapeHtml(item.observaciones || "") + "</div></td></tr>";
+        }).join("") : "<tr><td colspan=\"6\" class=\"text-center text-muted py-5\">Sin eventos registrados</td></tr>";
         var formularioDryRun = "";
         if (pendiente.estatus === "pendiente_revision" || pendiente.estatus === "en_revision") {
             formularioDryRun = "<div class=\"border rounded p-4 mb-6\"><div class=\"fw-bold mb-1\">Previsualizar resolucion</div>" +
                 "<div class=\"text-muted fs-8 mb-3\">No mueve inventario. Sirve para revisar la formula antes de resolver: conteo fisico actual despues de la venta + cantidad vendida pendiente = existencia que debio haber antes de registrar la salida.</div>" +
                 "<form data-pendiente-pos-dryrun=\"" + escapeHtml(pendiente.folio || "") + "\" class=\"row g-3 align-items-end\">" +
-                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Cantidad fisica actual</label><input class=\"form-control form-control-solid\" name=\"cantidad_fisica\" type=\"number\" min=\"0\" step=\"0.0001\" value=\"" + Number((contexto && contexto.cantidad_pendiente_conteo) || pendiente.cantidad_pendiente || 0).toFixed(4) + "\"><div class=\"text-muted fs-9 mt-1\">Lo que cuentas ahora del SKU: " + escapeHtml((contexto && contexto.sku_conteo) || pendiente.sku || "") + "</div></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Cantidad fisica actual</label><input class=\"form-control form-control-solid\" name=\"cantidad_fisica\" type=\"number\" min=\"0\" step=\"0.0001\" value=\"" + Number((contexto && contexto.cantidad_pendiente_conteo) || pendiente.cantidad_pendiente || 0).toFixed(4) + "\"><div class=\"text-muted fs-9 mt-1\">SKU: " + escapeHtml((contexto && contexto.sku_conteo) || pendiente.sku || "") + "</div></div>" +
+                "<div class=\"col-md-2\"><label class=\"form-label fs-8 text-muted\">Unidad de conteo</label><input class=\"form-control form-control-solid\" name=\"unidad_conteo\" value=\"" + escapeHtml((contexto && contexto.unidad_conteo) || pendiente.unidad_base || "") + "\" readonly><div class=\"text-muted fs-9 mt-1\">Catalogo vigente · <button type=\"button\" class=\"btn btn-link btn-sm p-0 align-baseline\" data-pendiente-pos-refresh=\"" + escapeHtml(pendiente.folio || "") + "\">Actualizar expediente</button></div></div>" +
                 "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Decision</label><select class=\"form-select form-select-solid\" name=\"decision\"><option value=\"ajustar_a_conteo\">Ajustar a conteo</option><option value=\"cerrar_sin_ajuste\">Cerrar sin ajuste</option><option value=\"mantener_pendiente\">Mantener pendiente</option></select></div>" +
-                "<div class=\"col-md-4\"><label class=\"form-label fs-8 text-muted\">Motivo</label><input class=\"form-control form-control-solid\" name=\"motivo\" placeholder=\"Conteo fisico y evidencia\"></div>" +
+                "<div class=\"col-md-2\"><label class=\"form-label fs-8 text-muted\">Motivo</label><input class=\"form-control form-control-solid\" name=\"motivo\" placeholder=\"Conteo y evidencia\"></div>" +
                 "<div class=\"col-md-2\"><button class=\"btn btn-light-primary w-100\" type=\"submit\"><i class=\"bi bi-calculator\"></i> Previsualizar</button></div>" +
                 "</form><div class=\"mt-4\" data-pendiente-pos-dryrun-result></div></div>";
         }
@@ -326,12 +403,14 @@
             "<span class=\"badge badge-light-primary fs-7\">" + escapeHtml(pendiente.folio || "") + "</span>" +
             "<span class=\"badge badge-light-info fs-7\">Venta " + escapeHtml(pendiente.folio_venta || "-") + "</span>" +
             "</div>" +
+            avisoEstado +
             contextoHtml +
             "<div class=\"row g-4 mb-6\"><div class=\"col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"fw-bold mb-2\">Producto</div><div>" + escapeHtml(pendiente.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(pendiente.descripcion || "") + "</div><div class=\"mt-3 text-muted fs-8\">Almacen: " + escapeHtml(pendiente.almacen || "-") + "</div></div></div>" +
             "<div class=\"col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"fw-bold mb-2\">Conteo y resolucion</div><div>Vendida: <span class=\"fw-bold\">" + Number(pendiente.cantidad_vendida || 0).toFixed(2) + "</span></div><div>Pendiente: <span class=\"fw-bold\">" + Number(pendiente.cantidad_pendiente || 0).toFixed(2) + "</span></div><div>Fisica validada: <span class=\"fw-bold\">" + Number(pendiente.cantidad_fisica_validada || 0).toFixed(2) + "</span></div><div class=\"text-muted fs-8 mt-2\">Movimiento ajuste: " + escapeHtml(pendiente.id_movimiento_ajuste || "-") + "</div></div></div></div>" +
             formularioDryRun +
+            unidadesFisicasBloque +
             "<h4 class=\"fs-6 fw-bold mb-3\">Existencias actuales</h4><div class=\"table-responsive mb-6\"><table class=\"table align-middle table-row-dashed gy-3\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Existencia</th><th>Lote</th><th>Ubicacion</th><th>Cantidad</th><th>Disponible</th><th>Ult. mov.</th></tr></thead><tbody>" + existenciasHtml + "</tbody></table></div>" +
-            "<h4 class=\"fs-6 fw-bold mb-3\">Eventos</h4><div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Fecha</th><th>Evento</th><th>Estado</th><th>Cantidad</th><th>Referencia</th></tr></thead><tbody>" + eventosHtml + "</tbody></table></div>";
+            "<h4 class=\"fs-6 fw-bold mb-3\">Linea de tiempo</h4><div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Fecha</th><th>Evento</th><th>Estado</th><th>Cantidad</th><th>Usuario</th><th>Motivo / referencia</th></tr></thead><tbody>" + eventosHtml + "</tbody></table></div>";
     }
     function renderDryRunPendientePos(data) {
         var pendiente = data.pendiente || {};
@@ -362,6 +441,7 @@
                 "<div class=\"alert alert-light-warning py-3 mb-4\"><div class=\"fw-bold mb-1\">Datos de autorizacion</div><div class=\"fs-8\">Estos datos son candados para una accion real: puede crear kardex, ajustar inventario y cerrar el pendiente. Token: escribe <strong>INVENTARIO_POS_PENDIENTE_RESOLVER_REAL</strong>. Respaldo: escribe la referencia del respaldo vigente; en UAT puedes usar <strong>UAT POS vigente</strong>. Confirmacion: escribe exactamente <strong>RESOLVER PENDIENTE</strong>.</div></div>" +
                 "<form data-pendiente-pos-resolver=\"" + escapeHtml(pendiente.folio || "") + "\" class=\"row g-3 align-items-end\">" +
                 "<input type=\"hidden\" name=\"cantidad_fisica\" value=\"" + escapeHtml(conteo.cantidad_fisica || 0) + "\">" +
+                "<input type=\"hidden\" name=\"unidad_conteo\" value=\"" + escapeHtml(conteo.unidad_conteo || contexto.unidad_conteo || "") + "\">" +
                 "<input type=\"hidden\" name=\"decision\" value=\"" + escapeHtml(conteo.decision || "") + "\">" +
                 "<input type=\"hidden\" name=\"motivo\" value=\"" + escapeHtml(conteo.motivo || "") + "\">" +
                 "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Token</label><input class=\"form-control form-control-solid\" name=\"autorizar\" placeholder=\"INVENTARIO_POS_PENDIENTE_RESOLVER_REAL\"><div class=\"text-muted fs-9 mt-1\">Candado tecnico de esta accion.</div></div>" +
@@ -379,6 +459,7 @@
         post("/inventario/pos_pendiente_inventario_resolucion_dryrun_erp", {
             folio: form.getAttribute("data-pendiente-pos-dryrun") || "",
             cantidad_fisica: form.elements.cantidad_fisica.value,
+            unidad_conteo: form.elements.unidad_conteo.value,
             decision: form.elements.decision.value,
             motivo: form.elements.motivo.value
         }).then(function (response) {
@@ -405,6 +486,7 @@
             post("/inventario/pos_pendiente_inventario_resolver_erp", {
                 folio: form.getAttribute("data-pendiente-pos-resolver") || "",
                 cantidad_fisica: form.elements.cantidad_fisica.value,
+                unidad_conteo: form.elements.unidad_conteo ? form.elements.unidad_conteo.value : "",
                 decision: form.elements.decision.value,
                 motivo: form.elements.motivo.value,
                 autorizar: form.elements.autorizar.value,
@@ -477,8 +559,9 @@
         }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\"><div class=\"fw-semibold\">Sin unidades etiquetadas</div><div class=\"fs-8 mt-1\">Esta pestana solo muestra SKUs con etiqueta interna. Revisa Existencias o Kardex para saldos sin etiqueta, agotados o movimientos de preparacion.</div></td></tr>";
     }
     document.addEventListener("DOMContentLoaded", function () {
-        cargarCatalogos().then(cargar);
+        cargarCatalogos().then(function () { cargar(); cargarPendientesPos(); });
         document.getElementById("inventario_recargar").addEventListener("click", cargar);
+        document.getElementById("inventario_pos_recargar").addEventListener("click", cargarPendientesPos);
         document.getElementById("inventario_filtro_almacen").addEventListener("change", cargar);
         document.getElementById("inventario_filtro_estado_fisico").addEventListener("change", cargar);
         document.getElementById("inventario_filtro_agotadas").addEventListener("change", cargar);
@@ -486,6 +569,13 @@
         document.getElementById("inventario_filtro_buscar").addEventListener("input", function () {
             clearTimeout(timer);
             timer = setTimeout(cargar, 250);
+        });
+        document.getElementById("inventario_pos_filtro_almacen").addEventListener("change", cargarPendientesPos);
+        document.getElementById("inventario_pos_filtro_estatus").addEventListener("change", cargarPendientesPos);
+        var timerPos;
+        document.getElementById("inventario_pos_filtro_buscar").addEventListener("input", function () {
+            clearTimeout(timerPos);
+            timerPos = setTimeout(cargarPendientesPos, 250);
         });
         document.addEventListener("click", function (event) {
             var boton = event.target.closest ? event.target.closest("[data-trazabilidad]") : null;
@@ -496,6 +586,11 @@
             var pendiente = event.target.closest ? event.target.closest("[data-pendiente-pos]") : null;
             if (pendiente) {
                 abrirPendientePos(pendiente.getAttribute("data-pendiente-pos"));
+                return;
+            }
+            var refreshPendiente = event.target.closest ? event.target.closest("[data-pendiente-pos-refresh]") : null;
+            if (refreshPendiente) {
+                abrirPendientePos(refreshPendiente.getAttribute("data-pendiente-pos-refresh"));
             }
         });
         document.addEventListener("submit", function (event) {

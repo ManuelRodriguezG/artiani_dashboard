@@ -515,6 +515,61 @@ class ComprasEsquema extends DBSchema {
             "depurar" => $plan
         );
     }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-14
+     * Proposito: preparar incidencias operativas de inventario originadas por compras preoperativas.
+     * Impacto: Compras/Inventario; conserva cantidades reportadas sin crear existencias, kardex ni recepciones.
+     * Contrato: por defecto genera dry-run; ejecutar=true requiere respaldo externo y autorizacion explicita.
+     */
+    public function planActualizarIncidenciasComprasPreoperativas($ejecutar = false) {
+        $plan = array();
+        $plan[] = $this->crearTablaSiNoExiste("erp_inventario_incidencias_operativas", array(
+            "`id_incidencia_inventario` BIGINT NOT NULL AUTO_INCREMENT",
+            "`huella` VARCHAR(128) NOT NULL",
+            "`origen_tipo` VARCHAR(40) NOT NULL DEFAULT 'compra'",
+            "`id_origen` BIGINT NOT NULL",
+            "`id_origen_detalle` BIGINT NULL",
+            "`id_sku_erp` BIGINT NULL",
+            "`id_producto_erp` INT NULL",
+            "`id_proveedor` INT NULL",
+            "`id_almacen` INT NOT NULL DEFAULT 0",
+            "`sku` VARCHAR(150) NULL",
+            "`nombre_producto` VARCHAR(255) NULL",
+            "`cantidad_comprada` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`cantidad_reportada` DECIMAL(18,6) NULL",
+            "`tipo_cantidad_reportada` VARCHAR(30) NOT NULL DEFAULT 'sin_capturar'",
+            "`costo_unitario` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`valor_estimado` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'pendiente'",
+            "`motivo` VARCHAR(80) NOT NULL DEFAULT 'compra_preoperativa'",
+            "`observaciones` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`revisado_por` INT NULL",
+            "`fecha_revision` DATETIME NULL",
+            "`fecha_resolucion` DATETIME NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_incidencia_inventario`)",
+            "UNIQUE KEY `uk_inv_incidencia_operativa_huella` (`huella`)",
+            "KEY `idx_inv_incidencia_operativa_origen` (`origen_tipo`, `id_origen`)",
+            "KEY `idx_inv_incidencia_operativa_almacen` (`id_almacen`, `estatus`)",
+            "KEY `idx_inv_incidencia_operativa_sku` (`id_sku_erp`, `estatus`)",
+            "KEY `idx_inv_incidencia_operativa_estatus` (`estatus`, `fecha_registro`)",
+            "KEY `idx_inv_incidencia_operativa_proveedor` (`id_proveedor`, `estatus`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => $ejecutar
+                ? "Plan de incidencias operativas de compras ejecutado"
+                : "Plan de incidencias operativas de compras generado en dry-run",
+            "depurar" => $plan
+        );
+    }
+
     /**
      * IA: Codex GPT-5
      * Fecha: 2026-08-20

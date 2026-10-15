@@ -239,6 +239,38 @@ Compras debe ver seguimiento de:
 - Pendientes enviados a Almacen.
 - Pendientes enviados a Finanzas.
 
+## Compras preoperativas e incidencias por almacen
+
+Documentacion IA: Codex GPT-5
+Fecha: 2026-10-14
+Proposito: soportar compras registradas antes de que Inventario opere formalmente al 100%.
+Impacto: Compras, Catalogo, Almacen e Inventario.
+
+Cuando Compras cierre una orden sin recepcion formal, no debe crear una existencia ni un movimiento de kardex. Si la partida es un SKU ERP existente, puede crear un pendiente de Inventario por almacen con una cantidad reportada o estimada. Esa cantidad es evidencia operativa, no existencia oficial.
+
+Tipos de alerta recomendados:
+
+- `compra_producto_pendiente_alta`: SKU fisico nuevo o sin relacion Catalogo/Proveedor.
+- `compra_inventario_pendiente_conteo`: SKU existente que requiere confirmar cantidad en un almacen.
+- `compra_inventario_cantidad_reportada`: ya existe una cantidad informada y requiere conciliacion.
+- `compra_inventario_diferencia`: la cantidad reportada no coincide con la existencia oficial.
+
+La huella de idempotencia para el pendiente de Inventario debe considerar como minimo:
+
+`tipo_alerta + id_orden_compra + id_detalle + id_sku_erp + id_almacen`
+
+La notificacion se actualiza sobre la misma incidencia cuando la orden se vuelve a guardar. No se deben generar copias por cada apertura, edicion o reintento.
+
+La interfaz debe mostrar separadamente:
+
+- existencia oficial, si existe;
+- cantidad reportada por el usuario;
+- precision del dato: estimada o conteo fisico;
+- diferencia pendiente;
+- estado de conciliacion.
+
+No usar `erp_notificaciones` como sustituto de la incidencia. La incidencia o pendiente persistente conserva el trabajo y la notificacion solo avisa, cuenta y enlaza a la atencion correspondiente.
+
 ## Criterio de implementacion
 
 No implementar notificaciones como texto estatico en vistas.
