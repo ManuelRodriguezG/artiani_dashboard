@@ -2,6 +2,8 @@
 Options -Multiviews
 RewriteEngine On
 RewriteBase /
+# Conserva el Bearer para que PHP pueda resolver permisos externos de Distribucion.
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 # IA: Codex GPT-6 | 2026-09-24 | URLs Media anteriores redirigen al formato/nombre actual.
 # Solo archivos faltantes; no altera el servicio estatico de imagenes actuales.
 RewriteCond %{REQUEST_FILENAME} !-f

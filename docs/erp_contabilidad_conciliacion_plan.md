@@ -18,7 +18,7 @@ La necesidad corresponde a un modulo propio de Finanzas/Contabilidad, no a Compr
 - Controlador: `app/controladores/Contabilidad.php`.
 - JS: `public/assets/js/custom/apps/erp/contabilidad/cierre_mensual.js`.
 - Menu: grupo Contabilidad dentro de ERP con permiso `finanzas.ver`.
-- Sin escritura en BD; los archivos se procesan en el navegador.
+- Persistencia: los cierres mensuales se guardan en `erp_contabilidad_cierres` mediante `ContabilidadDatos`; el expediente JSON conserva estados, movimientos, CFDI, auxiliares y relaciones. `localStorage` queda como respaldo transitorio si la base no responde.
 - XLSX: se lee temporalmente desde `Contabilidad::importar_estado_cuenta_erp` y solo devuelve encabezados/filas para mapeo; no guarda archivo.
 
 ## Ajuste operativo 2026-08-29
@@ -299,11 +299,11 @@ Los traspasos sugeridos automaticamente pueden quedar con `categoria = no_aplica
 
 ## Ajuste operativo 2026-09-05 relacion CFDI-banco
 
-La relacion entre CFDI y movimiento bancario no debe crearse automaticamente por similitud. El sistema puede calcular candidatos y sugerir el mas probable, pero la liga final debe confirmarla el usuario.
+La relacion entre CFDI y movimiento bancario no debe crearse automaticamente por similitud. El sistema puede calcular candidatos y sugerir el mas probable, pero la liga final debe confirmarla el usuario. Un movimiento bancario puede tener varios CFDI relacionados cuando la suma de sus comprobantes corresponde al monto del pago.
 
 Una coincidencia operativa fuerte requiere monto igual o compatible por redondeo entre el CFDI, o su complemento de pago cuando aplique, y el movimiento bancario. La fecha ayuda a ordenar candidatos y explicar la sugerencia, pero no debe ser requisito de relacion porque puede variar por corte, aplicacion bancaria, tarjeta o plataforma. Si no existe monto compatible, la mesa de relacion debe permitir busqueda manual por fecha, descripcion, cuenta, monto, emisor, RFC, folio o UUID.
 
-Al confirmar una relacion, el sistema marca el movimiento como `cfdi = ligado`, guarda el UUID en el movimiento y registra `movimiento_relacionado` en el CFDI. Si alguno de los dos ya esta ligado con otro registro, primero debe deshacerse la relacion anterior para evitar sustituciones silenciosas.
+Al confirmar una relacion, el sistema marca el movimiento como `cfdi = ligado`, conserva el UUID legado y guarda la lista `cfdi_uuids` en el movimiento; cada CFDI registra su propio `movimiento_relacionado`. Un CFDI no puede estar ligado a dos movimientos, pero varios CFDI pueden compartir un movimiento cuando su suma cuadra el pago. Al quitar un CFDI, los demas permanecen relacionados.
 
 Las alertas de pendientes del contador deben calcularse por relacion real, no solo por la etiqueta historica del movimiento. Si un movimiento tiene `cfdi_uuid` o existe un CFDI con `movimiento_relacionado` apuntando a ese movimiento, no debe contarse como pendiente aunque el campo legacy `cfdi` siga diciendo `pendiente`.
 
@@ -320,6 +320,10 @@ Los CFDI de tipo `P` o complementos de pago no deben tomarse por el atributo `To
 - Los documentos relacionados deben conservarse como referencia para entender que factura original se esta pagando.
 
 El MVP marca estos XML como complemento de pago y exporta columnas adicionales de fecha de pago, monto de pago, numero de operacion y documentos relacionados.
+
+Un CFDI puede emitirse despues del mes bancario que se esta cerrando. El sistema conserva `periodo` con el mes fiscal real del XML y usa `periodo_cierre` para indicar el cierre operativo al que el usuario lo asigna. Asi, un CFDI emitido en octubre puede incluirse y relacionarse contra un movimiento pendiente de septiembre sin cambiar su fecha fiscal. En la lista debe mostrarse la diferencia `Emitido` / `Cierre` cuando exista.
+
+La accion `Cargar CFDI` importa uno o varios XML, analiza su clasificacion, intenta relacionarlos automaticamente cuando existe una coincidencia clara de monto o cuando la suma de dos CFDI del mismo RFC emisor cuadra un movimiento bancario y, si no hay una relacion segura, crea el movimiento auxiliar correspondiente. Las coincidencias dudosas no se ligan automaticamente y quedan disponibles para revision manual. La accion `Crear auxiliares seleccionados` permanece como alternativa para materializar manualmente los CFDI marcados. La cuenta auxiliar se determina por la forma de pago y la categoria del CFDI, con reglas para efectivo, tarjetas, bancos seleccionados y comisiones de Mercado Pago. La categoria inicial debe sugerirse por emisor, RFC y conceptos, usando como respaldo la categoria general elegida por el usuario. Las sugerencias incluyen comisiones de plataforma, publicidad, renta, nomina, impuestos, software, compras de mercancia y servicios; siempre deben poder corregirse manualmente.
 
 ## Flujo operativo recomendado
 

@@ -15,6 +15,8 @@
     var cfdisSeleccionados = {};
     var STORAGE_KEY = "erp_contabilidad_cierres_local_v1";
     var DRAFT_KEY = "erp_contabilidad_cierre_borrador_activo_v1";
+    var cierresRemotos = [];
+    var cierresRemotosCargados = false;
     var autosaveTimer = null;
     var cuentaConciliacionActual = "";
     var conciliacionModalRows = [];
@@ -97,6 +99,7 @@
         URL.revokeObjectURL(url);
     }
     function leerCierresGuardados() {
+        if (cierresRemotosCargados) { return cierresRemotos; }
         try {
             var raw = localStorage.getItem(STORAGE_KEY);
             var data = raw ? JSON.parse(raw) : [];
@@ -107,6 +110,56 @@
     }
     function escribirCierresGuardados(cierres) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(cierres || []));
+    }
+    function apiContabilidad(url, options) {
+        var config = options || {};
+        config.credentials = "same-origin";
+        config.headers = config.headers || {};
+        config.headers.Accept = "application/json";
+        return fetch(url, config).then(function (response) {
+            return response.json();
+        });
+    }
+    function cargarCierresRemotos() {
+        return apiContabilidad("/contabilidad/cierres_listar_erp").then(function (respuesta) {
+            if (respuesta.error) { throw new Error(respuesta.mensaje || "No pude consultar los cierres."); }
+            cierresRemotos = respuesta.depurar && Array.isArray(respuesta.depurar.cierres) ? respuesta.depurar.cierres : [];
+            cierresRemotosCargados = true;
+            renderGuardados();
+            if (!hayTrabajoLocal()) {
+                var actual = cierresRemotos.find(function (cierre) { return cierre.periodo === periodoCierreActual(); });
+                if (actual) {
+                    cargarCierreRemoto(actual.id);
+                }
+            }
+            return respuesta;
+        }).catch(function () {
+            cierresRemotosCargados = false;
+            renderGuardados();
+            return null;
+        });
+    }
+    function guardarCierreRemoto(cierre) {
+        var form = new FormData();
+        form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+        form.append("payload_json", JSON.stringify(cierre));
+        return apiContabilidad("/contabilidad/cierre_guardar_erp", {
+            method: "POST",
+            body: form,
+            headers: {"X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}
+        });
+    }
+    function cargarCierreRemoto(id) {
+        return apiContabilidad("/contabilidad/cierre_consultar_erp?id_cierre=" + encodeURIComponent(id)).then(function (respuesta) {
+            if (respuesta.error || !respuesta.depurar || !respuesta.depurar.cierre) {
+                throw new Error(respuesta.mensaje || "No pude abrir el cierre.");
+            }
+            restaurarCierre(respuesta.depurar.cierre);
+            return respuesta;
+        }).catch(function (error) {
+            mostrarError(error.message || "No pude abrir el cierre guardado.");
+            return null;
+        });
     }
     function hayTrabajoLocal() {
         return movimientos.length || cfdis.length || estadosCuenta.length;
@@ -143,9 +196,20 @@
         escribirCierresGuardados(cierres.slice(0, 24));
         guardarBorradorActivoLocal();
         renderGuardados();
-        if (window.Swal) {
-            Swal.fire({text: "Cierre guardado en este navegador.", icon: "success", timer: 1400, showConfirmButton: false});
-        }
+        guardarCierreRemoto(cierre).then(function (respuesta) {
+            if (!respuesta || respuesta.error) {
+                throw new Error(respuesta && respuesta.mensaje ? respuesta.mensaje : "No pude guardar el cierre en la base de datos.");
+            }
+            return cargarCierresRemotos();
+        }).then(function () {
+            if (window.Swal) {
+                Swal.fire({text: "Cierre guardado en la base de datos.", icon: "success", timer: 1600, showConfirmButton: false});
+            }
+        }).catch(function (error) {
+            if (window.Swal) {
+                Swal.fire({text: "Se conservo una copia local, pero no pude guardar en la base de datos: " + error.message, icon: "warning"});
+            }
+        });
     }
     function restaurarBorradorActivoLocal() {
         try {
@@ -165,6 +229,10 @@
         }
     }
     function cargarCierreLocal(id) {
+        if (cierresRemotosCargados && String(id).match(/^\d+$/)) {
+            cargarCierreRemoto(id);
+            return;
+        }
         var cierre = leerCierresGuardados().find(function (item) { return item.id === id; });
         if (!cierre) {
             mostrarError("No encontre ese cierre guardado.");
@@ -214,6 +282,20 @@
         render();
     }
     function eliminarCierreLocal(id) {
+        if (cierresRemotosCargados && String(id).match(/^\d+$/)) {
+            var form = new FormData();
+            form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+            form.append("id_cierre", id);
+            apiContabilidad("/contabilidad/cierre_eliminar_erp", {
+                method: "POST",
+                body: form,
+                headers: {"X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}
+            }).then(function (respuesta) {
+                if (respuesta.error) { throw new Error(respuesta.mensaje || "No pude eliminar el cierre."); }
+                return cargarCierresRemotos();
+            }).catch(function (error) { mostrarError(error.message || "No pude eliminar el cierre."); });
+            return;
+        }
         escribirCierresGuardados(leerCierresGuardados().filter(function (item) { return item.id !== id; }));
         renderGuardados();
     }
@@ -626,6 +708,20 @@
         if (/comision|manejo de cuenta|iva comision/.test(c)) { return "banco_comision"; }
         return "gasto_operativo";
     }
+    function sugerirCategoriaCfdi(texto, actividad, categoriaFallback) {
+        var c = normalizar(texto);
+        if (/mercado pago|mercadopago|mercadolibre|comision plataforma|comision por venta|retencion plataforma/.test(c)) { return "comision_plataforma"; }
+        if (/facebook ads|meta ads|google ads|publicidad|marketing|mercado ads|anuncio/.test(c)) { return "publicidad"; }
+        if (/renta|arrendamiento|inmueble|local comercial/.test(c)) { return "renta"; }
+        if (/nomina|sueldo|salario|remuneracion/.test(c)) { return "nomina"; }
+        if (/sat|imss|infonavit|isr|iva|impuesto|tesoreria/.test(c)) { return "impuestos"; }
+        if (/host|dominio|servidor|software|openai|github|cloud|licencia|suscripcion/.test(c)) { return "software"; }
+        if (/mercancia|inventario|mayoreo|distribuidora|proveedor|refaccion|materia prima|producto/.test(c)) { return "compra_mercancia"; }
+        if (/luz|agua|telefono|internet|energia|servicio/.test(c)) { return "servicio"; }
+        if (actividad === "personal") { return "personal"; }
+        if (actividad === "inversion") { return "inversion"; }
+        return categoriaFallback || "gasto_operativo";
+    }
     function cfdiEsperado(mov) {
         if (mov.tipo_movimiento !== "egreso") { return "no_aplica"; }
         if (["personal", "inversion", "transpaso"].indexOf(mov.actividad) >= 0) { return "no_aplica"; }
@@ -634,6 +730,10 @@
     }
     function normalizarMovimientoLegacy(mov) {
         if (!mov) { return mov; }
+        mov.cfdi_uuids = Array.isArray(mov.cfdi_uuids) ? mov.cfdi_uuids.filter(Boolean) : [];
+        if (mov.cfdi_uuid && mov.cfdi_uuids.indexOf(mov.cfdi_uuid) < 0) {
+            mov.cfdi_uuids.unshift(mov.cfdi_uuid);
+        }
         if (mov.tipo_movimiento === "gasto") {
             mov.tipo_movimiento = "egreso";
         }
@@ -668,6 +768,7 @@
         if (!cfdi) { return cfdi; }
         cfdi.id = cfdi.id || cfdi.uuid || ("cfdi-" + Date.now() + "-" + Math.random().toString(16).slice(2));
         cfdi.periodo = cfdi.periodo || (cfdi.fecha ? cfdi.fecha.slice(0, 7) : periodoCierreActual());
+        cfdi.periodo_cierre = cfdi.periodo_cierre || "";
         cfdi.subtotal = Number(cfdi.subtotal || 0);
         cfdi.descuento = Number(cfdi.descuento || 0);
         cfdi.total = Number(cfdi.total || cfdi.pago_monto || 0);
@@ -708,15 +809,27 @@
     function normalizarCfdisLegacy() {
         cfdis = cfdis.map(normalizarCfdiLegacy);
     }
+    function cfdiPeriodoOperativo(cfdi) {
+        return (cfdi && cfdi.periodo_cierre) || (cfdi && cfdi.periodo) || "";
+    }
+    function movimientoCfdiUuids(mov) {
+        if (!mov) { return []; }
+        var uuids = Array.isArray(mov.cfdi_uuids) ? mov.cfdi_uuids.slice() : [];
+        if (mov.cfdi_uuid && uuids.indexOf(mov.cfdi_uuid) < 0) { uuids.unshift(mov.cfdi_uuid); }
+        return uuids.filter(Boolean);
+    }
+    function movimientoTieneCfdiUuid(mov, uuid) {
+        return !!uuid && movimientoCfdiUuids(mov).indexOf(uuid) >= 0;
+    }
     function cfdisPeriodoActual() {
         var periodo = periodoCfdiActual();
         return cfdis.filter(function (cfdi) {
             normalizarCfdiLegacy(cfdi);
-            return !periodo || cfdi.periodo === periodo;
+            return !periodo || cfdiPeriodoOperativo(cfdi) === periodo;
         });
     }
     function relacionCfdi(cfdi) {
-        var ligado = movimientos.find(function (m) { return m.cfdi_uuid === cfdi.uuid || m.id === cfdi.movimiento_relacionado; });
+        var ligado = movimientos.find(function (m) { return movimientoTieneCfdiUuid(m, cfdi.uuid) || m.id === cfdi.movimiento_relacionado; });
         if (ligado) { return "ligado"; }
         var sugerido = movimientos.map(function (mov) { return {mov: mov, score: scoreCfdi(mov, cfdi)}; })
             .filter(function (x) { return x.score >= 40; })
@@ -1281,18 +1394,22 @@
         var fecha = pagos.es_pago && pagos.fecha ? pagos.fecha : (comprobante ? (comprobante.getAttribute("Fecha") || "").slice(0, 10) : "");
         var formaSat = pagos.es_pago && pagos.forma_pago_sat ? pagos.forma_pago_sat : (comprobante ? (comprobante.getAttribute("FormaPago") || "") : "");
         var categoriaDefault = categoriaCfdiDefault();
-        var forma = formaPagoCfdiDefault(categoriaDefault, formaSat);
         var tratamientoDefault = tratamientoCfdiDefault();
         var conceptos = resumenConceptosCfdi(xml);
         var impuestos = impuestosCfdi(xml);
         var totalOperativo = pagos.es_pago ? pagos.monto : totalComprobante;
         var conceptosResumen = pagos.es_pago && pagos.pagos_resumen ? pagos.pagos_resumen : conceptos.conceptos_resumen;
         var conceptoPrincipal = pagos.es_pago ? "Complemento de pago" : conceptos.concepto_principal;
+        var textoClasificacion = [emisor ? emisor.getAttribute("Nombre") : "", emisor ? emisor.getAttribute("Rfc") : "", conceptoPrincipal, conceptosResumen].join(" ");
+        var actividadInicial = sugerirActividad(textoClasificacion, "egreso");
+        var categoriaInicial = sugerirCategoriaCfdi(textoClasificacion, actividadInicial, categoriaDefault);
+        var forma = formaPagoCfdiDefault(categoriaInicial, formaSat);
         return normalizarCfdiLegacy({
             archivo: nombre,
             uuid: timbre ? (timbre.getAttribute("UUID") || "") : "",
             fecha: fecha,
             periodo: fecha ? fecha.slice(0, 7) : periodoCfdiActual(),
+            periodo_cierre: periodoCierreActual(),
             subtotal: numero(comprobante ? comprobante.getAttribute("SubTotal") : 0),
             descuento: numero(comprobante ? comprobante.getAttribute("Descuento") : 0),
             total: totalOperativo,
@@ -1301,11 +1418,11 @@
             metodo_pago: comprobante ? (comprobante.getAttribute("MetodoPago") || "") : "",
             forma_pago_sat: formaSat,
             forma_pago: forma,
-            cuenta_pago: tratamientoDefault === "crear_auxiliar" ? cuentaAuxiliarCfdi({forma_pago: forma, categoria: categoriaDefault, cuenta_pago: cuentaCfdiDefault()}) : cuentaCfdiDefault(),
+            cuenta_pago: tratamientoDefault === "crear_auxiliar" ? cuentaAuxiliarCfdi({forma_pago: forma, categoria: categoriaInicial, cuenta_pago: cuentaCfdiDefault()}) : cuentaCfdiDefault(),
             tratamiento: tratamientoDefault,
             origen: tratamientoDefault === "crear_auxiliar" ? "cfdi_auxiliar" : "cfdi",
-            categoria: categoriaDefault,
-            actividad: "negocio",
+            categoria: categoriaInicial,
+            actividad: actividadInicial,
             estatus_relacion: "pendiente",
             movimiento_relacionado: "",
             serie: comprobante ? (comprobante.getAttribute("Serie") || "") : "",
@@ -1375,6 +1492,24 @@
             motivos: motivos
         };
     }
+    function coincidenciaCfdiAcumulada(mov, cfdi) {
+        var base = coincidenciaCfdi(mov, cfdi);
+        var uuids = movimientoCfdiUuids(mov);
+        if (!uuids.length) { return base; }
+        var acumulado = uuids.reduce(function (total, uuid) {
+            var ligado = cfdis.find(function (item) { return item.uuid === uuid; });
+            return total + (ligado ? montoCfdiRelacion(ligado) : 0);
+        }, 0);
+        var diferencia = Math.abs(montoMovimiento(mov) - (acumulado + montoCfdiRelacion(cfdi)));
+        if (diferencia <= 1) {
+            base.exacta = true;
+            base.montoCompatible = true;
+            base.diferencia = diferencia;
+            base.score += diferencia <= 0.01 ? 70 : 55;
+            base.motivos.push(diferencia <= 0.01 ? "suma de CFDI exacta" : "suma de CFDI por redondeo");
+        }
+        return base;
+    }
     function scoreCfdi(mov, cfdi) {
         return coincidenciaCfdi(mov, cfdi).score;
     }
@@ -1395,6 +1530,81 @@
             mov.cfdi_sugerencia = candidatos.length ? candidatos[0].cfdi.uuid : "";
         });
     }
+    function vincularCfdiAutomatico(mov, cfdi) {
+        if (!mov || !cfdi) { return; }
+        mov.cfdi = "ligado";
+        mov.cfdi_uuids = Array.isArray(mov.cfdi_uuids) ? mov.cfdi_uuids : [];
+        if (mov.cfdi_uuids.indexOf(cfdi.uuid) < 0) { mov.cfdi_uuids.push(cfdi.uuid); }
+        mov.cfdi_uuid = mov.cfdi_uuids[0] || cfdi.uuid;
+        mov.cfdi_sugerencia = "";
+        mov.categoria = cfdi.categoria || mov.categoria;
+        mov.actividad = cfdi.actividad || mov.actividad;
+        mov.forma_pago = cfdi.forma_pago || mov.forma_pago;
+        cfdi.movimiento_relacionado = mov.id;
+        cfdi.estatus_relacion = "ligado";
+        cfdi.tratamiento = "conciliar_banco";
+        cfdi.origen = "cfdi";
+    }
+    function procesarCfdisImportados(ids) {
+        autoRelacionarCfdi();
+        var relaciones = 0;
+        var auxiliares = 0;
+        var pendientes = ids.map(function (id) { return cfdiPorId(id); }).filter(function (cfdi) {
+            return cfdi && !cfdiTieneMovimiento(cfdi);
+        });
+        movimientosPeriodoActual().forEach(function (mov) {
+            var disponibles = pendientes.filter(function (cfdi) {
+                return !cfdiTieneMovimiento(cfdi) && movimientoDisponibleParaCfdi(mov, cfdi);
+            });
+            var existentes = movimientoCfdiUuids(mov).reduce(function (total, uuid) {
+                var ligado = cfdis.find(function (item) { return item.uuid === uuid; });
+                return total + (ligado ? montoCfdiRelacion(ligado) : 0);
+            }, 0);
+            var combinaciones = [];
+            for (var i = 0; i < disponibles.length; i++) {
+                for (var j = i + 1; j < disponibles.length; j++) {
+                    var primero = disponibles[i];
+                    var segundo = disponibles[j];
+                    var mismoRfc = primero.rfc_emisor && segundo.rfc_emisor && normalizar(primero.rfc_emisor) === normalizar(segundo.rfc_emisor);
+                    var mismoEmisor = primero.emisor && segundo.emisor && normalizar(primero.emisor) === normalizar(segundo.emisor);
+                    if (!mismoRfc && !mismoEmisor) { continue; }
+                    var suma = existentes + montoCfdiRelacion(primero) + montoCfdiRelacion(segundo);
+                    if (Math.abs(montoMovimiento(mov) - suma) <= 1) {
+                        combinaciones.push([primero, segundo]);
+                    }
+                }
+            }
+            if (combinaciones.length === 1) {
+                combinaciones[0].forEach(function (cfdi) {
+                    vincularCfdiAutomatico(mov, cfdi);
+                    relaciones++;
+                });
+            }
+        });
+        ids.forEach(function (id) {
+            var cfdi = cfdiPorId(id);
+            if (!cfdi || cfdiTieneMovimiento(cfdi)) { return; }
+            var candidatos = movimientos.map(function (mov) {
+                return {mov: mov, coincidencia: coincidenciaCfdiAcumulada(mov, cfdi)};
+            }).filter(function (item) {
+                return movimientoDisponibleParaCfdi(item.mov, cfdi) &&
+                    cfdiDisponibleParaMovimiento(cfdi, item.mov) &&
+                    item.coincidencia.exacta;
+            }).sort(function (a, b) { return b.coincidencia.score - a.coincidencia.score; });
+            var primero = candidatos[0];
+            var segundo = candidatos[1];
+            var coincidenciaClara = primero && (!segundo || primero.coincidencia.score > segundo.coincidencia.score);
+            if (coincidenciaClara) {
+                vincularCfdiAutomatico(primero.mov, cfdi);
+                relaciones++;
+                return;
+            }
+            crearMovimientoDesdeCfdi(cfdi.id, true);
+            auxiliares++;
+        });
+        render();
+        return {relaciones: relaciones, auxiliares: auxiliares};
+    }
     function ordenarCandidatosRelacion(items) {
         return items.sort(function (a, b) {
             if (a.coincidencia.exacta !== b.coincidencia.exacta) { return a.coincidencia.exacta ? -1 : 1; }
@@ -1403,29 +1613,25 @@
     }
     function movimientoDisponibleParaCfdi(mov, cfdi) {
         if (!mov || mov.tipo_movimiento !== "egreso" || mov.actividad === "transpaso") { return false; }
-        if (mov.cfdi_uuid && mov.cfdi_uuid !== cfdi.uuid) { return false; }
-        if (mov.cfdi === "ligado" && mov.cfdi_uuid !== cfdi.uuid) { return false; }
         return true;
     }
     function cfdiDisponibleParaMovimiento(cfdi, mov) {
         if (!cfdi) { return false; }
         if (cfdi.movimiento_relacionado && cfdi.movimiento_relacionado !== mov.id) { return false; }
-        return !cfdiTieneMovimiento(cfdi) || cfdi.movimiento_relacionado === mov.id || mov.cfdi_uuid === cfdi.uuid;
+        return !cfdiTieneMovimiento(cfdi) || cfdi.movimiento_relacionado === mov.id || movimientoTieneCfdiUuid(mov, cfdi.uuid);
     }
     function relacionarMovimientoCfdi(movId, cfdiId) {
         var mov = movimientos.find(function (m) { return m.id === movId; });
         var cfdi = cfdiPorId(cfdiId);
         if (!mov || !cfdi) { return; }
-        if (mov.cfdi_uuid && mov.cfdi_uuid !== cfdi.uuid) {
-            mostrarError("Ese movimiento ya tiene otro CFDI. Deshaz la relacion antes de cambiarlo.");
-            return;
-        }
         if (cfdi.movimiento_relacionado && cfdi.movimiento_relacionado !== mov.id) {
             mostrarError("Ese CFDI ya esta relacionado con otro movimiento. Deshaz la relacion antes de cambiarlo.");
             return;
         }
         mov.cfdi = "ligado";
-        mov.cfdi_uuid = cfdi.uuid;
+        mov.cfdi_uuids = Array.isArray(mov.cfdi_uuids) ? mov.cfdi_uuids : [];
+        if (mov.cfdi_uuids.indexOf(cfdi.uuid) < 0) { mov.cfdi_uuids.push(cfdi.uuid); }
+        mov.cfdi_uuid = mov.cfdi_uuids[0] || cfdi.uuid;
         mov.cfdi_sugerencia = "";
         mov.categoria = cfdi.categoria || mov.categoria;
         mov.actividad = cfdi.actividad || mov.actividad;
@@ -1457,7 +1663,7 @@
                 return movimientoDisponibleParaCfdi(mov, cfdi) && (!busqueda || textoBusquedaMovimiento(mov).indexOf(busqueda) >= 0);
             });
             rows = ordenarCandidatosRelacion(rows.map(function (mov) {
-                return {mov: mov, cfdi: cfdi, coincidencia: coincidenciaCfdi(mov, cfdi)};
+                return {mov: mov, cfdi: cfdi, coincidencia: coincidenciaCfdiAcumulada(mov, cfdi)};
             }));
         } else {
             var movBase = movimientos.find(function (m) { return m.id === relacionContexto.movId; });
@@ -1465,7 +1671,7 @@
             rows = cfdisPeriodoActual().filter(function (cfdi) {
                 return cfdiDisponibleParaMovimiento(cfdi, movBase) && (!busqueda || textoBusquedaCfdi(cfdi).indexOf(busqueda) >= 0);
             }).map(function (cfdi) {
-                return {mov: movBase, cfdi: cfdi, coincidencia: coincidenciaCfdi(movBase, cfdi)};
+                return {mov: movBase, cfdi: cfdi, coincidencia: coincidenciaCfdiAcumulada(movBase, cfdi)};
             });
             rows = ordenarCandidatosRelacion(rows);
         }
@@ -1528,7 +1734,7 @@
         var cfdi = cfdiPorId(id);
         if (!cfdi) { return; }
         normalizarCfdiLegacy(cfdi);
-        var existente = movimientos.find(function (m) { return m.cfdi_uuid === cfdi.uuid; });
+        var existente = movimientos.find(function (m) { return movimientoTieneCfdiUuid(m, cfdi.uuid); });
         if (existente) {
             mostrarError("Ese CFDI ya tiene un movimiento relacionado.");
             return;
@@ -1536,7 +1742,7 @@
         var mov = normalizarMovimientoLegacy({
             id: "mov-cfdi-" + Date.now() + "-" + movimientos.length,
             fecha: cfdi.fecha || "",
-            periodo: cfdi.periodo || periodoCierreActual(),
+            periodo: cfdiPeriodoOperativo(cfdi) || periodoCierreActual(),
             cuenta: cuentaAuxiliarCfdi(cfdi),
             concepto: cfdi.emisor || cfdi.rfc_emisor || cfdi.archivo || "CFDI sin emisor",
             referencia: [cfdi.serie, cfdi.folio].filter(Boolean).join("-") || cfdi.uuid,
@@ -1565,7 +1771,7 @@
     function crearMovimientosCfdiSinBanco() {
         var creados = 0;
         cfdis.forEach(function (cfdi) {
-            var ligado = movimientos.some(function (m) { return m.cfdi_uuid === cfdi.uuid; });
+            var ligado = movimientos.some(function (m) { return movimientoTieneCfdiUuid(m, cfdi.uuid); });
             if (!ligado) {
                 crearMovimientoDesdeCfdi(cfdi.id, true);
                 creados++;
@@ -1622,7 +1828,7 @@
         var creados = 0;
         ids.forEach(function (id) {
             var cfdi = cfdiPorId(id);
-            var ligado = cfdi && movimientos.some(function (m) { return m.cfdi_uuid === cfdi.uuid; });
+            var ligado = cfdi && movimientos.some(function (m) { return movimientoTieneCfdiUuid(m, cfdi.uuid); });
             if (cfdi && !ligado) {
                 cfdi.tratamiento = "crear_auxiliar";
                 cfdi.origen = "cfdi_auxiliar";
@@ -1644,9 +1850,10 @@
             delete cfdisSeleccionados[id];
             if (cfdi && cfdi.uuid) {
                 movimientos.forEach(function (mov) {
-                    if (mov.cfdi_uuid === cfdi.uuid) {
-                        mov.cfdi_uuid = "";
-                        mov.cfdi = cfdiEsperado(mov);
+                    if (movimientoTieneCfdiUuid(mov, cfdi.uuid)) {
+                        mov.cfdi_uuids = movimientoCfdiUuids(mov).filter(function (uuid) { return uuid !== cfdi.uuid; });
+                        mov.cfdi_uuid = mov.cfdi_uuids[0] || "";
+                        mov.cfdi = mov.cfdi_uuids.length ? "ligado" : cfdiEsperado(mov);
                     }
                 });
             }
@@ -1667,16 +1874,22 @@
         if (!cfdi) { return; }
         var movimientoId = cfdi.movimiento_relacionado || "";
         var ligados = movimientos.filter(function (mov) {
-            return (cfdi.uuid && mov.cfdi_uuid === cfdi.uuid) || (movimientoId && mov.id === movimientoId);
+            return movimientoTieneCfdiUuid(mov, cfdi.uuid) || (movimientoId && mov.id === movimientoId);
         });
         ligados.forEach(function (mov) {
             if (esMovimientoAuxiliarCfdi(mov)) {
-                movimientos = movimientos.filter(function (m) { return m.id !== mov.id; });
-                delete seleccionados[mov.id];
+                mov.cfdi_uuids = movimientoCfdiUuids(mov).filter(function (uuid) { return uuid !== cfdi.uuid; });
+                if (!mov.cfdi_uuids.length) {
+                    movimientos = movimientos.filter(function (m) { return m.id !== mov.id; });
+                    delete seleccionados[mov.id];
+                } else {
+                    mov.cfdi_uuid = mov.cfdi_uuids[0];
+                }
             } else {
-                mov.cfdi_uuid = "";
+                mov.cfdi_uuids = movimientoCfdiUuids(mov).filter(function (uuid) { return uuid !== cfdi.uuid; });
+                mov.cfdi_uuid = mov.cfdi_uuids[0] || "";
                 mov.cfdi_sugerencia = "";
-                mov.cfdi = cfdiEsperado(mov);
+                mov.cfdi = mov.cfdi_uuids.length ? "ligado" : cfdiEsperado(mov);
             }
         });
         cfdi.movimiento_relacionado = "";
@@ -1689,15 +1902,16 @@
         var movimientoId = cfdi.movimiento_relacionado || "";
         return movimientos.find(function (mov) {
             if (esMovimientoAuxiliarCfdi(mov)) { return false; }
-            return (cfdi.uuid && mov.cfdi_uuid === cfdi.uuid) || (movimientoId && mov.id === movimientoId);
+            return movimientoTieneCfdiUuid(mov, cfdi.uuid) || (movimientoId && mov.id === movimientoId);
         });
     }
     function deshacerRelacionNoExacta(cfdi) {
         var mov = movimientoBancarioLigadoCfdi(cfdi);
         if (!mov || coincidenciaCfdi(mov, cfdi).exacta) { return false; }
-        mov.cfdi_uuid = "";
+        mov.cfdi_uuids = movimientoCfdiUuids(mov).filter(function (uuid) { return uuid !== cfdi.uuid; });
+        mov.cfdi_uuid = mov.cfdi_uuids[0] || "";
         mov.cfdi_sugerencia = "";
-        mov.cfdi = cfdiEsperado(mov);
+        mov.cfdi = mov.cfdi_uuids.length ? "ligado" : cfdiEsperado(mov);
         cfdi.movimiento_relacionado = "";
         cfdi.estatus_relacion = "pendiente";
         cfdi.tratamiento = "conciliar_banco";
@@ -1741,7 +1955,7 @@
             });
             var eliminados = 0;
             movimientos = movimientos.filter(function (mov) {
-                if (uuids[mov.cfdi_uuid] && esMovimientoAuxiliarCfdi(mov)) {
+                if (movimientoCfdiUuids(mov).some(function (uuid) { return uuids[uuid]; }) && esMovimientoAuxiliarCfdi(mov)) {
                     delete seleccionados[mov.id];
                     eliminados++;
                     return false;
@@ -1817,12 +2031,12 @@
         if (!cfdi) { return false; }
         var movimientoId = cfdi.movimiento_relacionado || "";
         return movimientos.some(function (mov) {
-            return (cfdi.uuid && mov.cfdi_uuid === cfdi.uuid) || (movimientoId && mov.id === movimientoId);
+            return movimientoTieneCfdiUuid(mov, cfdi.uuid) || (movimientoId && mov.id === movimientoId);
         });
     }
     function movimientoTieneCfdiLigado(mov) {
         if (!mov) { return false; }
-        if (mov.cfdi_uuid) { return true; }
+        if (movimientoCfdiUuids(mov).length) { return true; }
         return cfdis.some(function (cfdi) {
             return cfdi.movimiento_relacionado && cfdi.movimiento_relacionado === mov.id;
         });
@@ -1839,7 +2053,7 @@
             return normalizarMovimientoLegacy({
                 id: "cfdi-pend-" + (cfdi.id || cfdi.uuid || folio),
                 fecha: cfdi.fecha || "",
-                periodo: cfdi.periodo || periodoCierreActual(),
+                periodo: cfdiPeriodoOperativo(cfdi) || periodoCierreActual(),
                 cuenta: cfdi.cuenta_pago || "Cuenta sin nombre",
                 concepto: cfdi.emisor || cfdi.rfc_emisor || cfdi.archivo || "CFDI sin emisor",
                 referencia: folio,
@@ -2139,7 +2353,7 @@
                 "<td class=\"text-end fw-bold\">" + money(m.monto || 0) + "</td>" +
                 "<td><input class=\"form-control form-control-sm form-control-solid min-w-150px\" data-campo=\"referencia\" value=\"" + escapeHtml(m.referencia || "") + "\"></td>" +
                 "<td><select class=\"form-select form-select-sm form-select-solid min-w-125px\" data-campo=\"cfdi\">" + options(["ligado", "pendiente", "no_aplica"], m.cfdi) + "</select>" +
-                "<div class=\"text-muted fs-9 mt-1\">" + escapeHtml(m.cfdi_uuid || "") + "</div>" + sugerencia + "</td>" +
+                "<div class=\"text-muted fs-9 mt-1\">" + escapeHtml(movimientoCfdiUuids(m).join(" | ")) + "</div>" + sugerencia + "</td>" +
                 "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-2\">" +
                 "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Revisar relacion CFDI\" type=\"button\" data-ligar=\"" + escapeHtml(m.id) + "\"><i class=\"bi bi-link\"></i></button>" +
                 "<button class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Eliminar movimiento\" type=\"button\" data-eliminar-mov=\"" + escapeHtml(m.id) + "\"><i class=\"bi bi-trash3\"></i></button>" +
@@ -2163,7 +2377,7 @@
         }
         $("contabilidad_cfdis").innerHTML = rows.map(function (c) {
             normalizarCfdiLegacy(c);
-            var ligado = movimientos.find(function (m) { return m.cfdi_uuid === c.uuid || m.id === c.movimiento_relacionado; });
+            var ligado = movimientos.find(function (m) { return movimientoTieneCfdiUuid(m, c.uuid) || m.id === c.movimiento_relacionado; });
             var sugerido = movimientos.map(function (mov) { return {mov: mov, score: scoreCfdi(mov, c)}; })
                 .filter(function (x) { return x.score >= 40; })
                 .sort(function (a, b) { return b.score - a.score; })[0];
@@ -2171,6 +2385,7 @@
             var relacion = ligado ? "Ligado" : (sugerido ? (coincidenciaSugerida.exacta ? "Monto compatible" : "Sugerido") : "Sin banco");
             var pagoComplemento = c.pago_complemento ? "<span class=\"badge badge-light-info ms-2\">Complemento pago</span>" : "";
             var detallePago = c.pago_complemento ? "<div class=\"text-primary fs-9 mt-1\">Pago " + escapeHtml(c.pago_fecha || c.fecha || "-") + " | " + money(c.pago_monto || c.total || 0) + (c.num_operacion ? " | Op. " + escapeHtml(c.num_operacion) : "") + "</div>" : "";
+            var detallePeriodo = c.periodo_cierre && c.periodo_cierre !== c.periodo ? "<div class=\"text-muted fs-9 mt-1\">Emitido " + escapeHtml(c.periodo) + " | Cierre " + escapeHtml(c.periodo_cierre) + "</div>" : "";
             var doctos = c.doctos_relacionados ? "<div class=\"text-muted fs-9 mt-1\">Relacionado: " + escapeHtml(c.doctos_relacionados) + "</div>" : "";
             return "<tr data-cfdi-id=\"" + escapeHtml(c.id) + "\">" +
                 "<td><input class=\"form-check-input\" type=\"checkbox\" data-seleccionar-cfdi=\"" + escapeHtml(c.id) + "\"" + (cfdisSeleccionados[c.id] ? " checked" : "") + "></td>" +
@@ -2179,7 +2394,7 @@
                 "<div class=\"text-muted fs-9\">" + escapeHtml(c.rfc_emisor || "") + " | " + escapeHtml(c.uuid || "Sin UUID") + "</div>" +
                 "<div class=\"text-muted fs-9\">" + escapeHtml(c.receptor || c.rfc_receptor || "") + (c.uso_cfdi ? " | Uso " + escapeHtml(c.uso_cfdi) : "") + "</div>" +
                 "<div class=\"fs-9 mt-1\">" + escapeHtml(c.conceptos_resumen || c.concepto_principal || "Sin conceptos") + "</div>" +
-                detallePago + doctos +
+                detallePago + detallePeriodo + doctos +
                 "<div class=\"text-muted fs-9 mt-1\">IVA " + money(c.iva_trasladado || 0) + " | Ret. IVA " + money(c.iva_retenido || 0) + " | Ret. ISR " + money(c.isr_retenido || 0) + "</div></td>" +
                 "<td><select class=\"form-select form-select-sm form-select-solid min-w-150px\" data-cfdi-campo=\"categoria\">" + options(categorias, c.categoria) + "</select></td>" +
                 "<td><select class=\"form-select form-select-sm form-select-solid min-w-125px\" data-cfdi-campo=\"actividad\">" + options(actividades, c.actividad) + "</select></td>" +
@@ -2222,11 +2437,11 @@
     function cfdisPendientesCuenta(edo, rows) {
         var ligados = {};
         rows.forEach(function (m) {
-            if (m.cfdi_uuid) { ligados[m.cfdi_uuid] = true; }
+            movimientoCfdiUuids(m).forEach(function (uuid) { ligados[uuid] = true; });
         });
         return cfdis.filter(function (cfdi) {
             normalizarCfdiLegacy(cfdi);
-            return cfdi.periodo === edo.periodo &&
+            return cfdiPeriodoOperativo(cfdi) === edo.periodo &&
                 (cfdi.cuenta_pago || "") === (edo.cuenta || "") &&
                 !ligados[cfdi.uuid] &&
                 !cfdiTieneMovimiento(cfdi);
@@ -2271,14 +2486,16 @@
             var cuentas = {};
             (cierre.movimientos || []).forEach(function (m) { cuentas[m.cuenta || "Cuenta sin nombre"] = true; });
             var actualizado = cierre.actualizado ? new Date(cierre.actualizado).toLocaleString("es-MX") : "";
+            var totalMovimientos = cierre.movimientos_total != null ? cierre.movimientos_total : (cierre.movimientos || []).length;
+            var totalCuentas = cierre.cuentas_total != null ? cierre.cuentas_total : Object.keys(cuentas).length;
             return "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-3 border-bottom py-3\">" +
                 "<div><div class=\"fw-bold\">" + escapeHtml(cierre.periodo || cierre.id) + "</div>" +
-                "<div class=\"text-muted fs-8\">" + (cierre.movimientos || []).length + " movimientos | " + Object.keys(cuentas).length + " cuentas | " + escapeHtml(actualizado) + "</div></div>" +
+                "<div class=\"text-muted fs-8\">" + totalMovimientos + " movimientos | " + totalCuentas + " cuentas | " + escapeHtml(actualizado) + "</div></div>" +
                 "<div class=\"d-flex gap-2\">" +
                 "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-cargar-cierre=\"" + escapeHtml(cierre.id) + "\"><i class=\"bi bi-folder2-open\"></i> Abrir</button>" +
                 "<button class=\"btn btn-sm btn-light\" type=\"button\" data-eliminar-cierre=\"" + escapeHtml(cierre.id) + "\"><i class=\"bi bi-trash3\"></i></button>" +
                 "</div></div>";
-        }).join("") || "<div class=\"text-muted py-4\">Todavia no hay cierres guardados en este navegador.</div>";
+        }).join("") || "<div class=\"text-muted py-4\">Todavia no hay cierres guardados en la base de datos.</div>";
     }
     function movimientosPorCuenta() {
         return movimientosParaConciliacionFiltrados().reduce(function (map, mov) {
@@ -2545,8 +2762,9 @@
         programarAutosave();
     }
     function cfdiLigadoMovimiento(mov) {
-        if (!mov || !mov.cfdi_uuid) { return {}; }
-        return cfdis.find(function (cfdi) { return cfdi.uuid === mov.cfdi_uuid; }) || {};
+        if (!mov) { return {}; }
+        var uuids = movimientoCfdiUuids(mov);
+        return cfdis.find(function (cfdi) { return uuids.indexOf(cfdi.uuid) >= 0; }) || {};
     }
     function headersReporteMovimientos() {
         return ["periodo", "fecha", "origen", "descripcion", "movimiento", "actividad", "categoria", "cuenta", "forma_pago", "monto", "folio_factura", "cfdi", "cfdi_uuid", "traspaso_grupo", "traspaso_relacionado", "rfc_emisor", "emisor", "uso_cfdi", "metodo_pago_sat", "forma_pago_sat", "subtotal_cfdi", "iva", "ret_iva", "ret_isr", "conceptos_cfdi", "es_complemento_pago", "pago_fecha", "pago_monto", "pago_operacion", "pago_doctos_relacionados", "archivo_estado_cuenta", "notas"];
@@ -2856,18 +3074,31 @@
             }
             leerArchivoTexto(file, function (texto) { prepararMapeoMatriz(parseCsvMatriz(texto)); });
         });
+        $("contabilidad_xml_cargar").addEventListener("click", function () {
+            $("contabilidad_xml_archivos").click();
+        });
         $("contabilidad_xml_archivos").addEventListener("change", function (e) {
             var archivos = Array.prototype.slice.call(e.target.files || []);
             var pendientes = archivos.length;
-            if (!pendientes) { return; }
+            var idsImportados = [];
+            if (!pendientes) {
+                $("contabilidad_xml_seleccionados").textContent = "Presiona el boton, selecciona uno o varios XML y el sistema los analizara automaticamente.";
+                return;
+            }
+            $("contabilidad_xml_seleccionados").textContent = archivos.length + " XML seleccionado(s); se estan cargando...";
             archivos.forEach(function (file) {
                 leerArchivoTexto(file, function (texto) {
                     var cfdi = parseCfdiXml(texto, file.name);
                     if (!cfdi.uuid || !cfdis.some(function (c) { return c.uuid === cfdi.uuid; })) {
                         cfdis.push(cfdi);
+                        idsImportados.push(cfdi.id);
                     }
                     pendientes--;
-                    if (pendientes === 0) { autoRelacionarCfdi(); render(); }
+                    if (pendientes === 0) {
+                        var resultado = procesarCfdisImportados(idsImportados);
+                        $("contabilidad_xml_seleccionados").textContent = archivos.length + " XML procesado(s): " + resultado.relaciones + " relacionado(s), " + resultado.auxiliares + " auxiliar(es) creado(s).";
+                        e.target.value = "";
+                    }
                 });
             });
         });
@@ -2917,7 +3148,6 @@
         $("cfdi_masivo_deshacer_aux").addEventListener("click", deshacerAuxiliaresCfdiSeleccionados);
         $("cfdi_deshacer_no_exactas").addEventListener("click", deshacerRelacionesNoExactas);
         $("cfdi_masivo_limpiar").addEventListener("click", limpiarSeleccionCfdi);
-        $("contabilidad_cfdi_crear_movimientos").addEventListener("click", crearMovimientosCfdiSinBanco);
         $("clasificacion_origen").addEventListener("change", function (e) {
             var valor = e.target.value || "";
             clasificacionSeleccionada = valor;
@@ -3123,6 +3353,7 @@
         });
         restaurarBorradorActivoLocal();
         render();
+        cargarCierresRemotos();
     }
     document.addEventListener("DOMContentLoaded", bind);
 })();

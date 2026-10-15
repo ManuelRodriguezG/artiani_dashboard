@@ -425,25 +425,29 @@
                                                 <div class="col-md-2">
                                                     <label class="form-label">Mes CFDI</label>
                                                     <input class="form-control form-control-solid" id="contabilidad_cfdi_periodo" type="month">
+                                                    <div class="text-muted fs-9 mt-1">Puedes incluir CFDI emitidos despues si corresponden a este cierre.</div>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label class="form-label">CFDI XML</label>
-                                                    <input class="form-control form-control-solid" id="contabilidad_xml_archivos" type="file" accept=".xml" multiple>
+                                                    <input class="d-none" id="contabilidad_xml_archivos" type="file" accept=".xml" multiple>
+                                                    <button class="btn btn-light-primary w-100" id="contabilidad_xml_cargar" type="button"><i class="bi bi-upload"></i> Cargar CFDI</button>
+                                                    <div class="text-muted fs-9 mt-1" id="contabilidad_xml_seleccionados">Presiona el boton, selecciona uno o varios XML y el sistema los analizara automaticamente.</div>
                                                 </div>
                                                 <div class="col-md-2">
                                                     <label class="form-label">Tratamiento</label>
                                                     <select class="form-select form-select-solid" id="contabilidad_cfdi_tratamiento_default">
                                                         <option value="conciliar_banco">Conciliar con banco</option>
-                                                        <option value="crear_auxiliar">Crear gasto desde CFDI</option>
+                                                        <option value="crear_auxiliar">Crear auxiliar desde CFDI</option>
                                                     </select>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label class="form-label">Cuenta si no hay banco</label>
                                                     <select class="form-select form-select-solid" id="contabilidad_cfdi_cuenta_default">
                                                     </select>
+                                                    <div class="text-muted fs-9 mt-1">Se usa solo al crear el auxiliar; efectivo, tarjetas y comisiones pueden asignarse automaticamente.</div>
                                                 </div>
                                                 <div class="col-md-2">
-                                                    <label class="form-label">Clasificacion inicial</label>
+                                                    <label class="form-label">Clasificacion de respaldo</label>
                                                     <select class="form-select form-select-solid" id="contabilidad_cfdi_categoria_default">
                                                         <option value="gasto_operativo">Gasto operativo</option>
                                                         <option value="compra_mercancia">Compra</option>
@@ -453,9 +457,6 @@
                                                         <option value="publicidad">Publicidad</option>
                                                         <option value="software">Software</option>
                                                     </select>
-                                                </div>
-                                                <div class="col-md-2">
-                                                    <button class="btn btn-light-primary w-100" id="contabilidad_cfdi_crear_movimientos" type="button"><i class="bi bi-plus-circle"></i> Crear gastos</button>
                                                 </div>
                                             </div>
                                             <div class="border rounded p-4 mb-5">
@@ -519,7 +520,7 @@
                                                         <select class="form-select form-select-sm" id="cfdi_masivo_tratamiento">
                                                             <option value="">Sin cambio</option>
                                                             <option value="conciliar_banco">Conciliar con banco</option>
-                                                            <option value="crear_auxiliar">Crear gasto desde CFDI</option>
+                                                            <option value="crear_auxiliar">Crear auxiliar desde CFDI</option>
                                                         </select>
                                                     </div>
                                                     <div class="min-w-175px">
@@ -557,7 +558,7 @@
                                                         <button class="btn btn-sm btn-light" id="cfdi_masivo_limpiar" type="button"><i class="bi bi-x-circle"></i> Limpiar</button>
                                                         <button class="btn btn-sm btn-light-danger" id="cfdi_deshacer_no_exactas" type="button"><i class="bi bi-exclamation-triangle"></i> Deshacer montos no exactos</button>
                                                         <button class="btn btn-sm btn-light-warning" id="cfdi_masivo_deshacer_aux" type="button"><i class="bi bi-arrow-counterclockwise"></i> Deshacer auxiliares</button>
-                                                        <button class="btn btn-sm btn-light-success" id="cfdi_masivo_crear_aux" type="button"><i class="bi bi-plus-circle"></i> Crear auxiliares</button>
+                                                        <button class="btn btn-sm btn-light-success" id="cfdi_masivo_crear_aux" type="button"><i class="bi bi-plus-circle"></i> Crear auxiliares seleccionados</button>
                                                         <button class="btn btn-sm btn-primary" id="cfdi_masivo_aplicar" type="button"><i class="bi bi-check2-square"></i> Aplicar</button>
                                                     </div>
                                                 </div>

@@ -18,6 +18,39 @@ class Contabilidad extends Controlador {
     $this->vista("apps/erp/contabilidad/cierre_mensual");
   }
 
+  public function cierres_listar_erp() {
+    $this->requerirPermiso("finanzas.ver");
+    echo json_encode($this->modelo("contabilidad_datos")->listar($this->usuarioActualId()));
+  }
+
+  public function cierre_consultar_erp() {
+    $this->requerirPermiso("finanzas.ver");
+    $id = isset($_GET["id_cierre"]) ? intval($_GET["id_cierre"]) : 0;
+    echo json_encode($this->modelo("contabilidad_datos")->consultar($this->usuarioActualId(), $id));
+  }
+
+  public function cierre_guardar_erp() {
+    $this->requerirPermiso("finanzas.operar");
+    $payload = isset($_POST["payload_json"]) ? json_decode($_POST["payload_json"], true) : null;
+    $respuesta = $this->modelo("contabilidad_datos")->guardar($this->usuarioActualId(), $payload);
+    Sesionseguridad::registrarAuditoria("contabilidad", "cierre_guardar_erp", array(
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "periodo" => is_array($payload) && isset($payload["periodo"]) ? $payload["periodo"] : ""
+    ));
+    echo json_encode($respuesta);
+  }
+
+  public function cierre_eliminar_erp() {
+    $this->requerirPermiso("finanzas.operar");
+    $id = isset($_POST["id_cierre"]) ? intval($_POST["id_cierre"]) : 0;
+    $respuesta = $this->modelo("contabilidad_datos")->eliminar($this->usuarioActualId(), $id);
+    Sesionseguridad::registrarAuditoria("contabilidad", "cierre_eliminar_erp", array(
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "id_cierre" => $id
+    ));
+    echo json_encode($respuesta);
+  }
+
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-08-30
