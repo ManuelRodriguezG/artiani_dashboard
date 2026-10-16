@@ -169,7 +169,7 @@ Cuando una orden se cierre sin recepcion formal, Compras debe revisar cada parti
 2. Si existe SKU ERP y la compra corresponde a un articulo ya conocido, crear o actualizar una incidencia de Inventario por cada almacen que el usuario seleccione.
 3. Si la partida es servicio, cargo, adicional o gasto no inventariable, no crear incidencia de inventario.
 4. Si el usuario no conoce el almacen o la cantidad fisica, dejar el pendiente sin cantidad reportada y no inventar un cero.
-5. Si el usuario conoce una cantidad aproximada, guardarla con indicador de precision `estimada`; si fue conteo fisico, usar `revisada`.
+5. Si el usuario conoce una cantidad aproximada, guardarla con indicador de precision `estimada`; si fue conteo fisico, usar `conteo_fisico`.
 
 La incidencia debe ser idempotente por orden, SKU, almacen y tipo de pendiente. Reabrir o guardar nuevamente la orden no debe duplicarla.
 
@@ -181,15 +181,37 @@ Fecha: 2026-10-14
 - Las partidas no inventariables ya se separan de la logica de productos fisicos.
 - La incidencia de producto nuevo ya utiliza `erp_catalogo_incidencias_calidad`; no se debe duplicar en otra tabla de Compras.
 - La bandeja `erp_pos_inventario_pendientes` no se reutilizara para compras: su resolucion esta ligada a ventas POS y puede generar movimientos de inventario.
-- Se preparo el dry-run `Compra/esquema_actualizar_incidencias_compras_preoperativas` para proponer la tabla `erp_inventario_incidencias_operativas`. No se ejecuto DDL ni se escribio la base productiva.
+- Se preparo el esquema `Compra/esquema_actualizar_incidencias_compras_preoperativas` para proponer y ejecutar la tabla `erp_inventario_incidencias_operativas`. La ejecucion autorizada creo la tabla en la base operativa.
 - Se agrego la consulta `Compra/orden_incidencias_preoperativas_previsualizar_erp`, que clasifica una orden `cerrada_sin_recepcion` en pendientes de Catalogo, Inventario y partidas no inventariables sin escribir datos.
 - La previsualizacion tambien devuelve la politica de inventario del SKU (`requiere_lote`, `requiere_caducidad`, `requiere_serie`, `requiere_serie_fabricante` y alertas de caducidad) para que la futura captura de Recepcion sepa que datos son obligatorios.
 - Con autorizacion explicita del dueno, se creo `erp_inventario_incidencias_operativas` en la base operativa. Verificacion: tabla presente, 25 columnas y 12 indices.
 - Respaldo previo validado: `C:\\xampp\\panel_db_backups\\productivo_artianicom_sys_20261015_074449_pdo_antes_compras_incidencias_inventario.sql`.
 - SHA-256 del respaldo: `814C519984E4523B5521178D43320A4AA8596512C1E46FB203DD9D202E91EF73`.
 - La ejecucion no inserto incidencias, no modifico existencias, no creo recepciones y no genero movimientos de kardex.
+- Se implemento `OrdenesCompraErp::generarIncidenciasInventarioPreoperativas` y su endpoint `Compra/orden_incidencias_preoperativas_generar_erp`. Al guardar una orden como `cerrada_sin_recepcion`, las partidas inventariables con SKU ERP generan o sincronizan una incidencia idempotente de conteo; cargos/servicios y partidas sin SKU ERP se excluyen de esta bandeja.
+- La sincronizacion usa el almacen actual capturado en la operacion y conserva incidencias ya `resueltas` o `descartadas`. Tambien crea una notificacion operativa para `inventario.conteo`; no crea existencias, recepciones ni movimientos de kardex.
 
 La tabla propuesta conserva el origen de la compra, SKU, proveedor, almacen, cantidad comprada, cantidad reportada, precision del reporte, costo estimado y ciclo de atencion. Su huella unica evita duplicados al guardar o cerrar nuevamente la orden.
+
+### Implementacion inicial de atencion por Inventario
+
+Fecha: 2026-10-15
+
+- `Inventario/incidencias_compras_operativas_listar_erp` consulta los pendientes de compras por almacen, estatus o texto.
+- `Inventario/incidencia_compra_operativa_capturar_erp` registra una cantidad `estimada` o `conteo_fisico` y deja la incidencia en `capturado`.
+- Se agrego la vista `Inventario/incidencias_compras_operativas` y su acceso en el menu de Inventario. La pantalla permite filtrar y capturar pendientes, pero no ofrece acciones de ajuste.
+- La captura exige permiso `inventario.conteo`, registra auditoria y no crea existencias, recepciones ni movimientos de kardex.
+- La resolucion definitiva queda pendiente de la pantalla de conciliacion/recepcion: primero se debe revisar evidencia, lote, caducidad, serie y politica del SKU antes de afectar inventario.
+- Se mantiene el ciclo `pendiente -> en_revision -> capturado -> conciliado -> resuelto/descartado`; marcar una incidencia como leida no la resuelve.
+- Los productos sin SKU ERP no se envian a la bandeja de Inventario: se mantienen como incidencia de Catalogo (`compra_producto_pendiente_alta`). Catalogo puede crear un SKU temporal en borrador o el usuario puede relacionarlo desde Proveedores con un SKU ERP existente.
+- Catalogo dispone de la accion `Reanalizar` para volver a consultar las relaciones activas despues de una correccion. Si encuentra una relacion unica confiable, actualiza la identidad de la partida y resuelve la incidencia de compra; no crea una relacion ambigua automaticamente.
+
+UAT pendiente para esta etapa:
+
+- `UAT-COM-PRE-INV-001`: cerrar una orden con dos productos inventariables y un cargo; deben crearse dos incidencias, no una por el cargo.
+- `UAT-COM-PRE-INV-002`: guardar nuevamente la misma orden; no deben duplicarse incidencias ni notificaciones.
+- `UAT-COM-PRE-INV-003`: consultar la bandeja por permiso `inventario.ver` y capturar una cantidad con `inventario.conteo`; no deben cambiar existencias ni kardex.
+- `UAT-COM-PRE-INV-004`: confirmar que una incidencia `resuelto` o `descartado` no pueda ser sobrescrita por una captura posterior.
 
 ### Incidencia para producto nuevo
 

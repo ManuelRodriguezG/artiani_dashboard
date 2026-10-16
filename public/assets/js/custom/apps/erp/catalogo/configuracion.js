@@ -1163,6 +1163,9 @@
                   "<button class=\"btn btn-sm btn-light-warning me-1\" data-incidencia-accion=\"bloqueada\" data-id=\"" + item.id_incidencia_calidad + "\" title=\"Bloquear\"><i class=\"bi bi-pause-circle\"></i></button>" +
                   "<button class=\"btn btn-sm btn-light-danger\" data-incidencia-accion=\"descartada\" data-id=\"" + item.id_incidencia_calidad + "\" title=\"Descartar\"><i class=\"bi bi-x-lg\"></i></button>"
                 : "<span class=\"text-muted fs-8\">Solo lectura</span>";
+            if (permisos.editar && item.origen === "compra" && item.referencia_tipo === "erp_compras_ordenes" && Number(item.id_referencia || 0) > 0) {
+                acciones = "<button class=\"btn btn-sm btn-light-primary me-1\" data-reanalizar-compra=\"" + item.id_referencia + "\" title=\"Volver a analizar relaciones\"><i class=\"bi bi-arrow-repeat\"></i> Reanalizar</button>" + acciones;
+            }
             return "<tr><td><span class=\"badge " + objetivo.clase + "\">" + escapeHtml(objetivo.texto) + "</span><div class=\"text-muted fs-8 mt-1\">" + escapeHtml(objetivo.responsable) + "</div></td><td><span class=\"badge " + claseSeveridad(item.severidad) + "\">" + escapeHtml(item.severidad) + "</span><div class=\"text-muted fs-8 mt-1\">" + escapeHtml(item.estatus) + "</div></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.titulo) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.tipo_incidencia) + "</div><div class=\"fs-8\">" + escapeHtml(item.descripcion || "") + "</div></td>" +
                 "<td>" + entidad + referencia + "</td><td><span class=\"badge badge-light\">" + escapeHtml(item.origen) + "</span></td><td class=\"text-end\">" + acciones + "</td></tr>";
@@ -1209,6 +1212,34 @@
             }).catch(function (error) {
                 Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
             });
+        });
+    }
+
+    function reanalizarCompra(idOrden) {
+        Swal.fire({
+            title: "Reanalizar orden",
+            text: "Se volverán a revisar las relaciones actuales de Catalogo y Proveedores. No se modificará inventario.",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Reanalizar",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            return request("/catalogoerp/incidencia_compra_reanalizar_erp", {id_orden_compra: idOrden});
+        }).then(function (response) {
+            if (!response) {
+                return;
+            }
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            return Swal.fire({text: response.mensaje + ". Relaciones aplicadas: " + Number(response.depurar && response.depurar.relaciones_aplicadas || 0), icon: "success", confirmButtonText: "Aceptar"});
+        }).then(function () {
+            cargarIncidencias();
+        }).catch(function (error) {
+            Swal.fire({text: error.message || String(error), icon: "error", confirmButtonText: "Aceptar"});
         });
     }
 
@@ -2102,6 +2133,11 @@
             }
         });
         document.getElementById("catalogo_incidencias_tabla").addEventListener("click", function (event) {
+            var reanalizar = event.target.closest("[data-reanalizar-compra]");
+            if (reanalizar) {
+                reanalizarCompra(reanalizar.getAttribute("data-reanalizar-compra"));
+                return;
+            }
             var boton = event.target.closest("[data-incidencia-accion]");
             if (!boton) {
                 return;

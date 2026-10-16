@@ -247,6 +247,7 @@ $gruposMenu = array(
         'permiso' => 'inventario.ver',
         'items' => array(
             array('titulo' => 'Existencias', 'ruta' => '/inventario/productos_existencias', 'permiso' => 'inventario.ver'),
+            array('titulo' => 'Incidencias de compras', 'ruta' => '/inventario/incidencias_compras_operativas', 'permiso' => 'inventario.ver'),
             array('titulo' => 'Ajuste de inventario', 'ruta' => '/inventario/inicial', 'permiso' => 'inventario.ajustar'),
             array('titulo' => 'Reclasificacion', 'ruta' => '/inventario/reclasificacion', 'permiso' => array('inventario.reclasificar', 'inventario.ajustar')),
             array('titulo' => 'Traspaso entre almacenes', 'ruta' => '/inventario/transpaso', 'permiso' => 'inventario.traspasar')
@@ -342,7 +343,7 @@ $gruposMenu = array(
         'permiso' => 'distribucion.ver',
         'items' => array(
             array('titulo' => 'Resumen', 'ruta' => '/distribucionadmin/panel_resumen', 'permiso' => 'distribucion.ver'),
-            array('titulo' => 'Solicitudes', 'ruta' => '/distribucionadmin/panel_solicitudes', 'permiso' => 'distribucion.ver'),
+            array('titulo' => 'Prospectos', 'ruta' => '/distribucionadmin/panel_prospectos', 'permiso' => 'distribucion.ver'),
             array('titulo' => 'Clientes', 'ruta' => '/distribucionadmin/panel_clientes', 'permiso' => 'distribucion.ver'),
             array('titulo' => 'Pedidos', 'ruta' => '/distribucionadmin/panel_pedidos', 'permiso' => 'distribucion.cotizaciones.ver'),
             array('titulo' => 'Mi catalogo', 'ruta' => '/distribucionadmin/panel_mi_catalogo', 'permiso' => 'distribucion.ver'),

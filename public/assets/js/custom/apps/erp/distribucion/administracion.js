@@ -17,6 +17,7 @@
     var clienteListas = [];
     var clienteListaActiva = null;
     var clienteListaProductos = [];
+    var prospectoDetalle = null;
     var permisosComerciales = [];
     var permisosUi = window.DISTRIBUCION_ADMIN_PERMISOS || {};
     var seccionActiva = window.DISTRIBUCION_ADMIN_SECCION || "resumen";
@@ -68,6 +69,34 @@
             cancelada: "badge-light-danger"
         };
         return "<span class=\"badge " + (mapa[estatus] || "badge-light") + "\">" + escapeHtml(estatus || "sin estado") + "</span>";
+    }
+
+    function revisionComercialHtml(revision, compacto) {
+        revision = revision || {};
+        var porcentaje = Math.max(0, Math.min(100, Number(revision.porcentaje || 0)));
+        var semaforo = revision.semaforo || "rojo";
+        var color = semaforo === "verde" ? "success" : (semaforo === "amarillo" ? "warning" : "danger");
+        var pendientes = Array.isArray(revision.pendientes) ? revision.pendientes : [];
+        var titulo = revision.decision_sugerida || "Revision pendiente";
+        var situacion = revision.situacion || "Situacion por confirmar";
+        var html = "<div class=\"dist-revision-comercial\"><div class=\"d-flex justify-content-between align-items-center gap-2\"><span class=\"fw-bold\">Datos capturados " + porcentaje + "%</span><span class=\"badge badge-light-" + color + "\">" + escapeHtml(semaforo) + "</span></div>" +
+            "<div class=\"progress mt-2\" style=\"height:6px\"><div class=\"progress-bar bg-" + color + "\" role=\"progressbar\" style=\"width:" + porcentaje + "%\" aria-valuenow=\"" + porcentaje + "\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div></div>" +
+            "<div class=\"text-muted fs-8 mt-2\">" + escapeHtml(titulo) + "</div>" +
+            "<div class=\"text-muted fs-8\"><i class=\"bi bi-building me-1\"></i>" + escapeHtml(situacion) + "</div>";
+        if (!compacto) {
+            html += "<div class=\"mt-3 p-3 bg-light-" + color + " rounded\"><div class=\"fw-semibold fs-7\">Uso recomendado</div><div class=\"fs-8\">" + escapeHtml(revision.nivel_informacion_recomendado || "Solo informacion general y seguimiento") + "</div></div>";
+            var criterios = Array.isArray(revision.criterios) ? revision.criterios : [];
+            if (criterios.length) {
+                html += "<div class=\"mt-3\"><div class=\"fw-semibold fs-8\">Como se calculo</div><div class=\"row g-2 mt-1\">" + criterios.map(function (criterio) {
+                    return "<div class=\"col-md-6 fs-8\"><i class=\"bi " + (criterio.cumple ? "bi-check-circle text-success" : "bi-dash-circle text-muted") + " me-1\"></i>" + escapeHtml(criterio.etiqueta) + " <span class=\"text-muted\">(" + escapeHtml(criterio.peso) + "%)</span></div>";
+                }).join("") + "</div></div>";
+            }
+            if (pendientes.length) {
+                html += "<div class=\"mt-3\"><div class=\"fw-semibold fs-8\">Para decidir faltaria:</div><ul class=\"mb-0 ps-4 fs-8\">" + pendientes.slice(0, 5).map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul></div>";
+            }
+            html += "<div class=\"text-muted fs-8 mt-3\"><i class=\"bi bi-shield-check me-1\"></i>Acreditacion: decision manual pendiente. Este porcentaje no habilita acceso.</div>";
+        }
+        return html + "</div>";
     }
 
     function money(value) {
@@ -208,52 +237,37 @@
         return numero;
     }
 
-    function mensajeWhatsApp(item) {
-        if (item && item.mensaje_whatsapp) {
-            return item.mensaje_whatsapp;
-        }
-        var nombre = item && item.nombre ? item.nombre : "buen dia";
-        var correo = item && item.correo ? item.correo : "";
-        var portal = portalDistribucion();
-        var partes = [
-            "Hola " + nombre + ", tu solicitud de acceso mayorista Artiani ya fue aprobada.",
-            correo ? "Puedes intentar ingresar al portal de Distribucion con este correo: " + correo + "." : "Ya puedes intentar ingresar al portal de Distribucion.",
-            "Portal: " + portal,
-            "Si necesitas apoyo para activar o definir tu contrasena, te ayudamos por este medio."
-        ];
-        return partes.join("\n");
-    }
-
-    function portalDistribucion() {
-        var host = String(window.location.hostname || "").toLowerCase();
-        if (host === "localhost" || host.indexOf(".com.local") !== -1) {
-            return "http://distribucion.artiani.com.local";
-        }
-        return "https://distribucion.artiani.com.mx";
-    }
-
-    function abrirWhatsApp(item) {
-        var numero = telefonoWhatsApp((item && (item.whatsapp || item.telefono)) || "");
-        if (!numero) {
+    /**
+     * IA: Codex GPT-5 | 2026-10-15
+     * Proposito: permitir comunicacion libre por WhatsApp sin mezclarla con aprobacion de acceso.
+     * Impacto: UX Distribucion; el operador decide cuando contactar y que texto enviar.
+     */
+    function abrirWhatsAppComposer(item) {
+        var telefono = telefonoWhatsApp((item && (item.whatsapp || item.telefono)) || "");
+        if (!telefono) {
             Swal.fire({text: "Este registro no tiene telefono o WhatsApp capturado.", icon: "warning", confirmButtonText: "Aceptar"});
             return;
         }
-        window.open("https://wa.me/" + encodeURIComponent(numero) + "?text=" + encodeURIComponent(mensajeWhatsApp(item)), "_blank", "noopener");
-    }
-
-    function abrirWhatsAppActivacion(data) {
-        request("/distribucionadmin/cliente_activacion_link", data).then(function (response) {
-            if (response.error) { throw new Error(response.mensaje); }
-            var depurar = response.depurar || {};
-            var cliente = depurar.cliente || {};
-            abrirWhatsApp({
-                nombre: cliente.nombre,
-                correo: cliente.correo,
-                telefono: cliente.telefono || data.telefono,
-                whatsapp: data.whatsapp || cliente.telefono,
-                mensaje_whatsapp: depurar.mensaje_whatsapp
-            });
-        }).catch(showError);
+        var nombre = item && item.nombre ? item.nombre : "cliente";
+        Swal.fire({
+            title: "Contactar por WhatsApp",
+            html: "<div class=\"text-start\"><div class=\"text-muted fs-7 mb-3\">Mensaje para " + escapeHtml(nombre) + "</div><textarea id=\"dist_whatsapp_mensaje\" class=\"form-control\" rows=\"6\" placeholder=\"Escribe el mensaje que quieras enviar...\"></textarea></div>",
+            width: 680,
+            showCancelButton: true,
+            confirmButtonText: "Abrir WhatsApp",
+            cancelButtonText: "Cancelar",
+            preConfirm: function () {
+                var mensaje = (document.getElementById("dist_whatsapp_mensaje") || {}).value || "";
+                if (!mensaje.trim()) {
+                    Swal.showValidationMessage("Escribe un mensaje antes de continuar.");
+                    return false;
+                }
+                return mensaje.trim();
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            window.open("https://wa.me/" + encodeURIComponent(telefono) + "?text=" + encodeURIComponent(result.value), "_blank", "noopener");
+        });
     }
 
     function generarLinkAccesoCliente(data) {
@@ -261,7 +275,6 @@
             if (response.error) { throw new Error(response.mensaje); }
             var depurar = response.depurar || {};
             var cliente = depurar.cliente || {};
-            var mensaje = depurar.mensaje_whatsapp || "";
             var url = depurar.url || "";
             Swal.fire({
                 title: "Nuevo link de acceso",
@@ -273,18 +286,7 @@
                     "</div>",
                 icon: "success",
                 width: 720,
-                showCancelButton: true,
-                confirmButtonText: "Abrir WhatsApp",
-                cancelButtonText: "Cerrar"
-            }).then(function (result) {
-                if (!result.isConfirmed) { return; }
-                abrirWhatsApp({
-                    nombre: cliente.nombre,
-                    correo: cliente.correo,
-                    telefono: cliente.telefono || data.telefono,
-                    whatsapp: data.whatsapp || cliente.telefono,
-                    mensaje_whatsapp: mensaje
-                });
+                confirmButtonText: "Cerrar"
             });
         }).catch(showError);
     }
@@ -307,30 +309,6 @@
                 confirmButtonText: "Cerrar"
             });
         }).catch(showError);
-    }
-
-    function confirmarWhatsAppActivacion(solicitud, activacion) {
-        if (!solicitud || !activacion || !activacion.mensaje_whatsapp) {
-            showOk("Cliente Distribucion aprobado");
-            return;
-        }
-        Swal.fire({
-            title: "Cliente aprobado",
-            text: "Se genero link para crear contrasenia. Puedes abrir WhatsApp y enviar el mensaje manualmente.",
-            icon: "success",
-            showCancelButton: true,
-            confirmButtonText: "Abrir WhatsApp",
-            cancelButtonText: "Cerrar"
-        }).then(function (result) {
-            if (!result.isConfirmed) { return; }
-            abrirWhatsApp({
-                nombre: solicitud.nombre,
-                correo: solicitud.correo,
-                telefono: solicitud.telefono,
-                whatsapp: solicitud.whatsapp,
-                mensaje_whatsapp: activacion.mensaje_whatsapp
-            });
-        });
     }
 
     function getListaOptions(selected) {
@@ -759,11 +737,14 @@
             return [item.folio, item.nombre, item.nombre_negocio, item.empresa, item.correo, item.telefono, item.whatsapp, item.ciudad, item.estado, item.tipo_negocio].join(" ").toLowerCase().indexOf(q) !== -1;
         });
         document.getElementById("dist_solicitudes_lista").innerHTML = visibles.map(function (item) {
-            var acciones = "<button class=\"btn btn-sm btn-icon btn-light-info\" title=\"Detalle\" data-solicitud-detalle=\"" + escapeHtml(item.id_solicitud_distribucion) + "\"><i class=\"bi bi-card-text\"></i></button> ";
+            var acciones = "<a class=\"btn btn-sm btn-icon btn-light-info\" title=\"Ver expediente\" href=\"" + adminBase + "/prospecto/" + encodeURIComponent(item.id_solicitud_distribucion) + "\"><i class=\"bi bi-card-text\"></i></a> ";
             if (item.telefono || item.whatsapp) {
-                acciones += "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"WhatsApp\" data-solicitud-whatsapp=\"" + escapeHtml(item.id_solicitud_distribucion) + "\"><i class=\"bi bi-whatsapp\"></i></button> ";
+                acciones += "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"Contactar por WhatsApp\" data-prospecto-whatsapp=\"" + escapeHtml(item.id_solicitud_distribucion) + "\"><i class=\"bi bi-whatsapp\"></i></button> ";
             }
-            if (permisosUi.aprobar && item.estatus === "pendiente") {
+            if (permisosUi.editar) {
+                acciones += "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Registrar revision\" data-prospecto-revision=\"" + escapeHtml(item.id_solicitud_distribucion) + "\"><i class=\"bi bi-clipboard-check\"></i></button> ";
+            }
+            if (permisosUi.aprobar && (item.estatus === "pendiente" || item.estatus === "en_revision")) {
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"Aprobar\" data-solicitud-aprobar=\"" + escapeHtml(item.id_solicitud_distribucion) + "\"><i class=\"bi bi-check-lg\"></i></button> " +
                     "<button class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Rechazar\" data-solicitud-rechazar=\"" + escapeHtml(item.id_solicitud_distribucion) + "\"><i class=\"bi bi-x-lg\"></i></button>";
             }
@@ -773,8 +754,70 @@
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.folio) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.fecha_registro || "") + "</div></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(contactoExtra) + "</div></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(negocio) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(labelTipoNegocio(item.tipo_negocio)) + "</div></td>" +
-                "<td>" + escapeHtml(ubicacion || "Por capturar") + "</td><td>" + badge(item.estatus) + "</td><td class=\"text-end\">" + acciones + "</td></tr>";
-        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">Sin solicitudes</td></tr>";
+                "<td>" + escapeHtml(ubicacion || "Por capturar") + "</td><td>" + revisionComercialHtml(item.revision_comercial, true) + "</td><td>" + badge(item.estatus) + "</td><td class=\"text-end\">" + acciones + "</td></tr>";
+        }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\">Sin prospectos</td></tr>";
+    }
+
+    function cargarProspectoDetalle() {
+        var id = Number(window.DISTRIBUCION_PROSPECTO_ID || 0);
+        if (!id) { return Promise.resolve(); }
+        return request("/distribucionadmin/solicitud_detalle?id_solicitud_distribucion=" + encodeURIComponent(id)).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo consultar el prospecto"); }
+            prospectoDetalle = response.depurar && response.depurar.solicitud ? response.depurar.solicitud : null;
+            renderProspectoDetalle();
+        });
+    }
+
+    function prospectoDetalleCampo(label, value, wide) {
+        return "<div class=\"" + (wide ? "col-12" : "col-md-6") + "\"><div class=\"text-muted fs-8 text-uppercase\">" + escapeHtml(label) + "</div><div class=\"fw-semibold text-break\">" + escapeHtml(value || "No proporcionado") + "</div></div>";
+    }
+
+    function prospectoJsonTexto(value) {
+        var valores = arraySeguro(value);
+        return valores.length ? valores.map(function (item) {
+            if (typeof item === "object") { return item.ruta || item.nombre || item.categoria || item.label || item.id || JSON.stringify(item); }
+            return item;
+        }).filter(Boolean).join(", ") : "No proporcionado";
+    }
+
+    function renderProspectoDetalle() {
+        if (!prospectoDetalle) { return; }
+        var item = prospectoDetalle;
+        var encabezado = document.getElementById("dist_prospecto_encabezado");
+        if (encabezado) {
+            encabezado.innerHTML = "<div class=\"d-flex flex-wrap justify-content-between gap-4\"><div><div class=\"text-muted fs-7\">" + escapeHtml(item.folio || "Prospecto") + "</div><h2 class=\"mb-1\">" + escapeHtml(item.nombre || "Sin nombre") + "</h2><div class=\"text-muted\">" + escapeHtml(item.nombre_negocio || item.empresa || "Sin negocio") + "</div></div><div class=\"text-end\">" + badge(item.estatus) + "<div class=\"text-muted fs-8 mt-2\">Registrado: " + escapeHtml(item.fecha_registro || "") + "</div></div></div><div class=\"separator my-5\"></div>" + revisionComercialHtml(item.revision_comercial, false);
+        }
+        var datos = document.getElementById("dist_prospecto_datos");
+        if (datos) {
+            datos.innerHTML = prospectoDetalleCampo("Correo", item.correo) +
+                prospectoDetalleCampo("Telefono", item.telefono) + prospectoDetalleCampo("WhatsApp", item.whatsapp) +
+                prospectoDetalleCampo("RFC", item.rfc) + prospectoDetalleCampo("Tipo de negocio", labelTipoNegocio(item.tipo_negocio)) +
+                prospectoDetalleCampo("Tipo de interes", item.tipo_interes) + prospectoDetalleCampo("Ciudad", item.ciudad) +
+                prospectoDetalleCampo("Estado", item.estado) + prospectoDetalleCampo("Calle", item.calle) +
+                prospectoDetalleCampo("Numero exterior", item.numero_exterior) + prospectoDetalleCampo("Numero interior", item.numero_interior) +
+                prospectoDetalleCampo("Colonia", item.colonia) + prospectoDetalleCampo("Codigo postal", item.codigo_postal) +
+                prospectoDetalleCampo("Referencias", item.referencias, true);
+        }
+        var intereses = document.getElementById("dist_prospecto_intereses");
+        if (intereses) {
+            intereses.innerHTML = prospectoDetalleCampo("Situacion declarada", (item.revision_comercial || {}).situacion) +
+                prospectoDetalleCampo("Canal de venta", (item.revision_comercial || {}).canal_venta) +
+                prospectoDetalleCampo("Periodo de apertura", (item.revision_comercial || {}).periodo_apertura) +
+                prospectoDetalleCampo("Categorias de interes", prospectoJsonTexto(item.categorias_interes_json), true) +
+                prospectoDetalleCampo("Intereses comerciales", item.intereses_comerciales, true) + prospectoDetalleCampo("Mensaje del prospecto", item.mensaje, true);
+            var datosComerciales = jsonSeguro(item.datos_comerciales_json);
+            var facturacion = datosComerciales.facturacion || {};
+            intereses.innerHTML += "<div class=\"separator my-5\"></div><div class=\"fw-bold mb-3\">Facturacion declarada</div>" +
+                prospectoDetalleCampo("Requiere factura", Number(facturacion.requiere_factura || item.requiere_factura || 0) === 1 ? "Si" : "No") +
+                prospectoDetalleCampo("RFC fiscal", facturacion.rfc || item.rfc) + prospectoDetalleCampo("Razon social", facturacion.razon_social, true) +
+                prospectoDetalleCampo("Regimen fiscal", facturacion.regimen_fiscal) + prospectoDetalleCampo("Uso CFDI", facturacion.uso_cfdi) +
+                prospectoDetalleCampo("Correo de facturacion", facturacion.correo_facturacion, true);
+        }
+        var tecnico = document.getElementById("dist_prospecto_tecnico");
+        if (tecnico) {
+            tecnico.innerHTML = prospectoDetalleCampo("ID prospecto", item.id_solicitud_distribucion) + prospectoDetalleCampo("ID cliente creado", item.id_cliente_distribucion) +
+                prospectoDetalleCampo("Fecha de actualizacion", item.fecha_actualizacion) + prospectoDetalleCampo("IP de registro", item.ip_registro) + prospectoDetalleCampo("Origen", item.origen || "Portal Distribucion") + prospectoDetalleCampo("Navegador", item.user_agent, true);
+        }
     }
 
     function renderClientes() {
@@ -805,7 +848,7 @@
             }
             acciones += "<button class=\"btn btn-sm btn-icon btn-light-info\" title=\"Historial de acceso\" data-cliente-auditoria=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-clock-history\"></i></button> ";
             if (item.telefono) {
-                acciones += "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"WhatsApp\" data-cliente-whatsapp=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-whatsapp\"></i></button> ";
+                acciones += "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"Contactar por WhatsApp\" data-cliente-whatsapp=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-whatsapp\"></i></button> ";
             }
             if (permisosUi.aprobar && item.estatus === "aprobado") {
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-warning\" title=\"Nuevo link de acceso\" data-cliente-acceso=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-key\"></i></button> ";
@@ -1129,6 +1172,12 @@
             if (seccionActiva === "solicitudes") {
                 return cargarSolicitudes();
             }
+            if (seccionActiva === "prospectos") {
+                if (document.getElementById("dist_prospecto_encabezado")) {
+                    return cargarProspectoDetalle();
+                }
+                return cargarSolicitudes();
+            }
             if (seccionActiva === "clientes") {
                 return Promise.all([cargarClientes(), cargarCotizaciones(), cargarSurtidos(), cargarInventarios(), cargarSugeridos()]).then(function () { renderClientes(); });
             }
@@ -1169,8 +1218,51 @@
         }).catch(showError);
     }
 
+    function registrarRevisionProspecto(id) {
+        var prospecto = solicitudes.find(function (item) { return String(item.id_solicitud_distribucion) === String(id); });
+        if (!prospecto && prospectoDetalle && String(prospectoDetalle.id_solicitud_distribucion) === String(id)) {
+            prospecto = prospectoDetalle;
+        }
+        var html = "<div class=\"text-start\"><div class=\"mb-5\"><div class=\"fw-bold\">" + escapeHtml(prospecto ? prospecto.nombre : "Prospecto") + "</div><div class=\"text-muted\">" + escapeHtml(prospecto ? (prospecto.nombre_negocio || prospecto.empresa || "") : "") + "</div></div>" +
+            "<div class=\"row g-3\">" +
+            "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Contacto</label><select id=\"dist_revision_contacto\" class=\"form-select form-select-solid\"><option value=\"pendiente\">Pendiente de confirmar</option><option value=\"llamada\">Confirmado por llamada</option><option value=\"whatsapp\">Confirmado por WhatsApp</option><option value=\"correo\">Confirmado por correo</option><option value=\"sin_respuesta\">No hubo respuesta</option></select></div>" +
+            "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Situacion del negocio</label><select id=\"dist_revision_situacion\" class=\"form-select form-select-solid\"><option value=\"por_confirmar\">Por confirmar</option><option value=\"operando\">Ya esta operando</option><option value=\"preparacion\">Esta preparando su negocio</option><option value=\"idea\">Es una idea o proyecto inicial</option></select></div>" +
+            "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Referencia revisada</label><select id=\"dist_revision_referencia\" class=\"form-select form-select-solid\"><option value=\"pendiente\">Pendiente</option><option value=\"suficiente\">Referencia suficiente</option><option value=\"parcial\">Referencia parcial</option><option value=\"no_aplica\">No aplica por ahora</option></select></div>" +
+            "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Alcance de informacion</label><select id=\"dist_revision_alcance\" class=\"form-select form-select-solid\"><option value=\"general\">Solo informacion general</option><option value=\"sin_catalogo\">Sin catalogo ni precios</option><option value=\"catalogo_limitado\">Catalogo limitado</option><option value=\"comercial_expreso\">Alcance comercial autorizado</option></select></div>" +
+            "</div><label class=\"form-label fw-semibold mt-4\">Resumen de la validacion</label><textarea id=\"dist_revision_resumen\" class=\"form-control form-control-solid\" rows=\"4\" placeholder=\"Que confirmaste y que quedo pendiente...\"></textarea><div class=\"text-muted fs-8 mt-2\">Se guarda en auditoria y no cambia el estatus ni acredita al prospecto.</div></div>";
+        Swal.fire({
+            title: "Registrar revision comercial",
+            html: html,
+            width: 760,
+            showCancelButton: true,
+            confirmButtonText: "Guardar revision",
+            cancelButtonText: "Cancelar",
+            preConfirm: function () {
+                return {
+                    contacto: selectValue("dist_revision_contacto") || "pendiente",
+                    situacion: selectValue("dist_revision_situacion") || "por_confirmar",
+                    referencia: selectValue("dist_revision_referencia") || "pendiente",
+                    alcance: selectValue("dist_revision_alcance") || "general",
+                    resumen: (document.getElementById("dist_revision_resumen") || {}).value || ""
+                };
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            request("/distribucionadmin/cliente_revision_registrar", {
+                id_solicitud_distribucion: id,
+                validacion_revision: JSON.stringify(result.value || {})
+            }).then(function (response) {
+                if (response.error) { throw new Error(response.mensaje || "No se pudo guardar la revision"); }
+                showOk(response.mensaje || "Revision comercial guardada");
+            }).catch(showError);
+        });
+    }
+
     function aprobarSolicitud(id) {
         var solicitud = solicitudes.find(function (item) { return String(item.id_solicitud_distribucion) === String(id); });
+        if (!solicitud && prospectoDetalle && String(prospectoDetalle.id_solicitud_distribucion) === String(id)) {
+            solicitud = prospectoDetalle;
+        }
         var listaHtml = permisosUi.asignar_precios
             ? "<label class=\"form-label fw-semibold\">Lista de precios</label><select id=\"dist_aprobar_lista\" class=\"form-select form-select-solid mb-5\">" + getListaOptions("") + "</select>"
             : "<div class=\"text-muted mb-5\">Sin permiso para asignar lista de precios en este paso.</div>";
@@ -1179,13 +1271,22 @@
                 return "<label class=\"form-check form-check-custom form-check-solid mb-3\"><input class=\"form-check-input\" type=\"checkbox\" value=\"" + escapeHtml(permiso) + "\"><span class=\"form-check-label\"><span class=\"fw-semibold\">" + escapeHtml(labelPermiso(permiso)) + "</span><span class=\"text-muted d-block fs-8\">" + escapeHtml(permiso) + "</span></span></label>";
             }).join("")
             : "<div class=\"text-muted\">Sin permiso para asignar permisos comerciales en este paso.</div>";
+        var validacionHtml = "<div class=\"separator my-5\"></div><div class=\"fw-semibold mb-3\">Validacion realizada por el asesor</div>" +
+            "<div class=\"row g-3\">" +
+            "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Contacto</label><select id=\"dist_revision_contacto\" class=\"form-select form-select-solid\"><option value=\"pendiente\">Pendiente de confirmar</option><option value=\"llamada\">Confirmado por llamada</option><option value=\"whatsapp\">Confirmado por WhatsApp</option><option value=\"correo\">Confirmado por correo</option><option value=\"sin_respuesta\">No hubo respuesta</option></select></div>" +
+            "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Situacion del negocio</label><select id=\"dist_revision_situacion\" class=\"form-select form-select-solid\"><option value=\"por_confirmar\">Por confirmar</option><option value=\"operando\">Ya esta operando</option><option value=\"preparacion\">Esta preparando su negocio</option><option value=\"idea\">Es una idea o proyecto inicial</option></select></div>" +
+            "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Referencia revisada</label><select id=\"dist_revision_referencia\" class=\"form-select form-select-solid\"><option value=\"pendiente\">Pendiente</option><option value=\"suficiente\">Referencia suficiente</option><option value=\"parcial\">Referencia parcial</option><option value=\"no_aplica\">No aplica por ahora</option></select></div>" +
+            "<div class=\"col-md-6\"><label class=\"form-label fw-semibold\">Alcance autorizado</label><select id=\"dist_revision_alcance\" class=\"form-select form-select-solid\"><option value=\"general\">Solo informacion general</option><option value=\"sin_catalogo\">Sin catalogo ni precios por ahora</option><option value=\"catalogo_limitado\">Catalogo limitado autorizado</option><option value=\"comercial_expreso\">Alcance comercial expresamente autorizado</option></select></div>" +
+            "</div><label class=\"form-label fw-semibold mt-4\">Resumen de la validacion</label><textarea id=\"dist_revision_resumen\" class=\"form-control form-control-solid\" rows=\"3\" placeholder=\"Escribe que confirmaste y que quedo pendiente...\"></textarea><div class=\"text-muted fs-8 mt-2\">Este resumen queda como evidencia interna. No sustituye la revision ni asigna permisos automaticamente.</div>";
         Swal.fire({
             title: "Aprobar cliente",
             html: "<div class=\"text-start\">" +
                 "<div class=\"mb-5\"><div class=\"fw-bold\">" + escapeHtml(solicitud ? solicitud.nombre : "Solicitud") + "</div><div class=\"text-muted\">" + escapeHtml(solicitud ? (solicitud.nombre_negocio || solicitud.empresa || "") : "") + "</div></div>" +
+                (solicitud && solicitud.revision_comercial ? "<div class=\"alert alert-light-warning mb-5\"><div class=\"fw-bold\">Lectura del expediente</div>" + revisionComercialHtml(solicitud.revision_comercial, false) + "</div>" : "") +
                 "<label class=\"form-label fw-semibold\">Contrasenia temporal</label><input id=\"dist_aprobar_contrasenia\" type=\"password\" class=\"form-control form-control-solid mb-2\" placeholder=\"Dejar vacio para definir despues\"><div class=\"text-muted fs-8 mb-5\">Minimo 8 caracteres si se captura aqui.</div>" +
                 "<label class=\"form-label fw-semibold\">Tipo de cliente</label><input class=\"form-control form-control-solid mb-5\" value=\"mayorista\" disabled>" +
                 listaHtml +
+                validacionHtml +
                 "<div class=\"separator my-5\"></div><div class=\"fw-semibold mb-3\">Permisos comerciales iniciales</div>" +
                 permisosHtml +
                 "</div>",
@@ -1205,7 +1306,14 @@
                 return {
                     contrasenia: contrasenia,
                     id_lista_precio: (document.getElementById("dist_aprobar_lista") || {}).value || "",
-                    permisos: permisos
+                    permisos: permisos,
+                    validacion_revision: {
+                        contacto: selectValue("dist_revision_contacto") || "pendiente",
+                        situacion: selectValue("dist_revision_situacion") || "por_confirmar",
+                        referencia: selectValue("dist_revision_referencia") || "pendiente",
+                        alcance: selectValue("dist_revision_alcance") || "general",
+                        resumen: (document.getElementById("dist_revision_resumen") || {}).value || ""
+                    }
                 };
             }
         }).then(function (result) {
@@ -1214,11 +1322,12 @@
                 id_solicitud_distribucion: id,
                 contrasenia: result.value.contrasenia || "",
                 id_lista_precio: result.value.id_lista_precio || "",
-                permisos: JSON.stringify(result.value.permisos || [])
+                permisos: JSON.stringify(result.value.permisos || []),
+                validacion_revision: JSON.stringify(result.value.validacion_revision || {})
             })
                 .then(function (response) {
                     if (response.error) { throw new Error(response.mensaje); }
-                    confirmarWhatsAppActivacion(solicitud, response.depurar ? response.depurar.activacion : null);
+                    showOk("Acceso aprobado. El contacto por WhatsApp queda disponible como comunicacion independiente.");
                     return cargarTodo();
                 }).catch(showError);
         });
@@ -2041,24 +2150,25 @@
             guardarPermisosClientePagina().catch(showError);
         } else if (button.id === "dist_cliente_entrega_guardar") {
             guardarEntregaClientePagina().catch(showError);
+        } else if (button.id === "dist_prospecto_whatsapp") {
+            abrirWhatsAppComposer(prospectoDetalle || {});
+        } else if (button.id === "dist_prospecto_revision") {
+            if (prospectoDetalle) { registrarRevisionProspecto(prospectoDetalle.id_solicitud_distribucion); }
+        } else if (button.id === "dist_prospecto_aprobar") {
+            if (prospectoDetalle) { aprobarSolicitud(prospectoDetalle.id_solicitud_distribucion); }
+        } else if (button.id === "dist_prospecto_rechazar") {
+            if (prospectoDetalle) { accionSimple("/distribucionadmin/cliente_rechazar", {id_solicitud_distribucion: prospectoDetalle.id_solicitud_distribucion}); }
         } else if (button.hasAttribute("data-cliente-lista-seleccionar")) {
             seleccionarListaCliente(button.getAttribute("data-cliente-lista-seleccionar"));
         } else if (button.hasAttribute("data-solicitud-aprobar")) {
             aprobarSolicitud(button.getAttribute("data-solicitud-aprobar"));
         } else if (button.hasAttribute("data-solicitud-detalle")) {
             verSolicitud(button.getAttribute("data-solicitud-detalle"));
-        } else if (button.hasAttribute("data-solicitud-whatsapp")) {
-            var solicitud = solicitudes.find(function (item) { return String(item.id_solicitud_distribucion) === String(button.getAttribute("data-solicitud-whatsapp")); });
-            if (solicitud && solicitud.estatus === "aprobado" && solicitud.id_cliente_distribucion) {
-                abrirWhatsAppActivacion({
-                    id_solicitud_distribucion: solicitud.id_solicitud_distribucion,
-                    id_cliente_distribucion: solicitud.id_cliente_distribucion,
-                    telefono: solicitud.telefono,
-                    whatsapp: solicitud.whatsapp
-                });
-            } else {
-                abrirWhatsApp(solicitud);
-            }
+        } else if (button.hasAttribute("data-prospecto-whatsapp")) {
+            var prospecto = solicitudes.find(function (item) { return String(item.id_solicitud_distribucion) === String(button.getAttribute("data-prospecto-whatsapp")); });
+            abrirWhatsAppComposer(prospecto);
+        } else if (button.hasAttribute("data-prospecto-revision")) {
+            registrarRevisionProspecto(button.getAttribute("data-prospecto-revision"));
         } else if (button.hasAttribute("data-solicitud-rechazar")) {
             accionSimple("/distribucionadmin/cliente_rechazar", {id_solicitud_distribucion: button.getAttribute("data-solicitud-rechazar")});
         } else if (button.hasAttribute("data-cliente-suspender")) {
@@ -2073,10 +2183,7 @@
             verAuditoriaCliente(button.getAttribute("data-cliente-auditoria"));
         } else if (button.hasAttribute("data-cliente-whatsapp")) {
             var cliente = clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(button.getAttribute("data-cliente-whatsapp")); });
-            abrirWhatsAppActivacion({
-                id_cliente_distribucion: cliente ? cliente.id_cliente_distribucion : button.getAttribute("data-cliente-whatsapp"),
-                telefono: cliente ? cliente.telefono : ""
-            });
+            abrirWhatsAppComposer(cliente);
         } else if (button.hasAttribute("data-cliente-acceso")) {
             var clienteAcceso = clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(button.getAttribute("data-cliente-acceso")); });
             generarLinkAccesoCliente({

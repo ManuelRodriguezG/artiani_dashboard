@@ -518,6 +518,40 @@ class Compra extends Controlador {
         ));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: sincronizar pendientes de conteo de una orden cerrada sin recepcion.
+     * Impacto: Compras/Inventario; no genera existencias, recepciones ni kardex.
+     * Contrato: requiere compras.aprobar y es idempotente por orden, detalle, SKU y almacen.
+     */
+    public function orden_incidencias_preoperativas_generar_erp() {
+        $this->requerirPermiso("compras.aprobar");
+        $respuesta = $this->modelo("OrdenesCompraErp")->generarIncidenciasInventarioPreoperativas(
+            isset($_POST["id_orden_compra"]) ? $_POST["id_orden_compra"] : 0,
+            isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
+        );
+        $this->auditarOrdenErp("generar_incidencias_preoperativas", $respuesta);
+        return json_encode($respuesta);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: volver a comparar partidas de una orden contra Catalogo/Proveedores despues de una correccion.
+     * Impacto: Compras/Catalogo/Proveedores; no genera inventario ni kardex.
+     * Contrato: requiere compras.editar y conserva la auditoria de la accion.
+     */
+    public function orden_incidencias_catalogo_reanalizar_erp() {
+        $this->requerirPermiso("compras.editar");
+        $respuesta = $this->modelo("OrdenesCompraErp")->reanalizarIncidenciasCatalogoOrden(
+            isset($_POST["id_orden_compra"]) ? $_POST["id_orden_compra"] : 0,
+            isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
+        );
+        $this->auditarOrdenErp("reanalizar_incidencias_catalogo", $respuesta);
+        return json_encode($respuesta);
+    }
+
     public function orden_guardar_erp() {
         $idOrden = isset($_POST["id_orden_compra"]) ? intval($_POST["id_orden_compra"]) : 0;
         $this->requerirPermiso($idOrden > 0 ? "compras.editar" : "compras.crear");

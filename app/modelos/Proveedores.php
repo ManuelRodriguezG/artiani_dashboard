@@ -5712,6 +5712,26 @@ class Proveedores extends CRUD {
                     cv.factor_conversion AS factor_conversion_vigente,
                     cv.costo_incluye_impuestos AS costo_incluye_impuestos_vigente,
                     (
+                        SELECT c2.id_costo_proveedor_sku
+                        FROM erp_proveedores_sku_costos c2
+                        WHERE c2.id_proveedor = :id_proveedor_costo_global
+                          AND c2.id_sku = d.id_sku
+                          AND c2.id_sku_proveedor = d.id_sku_proveedor
+                          AND c2.estatus = 'vigente'
+                        ORDER BY c2.id_costo_proveedor_sku DESC
+                        LIMIT 1
+                    ) AS id_costo_vigente_global,
+                    (
+                        SELECT c2.costo
+                        FROM erp_proveedores_sku_costos c2
+                        WHERE c2.id_proveedor = :id_proveedor_costo_global_valor
+                          AND c2.id_sku = d.id_sku
+                          AND c2.id_sku_proveedor = d.id_sku_proveedor
+                          AND c2.estatus = 'vigente'
+                        ORDER BY c2.id_costo_proveedor_sku DESC
+                        LIMIT 1
+                    ) AS costo_vigente_global,
+                    (
                         SELECT img.url_imagen
                         FROM erp_catalogo_imagenes img
                         WHERE img.estatus = 'activo'
@@ -5747,7 +5767,13 @@ class Proveedores extends CRUD {
                 WHERE d.id_lista_proveedor_erp = :id_lista
                 ORDER BY d.id_lista_detalle_erp ASC
                 LIMIT 5000");
-            $stmt->execute(array(":id_lista" => $idLista, ":id_proveedor" => $idProveedor, ":id_proveedor_costo" => $idProveedor));
+            $stmt->execute(array(
+                ":id_lista" => $idLista,
+                ":id_proveedor" => $idProveedor,
+                ":id_proveedor_costo" => $idProveedor,
+                ":id_proveedor_costo_global" => $idProveedor,
+                ":id_proveedor_costo_global_valor" => $idProveedor
+            ));
             $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             return array(

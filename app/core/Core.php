@@ -89,6 +89,7 @@
 				'Sistema.seguridad_usuario_crear',
 				'Sistema.seguridad_usuario_editar',
 				'distribucionadmin.cliente_aprobar',
+				'distribucionadmin.cliente_revision_registrar',
 				'distribucionadmin.cliente_rechazar',
 				'distribucionadmin.cliente_suspendir',
 				'distribucionadmin.asignar_tipo_cliente',

@@ -255,6 +255,12 @@ Tipos de alerta recomendados:
 - `compra_inventario_cantidad_reportada`: ya existe una cantidad informada y requiere conciliacion.
 - `compra_inventario_diferencia`: la cantidad reportada no coincide con la existencia oficial.
 
+Rutas accionables de Compras:
+
+- `compra_producto_pendiente_alta` abre `/catalogoerp`, donde Catalogo puede crear un SKU temporal o continuar el matching desde Proveedores.
+- `compra_inventario_pendiente_conteo` abre `/inventario/incidencias_compras_operativas`, donde Inventario captura cantidad estimada o conteo fisico sin afectar existencias.
+- Las rutas no deben apuntar directamente a endpoints JSON ni a pantallas administrativas que no permitan atender el pendiente.
+
 La huella de idempotencia para el pendiente de Inventario debe considerar como minimo:
 
 `tipo_alerta + id_orden_compra + id_detalle + id_sku_erp + id_almacen`

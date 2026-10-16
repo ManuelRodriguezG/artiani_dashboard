@@ -442,13 +442,22 @@ class DistribucionClientesApi extends CRUD {
         $params[":estatus"] = $estatus;
       }
       $extraSolicitud = $this->columnaExiste($db, "erp_distribucion_solicitudes", "categorias_interes_json") ? "categorias_interes_json," : "NULL categorias_interes_json,";
-      $stmt = $db->prepare("SELECT id_solicitud_distribucion, id_cliente_distribucion, folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, intereses_comerciales, " . $extraSolicitud . " estatus, fecha_registro
+      $extraComercial = "";
+      foreach (array("referencias", "mensaje", "datos_comerciales_json") as $columnaComercial) {
+        $extraComercial .= $this->columnaExiste($db, "erp_distribucion_solicitudes", $columnaComercial) ? $columnaComercial . "," : "NULL " . $columnaComercial . ",";
+      }
+      $stmt = $db->prepare("SELECT id_solicitud_distribucion, id_cliente_distribucion, folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, intereses_comerciales, " . $extraSolicitud . " " . $extraComercial . " estatus, fecha_registro
         FROM erp_distribucion_solicitudes
         WHERE " . implode(" AND ", $where) . "
         ORDER BY id_solicitud_distribucion DESC
         LIMIT " . intval($limite));
       $stmt->execute($params);
-      return $this->respuesta(false, "success", "Solicitudes Distribucion consultadas", array("configurado" => true, "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)));
+      $items = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $fila["revision_comercial"] = $this->evaluarRevisionComercial($fila);
+        $items[] = $fila;
+      }
+      return $this->respuesta(false, "success", "Solicitudes Distribucion consultadas", array("configurado" => true, "items" => $items));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudieron consultar solicitudes", array("detalle" => "error_controlado"));
     }
@@ -472,10 +481,109 @@ class DistribucionClientesApi extends CRUD {
     try {
       $stmt = $db->prepare("SELECT * FROM erp_distribucion_solicitudes WHERE id_solicitud_distribucion=:id LIMIT 1");
       $stmt->execute(array(":id" => $id));
-      return $this->respuesta(false, "success", "Solicitud Distribucion consultada", array("configurado" => true, "solicitud" => $stmt->fetch(PDO::FETCH_ASSOC) ?: null));
+      $solicitud = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+      if ($solicitud) {
+        $solicitud["revision_comercial"] = $this->evaluarRevisionComercial($solicitud);
+      }
+      return $this->respuesta(false, "success", "Solicitud Distribucion consultada", array("configurado" => true, "solicitud" => $solicitud));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudo consultar solicitud", array("detalle" => "error_controlado"));
     }
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-15
+   * Proposito: calcular una lectura comercial read-only para orientar la revision de prospectos.
+   * Impacto: panel ERP Distribucion; no aprueba, no asigna permisos y no cambia estatus.
+   * Contrato: devuelve porcentaje orientativo, semaforo, pendientes y nivel de informacion recomendado.
+   */
+  private function evaluarRevisionComercial($prospecto) {
+    $datosComerciales = $this->valor($prospecto, "datos_comerciales_json", array());
+    if (!is_array($datosComerciales)) {
+      $datosComerciales = json_decode((string) $datosComerciales, true);
+    }
+    if (!is_array($datosComerciales)) { $datosComerciales = array(); }
+
+    $texto = function ($valor) {
+      return trim((string) $valor) !== "";
+    };
+    $categorias = $this->jsonArray($this->valor($prospecto, "categorias_interes_json", $this->valor($datosComerciales, "categorias_interes", array())));
+    $tieneContacto = $texto($this->valor($prospecto, "telefono", "")) || $texto($this->valor($prospecto, "whatsapp", ""));
+    $tieneContexto = $texto($this->valor($prospecto, "intereses_comerciales", "")) || $texto($this->valor($prospecto, "mensaje", "")) || $texto($this->valor($prospecto, "referencias", ""));
+    $tieneReferencia = $texto($this->valor($prospecto, "referencias", ""));
+    $textoContexto = strtolower(implode(" ", array(
+      (string) $this->valor($prospecto, "mensaje", ""),
+      (string) $this->valor($prospecto, "intereses_comerciales", ""),
+      (string) $this->valor($prospecto, "referencias", ""),
+      (string) $this->valor($datosComerciales, "descripcion_proyecto", "")
+    )));
+    $situacion = strtolower(trim((string) $this->valor($datosComerciales, "situacion_negocio", $this->valor($prospecto, "situacion_negocio", ""))));
+    $etapa = strtolower(trim((string) $this->valor($datosComerciales, "etapa_proyecto", $this->valor($prospecto, "etapa_proyecto", ""))));
+    $canal = trim((string) $this->valor($datosComerciales, "canal_venta", $this->valor($prospecto, "canal_venta", "")));
+    $periodoApertura = trim((string) $this->valor($datosComerciales, "periodo_apertura", $this->valor($prospecto, "periodo_apertura", "")));
+    $contactoConfirmado = in_array($this->valor($datosComerciales, "contacto_confirmado", false), array(true, 1, "1", "si", "sí", "true"), true)
+      || in_array($this->valor($datosComerciales, "correo_confirmado", false), array(true, 1, "1", "si", "sí", "true"), true)
+      || in_array($this->valor($datosComerciales, "whatsapp_confirmado", false), array(true, 1, "1", "si", "sí", "true"), true);
+
+    $criterios = array(
+      array("codigo" => "nombre", "etiqueta" => "Nombre de contacto", "peso" => 10, "cumple" => $texto($this->valor($prospecto, "nombre", ""))),
+      array("codigo" => "negocio", "etiqueta" => "Negocio o proyecto identificado", "peso" => 15, "cumple" => $texto($this->valor($prospecto, "nombre_negocio", "")) || $texto($this->valor($prospecto, "empresa", ""))),
+      array("codigo" => "correo", "etiqueta" => "Correo capturado", "peso" => 10, "cumple" => filter_var($this->valor($prospecto, "correo", ""), FILTER_VALIDATE_EMAIL) !== false),
+      array("codigo" => "contacto", "etiqueta" => "Telefono o WhatsApp", "peso" => 10, "cumple" => $tieneContacto),
+      array("codigo" => "ubicacion", "etiqueta" => "Ciudad y estado", "peso" => 10, "cumple" => $texto($this->valor($prospecto, "ciudad", "")) && $texto($this->valor($prospecto, "estado", ""))),
+      array("codigo" => "giro", "etiqueta" => "Tipo de negocio", "peso" => 10, "cumple" => $texto($this->valor($prospecto, "tipo_negocio", ""))),
+      array("codigo" => "intereses", "etiqueta" => "Categorias o lineas de interes", "peso" => 10, "cumple" => !empty($categorias) || $texto($this->valor($prospecto, "intereses_comerciales", ""))),
+      array("codigo" => "contexto", "etiqueta" => "Descripcion del proyecto o actividad", "peso" => 15, "cumple" => $tieneContexto),
+      array("codigo" => "referencia", "etiqueta" => "Referencia comercial", "peso" => 10, "cumple" => $tieneReferencia)
+    );
+    $pesoTotal = 0;
+    $pesoCumplido = 0;
+    $pendientes = array();
+    $criteriosResultado = array();
+    foreach ($criterios as $criterio) {
+      $pesoTotal += $criterio["peso"];
+      if ($criterio["cumple"]) {
+        $pesoCumplido += $criterio["peso"];
+      } else {
+        $pendientes[] = $criterio["etiqueta"];
+      }
+      $criteriosResultado[] = array(
+        "codigo" => $criterio["codigo"],
+        "etiqueta" => $criterio["etiqueta"],
+        "peso" => $criterio["peso"],
+        "cumple" => (bool) $criterio["cumple"]
+      );
+    }
+    $porcentaje = $pesoTotal > 0 ? (int) round(($pesoCumplido / $pesoTotal) * 100) : 0;
+    $semaforo = $porcentaje >= 75 ? "verde" : ($porcentaje >= 50 ? "amarillo" : "rojo");
+    $decision = $porcentaje >= 75
+      ? "Listo para revision de acreditacion"
+      : ($porcentaje >= 50 ? "Solicitar aclaraciones antes de decidir" : "Mantener pendiente de informacion");
+    $situacionLabel = "Situacion del negocio por confirmar";
+    if (in_array($situacion, array("operando", "activo", "funcionando"), true)) {
+      $situacionLabel = "Negocio declarado como operando";
+    } elseif ($situacion !== "" || $etapa !== "" || $periodoApertura !== "") {
+      $situacionLabel = "Proyecto en preparacion declarado";
+    } elseif (preg_match('/\b(abrir|abrira|prepar|proyecto|idea de negocio|nuevo negocio|proxima apertura|próxima apertura|empezar|iniciar)\b/u', $textoContexto)) {
+      $situacionLabel = "Posible proyecto nuevo detectado; confirmar con el prospecto";
+    }
+    if (!$contactoConfirmado) {
+      $pendientes[] = "Confirmar correo o WhatsApp";
+    }
+    return array(
+      "porcentaje" => $porcentaje,
+      "semaforo" => $semaforo,
+      "decision_sugerida" => $decision,
+      "situacion" => $situacionLabel,
+      "contacto_confirmado" => $contactoConfirmado,
+      "canal_venta" => $canal,
+      "periodo_apertura" => $periodoApertura,
+      "criterios" => $criteriosResultado,
+      "pendientes" => array_values(array_unique($pendientes)),
+      "evidencia_capturada" => $tieneReferencia,
+      "nivel_informacion_recomendado" => $porcentaje >= 75 && $contactoConfirmado ? "Informacion comercial general seleccionada" : "Solo informacion general y seguimiento",
+      "acreditar_automaticamente" => false
+    );
   }
 
   /**
@@ -759,6 +867,7 @@ class DistribucionClientesApi extends CRUD {
         }
       }
       $permisos = $this->normalizarPermisos($this->valor($datos, "permisos", array()));
+      $validacionRevision = $this->normalizarValidacionRevision($this->valor($datos, "validacion_revision", array()));
       if (!empty($permisos)) {
         $validacionPermisos = $this->validarPermisosComerciales($permisos);
         if ($validacionPermisos !== true) {
@@ -824,6 +933,7 @@ class DistribucionClientesApi extends CRUD {
       $activacion = $this->crearTokenActivacionContrasenia($db, $idCliente);
       $this->registrarAuditoria($db, "cliente", $idCliente, "aprobar", "ok", "Cliente Distribucion aprobado", array(
         "id_solicitud_distribucion" => $idSolicitud,
+        "validacion_revision" => $validacionRevision,
         "tipo_cliente" => $tipo,
         "contrasenia_recibida" => $hash !== null,
         "lista_asignada" => $idLista > 0,
@@ -866,6 +976,70 @@ class DistribucionClientesApi extends CRUD {
     } catch (Exception $e) {
       if ($db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", "No se pudo aprobar cliente Distribucion", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-16
+   * Proposito: conservar la validacion humana capturada al acreditar un prospecto.
+   * Impacto: auditoria Distribucion; no cambia estatus, permisos ni listas por si misma.
+   * Contrato: acepta solo opciones controladas y un resumen breve, sin guardar contrasenas ni tokens.
+   */
+  private function normalizarValidacionRevision($valor) {
+    if (!is_array($valor)) {
+      $valor = json_decode((string) $valor, true);
+    }
+    if (!is_array($valor)) { $valor = array(); }
+    $permitidos = array(
+      "contacto" => array("pendiente", "llamada", "whatsapp", "correo", "sin_respuesta"),
+      "situacion" => array("por_confirmar", "operando", "preparacion", "idea"),
+      "referencia" => array("pendiente", "suficiente", "parcial", "no_aplica"),
+      "alcance" => array("general", "sin_catalogo", "catalogo_limitado", "comercial_expreso")
+    );
+    $resultado = array();
+    foreach ($permitidos as $campo => $opciones) {
+      $actual = trim((string) $this->valor($valor, $campo, $opciones[0]));
+      $resultado[$campo] = in_array($actual, $opciones, true) ? $actual : $opciones[0];
+    }
+    $resultado["resumen"] = $this->textoNullable($this->valor($valor, "resumen", ""), 2000);
+    return $resultado;
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-16
+   * Proposito: registrar una llamada o contacto de seguimiento sin acreditar al prospecto.
+   * Impacto: Auditoria ERP Distribucion; conserva el estatus y el alcance comercial actual.
+   * Contrato: read/write sobre la bitacora existente; no crea cliente ni genera acceso.
+   */
+  public function registrarRevisionProspectoInterna($datos = array(), $idUsuario = null) {
+    $idSolicitud = intval($this->valor($datos, "id_solicitud_distribucion", 0));
+    if ($idSolicitud <= 0) {
+      return $this->respuesta(true, "warning", "Prospecto requerido");
+    }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db)) {
+      return $this->respuesta(true, "warning", "Esquema Distribucion no disponible", array("configurado" => false));
+    }
+    try {
+      $solicitud = $this->buscarSolicitud($db, $idSolicitud);
+      if (!$solicitud) {
+        return $this->respuesta(true, "warning", "Prospecto no encontrado");
+      }
+      $validacion = $this->normalizarValidacionRevision($this->valor($datos, "validacion_revision", array()));
+      $this->registrarAuditoria($db, "solicitud", $idSolicitud, "revision_comercial", "pendiente", "Revision comercial de prospecto registrada", array(
+        "folio" => $this->valor($solicitud, "folio", ""),
+        "validacion_revision" => $validacion,
+        "no_acredita" => true,
+        "no_cambia_estatus" => true
+      ), $idUsuario, null);
+      return $this->respuesta(false, "success", "Revision comercial guardada sin cambiar el acceso", array(
+        "id_solicitud_distribucion" => $idSolicitud,
+        "validacion_revision" => $validacion,
+        "no_acredita" => true,
+        "no_cambia_estatus" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo guardar la revision comercial", array("detalle" => "error_controlado"));
     }
   }
 

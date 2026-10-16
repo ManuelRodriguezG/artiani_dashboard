@@ -277,6 +277,27 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-15
+   * Proposito: reanalizar una orden de compra despues de corregir una relacion proveedor/SKU.
+   * Impacto: actualiza identidad de partidas e incidencias de Catalogo; no afecta inventario.
+   */
+  public function incidencia_compra_reanalizar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("OrdenesCompraErp")->reanalizarIncidenciasCatalogoOrden(
+      isset($_POST["id_orden_compra"]) ? $_POST["id_orden_compra"] : 0,
+      $this->usuarioActualId()
+    );
+    Sesionseguridad::registrarAuditoria("catalogo", "reanalizar_incidencia_compra", array(
+      "entidad" => "erp_compras_ordenes",
+      "entidad_id" => isset($_POST["id_orden_compra"]) ? intval($_POST["id_orden_compra"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    return json_encode($respuesta);
+  }
+
   public function incidencias_reglas_inventario_sincronizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarIncidenciasReglasInventario($this->usuarioActualId());

@@ -3059,9 +3059,10 @@ class CatalogoErpDatos extends CRUD {
         throw new Exception("Incidencia de Catalogo no encontrada");
       }
       $esProveedorSinMatch = $incidencia["origen"] === "proveedores" && $incidencia["tipo_incidencia"] === "proveedor_sku_sin_match";
+      $esCompraProductoPendiente = $incidencia["origen"] === "compra" && $incidencia["tipo_incidencia"] === "compra_producto_pendiente_alta";
       $esVentaRapidaSinMatch = $incidencia["origen"] === "ventas_pos" && $incidencia["tipo_incidencia"] === "venta_rapida_sku_sin_match";
-      if (!$esProveedorSinMatch && !$esVentaRapidaSinMatch) {
-        throw new Exception("Solo se permite crear SKU temporal desde pendientes de proveedor o venta rapida POS sin SKU ERP");
+      if (!$esProveedorSinMatch && !$esCompraProductoPendiente && !$esVentaRapidaSinMatch) {
+        throw new Exception("Solo se permite crear SKU temporal desde una incidencia de proveedor, compra o venta POS sin SKU ERP");
       }
       if (in_array($incidencia["estatus"], array("resuelta", "descartada"), true)) {
         throw new Exception("La incidencia ya esta cerrada");
@@ -3076,8 +3077,16 @@ class CatalogoErpDatos extends CRUD {
       $evidencia = $this->jsonArrayCatalogo(isset($incidencia["evidencia_json"]) ? $incidencia["evidencia_json"] : "");
       $detalle = $this->jsonArrayCatalogo(isset($incidencia["detalle_json"]) ? $incidencia["detalle_json"] : "");
       $renglon = isset($evidencia["renglon"]) && is_array($evidencia["renglon"]) ? $evidencia["renglon"] : array();
+      if ($esCompraProductoPendiente) {
+        $renglon = array(
+          "sku_proveedor" => isset($detalle["sku"]) ? $detalle["sku"] : "",
+          "descripcion_proveedor" => isset($detalle["nombre_producto"]) ? $detalle["nombre_producto"] : "",
+          "codigo_barras" => isset($detalle["codigo_barras"]) ? $detalle["codigo_barras"] : "",
+          "codigo_interno" => isset($detalle["codigo_interno"]) ? $detalle["codigo_interno"] : ""
+        );
+      }
       $idReferencia = intval(isset($incidencia["id_referencia"]) ? $incidencia["id_referencia"] : 0);
-      $prefijoTemporal = $esVentaRapidaSinMatch ? "TMP-VRP-" : "TMP-PROV-";
+      $prefijoTemporal = $esVentaRapidaSinMatch ? "TMP-VRP-" : ($esCompraProductoPendiente ? "TMP-COMP-" : "TMP-PROV-");
       $codigoProducto = $this->codigoTemporalCatalogo($this->texto($datos, "codigo_producto", $prefijoTemporal . $idReferencia), $prefijoTemporal . $idReferencia, 80);
       $nombreProducto = $this->texto($datos, "nombre_producto", "");
       if ($nombreProducto === "") {
@@ -3184,7 +3193,9 @@ class CatalogoErpDatos extends CRUD {
         : array("id_sku_proveedor" => 0, "relacion_creada" => false);
       $idNotificacionSeguimiento = $esVentaRapidaSinMatch
         ? $this->registrarNotificacionesSkuTemporalVentaRapida($db, $incidencia, $detalle, $idProducto, $idSku, $sku, $idUsuario)
-        : $this->registrarNotificacionesSkuTemporalProveedor($db, $incidencia, $detalle, $renglon, $idProducto, $idSku, $sku, $idUsuario);
+        : ($esProveedorSinMatch
+          ? $this->registrarNotificacionesSkuTemporalProveedor($db, $incidencia, $detalle, $renglon, $idProducto, $idSku, $sku, $idUsuario)
+          : 0);
 
       $db->commit();
       return $this->respuesta(false, "success", "SKU temporal creado en Catalogo", array(
@@ -3197,7 +3208,9 @@ class CatalogoErpDatos extends CRUD {
         "sku" => $sku,
         "codigo_producto" => $codigoProducto,
         "estatus" => "borrador",
-        "siguiente_paso" => $esVentaRapidaSinMatch ? "Completar Catalogo y vincular el VRP desde Ventas/POS" : "Completar Catalogo y validar datos de compra/costo desde Proveedores"
+        "siguiente_paso" => $esVentaRapidaSinMatch
+          ? "Completar Catalogo y vincular el VRP desde Ventas/POS"
+          : ($esCompraProductoPendiente ? "Completar Catalogo y relacionar el SKU con Proveedores si se volvera a comprar" : "Completar Catalogo y validar datos de compra/costo desde Proveedores")
       ));
     } catch (Exception $e) {
       if (isset($db) && $db->inTransaction()) {

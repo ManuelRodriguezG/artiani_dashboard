@@ -556,6 +556,7 @@
             var referencia = [item.sku, item.nombre_sku, renglon.sku_proveedor, renglon.codigo_barras, renglon.descripcion_proveedor].filter(Boolean).join(" | ") || ("Incidencia " + item.id_incidencia_calidad);
             var puedeTemporal = permisos.editar &&
                 ((item.origen === "proveedores" && item.tipo_incidencia === "proveedor_sku_sin_match") ||
+                 (item.origen === "compra" && item.tipo_incidencia === "compra_producto_pendiente_alta") ||
                  (item.origen === "ventas_pos" && item.tipo_incidencia === "venta_rapida_sku_sin_match")) &&
                 !item.id_sku &&
                 ["pendiente", "en_revision", "bloqueada"].indexOf(String(item.estatus || "")) >= 0;
@@ -931,6 +932,7 @@
         var detalle = incidencia.detalle_json || {};
         var renglon = evidencia.renglon || {};
         var esVentaRapida = incidencia.origen === "ventas_pos" && incidencia.tipo_incidencia === "venta_rapida_sku_sin_match";
+        var esCompra = incidencia.origen === "compra" && incidencia.tipo_incidencia === "compra_producto_pendiente_alta";
         setValor(form, "id_incidencia_calidad", incidencia.id_incidencia_calidad);
         if (esVentaRapida) {
             var folio = detalle.folio_pendiente || incidencia.id_referencia || incidencia.id_incidencia_calidad;
@@ -940,6 +942,13 @@
             setValor(form, "nombre_producto", descripcion);
             setValor(form, "sku", codigo || ("TMP-VRP-" + String(folio).replace(/[^A-Za-z0-9]/g, "")));
             setValor(form, "nombre_sku", descripcion);
+        } else if (esCompra) {
+            var skuCompra = detalle.sku || ("TMP-COMP-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad));
+            var nombreCompra = detalle.nombre_producto || incidencia.titulo || "Producto pendiente de compra";
+            setValor(form, "codigo_producto", "TMP-COMP-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad));
+            setValor(form, "nombre_producto", nombreCompra);
+            setValor(form, "sku", skuCompra);
+            setValor(form, "nombre_sku", nombreCompra);
         } else {
             setValor(form, "codigo_producto", "TMP-PROV-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad));
             setValor(form, "nombre_producto", renglon.descripcion_proveedor || incidencia.titulo || "");

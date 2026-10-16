@@ -1247,8 +1247,21 @@
                 : "";
             var estadoPermiteCosto = ["match_seleccionado", "relacion_aplicada", "costo_aplicado"].indexOf(String(x.estado_match || "")) >= 0;
             var tieneCostoVigente = Number(x.tiene_costo_vigente || 0) > 0 || String(x.estado_match || "") === "costo_aplicado";
+            var costoGlobal = Number(x.costo_vigente_global || 0);
+            var costoRenglon = Number(x.costo || 0);
+            var costoVigenteEnOtroRenglon = Number(x.id_costo_vigente_global || 0) > 0
+                && Number(x.id_costo_vigente_global || 0) !== Number(x.id_costo_vigente || 0)
+                && costoRenglon > 0
+                && costoGlobal > 0
+                && Math.abs(costoRenglon - costoGlobal) > 0.000001;
             var aplicarCosto = permisos.costos && x.id_sku && x.id_sku_proveedor && Number(x.costo || 0) > 0 && estadoPermiteCosto && !tieneCostoVigente
                 ? "<button class=\"btn btn-sm btn-icon btn-light-warning me-2\" type=\"button\" title=\"Aplicar costo vigente\" data-aplicar-costo=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-currency-dollar\"></i></button>"
+                : "";
+            var corregirCosto = permisos.costos && x.id_sku && x.id_sku_proveedor && Number(x.costo || 0) > 0 && costoVigenteEnOtroRenglon
+                ? "<button class=\"btn btn-sm btn-icon btn-light-danger me-2\" type=\"button\" title=\"Corregir costo vigente desde este renglon\" data-corregir-costo=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-arrow-repeat\"></i></button>"
+                : "";
+            var avisoCosto = costoVigenteEnOtroRenglon
+                ? "<div class=\"mt-1\"><span class=\"badge badge-light-danger\">Costo vigente en otro renglon: " + esc(x.costo_vigente_global || "-") + "</span></div>"
                 : "";
             var enviarCatalogo = permisos.autorizar && (!x.id_sku || Number(x.id_sku || 0) <= 0 || ["sin_match", "ambiguo"].indexOf(String(x.estado_match || "")) >= 0)
                 ? "<button class=\"btn btn-sm btn-icon btn-light-secondary me-2\" type=\"button\" title=\"Enviar este producto a Catalogo\" data-enviar-catalogo-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-box-arrow-up-right\"></i></button>"
@@ -1268,8 +1281,8 @@
                 "<td><div class=\"d-flex align-items-center gap-3\">" + imagenListaDetalleHtml(x) + "<div class=\"min-w-0\"><div class=\"fw-bold\">" + esc(sku) + "</div><span class=\"text-muted fs-8\">" + esc(x.marca_proveedor || "") + "</span>" + skuCatalogo + relacionCatalogo + "</div></div></td>" +
                 "<td>" + esc(x.descripcion_proveedor || "-") + "</td>" +
                 "<td>" + esc(unidad) + estadoCompra + "</td>" +
-                "<td class=\"text-end\">" + esc(costo) + "</td>" +
-                "<td class=\"text-end\">" + aplicar + aplicarCosto + enviarCatalogo + desvincular + eliminar + "<button class=\"btn btn-sm btn-icon btn-light-primary\" type=\"button\" title=\"Editar renglon\" data-lista-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-pencil-square\"></i></button></td>" +
+                "<td class=\"text-end\">" + esc(costo) + avisoCosto + "</td>" +
+                "<td class=\"text-end\">" + aplicar + aplicarCosto + corregirCosto + enviarCatalogo + desvincular + eliminar + "<button class=\"btn btn-sm btn-icon btn-light-primary\" type=\"button\" title=\"Editar renglon\" data-lista-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-pencil-square\"></i></button></td>" +
                 "</tr>";
         }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-6\">Sin renglones capturados</td></tr>";
     }
@@ -3017,12 +3030,14 @@
         ejecutarMatchingDryRun();
     }
 
-    function aplicarCostoProveedorSku(idRenglon) {
+    function aplicarCostoProveedorSku(idRenglon, esCorreccion) {
         if (!proveedorActual || !listaDetalleActual || !idRenglon) {
             return;
         }
         Swal.fire({
-            text: "Se aplicara el costo como vigente y se actualizara costo_ultimo de la relacion. No se tocara costo_referencia.",
+            text: esCorreccion
+                ? "Este costo reemplazara al costo vigente equivocado y el anterior quedara como historico. No se borrara historial ni se tocara costo_referencia."
+                : "Se aplicara el costo como vigente y se actualizara costo_ultimo de la relacion. No se tocara costo_referencia.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Aplicar costo",
@@ -3404,7 +3419,12 @@
             }
             var aplicarCosto = event.target.closest("[data-aplicar-costo]");
             if (aplicarCosto && permisos.costos) {
-                aplicarCostoProveedorSku(aplicarCosto.getAttribute("data-aplicar-costo"));
+                aplicarCostoProveedorSku(aplicarCosto.getAttribute("data-aplicar-costo"), false);
+                return;
+            }
+            var corregirCosto = event.target.closest("[data-corregir-costo]");
+            if (corregirCosto && permisos.costos) {
+                aplicarCostoProveedorSku(corregirCosto.getAttribute("data-corregir-costo"), true);
                 return;
             }
             var boton = event.target.closest("[data-lista-renglon]");

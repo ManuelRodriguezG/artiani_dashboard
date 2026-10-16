@@ -1479,6 +1479,103 @@ class InventarioErp extends CRUD {
     }
 
     /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: listar incidencias de compras cerradas sin recepcion que requieren conteo o confirmacion.
+     * Impacto: lectura operativa para Inventario; no modifica existencias, recepciones ni kardex.
+     * Contrato: filtra por almacen, estatus y texto; devuelve hasta 100 incidencias.
+     */
+    public function listarIncidenciasComprasOperativas($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_inventario_incidencias_operativas")) {
+                return $this->respuesta(false, "warning", "Esquema de incidencias operativas no disponible", array("incidencias" => array()));
+            }
+            $idAlmacen = intval(isset($filtros["id_almacen"]) ? $filtros["id_almacen"] : 0);
+            $estatus = trim(isset($filtros["estatus"]) ? (string) $filtros["estatus"] : "abiertos");
+            $q = trim(isset($filtros["q"]) ? (string) $filtros["q"] : "");
+            $where = array("i.origen_tipo='compra'");
+            $params = array();
+            if ($idAlmacen > 0) {
+                $where[] = "i.id_almacen=:almacen";
+                $params[":almacen"] = $idAlmacen;
+            }
+            if ($estatus === "abiertos") {
+                $where[] = "i.estatus IN ('pendiente','en_revision','capturado','conciliado')";
+            } elseif ($estatus !== "" && $estatus !== "todos") {
+                $where[] = "i.estatus=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            if ($q !== "") {
+                $where[] = "(i.sku LIKE :q OR i.nombre_producto LIKE :q OR o.folio LIKE :q OR a.almacen LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            $sql = "SELECT i.*, o.folio folio_orden, a.almacen nombre_almacen
+                FROM erp_inventario_incidencias_operativas i
+                LEFT JOIN erp_compras_ordenes o ON o.id_orden_compra=i.id_origen
+                LEFT JOIN erp_almacenes a ON a.id_almacen=i.id_almacen
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY i.fecha_actualizacion DESC, i.fecha_registro DESC
+                LIMIT 100";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            return $this->respuesta(false, "success", "Incidencias operativas consultadas", array(
+                "incidencias" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                "sin_movimientos_inventario" => true
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: capturar la cantidad observada de una incidencia preoperativa de compra.
+     * Impacto: actualiza solo la incidencia y su trazabilidad; no crea existencias, recepciones ni kardex.
+     * Contrato: requiere cantidad y precision (`estimada` o `conteo_fisico`); no permite modificar incidencias resueltas o descartadas.
+     */
+    public function capturarIncidenciaCompraOperativa($datos, $idUsuario = 0) {
+        $idIncidencia = intval(isset($datos["id_incidencia_inventario"]) ? $datos["id_incidencia_inventario"] : 0);
+        $cantidad = isset($datos["cantidad_reportada"]) ? floatval($datos["cantidad_reportada"]) : null;
+        $tipoCantidad = trim(isset($datos["tipo_cantidad_reportada"]) ? (string) $datos["tipo_cantidad_reportada"] : "");
+        $observaciones = trim(isset($datos["observaciones"]) ? (string) $datos["observaciones"] : "");
+        if ($idIncidencia <= 0 || $cantidad === null || $cantidad < 0) {
+            return $this->respuesta(true, "warning", "Incidencia y cantidad reportada son obligatorias");
+        }
+        if (!in_array($tipoCantidad, array("estimada", "conteo_fisico"), true)) {
+            return $this->respuesta(true, "warning", "La precision debe ser estimada o conteo_fisico");
+        }
+        try {
+            $db = $this->getConexion();
+            $stmt = $db->prepare("UPDATE erp_inventario_incidencias_operativas
+                SET cantidad_reportada=:cantidad, tipo_cantidad_reportada=:tipo,
+                    observaciones=:observaciones, estatus='capturado',
+                    revisado_por=:usuario, fecha_revision=NOW(), fecha_actualizacion=NOW()
+                WHERE id_incidencia_inventario=:id AND origen_tipo='compra'
+                  AND estatus NOT IN ('resuelto','descartado')");
+            $stmt->execute(array(
+                ":cantidad" => round($cantidad, 6),
+                ":tipo" => $tipoCantidad,
+                ":observaciones" => $observaciones !== "" ? $observaciones : null,
+                ":usuario" => intval($idUsuario) ?: null,
+                ":id" => $idIncidencia
+            ));
+            if ($stmt->rowCount() < 1) {
+                return $this->respuesta(true, "warning", "La incidencia no existe o ya fue resuelta");
+            }
+            return $this->respuesta(false, "success", "Conteo de incidencia guardado", array(
+                "id_incidencia_inventario" => $idIncidencia,
+                "cantidad_reportada" => round($cantidad, 6),
+                "tipo_cantidad_reportada" => $tipoCantidad,
+                "sin_movimientos_inventario" => true
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: consultar expediente de pendiente POS con venta, eventos y saldos actuales.
      * Impacto: solo lectura para preparar resolucion desde Inventario/Existencias.

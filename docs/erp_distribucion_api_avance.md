@@ -115,6 +115,25 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Se crearon datos UAT del flujo autenticado: Mi catalogo con SKU `1867`, inventario cliente con sugerido `3`, cotizacion `DCOT-20261006-0001` y pedido preliminar `DPED-20261006-0001`.
 - La lectura posterior confirma 1 item en Mi catalogo, 1 item en inventario, 1 sugerido, 1 cotizacion y 1 pedido visible para el cliente tester.
 
+## Decision 2026-10-15 - lectura comercial de prospectos
+
+- La bandeja de prospectos calcula una lectura read-only del expediente con porcentaje orientativo, semaforo, pendientes, situacion declarada y nivel de informacion recomendado.
+- El porcentaje no representa una calificacion automatica del negocio ni acredita por si mismo. El semaforo verde significa "listo para revision de acreditacion".
+- La ausencia de local, RFC o referencia comercial no provoca rechazo automatico; se muestra como pendiente para seguimiento.
+- Si la situacion del negocio no fue declarada, el panel muestra "Situacion del negocio por confirmar" y no asume que el prospecto ya opera o que abrira un negocio.
+- Si el texto recibido contiene señales como "proyecto", "preparar" o "abrir", el panel muestra un indicio de posible proyecto nuevo, siempre marcado como pendiente de confirmacion humana.
+- El panel recomienda compartir solo informacion general seleccionada mientras no exista una decision expresa. No asigna listas, permisos, catalogo ni precios por calcular este indicador.
+- La aprobacion conserva la decision humana y sus controles actuales; la advertencia aparece antes de confirmar la accion.
+- La lectura se calcula al consultar solicitudes y detalle, sin agregar columnas, tablas, estatus ni ejecutar escrituras de base de datos.
+
+## Decision 2026-10-16 - separar completitud de acreditacion
+
+- La etiqueta visible cambia de "Expediente" a "Datos capturados" para evitar interpretar el porcentaje como probabilidad o certeza de acreditar.
+- El detalle muestra el desglose de criterios y pesos: nombre, negocio/proyecto, correo, contacto, ubicacion, giro, intereses, contexto y referencia.
+- La acreditacion sigue siendo una decision manual. El panel permite capturar al aprobar el medio de contacto usado, situacion del negocio, referencia revisada, alcance de informacion y resumen interno.
+- Esa validacion se conserva dentro de la auditoria existente; no requiere tablas nuevas y no activa permisos, listas, catalogo ni precios por seleccionar opciones.
+- La misma validacion puede registrarse desde "Registrar revision" sin aprobar al prospecto, cambiar su estatus o crearle una cuenta.
+
 ## Cambios 2026-10-07 - validacion de pedidos y cotizaciones frontend
 
 - Se validaron los folios generados desde el frontend para el cliente `14`: `DPED-20261007-0001`, `DCOT-20261007-0001`, `DCOT-20261007-0003`, `DCOT-20261007-0004` y `DPED-20261007-0002`.
@@ -178,6 +197,14 @@ Distribucion es un frontend externo para clientes comerciales. El ERP es la fuen
 - Ajuste UX posterior: la UI ya no pide tipo de lista ni modo todos/seleccionados; el admin asigna listas reales y decide productos con checks. La pantalla de listas queda a lo ancho arriba, productos abajo, y muestra categorias de interes del cliente antes de permitir guardar productos.
 - La pantalla agrega preferencias de categorias por cliente y una primera ayuda de asignaciones sugeridas por tipo de negocio para marcar categorias recomendadas; si se requiere administrar plantillas persistentes por negocio, se debe agregar una tabla/configuracion dedicada antes de consolidarlo como regla global.
 - Ajuste UX posterior 2: la pantalla Listas solo muestra categorias ya seleccionadas y las usa como apoyo para marcar productos coincidentes; agregar/quitar categorias se mueve a la vista dedicada `cliente_categorias`.
+
+## Decision 2026-10-15 - Prospectos y comunicacion con clientes
+
+- Las solicitudes de acceso al panel externo se presentan en el ERP como `Prospectos`; no se mezclan semanticamente con pedidos ni con solicitudes comerciales de clientes.
+- La ruta visible y canonica es `/distribucionadmin/panel_prospectos`. La ruta anterior `/distribucionadmin/panel_solicitudes` se conserva solo como alias de compatibilidad.
+- Cada prospecto tiene un expediente independiente en `/distribucionadmin/prospecto/{id}` con los datos de contacto, negocio, ubicacion, intereses, mensaje, informacion de facturacion declarada y datos tecnicos del registro.
+- La aprobacion o rechazo del acceso es una accion administrativa independiente de WhatsApp. Aprobar no abre WhatsApp ni depende de que se envie un mensaje.
+- WhatsApp queda como herramienta de comunicacion: el operador puede redactar un mensaje libre y abrir el chat del contacto con el texto preparado. La integracion de proveedor, bandeja, plantillas e historial de envio queda como una etapa posterior y no se simula en esta pantalla.
 
 ## Pendientes
 

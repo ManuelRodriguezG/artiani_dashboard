@@ -5,7 +5,7 @@ $distContenidoVista = isset($distContenidoVista) ? $distContenidoVista : null;
 $distClienteId = isset($distClienteId) ? intval($distClienteId) : 0;
 $distSecciones = array(
     'resumen' => array('titulo' => 'Resumen', 'ruta' => '/distribucionadmin/panel_resumen'),
-    'solicitudes' => array('titulo' => 'Solicitudes', 'ruta' => '/distribucionadmin/panel_solicitudes'),
+    'prospectos' => array('titulo' => 'Prospectos', 'ruta' => '/distribucionadmin/panel_prospectos'),
     'clientes' => array('titulo' => 'Clientes', 'ruta' => '/distribucionadmin/panel_clientes'),
     'pedidos' => array('titulo' => 'Pedidos', 'ruta' => '/distribucionadmin/panel_pedidos'),
     'mi_catalogo' => array('titulo' => 'Mi catalogo', 'ruta' => '/distribucionadmin/panel_mi_catalogo'),
@@ -36,12 +36,14 @@ $distSecciones = array(
         .dist-order-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
         .dist-order-kpi { border: 1px solid var(--bs-gray-200); border-radius: 6px; padding: 10px 12px; background: var(--bs-body-bg); }
         .dist-order-kpi .value { font-weight: 700; font-size: 1.05rem; }
+        .dist-revision-comercial { min-width: 180px; max-width: 280px; }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
     <script>
         window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
         window.DISTRIBUCION_ADMIN_SECCION = "<?= htmlspecialchars($distSeccionActiva, ENT_QUOTES, 'UTF-8') ?>";
+        window.DISTRIBUCION_PROSPECTO_ID = <?= isset($distClienteId) ? intval($distClienteId) : 0 ?>;
         window.DISTRIBUCION_CLIENTE_ID = <?= intval($distClienteId) ?>;
         window.DISTRIBUCION_ADMIN_PERMISOS = {
             editar: <?= Sesionseguridad::tienePermiso('distribucion.editar') ? 'true' : 'false' ?>,

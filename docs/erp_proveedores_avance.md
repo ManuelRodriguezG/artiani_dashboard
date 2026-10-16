@@ -7478,3 +7478,26 @@ Nota tecnica:
 
 - Este ajuste fue solo visual/UX.
 - No se tocaron reglas de negocio, endpoints, datos ni base de datos.
+
+## Flujo para corregir costo vigente despues de retirar una relacion 2026-10-15
+
+Problema identificado:
+
+- Al retirar una relacion de un renglon, el historial de costos se conserva correctamente.
+- Si el costo vigente pertenecia al renglon equivocado, puede quedar vigente aunque ese renglon ya no tenga relacion.
+- El renglon correcto puede conservar su costo anterior como historico y quedar sin una accion visible para recuperar la vigencia.
+
+Flujo aplicado:
+
+- La vista de renglones compara el costo vigente global de la relacion contra el costo ligado al renglon actual.
+- Si detecta que el costo vigente proviene de otro renglon, muestra la accion `Corregir costo vigente desde este renglon`.
+- La alerta solo aparece cuando el importe del renglon es diferente al costo vigente; los renglones repetidos o historicos con el mismo importe no se marcan como incidencia.
+- Al confirmar, reutiliza la aplicacion de costo existente: el costo del renglon correcto queda vigente, el anterior pasa a historico, se actualiza `costo_ultimo` y no se modifica `costo_referencia`.
+- No se borra historial y no se modifica automaticamente el precio comercial de Listas de precios.
+
+Prueba real pendiente:
+
+- En una lista con una relacion retirada y otro renglon correcto, revisar que aparezca el aviso de costo vigente en otro renglon.
+- Ejecutar la accion de correccion desde el renglon correcto.
+- Confirmar en la vista de costos que solo quede un costo vigente para proveedor + SKU ERP y que el anterior quede historico.
+- Confirmar que Compras use el costo corregido y que el precio comercial permanezca independiente.

@@ -31,7 +31,7 @@ class DistribucionAdmin extends Controlador {
    */
   private function abrirSeccion($seccion, $rutaCanonica) {
     $this->requerirPermiso("distribucion.ver");
-    $secciones = array("resumen", "solicitudes", "clientes", "pedidos", "mi_catalogo", "inventarios", "sugeridos", "productos", "demanda");
+    $secciones = array("resumen", "prospectos", "solicitudes", "clientes", "pedidos", "mi_catalogo", "inventarios", "sugeridos", "productos", "demanda");
     if (!in_array($seccion, $secciones, true)) {
       $seccion = "resumen";
     }
@@ -43,6 +43,7 @@ class DistribucionAdmin extends Controlador {
     }
     $vistas = array(
       "resumen" => "resumen",
+      "prospectos" => "prospectos",
       "solicitudes" => "solicitudes",
       "clientes" => "clientes",
       "pedidos" => "pedidos",
@@ -64,7 +65,18 @@ class DistribucionAdmin extends Controlador {
   }
 
   public function panel_solicitudes() {
-    $this->abrirSeccion("solicitudes", "/distribucionadmin/panel_solicitudes");
+    $this->abrirSeccion("prospectos", "/distribucionadmin/panel_prospectos");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-15
+   * Proposito: abrir la bandeja de prospectos que solicitaron acceso a Distribucion.
+   * Impacto: UX ERP Distribucion; evita confundir solicitudes de acceso con pedidos.
+   * Contrato: vista protegida por `distribucion.ver`; no escribe por si misma.
+   */
+  public function panel_prospectos() {
+    $this->abrirSeccion("prospectos", "/distribucionadmin/panel_prospectos");
   }
 
   public function panel_clientes() {
@@ -80,6 +92,24 @@ class DistribucionAdmin extends Controlador {
    */
   public function cliente($idCliente = 0) {
     $this->abrirClienteSeccion("cliente", intval($idCliente), "Atender cliente");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-15
+   * Proposito: abrir expediente completo de prospecto de Distribucion.
+   * Impacto: UX ERP Distribucion; concentra datos para decidir aprobacion o seguimiento.
+   * Contrato: vista protegida por `distribucion.ver`; no escribe por si misma.
+   */
+  public function prospecto($idProspecto = 0) {
+    $this->requerirPermiso("distribucion.ver");
+    $this->vista("apps/erp/distribucion/prospecto", array(
+      "modulo" => "distribucion",
+      "seccion_activa" => "prospectos",
+      "ruta_canonica" => "/distribucionadmin/prospecto/" . intval($idProspecto),
+      "id_prospecto_distribucion" => intval($idProspecto),
+      "titulo_prospecto_distribucion" => "Expediente del prospecto"
+    ));
   }
 
   /**
@@ -176,6 +206,18 @@ class DistribucionAdmin extends Controlador {
    * Contrato: GET protegido por `distribucion.ver`; read-only.
    */
   public function solicitudes() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionClientesApi")->solicitudesInternas($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-15
+   * Proposito: alias semantico para listar prospectos de acceso a Distribucion.
+   * Impacto: API interna del panel; conserva compatibilidad con la ruta solicitudes.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function prospectos() {
     $this->requerirPermiso("distribucion.ver");
     return json_encode($this->modelo("DistribucionClientesApi")->solicitudesInternas($_GET));
   }
@@ -361,6 +403,17 @@ class DistribucionAdmin extends Controlador {
       $this->requerirPermiso("distribucion.editar");
     }
     return json_encode($this->modelo("DistribucionClientesApi")->clienteAprobarPlanInterno($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-16
+   * Proposito: guardar una revision humana de prospecto sin aprobarlo ni cambiar su estatus.
+   * Impacto: Auditoria ERP Distribucion; permite dar seguimiento a llamadas y WhatsApp.
+   * Contrato: POST protegido por distribucion.editar; no crea cliente ni asigna permisos/listas.
+   */
+  public function cliente_revision_registrar() {
+    $this->requerirPermiso("distribucion.editar");
+    return json_encode($this->modelo("DistribucionClientesApi")->registrarRevisionProspectoInterna($_POST, $this->usuarioActualId()));
   }
 
   /**

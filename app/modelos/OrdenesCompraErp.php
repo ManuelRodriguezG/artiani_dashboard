@@ -545,6 +545,226 @@ class OrdenesCompraErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: generar o sincronizar pendientes de conteo por almacen para una orden cerrada sin recepcion.
+     * Impacto: Compras/Inventario/Notificaciones; no crea existencias, recepciones ni movimientos de kardex.
+     * Contrato: idempotente por orden, detalle, SKU y almacen; los servicios/cargos se excluyen.
+     */
+    public function generarIncidenciasInventarioPreoperativas($idOrden, $idUsuario = 0) {
+        $db = $this->getConexion();
+        try {
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT o.*, p.proveedor
+                FROM erp_compras_ordenes o
+                LEFT JOIN erp_proveedores p ON p.id_proveedor=o.id_proveedor
+                WHERE o.id_orden_compra=:id FOR UPDATE");
+            $stmt->execute(array(":id" => intval($idOrden)));
+            $orden = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$orden) {
+                throw new Exception("Orden de compra no encontrada");
+            }
+            if (trim((string) $orden["estatus"]) !== "cerrada_sin_recepcion") {
+                throw new Exception("Solo se pueden generar pendientes desde una orden cerrada sin recepcion");
+            }
+            $stmt = $db->prepare("SELECT d.*
+                FROM erp_compras_ordenes_detalle d
+                WHERE d.id_orden_compra=:id ORDER BY d.id_detalle");
+            $stmt->execute(array(":id" => intval($idOrden)));
+            $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $resultado = $this->registrarIncidenciasInventarioPreoperativas(
+                $db,
+                $orden,
+                intval($idOrden),
+                $detalle,
+                intval($idUsuario)
+            );
+            $db->commit();
+            return $this->respuesta(false, "success", "Pendientes de inventario sincronizados", $resultado);
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: persistir una incidencia por SKU y almacen sin convertirla en existencia oficial.
+     * Impacto: Inventario operativo y Notificaciones; conserva trazabilidad de la compra.
+     */
+    private function registrarIncidenciasInventarioPreoperativas($db, $orden, $idOrden, $detalle, $idUsuario) {
+        $stmt = $db->prepare("INSERT INTO erp_inventario_incidencias_operativas
+            (huella, origen_tipo, id_origen, id_origen_detalle, id_sku_erp, id_producto_erp,
+             id_proveedor, id_almacen, sku, nombre_producto, cantidad_comprada,
+             costo_unitario, valor_estimado, estatus, motivo, creado_por)
+            VALUES (:huella, 'compra', :origen, :detalle, :sku_erp, :producto,
+             :proveedor, :almacen, :sku, :nombre, :cantidad, :costo, :valor,
+             'pendiente', 'compra_preoperativa', :usuario)
+            ON DUPLICATE KEY UPDATE
+                cantidad_comprada=VALUES(cantidad_comprada),
+                costo_unitario=VALUES(costo_unitario),
+                valor_estimado=VALUES(valor_estimado),
+                sku=VALUES(sku),
+                nombre_producto=VALUES(nombre_producto),
+                fecha_actualizacion=NOW(),
+                estatus=IF(estatus IN ('resuelto','descartado'), estatus, 'pendiente')");
+        require_once __DIR__ . "/NotificacionesErp.php";
+        $notificaciones = new NotificacionesErp();
+        $creados = 0;
+        $actualizados = 0;
+        $excluidos = 0;
+        $folio = trim((string) (isset($orden["folio"]) ? $orden["folio"] : ("OC-" . intval($idOrden))));
+        $idProveedor = intval(isset($orden["id_proveedor"]) ? $orden["id_proveedor"] : 0);
+        $idAlmacen = intval(isset($orden["id_almacen_destino"]) ? $orden["id_almacen_destino"] : 0);
+
+        foreach ($detalle as $item) {
+            $tipoItem = strtolower(trim((string) (isset($item["tipo_item"]) ? $item["tipo_item"] : "producto")));
+            if ($this->esTipoItemNoInventariable($tipoItem)) {
+                $excluidos++;
+                continue;
+            }
+            $idSku = intval(isset($item["id_sku_erp"]) ? $item["id_sku_erp"] : 0);
+            if ($idSku <= 0) {
+                $excluidos++;
+                continue;
+            }
+            $idDetalle = intval(isset($item["id_detalle"]) ? $item["id_detalle"] : 0);
+            $cantidad = round(floatval(isset($item["cantidad"]) ? $item["cantidad"] : 0), 6);
+            $costo = round(floatval(isset($item["costo_unitario"]) ? $item["costo_unitario"] : 0), 6);
+            $sku = trim((string) (isset($item["sku"]) ? $item["sku"] : ""));
+            $nombre = trim((string) (isset($item["nombre_producto"]) ? $item["nombre_producto"] : ""));
+            $huella = hash("sha256", "compra_preoperativa|orden:" . intval($idOrden) .
+                "|detalle:" . $idDetalle . "|sku:" . $idSku . "|almacen:" . $idAlmacen);
+            $stmtExistente = $db->prepare("SELECT id_incidencia_inventario
+                FROM erp_inventario_incidencias_operativas WHERE huella=:huella LIMIT 1");
+            $stmtExistente->execute(array(":huella" => $huella));
+            $idAnterior = intval($stmtExistente->fetchColumn());
+            $stmt->execute(array(
+                ":huella" => $huella,
+                ":origen" => intval($idOrden),
+                ":detalle" => $idDetalle ?: null,
+                ":sku_erp" => $idSku,
+                ":producto" => intval(isset($item["id_producto"]) ? $item["id_producto"] : 0) ?: null,
+                ":proveedor" => $idProveedor ?: null,
+                ":almacen" => $idAlmacen,
+                ":sku" => $sku,
+                ":nombre" => $nombre,
+                ":cantidad" => $cantidad,
+                ":costo" => $costo,
+                ":valor" => round($cantidad * $costo, 6),
+                ":usuario" => intval($idUsuario) ?: null
+            ));
+            $idIncidencia = $idAnterior > 0 ? $idAnterior : intval($db->lastInsertId());
+            if ($idAnterior > 0) {
+                $actualizados++;
+            } else {
+                $creados++;
+            }
+            $notificaciones->guardarOperativaEnConexion($db, array(
+                "tipo" => "compra_inventario_pendiente_conteo",
+                "modulo_origen" => "compras",
+                "entidad_origen" => "erp_inventario_incidencias_operativas",
+                "id_entidad_origen" => $idIncidencia,
+                "area_responsable" => "inventario",
+                "permiso_requerido" => "inventario.conteo",
+                "titulo" => "Conteo pendiente desde " . $folio,
+                "descripcion" => "Inventario debe confirmar la cantidad del SKU " . ($sku !== "" ? $sku : $idSku) . " por almacen.",
+                "prioridad" => "normal",
+                "url_accion" => "/inventario/incidencias_compras_operativas",
+                "payload_json" => array(
+                    "huella" => $huella,
+                    "id_incidencia_inventario" => $idIncidencia,
+                    "id_orden_compra" => intval($idOrden),
+                    "id_orden_detalle" => $idDetalle,
+                    "id_sku_erp" => $idSku,
+                    "id_almacen" => $idAlmacen
+                ),
+                "creado_por" => intval($idUsuario) ?: null
+            ));
+        }
+        return array(
+            "id_orden_compra" => intval($idOrden),
+            "creados" => $creados,
+            "actualizados" => $actualizados,
+            "excluidos" => $excluidos,
+            "sin_movimientos_inventario" => true
+        );
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: reanalizar partidas de una orden contra las relaciones vigentes de Catalogo/Proveedores.
+     * Impacto: actualiza solo la identidad de la partida y sus incidencias; no crea inventario ni movimientos.
+     * Contrato: idempotente; resuelve pendientes de compra cuando ya existe una relacion activa confiable.
+     */
+    public function reanalizarIncidenciasCatalogoOrden($idOrden, $idUsuario = 0) {
+        $db = $this->getConexion();
+        try {
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT * FROM erp_compras_ordenes WHERE id_orden_compra=:id FOR UPDATE");
+            $stmt->execute(array(":id" => intval($idOrden)));
+            $orden = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$orden) {
+                throw new Exception("Orden de compra no encontrada");
+            }
+            $idProveedor = intval(isset($orden["id_proveedor"]) ? $orden["id_proveedor"] : 0);
+            $stmt = $db->prepare("SELECT * FROM erp_compras_ordenes_detalle WHERE id_orden_compra=:id ORDER BY id_detalle");
+            $stmt->execute(array(":id" => intval($idOrden)));
+            $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmtActualizar = $db->prepare("UPDATE erp_compras_ordenes_detalle SET
+                id_producto=:producto, id_sku_erp=:sku_erp, id_sku_proveedor=:sku_proveedor,
+                sku=:sku, nombre_producto=:nombre, producto_registrado=1, requiere_revision=0
+                WHERE id_detalle=:detalle AND id_orden_compra=:orden");
+            $relacionados = 0;
+            foreach ($detalle as $indice => $item) {
+                $itemConsulta = $item;
+                $itemConsulta["id_sku_erp"] = intval(isset($item["id_sku_erp"]) ? $item["id_sku_erp"] : 0);
+                $itemConsulta["sku_proveedor"] = trim((string) (isset($item["sku_proveedor"]) && $item["sku_proveedor"] !== "" ? $item["sku_proveedor"] : (isset($item["sku"]) ? $item["sku"] : "")));
+                $itemConsulta["nombre_producto"] = trim((string) (isset($item["nombre_producto"]) ? $item["nombre_producto"] : ""));
+                if (intval($item["id_sku_erp"]) <= 0 || intval($item["id_sku_proveedor"]) <= 0) {
+                    $match = $this->buscarRelacionProveedorParaDetalleConsultado($db, $idProveedor, $itemConsulta);
+                    if ($match) {
+                        $stmtActualizar->execute(array(
+                            ":producto" => intval($match["id_producto_erp"]),
+                            ":sku_erp" => intval($match["id_sku"]),
+                            ":sku_proveedor" => intval($match["id_sku_proveedor"]),
+                            ":sku" => $match["sku"],
+                            ":nombre" => $match["nombre"],
+                            ":detalle" => intval($item["id_detalle"]),
+                            ":orden" => intval($idOrden)
+                        ));
+                        $detalle[$indice]["id_producto"] = intval($match["id_producto_erp"]);
+                        $detalle[$indice]["id_sku_erp"] = intval($match["id_sku"]);
+                        $detalle[$indice]["id_sku_proveedor"] = intval($match["id_sku_proveedor"]);
+                        $detalle[$indice]["sku"] = $match["sku"];
+                        $detalle[$indice]["nombre_producto"] = $match["nombre"];
+                        $detalle[$indice]["producto_registrado"] = 1;
+                        $detalle[$indice]["requiere_revision"] = 0;
+                        $relacionados++;
+                    }
+                }
+            }
+            $this->registrarIncidenciasCatalogoDesdeOrden($db, intval($idOrden), $idProveedor, $detalle, $idUsuario);
+            $db->commit();
+            return $this->respuesta(false, "success", "Orden reanalizada contra Catalogo y Proveedores", array(
+                "id_orden_compra" => intval($idOrden),
+                "partidas_revisadas" => count($detalle),
+                "relaciones_aplicadas" => $relacionados,
+                "sin_movimientos_inventario" => true
+            ));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
     private function enriquecerDetalleConsultadoConProveedor($db, $detalle, $idProveedor) {
         // [Codex: GPT-5 2026-06-16] Reconciliacion al cargar: si Catalogo/Proveedores ya resolvio el SKU, Compras lo ve sin recapturar.
         if (!is_array($detalle) || intval($idProveedor) <= 0) {
@@ -881,6 +1101,17 @@ class OrdenesCompraErp extends CRUD {
             $this->sincronizarDetalle($db, $idOrden, $detalle);
             $this->sincronizarCargosCostosCompra($db, $idOrden, $idUsuario);
             $this->registrarIncidenciasCatalogoDesdeOrden($db, $idOrden, intval($orden["id_proveedor"]), $detalle, $idUsuario);
+            if ($estatusDestino === "cerrada_sin_recepcion") {
+                // Usar el almacen capturado en esta operación, no el snapshot previo de la orden.
+                $ordenIncidencias = $orden;
+                $ordenIncidencias["id_almacen_destino"] = $idAlmacen;
+                // Recargar el detalle para conservar los IDs generados al insertar partidas nuevas.
+                $stmtDetallePersistido = $db->prepare("SELECT * FROM erp_compras_ordenes_detalle
+                    WHERE id_orden_compra=:orden ORDER BY id_detalle");
+                $stmtDetallePersistido->execute(array(":orden" => $idOrden));
+                $detallePersistido = $stmtDetallePersistido->fetchAll(PDO::FETCH_ASSOC);
+                $this->registrarIncidenciasInventarioPreoperativas($db, $ordenIncidencias, $idOrden, $detallePersistido, $idUsuario);
+            }
             $this->registrarNotificacionesOperativasDesdeOrden($db, $orden, $idOrden, intval($orden["id_proveedor"]), $detalle, $idUsuario, $estatusDestino);
             $db->commit();
             $mensaje = "Borrador de orden guardado";
@@ -1932,7 +2163,7 @@ class OrdenesCompraErp extends CRUD {
                         $permiso = "catalogo.editar";
                         $titulo = "Producto pendiente de alta desde " . $folio;
                         $descripcion = "Compras capturo un producto fisico sin SKU ERP: " . ($sku !== "" ? $sku . " - " : "") . $nombre;
-                        $url = "/catalogoerp/configuracion";
+                        $url = "/catalogoerp";
                         $prioridad = "alta";
                     }
                 } elseif ($idSku > 0 && $idSkuProveedor <= 0) {

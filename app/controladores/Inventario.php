@@ -46,6 +46,17 @@ class Inventario extends Controlador {
         $this->vista("apps/erp/inventarios/conteos");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: mostrar pendientes preoperativos originados por compras.
+     * Impacto: vista de seguimiento; no crea movimientos de inventario.
+     */
+    public function incidencias_compras_operativas() {
+        $this->requerirPermiso("inventario.ver");
+        $this->vista("apps/erp/inventarios/incidencias_compras_operativas");
+    }
+
     public function reservas() {
         $this->requerirPermiso("inventario.ajustar");
         $this->vista("apps/erp/inventarios/reservas");
@@ -209,6 +220,30 @@ class Inventario extends Controlador {
     public function pos_pendientes_inventario_erp() {
         $this->requerirPermiso("inventario.ver");
         return json_encode($this->modelo("InventarioErp")->listarPendientesPosInventario($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: consultar pendientes de conteo generados por compras preoperativas.
+     * Impacto: solo lectura; no modifica inventario.
+     */
+    public function incidencias_compras_operativas_listar_erp() {
+        $this->requerirPermiso("inventario.ver");
+        return json_encode($this->modelo("InventarioErp")->listarIncidenciasComprasOperativas($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-15
+     * Proposito: guardar cantidad estimada o conteo fisico de una incidencia de compra.
+     * Impacto: no crea existencias, recepciones ni kardex; deja la incidencia en estado capturado.
+     */
+    public function incidencia_compra_operativa_capturar_erp() {
+        $this->requerirPermiso("inventario.conteo");
+        $respuesta = $this->modelo("InventarioErp")->capturarIncidenciaCompraOperativa($_POST, $this->usuarioActualId());
+        $this->auditarMovimiento("incidencia_compra_operativa_capturar_erp", $respuesta);
+        return json_encode($respuesta);
     }
 
     /**
