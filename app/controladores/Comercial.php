@@ -100,6 +100,18 @@ class Comercial extends Controlador
         return json_encode($this->modelo('ListasPreciosErp')->conflictosReadOnly($_GET));
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-16.
+     * Proposito: exponer la bandeja Comercial de cambios de costo proveedor.
+     * Impacto: permite revisar incidencias antes de guardar precios; no escribe BD.
+     * Contrato: read-only; requiere `ventas.listas.ver`.
+     */
+    public function listas_precios_incidencias_comerciales_erp()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        return json_encode($this->modelo('ListasPreciosErp')->incidenciasComercialesReadOnly($_GET));
+    }
+
     public function listas_precios_auditoria_erp()
     {
         $this->requerirPermiso('ventas.listas.auditoria');

@@ -5,7 +5,37 @@ Fecha: 2026-08-21
 Proyecto canonico: `C:\xampp\htdocs\panel_de_control`  
 Estado: plan de arquitectura, sin DDL aplicado
 
-## Objetivo
+## Referencia de variantes en la matriz existente (2026-10-16)
+
+IA: Codex GPT-6. Codigo implementado y DDL productivo aplicado el 2026-10-16 con autorizacion expresa del dueno y respaldo externo validado.
+
+- Se aprovechan los SKU del mismo producto: cada renglon permite `Sin configurar`, `SKU principal` o `Depende de <SKU>`.
+- Puede haber varios principales. Cada variante selecciona el principal correspondiente. No se crea otro producto, familia ni SKU artificial.
+- Los atributos describen los SKU y no determinan su costo. Seleccionar un principal declara equivalencia economica 1:1; unidad y factor deben coincidir.
+- Persistencia minima: `erp_catalogo_skus.es_principal_variante` (0 por defecto) y `id_sku_principal_variante` (NULL por defecto).
+- El mapa completo se valida y guarda en transaccion mediante `catalogoerp/guardar_referencias_variantes`, con permiso `catalogo.editar`, CSRF del Core y auditoria.
+- Un origen debe pertenecer al mismo producto y estar marcado como principal. No se permiten autorreferencias, cadenas ni ciclos. Retirar un principal obliga a corregir sus dependientes en el mismo guardado.
+- Rentabilidad conserva la prioridad de costos propios y de operaciones de presentacion/apertura/paquete. Cuando faltan, consulta el principal explicito, antes del fallback historico de Catalogo. Un costo derivado pendiente no se disfraza con herencia.
+- La respuesta de costo incluye `fuente=heredado_variante_principal`, SKU origen, formula 1:1 y evidencia del costo principal. Si falta costo del principal queda pendiente.
+- Listas de precios ya consume `RentabilidadErp::resolverCostoVigenteSku`, por lo que aprovecha la nueva fuente sin duplicar reglas.
+- Ecommerce puede aprovechar la relacion para identificar principales y variantes. Esta entrega no modifica publicacion, selector publico, precios ni disponibilidad; cada SKU conserva su precio y existencia. Los costos internos no deben exponerse al publico.
+- Compatibilidad: sin las columnas, la consulta sigue funcionando y los controles nuevos quedan deshabilitados con aviso.
+
+DDL exacto aplicado mediante `storage/uat/apply_variantes_principal_authorized.php` (no se ejecuto el actualizador general de Catalogo):
+
+```sql
+ALTER TABLE erp_catalogo_skus ADD COLUMN es_principal_variante TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE erp_catalogo_skus ADD COLUMN id_sku_principal_variante BIGINT NULL;
+```
+
+Verificacion read-only: `C:\xampp\php\php.exe storage/uat/uat_variantes_principal_readonly.php --db`.
+El SKU comercial `11310` corresponde a `id_sku=1555`, producto `1447`; no confundir el codigo comercial con el ID interno.
+
+Evidencia de aplicacion: ambas columnas creadas; 1,978 SKU antes y despues; cero relaciones configuradas automaticamente. Respaldo: `C:\xampp\panel_db_backups\productivo_panel_20261016_antes_variantes_principal.sql` (194,252,154 bytes), SHA256 `3d110e66450fb53c90a11db9d56d092d8c997dae8f00ad3585c9e9753c1f5ff3`.
+
+UAT operativo pendiente: marcar un principal, vincular una variante equivalente, guardar/reabrir y confirmar costo/origen; probar costo propio prioritario, principal sin costo, unidad diferente y desmarcado de principal con dependientes. No se han guardado referencias ni alterado precios productivos en esta entrega.
+
+## Objetivo original
 
 Preparar Catalogo ERP para manejar SKUs principales y SKUs vendibles derivados sin mezclar responsabilidades de precio, costo, inventario o ventas.
 

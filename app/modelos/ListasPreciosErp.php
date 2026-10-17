@@ -114,6 +114,71 @@ class ListasPreciosErp extends CRUD {
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-16.
+     * Proposito: consultar incidencias comerciales generadas por cambios de costo proveedor.
+     * Impacto: alimenta la bandeja de Comercial/Listas sin modificar precios ni estatus.
+     * Contrato: read-only; solo devuelve incidencias abiertas de `erp_notificaciones`.
+     */
+    public function incidenciasComercialesReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_notificaciones")) {
+                return $this->respuesta(false, "warning", "Bandeja de incidencias no disponible", array("incidencias" => array(), "total" => 0));
+            }
+            $where = array(
+                "n.area_responsable='comercial'",
+                "n.tipo IN ('aumento_proveedor','baja_proveedor','margen_bajo_por_costo','precio_debajo_costo','producto_nuevo_sin_precio','producto_sin_relacion_sku','cambio_factor_presentacion')",
+                "n.estatus IN ('pendiente','en_revision','bloqueada')"
+            );
+            $params = array();
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $tipo = trim((string) $this->valor($filtros, "tipo", ""));
+            $idLista = intval($this->valor($filtros, "id_lista_precio", 0));
+            if ($q !== "") {
+                $where[] = "(n.titulo LIKE :q OR n.descripcion LIKE :q OR n.payload_json LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            if ($tipo !== "") {
+                $where[] = "n.tipo=:tipo";
+                $params[":tipo"] = $tipo;
+            }
+            if ($idLista > 0) {
+                $where[] = "n.payload_json LIKE :lista";
+                $params[":lista"] = '%"id_lista_precio":' . $idLista . '%';
+            }
+            $limite = max(1, min(200, intval($this->valor($filtros, "limite", 80))));
+            $stmt = $db->prepare("SELECT n.id_notificacion, n.tipo, n.modulo_origen, n.entidad_origen,
+                    n.id_entidad_origen, n.area_responsable, n.permiso_requerido, n.titulo,
+                    n.descripcion, n.prioridad, n.estatus, n.url_accion, n.payload_json,
+                    n.fecha_registro, n.fecha_actualizacion
+                FROM erp_notificaciones n
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY FIELD(n.prioridad,'critica','alta','normal','info'), n.id_notificacion DESC
+                LIMIT " . $limite);
+            $stmt->execute($params);
+            $items = array();
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $payload = json_decode(isset($fila["payload_json"]) ? $fila["payload_json"] : "{}", true);
+                $fila["payload"] = is_array($payload) ? $payload : array();
+                unset($fila["payload_json"]);
+                $items[] = $fila;
+            }
+            return $this->respuesta(false, "success", "Incidencias comerciales consultadas", array(
+                "incidencias" => $items,
+                "total" => count($items),
+                "filtros" => array("q" => $q, "tipo" => $tipo, "id_lista_precio" => $idLista, "limite" => $limite),
+                "reglas" => array(
+                    "La incidencia no modifica precios automaticamente.",
+                    "El precio se decide y guarda desde Listas de precios.",
+                    "El costo anterior y nuevo se muestran normalizados por factor de presentacion."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-13.
      * Proposito: consultar auditoria comercial de Listas de precios sin escribir BD.
      * Impacto: permite validar eventos de lista, detalle y asignacion despues de cada UAT.

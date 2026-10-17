@@ -2197,13 +2197,21 @@
         });
     }
 
+    /** IA: Codex GPT-6 | 2026-10-16. Edita referencias en la matriz; nunca infiere costo por color o talla. */
     function renderVariantes(skus, variantes) {
+        skus = skus.filter(function (sku) { return sku.estatus !== "fusionado"; });
         var atributos = variantes.atributos || [];
         var valores = variantes.valores || {};
         var encabezado = document.getElementById("catalogo_variantes_encabezado");
         var lista = document.getElementById("catalogo_variantes_lista");
         var estado = document.getElementById("catalogo_variantes_estado");
-        encabezado.innerHTML = "<tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>SKU</th><th>Nombre</th>" +
+        var referencias = variantes.referencias || {disponible: false, skus: {}};
+        var guardarReferencias = document.getElementById("catalogo_guardar_referencias_variantes");
+        if (guardarReferencias) { guardarReferencias.disabled = !referencias.disponible; }
+        var aviso = document.getElementById("catalogo_referencias_variantes_estado");
+        aviso.textContent = referencias.disponible ? "" : "La seleccion de principales estara disponible al actualizar la estructura de Catalogo.";
+        aviso.classList.toggle("d-none", !!referencias.disponible);
+        encabezado.innerHTML = "<tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>SKU</th><th>Nombre</th><th>Principal / referencia</th>" +
             atributos.map(function (atributo) {
                 var acciones = permisos.editar
                     ? "<span class=\"d-inline-flex align-items-center gap-2 ms-2\"><button type=\"button\" class=\"btn btn-sm btn-light-primary\" title=\"Editar valores\" data-editar-variante=\"" +
@@ -2214,7 +2222,17 @@
                 return "<th><span class=\"d-inline-flex align-items-center gap-2\">" + escapeHtml(atributo.nombre) + acciones + "</span></th>";
             }).join("") + "</tr>";
         lista.innerHTML = skus.map(function (sku) {
+            var relacion = (referencias.skus || {})[sku.id_sku] || {};
+            var seleccion = String(relacion.es_principal_variante) === "1" ? "principal" : String(relacion.id_sku_principal_variante || "");
+            var opciones = '<option value="">Sin configurar</option><option value="principal">SKU principal</option>' + skus.filter(function (origen) {
+                return String(origen.id_sku) !== String(sku.id_sku);
+            }).map(function (origen) {
+                return '<option value="' + escapeHtml(origen.id_sku) + '"' + (seleccion === String(origen.id_sku) ? ' selected' : '') + '>Depende de ' + escapeHtml(origen.sku) + '</option>';
+            }).join("");
+            if (seleccion === "principal") { opciones = opciones.replace('value="principal"', 'value="principal" selected'); }
+            var control = '<select class="form-select form-select-sm" style="min-width:190px" aria-label="Principal o referencia de ' + escapeHtml(sku.sku) + '" data-referencia-variante="' + escapeHtml(sku.id_sku) + '"' + (!permisos.editar || !referencias.disponible ? ' disabled' : '') + '>' + opciones + '</select>';
             return "<tr><td class=\"fw-bold\">" + escapeHtml(sku.sku) + "</td><td>" + escapeHtml(sku.nombre) + "</td>" +
+                "<td>" + control + "</td>" +
                 atributos.map(function (atributo) {
                     var valor = valores[sku.id_sku] && valores[sku.id_sku][atributo.id_atributo_erp] ? valores[sku.id_sku][atributo.id_atributo_erp] : "";
                     return "<td>" + mostrarValorAtributo(valor, atributo) + "</td>";
@@ -2243,6 +2261,28 @@
             estado.className = "alert alert-light-success mb-6";
             estado.textContent = "Las combinaciones de variantes están completas y son únicas.";
         }
+    }
+
+    /** IA: Codex GPT-6 | 2026-10-16. Guarda el mapa completo; conserva captura ante un error del servidor. */
+    function guardarReferenciasVariantes() {
+        var button = document.getElementById("catalogo_guardar_referencias_variantes");
+        var referencias = {};
+        document.querySelectorAll("[data-referencia-variante]").forEach(function (select) {
+            referencias[select.getAttribute("data-referencia-variante")] = select.value;
+        });
+        button.disabled = true;
+        var aviso = document.getElementById("catalogo_referencias_variantes_estado");
+        request("/catalogoerp/guardar_referencias_variantes", {
+            id_producto_erp: productoActualId,
+            referencias_json: JSON.stringify(referencias)
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            aviso.textContent = response.mensaje;
+            aviso.className = "alert alert-light-success mt-4";
+        }).catch(function (error) {
+            aviso.textContent = error.message || "No se pudieron guardar las referencias";
+            aviso.className = "alert alert-light-danger mt-4";
+        }).finally(function () { button.disabled = false; });
     }
 
     /**
@@ -3953,6 +3993,10 @@
         }
         if (variantesForm) {
             variantesForm.addEventListener("submit", guardarVariantes);
+        }
+        var guardarReferencias = document.getElementById("catalogo_guardar_referencias_variantes");
+        if (guardarReferencias) {
+            guardarReferencias.addEventListener("click", guardarReferenciasVariantes);
         }
         var atributosTecnicosForm = document.getElementById("catalogo_form_atributos_tecnicos");
         if (atributosTecnicosForm) {

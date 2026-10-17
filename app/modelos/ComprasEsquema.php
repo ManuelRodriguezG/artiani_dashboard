@@ -560,6 +560,18 @@ class ComprasEsquema extends DBSchema {
             "KEY `idx_inv_incidencia_operativa_proveedor` (`id_proveedor`, `estatus`)"
         ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
 
+        foreach (array(
+            array("cantidad_existencia_anterior", "DECIMAL(18,6) NULL"),
+            array("cantidad_existencia_resultado", "DECIMAL(18,6) NULL"),
+            array("cantidad_ajuste", "DECIMAL(18,6) NULL"),
+            array("tipo_ajuste", "VARCHAR(20) NULL"),
+            array("movimientos_ids_json", "TEXT NULL"),
+            array("ajustado_por", "INT NULL"),
+            array("fecha_ajuste", "DATETIME NULL")
+        ) as $columna) {
+            $plan[] = $this->agregarColumnaSiNoExiste("erp_inventario_incidencias_operativas", $columna[0], $columna[1], $ejecutar);
+        }
+
         return array(
             "error" => false,
             "tipo" => "success",

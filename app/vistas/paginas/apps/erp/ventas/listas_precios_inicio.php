@@ -86,6 +86,28 @@
                                 <div class="col-md-3"><div class="lp-home-card p-4"><div class="text-muted fs-8 text-uppercase">Segmentos</div><div class="fw-bold fs-3" id="lp_kpi_segmentos">0</div></div></div>
                             </div>
 
+                            <section class="lp-home-card p-4 mb-4" id="lp_inicio_incidencias_seccion">
+                                <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+                                    <div>
+                                        <div class="fw-bold fs-5">Cambios de costo por revisar</div>
+                                        <div class="text-muted fs-8">Proveedores/Rentabilidad detectan el cambio; Comercial decide si ajusta el precio.</div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <input class="form-control form-control-solid w-250px" id="lp_inicio_incidencias_q" placeholder="Buscar SKU o lista">
+                                        <select class="form-select form-select-solid w-220px" id="lp_inicio_incidencias_tipo">
+                                            <option value="">Todos los tipos</option>
+                                            <option value="aumento_proveedor">Aumento de proveedor</option>
+                                            <option value="baja_proveedor">Baja de proveedor</option>
+                                            <option value="margen_bajo_por_costo">Margen bajo</option>
+                                            <option value="precio_debajo_costo">Precio debajo del costo</option>
+                                            <option value="cambio_factor_presentacion">Cambio de factor/presentacion</option>
+                                        </select>
+                                        <button class="btn btn-light-primary" id="lp_inicio_incidencias_recargar" type="button" title="Actualizar incidencias"><i class="bi bi-arrow-clockwise"></i></button>
+                                    </div>
+                                </div>
+                                <div id="lp_inicio_incidencias"></div>
+                            </section>
+
                             <section class="lp-home-card p-4">
                                 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
                                     <div>

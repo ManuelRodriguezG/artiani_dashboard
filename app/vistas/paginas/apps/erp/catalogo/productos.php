@@ -626,6 +626,12 @@
                                 </table>
                             </div>
                             <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
+                            <div class="text-end mt-4">
+                                <button class="btn btn-primary" type="button" id="catalogo_guardar_referencias_variantes" disabled><i class="bi bi-save"></i> Guardar principales y referencias</button>
+                            </div>
+                            <?php endif; ?>
+                            <div id="catalogo_referencias_variantes_estado" class="alert alert-light-warning mt-4 d-none" role="status"></div>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                             <div class="separator my-7"></div>
                             <form id="catalogo_form_variantes" data-erp-ajax="true">
                                 <input type="hidden" name="id_producto_erp">
@@ -1051,6 +1057,6 @@
             "costos" => Sesionseguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20261011-sku-alta-limpia-2"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20261016-variantes-principal"></script>
 </body>
 </html>

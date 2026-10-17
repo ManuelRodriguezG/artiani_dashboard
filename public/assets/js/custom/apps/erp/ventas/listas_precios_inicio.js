@@ -65,6 +65,34 @@
         });
     }
 
+    function cargarIncidenciasComerciales() {
+        var contenedor = document.getElementById("lp_inicio_incidencias");
+        if (!contenedor) { return; }
+        contenedor.innerHTML = "<div class=\"text-muted py-5 text-center\">Consultando cambios de costo...</div>";
+        var params = new URLSearchParams({
+            q: document.getElementById("lp_inicio_incidencias_q").value.trim(),
+            tipo: document.getElementById("lp_inicio_incidencias_tipo").value,
+            limite: "80"
+        });
+        request("/comercial/listas_precios_incidencias_comerciales_erp?" + params.toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var items = (response.depurar || {}).incidencias || [];
+            if (!items.length) {
+                contenedor.innerHTML = "<div class=\"text-muted py-5 text-center\">No hay cambios de costo pendientes.</div>";
+                return;
+            }
+            contenedor.innerHTML = "<div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Tipo</th><th>SKU</th><th>Lista</th><th>Costo</th><th>Margen</th><th class=\"text-end\">Accion</th></tr></thead><tbody>" + items.map(function (item) {
+                var p = item.payload || {};
+                var margen = p.margen_proyectado == null ? "Sin precio" : Number(p.margen_proyectado).toFixed(2) + "%";
+                var costo = (p.costo_anterior == null ? "-" : dinero(p.costo_anterior)) + " -> " + dinero(p.costo_nuevo || 0);
+                var href = item.url_accion || "/comercial/listas_precios";
+                return "<tr><td><span class=\"badge badge-light-warning\">" + escapeHtml(String(item.tipo || "").replace(/_/g, " ")) + "</span></td><td><div class=\"fw-semibold\">SKU #" + escapeHtml(p.id_sku || "-") + "</div><div class=\"text-muted fs-8\">Proveedor #" + escapeHtml(p.id_proveedor || "-") + "</div></td><td><div class=\"fw-semibold\">" + escapeHtml(p.lista_codigo || "-") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(p.lista_nombre || "") + "</div></td><td>" + escapeHtml(costo) + "<div class=\"text-muted fs-8\">Variacion: " + escapeHtml(p.variacion_porcentual == null ? "-" : Number(p.variacion_porcentual).toFixed(2) + "%") + "</div></td><td>" + escapeHtml(margen) + "<div class=\"text-muted fs-8\">Sugerido: " + (p.precio_sugerido == null ? "-" : escapeHtml(dinero(p.precio_sugerido))) + "</div></td><td class=\"text-end\"><a class=\"btn btn-sm btn-light-primary\" href=\"" + escapeHtml(href) + "\"><i class=\"bi bi-box-arrow-up-right\"></i> Revisar</a></td></tr>";
+            }).join("") + "</tbody></table></div>";
+        }).catch(function (error) {
+            contenedor.innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
     function renderKpis(kpis) {
         document.getElementById("lp_kpi_listas").textContent = Number(kpis.listas_total || 0);
         document.getElementById("lp_kpi_activas").textContent = Number(kpis.listas_activas || 0);
@@ -110,6 +138,12 @@
         });
         document.getElementById("lp_inicio_estatus").addEventListener("change", cargar);
         document.getElementById("lp_inicio_canal").addEventListener("change", cargar);
+        document.getElementById("lp_inicio_incidencias_recargar").addEventListener("click", cargarIncidenciasComerciales);
+        document.getElementById("lp_inicio_incidencias_tipo").addEventListener("change", cargarIncidenciasComerciales);
+        document.getElementById("lp_inicio_incidencias_q").addEventListener("keyup", function (event) {
+            if (event.key === "Enter") { cargarIncidenciasComerciales(); }
+        });
         cargar();
+        cargarIncidenciasComerciales();
     });
 })();

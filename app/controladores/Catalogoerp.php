@@ -1224,6 +1224,20 @@ class Catalogoerp extends Controlador {
     ));
     return json_encode($respuesta);
   }
+  /** IA: Codex GPT-6 | 2026-10-16. Guarda origenes de variantes con permiso y auditoria explicita. */
+  public function guardar_referencias_variantes() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarReferenciasVariantesProducto($_POST);
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_referencias_variantes", array(
+      "entidad" => "erp_catalogo_productos",
+      "entidad_id" => isset($_POST["id_producto_erp"]) ? intval($_POST["id_producto_erp"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
   public function guardar_variantes() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarVariantesProducto($_POST);

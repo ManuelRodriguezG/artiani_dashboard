@@ -235,12 +235,12 @@ class Inventario extends Controlador {
 
     /**
      * IA: Codex GPT-5
-     * Fecha: 2026-10-15
-     * Proposito: guardar cantidad estimada o conteo fisico de una incidencia de compra.
-     * Impacto: no crea existencias, recepciones ni kardex; deja la incidencia en estado capturado.
+     * Fecha: 2026-10-16
+     * Proposito: aplicar la existencia observada de una incidencia de compra como ajuste por diferencia.
+     * Impacto: puede crear entrada/salida de kardex y actualizar existencias del almacen; no crea recepcion.
      */
     public function incidencia_compra_operativa_capturar_erp() {
-        $this->requerirPermiso("inventario.conteo");
+        $this->requerirPermiso("inventario.ajustar");
         $respuesta = $this->modelo("InventarioErp")->capturarIncidenciaCompraOperativa($_POST, $this->usuarioActualId());
         $this->auditarMovimiento("incidencia_compra_operativa_capturar_erp", $respuesta);
         return json_encode($respuesta);

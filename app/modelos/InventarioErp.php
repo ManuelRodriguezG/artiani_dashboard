@@ -1510,10 +1510,18 @@ class InventarioErp extends CRUD {
                 $where[] = "(i.sku LIKE :q OR i.nombre_producto LIKE :q OR o.folio LIKE :q OR a.almacen LIKE :q)";
                 $params[":q"] = "%" . $q . "%";
             }
-            $sql = "SELECT i.*, o.folio folio_orden, a.almacen nombre_almacen
+            $sql = "SELECT i.*, o.folio folio_orden, a.almacen nombre_almacen,
+                    COALESCE(existencia_actual.cantidad_actual, 0) existencia_actual
                 FROM erp_inventario_incidencias_operativas i
                 LEFT JOIN erp_compras_ordenes o ON o.id_orden_compra=i.id_origen
                 LEFT JOIN erp_almacenes a ON a.id_almacen=i.id_almacen
+                LEFT JOIN (
+                    SELECT id_sku_erp, id_almacen_clave, SUM(cantidad) cantidad_actual
+                    FROM erp_inventario_existencias
+                    WHERE estatus_existencia<>'cancelada'
+                    GROUP BY id_sku_erp, id_almacen_clave
+                ) existencia_actual ON existencia_actual.id_sku_erp=i.id_sku_erp
+                    AND existencia_actual.id_almacen_clave=i.id_almacen
                 WHERE " . implode(" AND ", $where) . "
                 ORDER BY i.fecha_actualizacion DESC, i.fecha_registro DESC
                 LIMIT 100";
@@ -1530,10 +1538,10 @@ class InventarioErp extends CRUD {
 
     /**
      * IA: Codex GPT-5
-     * Fecha: 2026-10-15
-     * Proposito: capturar la cantidad observada de una incidencia preoperativa de compra.
-     * Impacto: actualiza solo la incidencia y su trazabilidad; no crea existencias, recepciones ni kardex.
-     * Contrato: requiere cantidad y precision (`estimada` o `conteo_fisico`); no permite modificar incidencias resueltas o descartadas.
+     * Fecha: 2026-10-16
+     * Proposito: convertir la existencia observada de una compra en un ajuste real por almacen.
+     * Impacto: actualiza existencias y crea kardex dentro de una transaccion; no crea recepcion.
+     * Contrato: una incidencia solo puede aplicar un ajuste; requiere cantidad y precision.
      */
     public function capturarIncidenciaCompraOperativa($datos, $idUsuario = 0) {
         $idIncidencia = intval(isset($datos["id_incidencia_inventario"]) ? $datos["id_incidencia_inventario"] : 0);
@@ -1548,31 +1556,96 @@ class InventarioErp extends CRUD {
         }
         try {
             $db = $this->getConexion();
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT * FROM erp_inventario_incidencias_operativas
+                WHERE id_incidencia_inventario=:id AND origen_tipo='compra' FOR UPDATE");
+            $stmt->execute(array(":id" => $idIncidencia));
+            $incidencia = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$incidencia || in_array(trim((string) $incidencia["estatus"]), array("resuelto", "descartado"), true)) {
+                throw new Exception("La incidencia no existe o ya fue resuelta");
+            }
+            $idSku = intval($incidencia["id_sku_erp"]);
+            $idAlmacen = intval($incidencia["id_almacen"]);
+            if ($idSku <= 0 || $idAlmacen <= 0) {
+                throw new Exception("La incidencia no tiene SKU ERP o almacen valido");
+            }
+            $sku = $this->consultarSku($db, $idSku);
+            $existenciaAnterior = $this->totalExistenciaSkuAlmacen($db, $idSku, $idAlmacen);
+            $diferencia = round($cantidad - $existenciaAnterior, 4);
+            $movimientos = array();
+            $datosMovimiento = array(
+                "motivo_ajuste" => "conteo_incidencia_compra",
+                "observaciones" => $observaciones,
+                "origen_detalle_id" => intval($incidencia["id_origen_detalle"])
+            );
+            $referencia = "INC-COM-" . $idIncidencia;
+            if (abs($diferencia) > 0.0001) {
+                if ($diferencia > 0) {
+                    $existencia = $this->obtenerOCrearExistencia($db, $sku, $idAlmacen, array());
+                    $movimientos[] = $this->aplicarCambio($db, $existencia, $diferencia, "entrada", "incidencia_compra", $idIncidencia, $referencia, $datosMovimiento, $idUsuario);
+                } else {
+                    $pendiente = abs($diferencia);
+                    foreach ($this->existenciasDisponibles($db, $idSku, $idAlmacen, array()) as $existencia) {
+                        if ($pendiente <= 0.0001) {
+                            break;
+                        }
+                        $retirar = min($pendiente, floatval($existencia["cantidad_disponible"]));
+                        if ($retirar <= 0) {
+                            continue;
+                        }
+                        $movimientos[] = $this->aplicarCambio($db, $existencia, $retirar, "salida", "incidencia_compra", $idIncidencia, $referencia, $datosMovimiento, $idUsuario);
+                        $pendiente = round($pendiente - $retirar, 4);
+                    }
+                    if ($pendiente > 0.0001) {
+                        throw new Exception("La existencia disponible no permite aplicar el faltante de " . $sku["sku"]);
+                    }
+                }
+            }
             $stmt = $db->prepare("UPDATE erp_inventario_incidencias_operativas
                 SET cantidad_reportada=:cantidad, tipo_cantidad_reportada=:tipo,
-                    observaciones=:observaciones, estatus='capturado',
-                    revisado_por=:usuario, fecha_revision=NOW(), fecha_actualizacion=NOW()
-                WHERE id_incidencia_inventario=:id AND origen_tipo='compra'
-                  AND estatus NOT IN ('resuelto','descartado')");
+                    cantidad_existencia_anterior=:anterior, cantidad_existencia_resultado=:resultado,
+                    cantidad_ajuste=:ajuste, tipo_ajuste=:tipo_ajuste, movimientos_ids_json=:movimientos,
+                    observaciones=:observaciones, estatus='resuelto', revisado_por=:usuario,
+                    ajustado_por=:usuario, fecha_revision=NOW(), fecha_ajuste=NOW(), fecha_resolucion=NOW(), fecha_actualizacion=NOW()
+                WHERE id_incidencia_inventario=:id AND estatus NOT IN ('resuelto','descartado')");
             $stmt->execute(array(
-                ":cantidad" => round($cantidad, 6),
-                ":tipo" => $tipoCantidad,
-                ":observaciones" => $observaciones !== "" ? $observaciones : null,
-                ":usuario" => intval($idUsuario) ?: null,
-                ":id" => $idIncidencia
+                ":cantidad" => round($cantidad, 6), ":tipo" => $tipoCantidad,
+                ":anterior" => round($existenciaAnterior, 6), ":resultado" => round($cantidad, 6),
+                ":ajuste" => round(abs($diferencia), 6), ":tipo_ajuste" => abs($diferencia) <= 0.0001 ? "sin_cambio" : ($diferencia > 0 ? "entrada" : "salida"),
+                ":movimientos" => json_encode($movimientos), ":observaciones" => $observaciones !== "" ? $observaciones : null,
+                ":usuario" => intval($idUsuario) ?: null, ":id" => $idIncidencia
             ));
             if ($stmt->rowCount() < 1) {
-                return $this->respuesta(true, "warning", "La incidencia no existe o ya fue resuelta");
+                throw new Exception("La incidencia ya fue atendida por otro usuario");
             }
-            return $this->respuesta(false, "success", "Conteo de incidencia guardado", array(
+            $db->commit();
+            return $this->respuesta(false, "success", abs($diferencia) <= 0.0001 ? "Existencia confirmada sin ajuste" : "Ajuste de inventario aplicado", array(
                 "id_incidencia_inventario" => $idIncidencia,
                 "cantidad_reportada" => round($cantidad, 6),
-                "tipo_cantidad_reportada" => $tipoCantidad,
-                "sin_movimientos_inventario" => true
+                "existencia_anterior" => round($existenciaAnterior, 6),
+                "existencia_resultado" => round($cantidad, 6),
+                "diferencia" => round($diferencia, 6),
+                "movimientos" => $movimientos,
+                "sin_movimientos_inventario" => false
             ));
         } catch (Exception $e) {
+            if (isset($db) && $db->inTransaction()) {
+                $db->rollBack();
+            }
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    /**
+     * IA: Codex GPT-5, 2026-10-16.
+     * Proposito: sumar la existencia oficial de un SKU en un almacen antes de ajustar.
+     * Impacto: solo lectura dentro de la transaccion de incidencia.
+     */
+    private function totalExistenciaSkuAlmacen($db, $idSku, $idAlmacen) {
+        $stmt = $db->prepare("SELECT COALESCE(SUM(cantidad), 0) FROM erp_inventario_existencias
+            WHERE id_sku_erp=:sku AND id_almacen_clave=:almacen AND estatus_existencia<>'cancelada'");
+        $stmt->execute(array(":sku" => intval($idSku), ":almacen" => intval($idAlmacen)));
+        return round(floatval($stmt->fetchColumn()), 4);
     }
 
     /**

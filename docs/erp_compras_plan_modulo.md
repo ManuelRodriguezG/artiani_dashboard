@@ -128,7 +128,7 @@ Impacto: Compras/Catalogo/Proveedores/Almacen/Inventario.
 - Compras puede conservar datos esperados del documento, como lote o caducidad declarada en XML, como evidencia; esos datos no crean existencia oficial hasta la recepcion.
 - Si una misma partida llega en dos lotes o con distintas caducidades, Almacen debe dividir la recepcion en renglones de lote independientes, manteniendo el mismo SKU ERP y el costo correspondiente.
 - Las reglas del SKU deben indicar si requiere lote, caducidad, serie/codigo unico, fecha minima de caducidad o tolerancia. Recepcion debe bloquear el cierre fisico si falta un dato obligatorio.
-- Una compra preoperativa puede generar el pendiente por `id_sku_erp` y almacen, pero no puede crear lote, caducidad, existencia ni kardex.
+- Una compra preoperativa puede generar el pendiente por `id_sku_erp` y almacen. La captura posterior de existencia observada puede crear el ajuste real, pero no sustituye la recepcion formal de Almacen.
 
 ## Decision operativa: compras preoperativas con incidencias de inventario
 
@@ -186,10 +186,12 @@ Fecha: 2026-10-14
 - La previsualizacion tambien devuelve la politica de inventario del SKU (`requiere_lote`, `requiere_caducidad`, `requiere_serie`, `requiere_serie_fabricante` y alertas de caducidad) para que la futura captura de Recepcion sepa que datos son obligatorios.
 - Con autorizacion explicita del dueno, se creo `erp_inventario_incidencias_operativas` en la base operativa. Verificacion: tabla presente, 25 columnas y 12 indices.
 - Respaldo previo validado: `C:\\xampp\\panel_db_backups\\productivo_artianicom_sys_20261015_074449_pdo_antes_compras_incidencias_inventario.sql`.
+- Respaldo focalizado adicional antes de activar ajustes reales: `C:\\xampp\\panel_db_backups\\productivo_artianicom_sys_panel_20261016_121311_antes_incidencias_compras_ajuste_real_focalizado.sql`.
+- SHA-256 del respaldo focalizado: `B16812E45690854E07F82DDCD2315ED79EC4540DF3582CD104DE847AD394D0D2`.
 - SHA-256 del respaldo: `814C519984E4523B5521178D43320A4AA8596512C1E46FB203DD9D202E91EF73`.
 - La ejecucion no inserto incidencias, no modifico existencias, no creo recepciones y no genero movimientos de kardex.
 - Se implemento `OrdenesCompraErp::generarIncidenciasInventarioPreoperativas` y su endpoint `Compra/orden_incidencias_preoperativas_generar_erp`. Al guardar una orden como `cerrada_sin_recepcion`, las partidas inventariables con SKU ERP generan o sincronizan una incidencia idempotente de conteo; cargos/servicios y partidas sin SKU ERP se excluyen de esta bandeja.
-- La sincronizacion usa el almacen actual capturado en la operacion y conserva incidencias ya `resueltas` o `descartadas`. Tambien crea una notificacion operativa para `inventario.conteo`; no crea existencias, recepciones ni movimientos de kardex.
+- La sincronizacion usa el almacen actual capturado en la operacion y conserva incidencias ya `resueltas` o `descartadas`. Tambien crea una notificacion operativa para `inventario.conteo`.
 
 La tabla propuesta conserva el origen de la compra, SKU, proveedor, almacen, cantidad comprada, cantidad reportada, precision del reporte, costo estimado y ciclo de atencion. Su huella unica evita duplicados al guardar o cerrar nuevamente la orden.
 
@@ -199,9 +201,10 @@ Fecha: 2026-10-15
 
 - `Inventario/incidencias_compras_operativas_listar_erp` consulta los pendientes de compras por almacen, estatus o texto.
 - `Inventario/incidencia_compra_operativa_capturar_erp` registra una cantidad `estimada` o `conteo_fisico` y deja la incidencia en `capturado`.
-- Se agrego la vista `Inventario/incidencias_compras_operativas` y su acceso en el menu de Inventario. La pantalla permite filtrar y capturar pendientes, pero no ofrece acciones de ajuste.
-- La captura exige permiso `inventario.conteo`, registra auditoria y no crea existencias, recepciones ni movimientos de kardex.
-- La resolucion definitiva queda pendiente de la pantalla de conciliacion/recepcion: primero se debe revisar evidencia, lote, caducidad, serie y politica del SKU antes de afectar inventario.
+- Se agrego la vista `Inventario/incidencias_compras_operativas` y su acceso en el menu de Inventario. La pantalla muestra existencia oficial, cantidad comprada y permite capturar la existencia observada.
+- La captura se realiza directamente en la tabla: `Existencia registrada`, `Existencia capturada`, `Quedara` y `Diferencia` se revisan en la misma fila antes de usar `Afectar inventario`.
+- La captura exige permiso `inventario.ajustar`, registra auditoria y aplica solo la diferencia como entrada o salida de kardex en el mismo almacen. `inventario.ver` solo permite consultar.
+- La incidencia queda bloqueada despues de aplicar el ajuste para evitar duplicados; la recepcion formal sigue siendo responsabilidad de Almacen.
 - Se mantiene el ciclo `pendiente -> en_revision -> capturado -> conciliado -> resuelto/descartado`; marcar una incidencia como leida no la resuelve.
 - Los productos sin SKU ERP no se envian a la bandeja de Inventario: se mantienen como incidencia de Catalogo (`compra_producto_pendiente_alta`). Catalogo puede crear un SKU temporal en borrador o el usuario puede relacionarlo desde Proveedores con un SKU ERP existente.
 - Catalogo dispone de la accion `Reanalizar` para volver a consultar las relaciones activas despues de una correccion. Si encuentra una relacion unica confiable, actualiza la identidad de la partida y resuelve la incidencia de compra; no crea una relacion ambigua automaticamente.
@@ -210,8 +213,10 @@ UAT pendiente para esta etapa:
 
 - `UAT-COM-PRE-INV-001`: cerrar una orden con dos productos inventariables y un cargo; deben crearse dos incidencias, no una por el cargo.
 - `UAT-COM-PRE-INV-002`: guardar nuevamente la misma orden; no deben duplicarse incidencias ni notificaciones.
-- `UAT-COM-PRE-INV-003`: consultar la bandeja por permiso `inventario.ver` y capturar una cantidad con `inventario.conteo`; no deben cambiar existencias ni kardex.
+- `UAT-COM-PRE-INV-003`: consultar la bandeja por permiso `inventario.ver`, capturar existencia con `inventario.conteo` y verificar que solo la diferencia cambie existencias y kardex.
 - `UAT-COM-PRE-INV-004`: confirmar que una incidencia `resuelto` o `descartado` no pueda ser sobrescrita por una captura posterior.
+- `UAT-COM-PRE-INV-005`: capturar una existencia mayor a la actual y verificar una entrada por la diferencia; repetir la accion y confirmar que no duplica el movimiento.
+- `UAT-COM-PRE-INV-006`: capturar una existencia menor a la actual y verificar una salida por la diferencia; si no hay existencia disponible suficiente, la transaccion debe revertirse completa.
 
 ### Incidencia para producto nuevo
 
@@ -234,6 +239,17 @@ La notificacion visible debe ser algo como: `Catalogo tiene un producto pendient
 ### Incidencia para producto existente
 
 Destino: Inventario/Almacen.
+
+### Decision 2026-10-16 - Ajuste real por incidencia de compra
+
+- `cantidad_comprada` representa lo comprado en la orden.
+- `existencia_actual` representa la existencia oficial del SKU en el almacen antes de atender la incidencia.
+- `cantidad_reportada` representa lo contado o estimado actualmente en ese almacen.
+- El sistema calcula `cantidad_reportada - existencia_actual` y genera entrada, salida o confirmacion sin cambio.
+- La incidencia conserva cantidad anterior, resultado, diferencia, usuario, fecha y movimientos generados.
+- Una incidencia resuelta no puede volver a aplicar el ajuste.
+- Los productos sin SKU ERP siguen primero en Catalogo; despues de crearlos o relacionarlos se ejecuta Reanalizar y entonces aparecen en Inventario.
+- Lote, caducidad y ubicacion siguen siendo datos de trazabilidad de Almacen; no se inventan desde una incidencia global.
 
 Debe permitir seleccionar uno o varios almacenes y capturar por cada uno:
 

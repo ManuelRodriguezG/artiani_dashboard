@@ -3155,17 +3155,18 @@ class Proveedores extends CRUD {
         }
 
         $sx = @simplexml_load_string($xmlHoja);
-        if (!$sx) {
+        if ($sx === false) {
             throw new Exception("La primera hoja del XLSX no tiene XML valido");
         }
 
+        $nodosHoja = $sx->children("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
         $filas = array();
-        foreach ($sx->sheetData->row as $row) {
+        foreach ($nodosHoja->sheetData->row as $row) {
             if (count($filas) >= intval($maxFilas)) {
                 break;
             }
             $fila = array();
-            foreach ($row->c as $celda) {
+            foreach ($row->children("http://schemas.openxmlformats.org/spreadsheetml/2006/main")->c as $celda) {
                 $atributos = $celda->attributes();
                 $referencia = isset($atributos["r"]) ? (string) $atributos["r"] : "";
                 $indice = $this->indiceColumnaXlsxProveedorErp($referencia);
@@ -3194,19 +3195,22 @@ class Proveedores extends CRUD {
             return array();
         }
         $sx = @simplexml_load_string($xml);
-        if (!$sx) {
+        if ($sx === false) {
             return array();
         }
+        $nodosSharedStrings = $sx->children("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
         $strings = array();
-        foreach ($sx->si as $si) {
+        foreach ($nodosSharedStrings->si as $si) {
+            $nodosSi = $si->children("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
             $partes = array();
-            if (isset($si->t)) {
-                $partes[] = (string) $si->t;
+            if (isset($nodosSi->t)) {
+                $partes[] = (string) $nodosSi->t;
             }
-            if (isset($si->r)) {
-                foreach ($si->r as $run) {
-                    if (isset($run->t)) {
-                        $partes[] = (string) $run->t;
+            if (isset($nodosSi->r)) {
+                foreach ($nodosSi->r as $run) {
+                    $nodosRun = $run->children("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
+                    if (isset($nodosRun->t)) {
+                        $partes[] = (string) $nodosRun->t;
                     }
                 }
             }
@@ -3224,17 +3228,20 @@ class Proveedores extends CRUD {
         }
         $workbook = @simplexml_load_string($workbookXml);
         $rels = @simplexml_load_string($relsXml);
-        if (!$workbook || !$rels || !isset($workbook->sheets->sheet[0])) {
+        $nodosWorkbook = $workbook !== false ? $workbook->children("http://schemas.openxmlformats.org/spreadsheetml/2006/main") : null;
+        $nodosHojas = $nodosWorkbook ? $nodosWorkbook->sheets->sheet : null;
+        if ($workbook === false || $rels === false || $nodosWorkbook === null || $nodosHojas === null || count($nodosHojas) < 1) {
             return $fallback;
         }
 
-        $sheet = $workbook->sheets->sheet[0];
+        $sheet = $nodosWorkbook->sheets->sheet[0];
         $attrs = $sheet->attributes();
         $attrsRel = $sheet->attributes("http://schemas.openxmlformats.org/officeDocument/2006/relationships");
         $id = isset($attrsRel["id"]) ? (string) $attrsRel["id"] : "";
         $nombre = isset($attrs["name"]) ? (string) $attrs["name"] : "Hoja 1";
         $target = "";
-        foreach ($rels->Relationship as $rel) {
+        $nodosRels = $rels->children("http://schemas.openxmlformats.org/package/2006/relationships");
+        foreach ($nodosRels->Relationship as $rel) {
             $relAttrs = $rel->attributes();
             if (isset($relAttrs["Id"]) && (string) $relAttrs["Id"] === $id) {
                 $target = isset($relAttrs["Target"]) ? (string) $relAttrs["Target"] : "";
@@ -3261,25 +3268,27 @@ class Proveedores extends CRUD {
     }
 
     private function valorCeldaXlsxProveedorErp($celda, $tipo, $strings) {
+        $nodosCelda = $celda->children("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
         if ($tipo === "s") {
-            $indice = isset($celda->v) ? intval((string) $celda->v) : -1;
+            $indice = isset($nodosCelda->v) ? intval((string) $nodosCelda->v) : -1;
             return $indice >= 0 && isset($strings[$indice]) ? $strings[$indice] : "";
         }
         if ($tipo === "inlineStr") {
-            if (isset($celda->is->t)) {
-                return (string) $celda->is->t;
+            if (isset($nodosCelda->is->t)) {
+                return (string) $nodosCelda->is->t;
             }
             $partes = array();
-            if (isset($celda->is->r)) {
-                foreach ($celda->is->r as $run) {
-                    if (isset($run->t)) {
-                        $partes[] = (string) $run->t;
+            if (isset($nodosCelda->is->r)) {
+                foreach ($nodosCelda->is->r as $run) {
+                    $nodosRun = $run->children("http://schemas.openxmlformats.org/spreadsheetml/2006/main");
+                    if (isset($nodosRun->t)) {
+                        $partes[] = (string) $nodosRun->t;
                     }
                 }
             }
             return implode("", $partes);
         }
-        return isset($celda->v) ? $this->normalizarNumeroCientificoTextoProveedorErp((string) $celda->v) : "";
+        return isset($nodosCelda->v) ? $this->normalizarNumeroCientificoTextoProveedorErp((string) $nodosCelda->v) : "";
     }
 
     private function normalizarPreviewFilasListaProveedorErp($tipo, $hoja, $filas) {
@@ -5020,14 +5029,14 @@ class Proveedores extends CRUD {
             $db->beginTransaction();
             $clavesExistentes = $this->cargarClavesExistentesListaProveedorErp($db, $idLista);
             $insert = $db->prepare("INSERT INTO erp_proveedores_listas_detalle_erp
-                (id_lista_proveedor_erp, sku_proveedor, codigo_barras, codigo_interno, marca_proveedor, descripcion_proveedor,
+                (id_lista_proveedor_erp, id_sku, id_sku_proveedor, sku_proveedor, codigo_barras, codigo_interno, marca_proveedor, descripcion_proveedor,
                  unidad_compra_texto, factor_conversion, costo, moneda, costo_incluye_impuestos, existencia_reportada,
                  estado_match, criterio_match, observaciones, fecha_registro, fecha_actualizacion)
                 VALUES
-                (:id_lista, :sku_proveedor, :codigo_barras, :codigo_interno, :marca_proveedor, :descripcion_proveedor,
+                (:id_lista, :id_sku, :id_sku_proveedor, :sku_proveedor, :codigo_barras, :codigo_interno, :marca_proveedor, :descripcion_proveedor,
                  :unidad_compra_texto, :factor_conversion, :costo, :moneda, :costo_incluye_impuestos, :existencia_reportada,
-                 'sin_match', 'importacion_lista_proveedor', :observaciones, NOW(), NOW())");
-            $conteos = array("leidos" => 0, "importados" => 0, "actualizados" => 0, "omitidos_vacios" => 0, "omitidos_notas" => 0, "omitidos_existentes" => 0, "sin_cambios" => 0, "sin_costo" => 0, "sin_moneda" => 0);
+                 :estado_match, :criterio_match, :observaciones, NOW(), NOW())");
+            $conteos = array("leidos" => 0, "importados" => 0, "actualizados" => 0, "relaciones_reutilizadas" => 0, "relaciones_ambiguas" => 0, "omitidos_vacios" => 0, "omitidos_notas" => 0, "omitidos_existentes" => 0, "sin_cambios" => 0, "sin_costo" => 0, "sin_moneda" => 0);
             foreach ($lectura["filas"] as $fila) {
                 $conteos["leidos"]++;
                 $normalizado = $this->normalizarFilaImportacionListaProveedorErp($fila, $mapeo, isset($lista["moneda"]) ? $lista["moneda"] : "");
@@ -5049,36 +5058,80 @@ class Proveedores extends CRUD {
                 }
                 if ($renglonExistente) {
                     $cambios = $this->cambiosImportacionRenglonExistenteProveedorErp($renglonExistente, $normalizado);
-                    if (empty($cambios)) {
+                    $relacionReutilizada = $this->buscarRelacionExactaSkuProveedorImportacionErp($db, $idProveedor, $normalizado["sku_proveedor"]);
+                    $idRelacionActual = intval(isset($renglonExistente["id_sku_proveedor"]) ? $renglonExistente["id_sku_proveedor"] : 0);
+                    $idRelacionNueva = $relacionReutilizada && isset($relacionReutilizada["id_sku_proveedor"]) ? intval($relacionReutilizada["id_sku_proveedor"]) : 0;
+                    $puedeReutilizarRelacion = $idRelacionNueva > 0 && ($idRelacionActual <= 0 || $idRelacionActual === $idRelacionNueva);
+                    if (empty($cambios) && !$puedeReutilizarRelacion) {
                         $conteos["omitidos_existentes"]++;
                         $conteos["sin_cambios"]++;
                         continue;
                     }
-                    $sets = array();
-                    $paramsUpdate = array(
-                        ":id_detalle" => intval($renglonExistente["id_lista_detalle_erp"]),
-                        ":id_lista" => $idLista
-                    );
-                    foreach ($cambios as $campoCambio => $valorCambio) {
-                        $paramCambio = ":" . $campoCambio;
-                        $sets[] = $campoCambio . " = " . $paramCambio;
-                        $paramsUpdate[$paramCambio] = $valorCambio;
+                    if (!empty($cambios)) {
+                        $sets = array();
+                        $paramsUpdate = array(
+                            ":id_detalle" => intval($renglonExistente["id_lista_detalle_erp"]),
+                            ":id_lista" => $idLista
+                        );
+                        foreach ($cambios as $campoCambio => $valorCambio) {
+                            $paramCambio = ":" . $campoCambio;
+                            $sets[] = $campoCambio . " = " . $paramCambio;
+                            $paramsUpdate[$paramCambio] = $valorCambio;
+                        }
+                        $stmtUpdateExistente = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp
+                            SET " . implode(", ", $sets) . ",
+                                observaciones = CONCAT(COALESCE(observaciones, ''), CASE WHEN COALESCE(observaciones, '') = '' THEN '' ELSE '\n' END, 'Datos actualizados desde recarga de lista.'),
+                                fecha_actualizacion = NOW()
+                            WHERE id_lista_detalle_erp = :id_detalle
+                              AND id_lista_proveedor_erp = :id_lista");
+                        $stmtUpdateExistente->execute($paramsUpdate);
                     }
-                    $stmtUpdateExistente = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp
-                        SET " . implode(", ", $sets) . ",
-                            observaciones = CONCAT(COALESCE(observaciones, ''), CASE WHEN COALESCE(observaciones, '') = '' THEN '' ELSE '\n' END, 'Datos actualizados desde recarga de lista.'),
-                            fecha_actualizacion = NOW()
-                        WHERE id_lista_detalle_erp = :id_detalle
-                          AND id_lista_proveedor_erp = :id_lista");
-                    $stmtUpdateExistente->execute($paramsUpdate);
                     $actualizado = $this->consultarListaDetalleProveedorErp($db, intval($renglonExistente["id_lista_detalle_erp"]), $idLista, $idProveedor);
                     if ($actualizado) {
                         foreach ($this->clavesUnicasFilaListaProveedorErp($actualizado) as $claveActualizada) {
                             $clavesExistentes[$claveActualizada] = $actualizado;
                         }
                     }
+                    if ($puedeReutilizarRelacion) {
+                        $stmtRelacionExistente = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp
+                            SET id_sku = :id_sku,
+                                id_sku_proveedor = :id_sku_proveedor,
+                                estado_match = 'relacion_aplicada',
+                                criterio_match = 'relacion_reutilizada_por_sku_proveedor',
+                                observaciones = CONCAT(COALESCE(observaciones, ''), CASE WHEN COALESCE(observaciones, '') = '' THEN '' ELSE '\n' END, 'Relacion SKU proveedor reutilizada automaticamente al recargar la lista.'),
+                                fecha_actualizacion = NOW()
+                            WHERE id_lista_detalle_erp = :id_detalle
+                              AND id_lista_proveedor_erp = :id_lista");
+                        $stmtRelacionExistente->execute(array(
+                            ":id_sku" => intval($relacionReutilizada["id_sku"]),
+                            ":id_sku_proveedor" => $idRelacionNueva,
+                            ":id_detalle" => intval($renglonExistente["id_lista_detalle_erp"]),
+                            ":id_lista" => $idLista
+                        ));
+                        $conteos["relaciones_reutilizadas"]++;
+                    }
                     $conteos["actualizados"]++;
                     continue;
+                }
+                $relacionReutilizada = $this->buscarRelacionExactaSkuProveedorImportacionErp($db, $idProveedor, $normalizado["sku_proveedor"]);
+                $idSkuImportado = $relacionReutilizada && isset($relacionReutilizada["id_sku"]) ? intval($relacionReutilizada["id_sku"]) : 0;
+                $idSkuProveedorImportado = $relacionReutilizada && isset($relacionReutilizada["id_sku_proveedor"]) ? intval($relacionReutilizada["id_sku_proveedor"]) : 0;
+                $estadoImportado = $relacionReutilizada ? "relacion_aplicada" : "sin_match";
+                $criterioImportado = $relacionReutilizada ? "relacion_reutilizada_por_sku_proveedor" : "importacion_lista_proveedor";
+                if ($relacionReutilizada) {
+                    if (trim((string) $normalizado["unidad_compra_texto"]) === "" && !empty($relacionReutilizada["id_unidad_compra"])) {
+                        $normalizado["unidad_compra_texto"] = isset($relacionReutilizada["unidad_compra"]) ? $relacionReutilizada["unidad_compra"] : $normalizado["unidad_compra_texto"];
+                    }
+                    if (floatval($normalizado["factor_conversion"]) <= 0 && floatval($relacionReutilizada["factor_conversion"]) > 0) {
+                        $normalizado["factor_conversion"] = $relacionReutilizada["factor_conversion"];
+                    }
+                    if (floatval($normalizado["cantidad_minima"]) <= 0 && floatval($relacionReutilizada["cantidad_minima"]) > 0) {
+                        $normalizado["cantidad_minima"] = $relacionReutilizada["cantidad_minima"];
+                    }
+                    $conteos["relaciones_reutilizadas"]++;
+                } elseif ($this->existeRelacionAmbiguaSkuProveedorImportacionErp($db, $idProveedor, $normalizado["sku_proveedor"])) {
+                    $conteos["relaciones_ambiguas"]++;
+                    $criterioImportado = "relacion_sku_proveedor_ambigua_requiere_revision";
                 }
                 if (floatval(isset($normalizado["costo"]) ? $normalizado["costo"] : 0) <= 0) {
                     $conteos["sin_costo"]++;
@@ -5088,6 +5141,8 @@ class Proveedores extends CRUD {
                 }
                 $insert->execute(array(
                     ":id_lista" => $idLista,
+                    ":id_sku" => $idSkuImportado > 0 ? $idSkuImportado : null,
+                    ":id_sku_proveedor" => $idSkuProveedorImportado > 0 ? $idSkuProveedorImportado : null,
                     ":sku_proveedor" => $this->valorNuloProveedorErp($this->limitarTextoProveedorErp($normalizado["sku_proveedor"], 120)),
                     ":codigo_barras" => $this->valorNuloProveedorErp($this->limitarTextoProveedorErp($normalizado["codigo_barras"], 120)),
                     ":codigo_interno" => $this->valorNuloProveedorErp($this->limitarTextoProveedorErp($normalizado["codigo_interno"], 120)),
@@ -5099,7 +5154,11 @@ class Proveedores extends CRUD {
                     ":moneda" => $this->valorNuloProveedorErp(strtoupper($this->limitarTextoProveedorErp($normalizado["moneda"], 10))),
                     ":costo_incluye_impuestos" => $this->booleanoImportacionProveedorErp($normalizado["costo_incluye_impuestos"]),
                     ":existencia_reportada" => $this->decimalValorNuloProveedorErp($normalizado["existencia_reportada"]),
-                    ":observaciones" => "Importado desde archivo original de lista. Pendiente matching y validacion."
+                    ":estado_match" => $estadoImportado,
+                    ":criterio_match" => $criterioImportado,
+                    ":observaciones" => $relacionReutilizada
+                        ? "Importado desde archivo original. Relacion SKU proveedor reutilizada automaticamente; costo pendiente de revision/aplicacion."
+                        : "Importado desde archivo original de lista. Pendiente matching y validacion."
                 ));
                 $nuevoRenglon = $this->consultarListaDetalleProveedorErp($db, intval($db->lastInsertId()), $idLista, $idProveedor);
                 foreach ($clavesFila as $claveFila) {
@@ -5128,7 +5187,7 @@ class Proveedores extends CRUD {
                         "Estado match inicial: sin_match.",
                         "Si la lista ya tenia detalle, se omitieron renglones existentes sin cambios.",
                         "Si un renglon existente trae costo, moneda, impuestos, unidad o existencia distinta, se actualiza el detalle de lista.",
-                        "No se aplicaron relaciones proveedor-SKU.",
+                        "Las relaciones exactas activas se reutilizaron por proveedor + SKU proveedor; los casos ambiguos quedan para revision.",
                         "No se aplicaron costos vigentes.",
                         "No se actualizo costo_referencia."
                     )
@@ -7117,6 +7176,42 @@ class Proveedores extends CRUD {
         return $fila ? $fila : null;
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-16.
+     * Proposito: reutilizar una relacion activa al importar una nueva lista del mismo proveedor.
+     * Impacto: evita repetir matching; no aplica costos ni modifica Catalogo.
+     * Contrato: solo reutiliza cuando existe exactamente una relacion activa por proveedor + SKU proveedor.
+     */
+    private function buscarRelacionExactaSkuProveedorImportacionErp($db, $idProveedor, $skuProveedor) {
+        $skuProveedor = $this->normalizarIdentificadorProveedorErp($skuProveedor);
+        if (intval($idProveedor) <= 0 || $skuProveedor === "") {
+            return null;
+        }
+        $stmt = $db->prepare("SELECT sp.*
+            FROM erp_catalogo_sku_proveedores sp
+            WHERE sp.id_proveedor=:id_proveedor
+              AND sp.estatus='activo'
+              AND LOWER(TRIM(sp.sku_proveedor))=LOWER(TRIM(:sku_proveedor))
+            ORDER BY sp.es_preferido DESC, sp.id_sku_proveedor DESC");
+        $stmt->execute(array(":id_proveedor" => intval($idProveedor), ":sku_proveedor" => $skuProveedor));
+        $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return count($filas) === 1 ? $filas[0] : null;
+    }
+
+    private function existeRelacionAmbiguaSkuProveedorImportacionErp($db, $idProveedor, $skuProveedor) {
+        $skuProveedor = $this->normalizarIdentificadorProveedorErp($skuProveedor);
+        if (intval($idProveedor) <= 0 || $skuProveedor === "") {
+            return false;
+        }
+        $stmt = $db->prepare("SELECT COUNT(*)
+            FROM erp_catalogo_sku_proveedores sp
+            WHERE sp.id_proveedor=:id_proveedor
+              AND sp.estatus='activo'
+              AND LOWER(TRIM(sp.sku_proveedor))=LOWER(TRIM(:sku_proveedor))");
+        $stmt->execute(array(":id_proveedor" => intval($idProveedor), ":sku_proveedor" => $skuProveedor));
+        return intval($stmt->fetchColumn()) > 1;
+    }
+
     private function consultarCostoProveedorSkuPorDetalleErp($db, $idDetalle, $idProveedor) {
         $stmt = $db->prepare("SELECT * FROM erp_proveedores_sku_costos
             WHERE id_lista_detalle_erp = :id_detalle AND id_proveedor = :id_proveedor
@@ -7720,6 +7815,7 @@ class Proveedores extends CRUD {
             $creados = 0;
             $actualizados = 0;
 
+            $incidenciasComerciales = array();
             $stmtHistorico = $db->prepare("UPDATE erp_proveedores_sku_costos
                 SET estatus = 'historico', fecha_actualizacion = NOW()
                 WHERE id_proveedor = :id_proveedor
@@ -7828,6 +7924,16 @@ class Proveedores extends CRUD {
                     ":id_lista" => $idLista
                 ));
 
+                $incidenciasComerciales[] = $this->registrarIncidenciasComercialesCambioCostoErp($db, array(
+                    "id_proveedor" => $idProveedor,
+                    "id_lista_proveedor_erp" => $idLista,
+                    "id_lista_detalle_erp" => $idDetalle,
+                    "id_sku" => $idSku,
+                    "id_sku_proveedor" => $idSkuProveedor,
+                    "costo_anterior" => $antesCosto,
+                    "costo_nuevo" => array("costo" => $costo, "moneda" => $moneda, "factor_conversion" => $factor)
+                ), $id_usuario);
+
                 $aplicados[] = array(
                     "id_lista_detalle_erp" => $idDetalle,
                     "id_sku" => $idSku,
@@ -7853,6 +7959,7 @@ class Proveedores extends CRUD {
                     "actualizados" => $actualizados,
                     "excluidos" => count($excluidos),
                     "sin_costo_referencia" => true,
+                    "incidencias_comerciales" => $incidenciasComerciales,
                     "renglones" => $aplicados
                 )
             );
@@ -7862,6 +7969,109 @@ class Proveedores extends CRUD {
             }
             return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
         }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-16.
+     * Proposito: crear incidencias comerciales cuando un costo proveedor vigente cambia.
+     * Impacto: avisa a Comercial/Listas; no modifica precios ni `costo_referencia`.
+     * Contrato: una incidencia por detalle activo de lista comercial, idempotente por huella.
+     */
+    private function registrarIncidenciasComercialesCambioCostoErp($db, $datos, $idUsuario) {
+        $resultado = array("creadas_o_actualizadas" => 0, "omitidas" => 0, "items" => array());
+        try {
+            if (!$this->tablaExisteAuditoriaProveedores($db, "erp_notificaciones")
+                || !$this->tablaExisteAuditoriaProveedores($db, "erp_listas_precios")
+                || !$this->tablaExisteAuditoriaProveedores($db, "erp_listas_precios_detalle")) {
+                $resultado["omitidas"] = 1;
+                return $resultado;
+            }
+            $idProveedor = intval(isset($datos["id_proveedor"]) ? $datos["id_proveedor"] : 0);
+            $idListaProveedor = intval(isset($datos["id_lista_proveedor_erp"]) ? $datos["id_lista_proveedor_erp"] : 0);
+            $idDetalleProveedor = intval(isset($datos["id_lista_detalle_erp"]) ? $datos["id_lista_detalle_erp"] : 0);
+            $idSku = intval(isset($datos["id_sku"]) ? $datos["id_sku"] : 0);
+            $idSkuProveedor = intval(isset($datos["id_sku_proveedor"]) ? $datos["id_sku_proveedor"] : 0);
+            $antes = isset($datos["costo_anterior"]) && is_array($datos["costo_anterior"]) ? $datos["costo_anterior"] : array();
+            $nuevo = isset($datos["costo_nuevo"]) && is_array($datos["costo_nuevo"]) ? $datos["costo_nuevo"] : array();
+            $costoNuevo = floatval(isset($nuevo["costo"]) ? $nuevo["costo"] : 0);
+            $factorNuevo = floatval(isset($nuevo["factor_conversion"]) ? $nuevo["factor_conversion"] : 1);
+            $factorNuevo = $factorNuevo > 0 ? $factorNuevo : 1;
+            $monedaNueva = strtoupper(trim((string) (isset($nuevo["moneda"]) ? $nuevo["moneda"] : "MXN")));
+            $costoAnterior = floatval(isset($antes["costo"]) ? $antes["costo"] : 0);
+            $factorAnterior = floatval(isset($antes["factor_conversion"]) ? $antes["factor_conversion"] : 1);
+            $factorAnterior = $factorAnterior > 0 ? $factorAnterior : 1;
+            $monedaAnterior = strtoupper(trim((string) (isset($antes["moneda"]) ? $antes["moneda"] : $monedaNueva)));
+            if ($idProveedor <= 0 || $idSku <= 0 || $costoNuevo <= 0) {
+                $resultado["omitidas"] = 1;
+                return $resultado;
+            }
+            $nuevoComparable = round($costoNuevo / $factorNuevo, 6);
+            $anteriorComparable = $costoAnterior > 0 ? round($costoAnterior / $factorAnterior, 6) : 0;
+            $cambioFactor = abs($factorNuevo - $factorAnterior) > 0.000001;
+            $cambioMoneda = $monedaNueva !== "" && $monedaAnterior !== "" && $monedaNueva !== $monedaAnterior;
+            if (!$cambioFactor && !$cambioMoneda && $anteriorComparable > 0 && abs($nuevoComparable - $anteriorComparable) < 0.000001) {
+                $resultado["omitidas"] = 1;
+                return $resultado;
+            }
+            $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.id_lista_precio, d.precio, d.moneda,
+                    l.codigo lista_codigo, l.nombre lista_nombre
+                FROM erp_listas_precios_detalle d
+                INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+                WHERE d.id_sku=:id_sku AND d.estatus='activo' AND l.estatus='activa'
+                ORDER BY d.id_lista_precio_detalle ASC");
+            $stmt->execute(array(":id_sku" => $idSku));
+            require_once __DIR__ . "/NotificacionesErp.php";
+            $notificaciones = new NotificacionesErp();
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $precio = $fila["precio"] === null ? 0 : floatval($fila["precio"]);
+                $margenAnterior = $precio > 0 && $anteriorComparable > 0 ? round((($precio - $anteriorComparable) / $precio) * 100, 2) : null;
+                $margenNuevo = $precio > 0 ? round((($precio - $nuevoComparable) / $precio) * 100, 2) : null;
+                $tipo = $cambioFactor || $cambioMoneda ? "cambio_factor_presentacion" : ($anteriorComparable <= 0 ? "producto_nuevo_sin_precio" : ($nuevoComparable > $anteriorComparable ? "aumento_proveedor" : "baja_proveedor"));
+                if ($precio <= 0) {
+                    $tipo = "producto_nuevo_sin_precio";
+                } elseif ($margenNuevo !== null && $margenNuevo < 0) {
+                    $tipo = "precio_debajo_costo";
+                } elseif ($margenNuevo !== null && $margenNuevo < 15) {
+                    $tipo = "margen_bajo_por_costo";
+                }
+                $variacion = $anteriorComparable > 0 ? round((($nuevoComparable - $anteriorComparable) / $anteriorComparable) * 100, 4) : null;
+                $precioSugerido = $nuevoComparable > 0 ? round($nuevoComparable / 0.80, 6) : null;
+                $huella = hash("sha256", json_encode(array($idProveedor, $idListaProveedor, $idDetalleProveedor, $idSku, intval($fila["id_lista_precio_detalle"]), $anteriorComparable, $nuevoComparable, $factorAnterior, $factorNuevo, $monedaAnterior, $monedaNueva), JSON_UNESCAPED_UNICODE));
+                $idNotificacion = $notificaciones->guardarOperativaEnConexion($db, array(
+                    "tipo" => $tipo,
+                    "modulo_origen" => "proveedores",
+                    "entidad_origen" => "erp_listas_precios_detalle",
+                    "id_entidad_origen" => intval($fila["id_lista_precio_detalle"]),
+                    "area_responsable" => "comercial",
+                    "permiso_requerido" => "ventas.listas.ver",
+                    "titulo" => "Revisar precio comercial por cambio de costo",
+                    "descripcion" => "Cambio de costo proveedor para SKU " . $idSku . " en lista " . trim((string) $fila["lista_codigo"]),
+                    "prioridad" => $tipo === "precio_debajo_costo" ? "alta" : ($tipo === "margen_bajo_por_costo" ? "normal" : "info"),
+                    "estatus" => "pendiente",
+                    "url_accion" => "/comercial/listas_precios_editar?id_lista_precio=" . intval($fila["id_lista_precio"]) . "&incidencia=" . intval($fila["id_lista_precio_detalle"]),
+                    "payload_json" => array(
+                        "huella" => $huella, "tipo_incidencia" => $tipo, "id_proveedor" => $idProveedor,
+                        "id_lista_proveedor_erp" => $idListaProveedor, "id_lista_detalle_proveedor_erp" => $idDetalleProveedor,
+                        "id_sku" => $idSku, "id_sku_proveedor" => $idSkuProveedor,
+                        "id_lista_precio" => intval($fila["id_lista_precio"]), "id_lista_precio_detalle" => intval($fila["id_lista_precio_detalle"]),
+                        "lista_codigo" => $fila["lista_codigo"], "lista_nombre" => $fila["lista_nombre"],
+                        "costo_anterior" => $anteriorComparable, "costo_nuevo" => $nuevoComparable,
+                        "moneda_anterior" => $monedaAnterior, "moneda_nueva" => $monedaNueva,
+                        "factor_anterior" => $factorAnterior, "factor_nuevo" => $factorNuevo,
+                        "variacion_porcentual" => $variacion, "precio_actual" => $precio,
+                        "margen_anterior" => $margenAnterior, "margen_proyectado" => $margenNuevo,
+                        "precio_sugerido" => $precioSugerido, "margen_objetivo_usado" => 20,
+                        "accion_sugerida" => "revisar_y_guardar_precio_desde_listas", "origen_costo" => "lista_proveedor_aplicada"
+                    ),
+                    "creado_por" => intval($idUsuario) ?: null
+                ));
+                $resultado["creadas_o_actualizadas"]++;
+                $resultado["items"][] = array("id_notificacion" => intval($idNotificacion), "tipo" => $tipo, "id_lista_precio" => intval($fila["id_lista_precio"]), "id_lista_precio_detalle" => intval($fila["id_lista_precio_detalle"]));
+            }
+        } catch (Exception $e) {
+            $resultado["error"] = $e->getMessage();
+        }
+        return $resultado;
     }
 
     public function previewCostoReferenciaListaProveedorErp($id_proveedor, $id_lista_proveedor_erp) {
@@ -8374,6 +8584,15 @@ class Proveedores extends CRUD {
 
             $despuesCosto = $this->consultarCostoProveedorSkuPorDetalleErp($db, $idDetalle, $idProveedor);
             $relacionDespues = $this->consultarRelacionSkuProveedorErp($db, $idSkuProveedor, $idSku, $idProveedor);
+            $incidenciasComerciales = $this->registrarIncidenciasComercialesCambioCostoErp($db, array(
+                "id_proveedor" => $idProveedor,
+                "id_lista_proveedor_erp" => $idLista,
+                "id_lista_detalle_erp" => $idDetalle,
+                "id_sku" => $idSku,
+                "id_sku_proveedor" => $idSkuProveedor,
+                "costo_anterior" => $antesCosto,
+                "costo_nuevo" => array("costo" => $costo, "moneda" => $moneda, "factor_conversion" => $factor)
+            ), $id_usuario);
             $db->commit();
 
             return array(
@@ -8387,6 +8606,7 @@ class Proveedores extends CRUD {
                     "id_costo_proveedor_sku" => $idCosto,
                     "id_lista_proveedor_erp" => $idLista,
                     "id_lista_detalle_erp" => $idDetalle,
+                    "incidencias_comerciales" => $incidenciasComerciales,
                     "antes" => array("costo" => $antesCosto, "relacion" => $relacionAntes),
                     "despues" => array("costo" => $despuesCosto, "relacion" => $relacionDespues)
                 )

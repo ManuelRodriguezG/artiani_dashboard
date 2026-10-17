@@ -231,7 +231,7 @@ class CatalogoErpEsquema extends DBSchema {
         )
       ),
       "erp_catalogo_skus" => array(
-        "columnas" => array("id_sku", "id_producto_erp", "sku", "nombre", "tipo_inventario", "id_unidad_base", "factor_unidad_base", "costo_referencia", "permite_venta_sin_existencia", "estatus"),
+        "columnas" => array("id_sku", "id_producto_erp", "sku", "nombre", "tipo_inventario", "id_unidad_base", "factor_unidad_base", "costo_referencia", "permite_venta_sin_existencia", "estatus", "es_principal_variante", "id_sku_principal_variante"),
         "indices" => array(
           "idx_catalogo_sku" => array("columnas" => array("sku"), "severidad" => "critica", "impacto" => "SKU unico para Compras, XML, Almacen e Inventario."),
           "idx_catalogo_sku_producto" => array("columnas" => array("id_producto_erp"), "severidad" => "alta", "impacto" => "Relaciona SKUs con producto maestro."),
@@ -628,6 +628,10 @@ class CatalogoErpEsquema extends DBSchema {
       "CONSTRAINT `fk_catalogo_sku_producto` FOREIGN KEY (`id_producto_erp`) REFERENCES `erp_catalogo_productos` (`id_producto_erp`)",
       "CONSTRAINT `fk_catalogo_sku_unidad` FOREIGN KEY (`id_unidad_base`) REFERENCES `erp_catalogo_unidades` (`id_unidad`)"
     ), $opciones, $ejecutar);
+
+    // IA: Codex GPT-6 | 2026-10-16. Relacion de variantes; defaults conservan SKUs sin configurar.
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_skus", "es_principal_variante", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_skus", "id_sku_principal_variante", "BIGINT NULL", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_catalogo_sku_codigos", array(
       "`id_sku_codigo` BIGINT NOT NULL AUTO_INCREMENT",

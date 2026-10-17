@@ -319,3 +319,15 @@ Casos minimos:
 - Cambio posterior de segmento no modifica ventas pasadas.
 - Pausar lista por segmento hace caer a canal/almacen o general.
 - Ecommerce no consume listas internas POS si no hay regla explicita.
+
+## Incidencias por cambios de costo proveedor - 2026-10-16
+
+Comercial/Listas recibe incidencias persistentes cuando Proveedores aplica un nuevo costo vigente y ese cambio afecta un SKU presente en una lista comercial activa.
+
+- La fuente del costo es Proveedores/Rentabilidad; Listas sigue siendo dueña del precio comercial.
+- La bandeja consulta `/comercial/listas_precios_incidencias_comerciales_erp` y conserva el enlace a la lista afectada.
+- La incidencia muestra costo anterior/nuevo normalizado por factor, variacion, precio actual, margen proyectado y precio sugerido de referencia.
+- El sistema no cambia precios automaticamente. El usuario revisa y guarda mediante el flujo normal de Listas, con sus validaciones y auditoria.
+- La incidencia es idempotente por SKU, proveedor, lista comercial, lista origen y valores del cambio; repetir la aplicacion no debe duplicar la incidencia abierta.
+
+Pendiente de fase posterior: conectar el mismo contrato al costo real confirmado por Compras/Almacen cuando se defina formalmente el evento que convierte una compra recibida en costo vigente.

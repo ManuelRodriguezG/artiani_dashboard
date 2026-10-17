@@ -46,7 +46,7 @@
                                     </div>
                                     <div class="table-responsive">
                                         <table class="table align-middle table-row-dashed gy-4">
-                                            <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Orden</th><th>Producto</th><th>Almacén</th><th class="text-end">Comprado</th><th class="text-end">Costo</th><th>Estatus</th><th>Reportado</th><th class="text-end">Acción</th></tr></thead>
+                                            <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Orden</th><th>Producto</th><th>Almacén</th><th class="text-end">Comprado</th><th class="text-end">Existencia registrada</th><th class="text-end">Existencia capturada</th><th class="text-end">Quedará</th><th class="text-end">Diferencia</th><th>Estatus</th><th class="text-end">Acción</th></tr></thead>
                                             <tbody id="incidencias_listado"></tbody>
                                         </table>
                                     </div>

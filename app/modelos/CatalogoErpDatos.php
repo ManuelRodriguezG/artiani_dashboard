@@ -5437,6 +5437,7 @@ class CatalogoErpDatos extends CRUD {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
+  /** IA: Codex GPT-6 | 2026-10-16. Incluye referencias explicitas de costo sin inferirlas por atributos. */
   private function consultarVariantesProducto($db, $idProducto, $skus) {
     $stmt = $db->prepare("SELECT DISTINCT a.id_atributo_erp, a.codigo, a.nombre, a.tipo_dato, a.unidad, a.configuracion_json, a.es_variante
       FROM erp_catalogo_atributos a
@@ -5459,8 +5460,87 @@ class CatalogoErpDatos extends CRUD {
     return array(
       "atributos" => $atributos,
       "valores" => $valores,
+      "referencias" => $this->consultarReferenciasVariantes($db, $idProducto),
       "duplicadas" => $this->combinacionesVariantesDuplicadas($db, $idProducto)
     );
+  }
+
+  /**
+   * IA: Codex GPT-6 | Fecha: 2026-10-16
+   * Proposito: leer principales y origenes por SKU; compatible con esquema anterior.
+   * Impacto: Catalogo y Rentabilidad. Null significa relacion aun no configurada.
+   */
+  private function consultarReferenciasVariantes($db, $idProducto) {
+    $disponible = $this->columnaExisteCatalogo($db, "erp_catalogo_skus", "es_principal_variante")
+      && $this->columnaExisteCatalogo($db, "erp_catalogo_skus", "id_sku_principal_variante");
+    $filas = array();
+    if ($disponible) {
+      $stmt = $db->prepare("SELECT id_sku, es_principal_variante, id_sku_principal_variante FROM erp_catalogo_skus WHERE id_producto_erp=:producto AND estatus<>'fusionado'");
+      $stmt->execute(array(":producto" => intval($idProducto)));
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $filas[$fila["id_sku"]] = $fila;
+      }
+    }
+    return array("disponible" => $disponible, "skus" => $filas);
+  }
+
+  /**
+   * IA: Codex GPT-6 | Fecha: 2026-10-16
+   * Proposito: validar el mapa completo antes de guardar, incluyendo principales degradados.
+   * Contrato: origen del mismo producto, principal explicito, unidad y factor equivalentes.
+   */
+  private function validarReferenciasVariantes($skus, $relaciones) {
+    foreach ($relaciones as $id => $valor) {
+      if (!isset($skus[$id]) || !is_scalar($valor) || !preg_match('/^(principal|[0-9]*)$/D', (string)$valor)) {
+        throw new Exception("Relacion de variante invalida");
+      }
+    }
+    foreach ($skus as $id => $sku) {
+      $valor = isset($relaciones[$id]) ? (string)$relaciones[$id] : "";
+      if ($valor === "" || $valor === "principal") { continue; }
+      $origen = intval($valor);
+      if ($origen === intval($id) || !isset($skus[$origen]) || !isset($relaciones[$origen]) || $relaciones[$origen] !== "principal") {
+        throw new Exception("Cada variante debe seleccionar otro SKU marcado como principal del mismo producto");
+      }
+      if (intval($sku["id_unidad_base"]) !== intval($skus[$origen]["id_unidad_base"])
+          || abs(floatval($sku["factor_unidad_base"]) - floatval($skus[$origen]["factor_unidad_base"])) > 0.000001) {
+        throw new Exception("La variante y su principal deben tener unidad y contenido equivalentes; revisa la presentacion");
+      }
+    }
+  }
+
+  /**
+   * IA: Codex GPT-6 | Fecha: 2026-10-16
+   * Proposito: guardar referencias en la matriz existente, sin capturar costos ni precios.
+   * Contrato: mapa completo JSON, bloqueo de SKUs del producto y transaccion atomica.
+   */
+  public function guardarReferenciasVariantesProducto($datos) {
+    $db = $this->getConexion();
+    try {
+      $idProducto = intval(isset($datos["id_producto_erp"]) ? $datos["id_producto_erp"] : 0);
+      $relaciones = json_decode(isset($datos["referencias_json"]) ? $datos["referencias_json"] : "", true);
+      if ($idProducto <= 0 || !is_array($relaciones)) { throw new Exception("Indica producto y referencias de variantes"); }
+      if (!$this->consultarReferenciasVariantes($db, $idProducto)["disponible"]) {
+        throw new Exception("La configuracion de principales requiere actualizar la estructura de Catalogo con respaldo autorizado");
+      }
+      $db->beginTransaction();
+      $stmt = $db->prepare("SELECT id_sku, id_unidad_base, factor_unidad_base, es_principal_variante, id_sku_principal_variante FROM erp_catalogo_skus WHERE id_producto_erp=:producto AND estatus<>'fusionado' ORDER BY id_sku FOR UPDATE");
+      $stmt->execute(array(":producto" => $idProducto));
+      $skus = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) { $skus[$fila["id_sku"]] = $fila; }
+      if (!$skus || count($skus) !== count($relaciones)) { throw new Exception("Los SKU cambiaron; vuelve a abrir el producto antes de guardar"); }
+      $this->validarReferenciasVariantes($skus, $relaciones);
+      $stmt = $db->prepare("UPDATE erp_catalogo_skus SET es_principal_variante=:principal, id_sku_principal_variante=:origen, fecha_actualizacion=CURRENT_TIMESTAMP WHERE id_sku=:sku AND id_producto_erp=:producto");
+      foreach ($skus as $id => $fila) {
+        $valor = (string)$relaciones[$id];
+        $stmt->execute(array(":principal" => $valor === "principal" ? 1 : 0, ":origen" => ctype_digit($valor) ? intval($valor) : null, ":sku" => $id, ":producto" => $idProducto));
+      }
+      $db->commit();
+      return $this->respuesta(false, "success", "Referencias de variantes guardadas", array("antes" => $skus, "referencias" => $relaciones));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "warning", $e->getMessage());
+    }
   }
 
   /**
@@ -9269,6 +9349,17 @@ class CatalogoErpDatos extends CRUD {
         );
         return $base;
       }
+    }
+
+    // IA: Codex GPT-6 | 2026-10-16. La referencia explicita permite detectar variantes aun sin atributos.
+    $referenciasVariantes = $this->consultarReferenciasVariantes($db, intval($sku["id_producto_erp"]));
+    $referenciaVariante = isset($referenciasVariantes["skus"][$idSku]) ? $referenciasVariantes["skus"][$idSku] : null;
+    if ($referenciaVariante && intval($referenciaVariante["id_sku_principal_variante"]) > 0) {
+      $base["tipo_derivacion"] = "variante";
+      $base["relacion_operativa"] = "sku_principal_variante";
+      $base["id_sku_origen"] = intval($referenciaVariante["id_sku_principal_variante"]);
+      $base["detalle"] = array("equivalencia_costo" => "1:1", "referencia" => "principal_explicito");
+      return $base;
     }
 
     if (intval($sku["maneja_variantes"]) === 1 && $this->tablaExisteCatalogo($db, "erp_catalogo_sku_atributos")) {

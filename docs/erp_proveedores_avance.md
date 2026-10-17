@@ -7501,3 +7501,125 @@ Prueba real pendiente:
 - Ejecutar la accion de correccion desde el renglon correcto.
 - Confirmar en la vista de costos que solo quede un costo vigente para proveedor + SKU ERP y que el anterior quede historico.
 - Confirmar que Compras use el costo corregido y que el precio comercial permanezca independiente.
+
+## Evidencia 2026-10-16 - Incidencias comerciales por cambio de costo
+
+Se implemento el primer flujo operativo para avisar a Comercial/Listas cuando un costo vigente de proveedor cambia:
+
+- Proveedores dispara la deteccion al aplicar un costo individual o una lista de costos en lote.
+- Se compara el costo anterior contra el nuevo costo normalizado por factor de presentacion.
+- Para cada detalle activo de una lista comercial se crea o actualiza una notificacion idempotente en `erp_notificaciones`.
+- Los tipos cubiertos son `aumento_proveedor`, `baja_proveedor`, `margen_bajo_por_costo`, `precio_debajo_costo`, `producto_nuevo_sin_precio` y `cambio_factor_presentacion`.
+- El payload conserva proveedor, lista origen, SKU, costos anterior/nuevo, moneda, factor, variacion, precio actual, margen anterior/proyectado y precio sugerido de referencia.
+- La bandeja read-only se consulta en `/comercial/listas_precios_incidencias_comerciales_erp` y se muestra en `/comercial/listas_precios`.
+- La accion lleva al editor de la lista afectada; no cambia precios automaticamente, no modifica `costo_referencia` y no recalcula ventas pasadas.
+
+Alcance pendiente:
+
+- Conectar el mismo generador al momento en que Compras/Almacen defina formalmente el costo real recibido como costo vigente. Actualmente la orden conserva snapshot y la aplicacion de costos de proveedor es el punto autorizado de cambio.
+- Definir posteriormente si la severidad de margen bajo debe usar un umbral configurable por lista, segmento o canal. Esta primera etapa conserva el umbral operativo existente de 15% y calcula sugerencia con 20% de margen objetivo como referencia no automatica.
+
+Pruebas reales pendientes:
+
+- Aplicar una lista de proveedor con costo mayor para un SKU que tenga precio en una lista activa y confirmar una incidencia `aumento_proveedor` o `margen_bajo_por_costo`.
+- Aplicar una lista con costo menor y confirmar `baja_proveedor` sin cambio automatico del precio.
+- Repetir la misma aplicacion y confirmar que no se duplique la incidencia abierta.
+- Revisar la bandeja de Comercial, abrir la lista afectada y guardar manualmente el precio solo despues de revisar la propuesta.
+
+## Evidencia 2026-10-16 - Reutilizacion de relaciones al cargar nueva lista
+
+Se ajusto la importacion de listas para no repetir matching cuando ya existe una relacion activa confiable:
+
+- La busqueda exacta usa `id_proveedor + sku_proveedor` contra `erp_catalogo_sku_proveedores`.
+- Si existe exactamente una relacion activa, el nuevo renglon recibe `id_sku`, `id_sku_proveedor` y `estado_match='relacion_aplicada'`.
+- El criterio guardado es `relacion_reutilizada_por_sku_proveedor`.
+- El costo de la nueva lista no se aplica automaticamente; pasa al preview/aplicacion de costos para comparar contra el vigente.
+- Si existen varias relaciones activas para el mismo proveedor y SKU proveedor, el renglon queda sin relacion automatica y se reporta como ambiguo.
+- Si no existe relacion activa, conserva el flujo normal de matching.
+
+La nueva lista continua siendo evidencia versionada. La relacion pertenece al maestro proveedor-SKU; el costo pertenece al historial de costos y cada archivo conserva sus propios renglones.
+
+Prueba real pendiente:
+
+- Cargar una nueva lista con un SKU proveedor ya relacionado y confirmar que el renglon aparezca relacionado sin abrir matching.
+- Confirmar que el costo nuevo aparezca como crear/actualizar en preview de costos y que el costo anterior quede historico solo al aplicar el costo autorizado.
+- Probar un SKU proveedor con dos relaciones activas y confirmar que no se seleccione automaticamente.
+
+## Incidencia productiva 2026-10-16 - Aquakrill lista 55 sin reutilizacion automatica
+
+Diagnostico confirmado en la base productiva `artianicom_sys`:
+
+- Lista Aquakrill `55`, nombre `OCTUBRE 2026`, estatus `cargada`.
+- Total de renglones: `756`.
+- Renglones con `id_sku` o `id_sku_proveedor` guardado: `0`.
+- Coincidencias exactas por proveedor + `sku_proveedor` contra relaciones activas: `180`.
+- Los renglones afectados quedaron con `estado_match='sin_match'` y `criterio_match='importacion_lista_proveedor'`.
+
+Causa:
+
+- La importacion reutilizaba relaciones solo al insertar un renglon nuevo.
+- Cuando una recarga encontraba un renglon existente, actualizaba sus datos y terminaba antes de ejecutar la reutilizacion.
+- Por eso el SKU proveedor podia verse correctamente, pero no se guardaban `id_sku` ni `id_sku_proveedor`.
+
+Correccion aplicada en codigo:
+
+- La recarga ahora busca la relacion exacta tambien para renglones existentes.
+- Si hay una sola relacion activa compatible, completa automaticamente `id_sku`, `id_sku_proveedor`, `estado_match='relacion_aplicada'` y el criterio de reutilizacion.
+- Si hay varias relaciones activas, no selecciona ninguna y conserva el caso para revision.
+- No crea relaciones nuevas, no aplica costos y no modifica `costo_referencia`.
+
+Nota operativa:
+
+- Las listas nuevas no deben requerir un paso adicional de matching cuando la relacion exacta ya exista.
+- La lista 55 conserva la evidencia del caso ocurrido antes de esta correccion; su reparacion debe hacerse mediante un flujo controlado, sin reimportar manualmente para generar duplicados.
+
+## Decision aprobada 2026-10-16 - Familias y versiones de listas proveedor
+
+Se adopta el modelo de **familia de lista + versiones**:
+
+- Una familia representa una fuente operativa del proveedor, por ejemplo una marca o grupo de productos.
+- Cada archivo nuevo de esa misma familia se registra como una nueva version.
+- La version anterior se conserva como evidencia historica; no se sobrescribe ni se elimina.
+- La accion operativa recomendada sera `Cargar nueva version` para comparar contra la version vigente.
+- Un proveedor puede tener varias familias de listas sin mezclar sus productos ni costos.
+- Las relaciones proveedor-SKU se reutilizan entre versiones cuando existe una relacion activa exacta.
+- La nueva version debe detectar cambios de costo, productos nuevos, productos ausentes y cambios de unidad/factor.
+- La version solo se vuelve vigente despues de revisar/aplicar sus costos; las incidencias comerciales se generan sin cambiar precios automaticamente.
+- Un producto ausente de una nueva version no se elimina: queda como no presente en la nueva version para revision.
+
+Pendiente de implementacion:
+
+- agregar identificacion visible de familia y version;
+- agregar accion `Cargar nueva version`;
+- comparar automaticamente contra la version vigente;
+- impedir dos versiones vigentes conflictivas para la misma familia;
+- revisar manualmente conflictos cuando un mismo proveedor/SKU aparece en familias activas con costos distintos.
+
+## Correccion 2026-10-16 - Vista previa XLSX de Aquakrill sin renglones
+
+Incidencia reportada:
+
+- Proveedor: Aquakrill (`id_proveedor=7`).
+- Lista detectada: `55`.
+- Archivo revisado: `c1f928cb5187c98c0c585d065623b974c3a07299.xlsx`.
+- La carga conservaba el archivo, pero la vista previa no encontraba la hoja o los renglones para continuar con `Importar renglones`.
+
+Diagnostico:
+
+- El archivo no estaba corrupto: abre como XLSX valido y contiene `workbook.xml`, `sheet1.xml`, tabla y relaciones internas.
+- La hoja usa el namespace XML estandar de Excel con prefijo `x:` (`x:sheetData`, `x:row`, `x:c`).
+- El lector ligero de Proveedores buscaba los nodos como si fueran elementos sin namespace. Por eso devolvia una estructura vacia o caia en la hoja de respaldo.
+
+Correccion aplicada:
+
+- `app/modelos/Proveedores.php` ahora lee los nodos XLSX mediante el namespace oficial, con independencia de que el archivo use prefijo o namespace por defecto.
+- Se ajustaron la primera hoja, cadenas compartidas, filas, celdas, valores numericos y textos inline.
+- La prueba directa del archivo detecto la hoja `Costos distribuidor`, encabezados y `10` filas de muestra.
+- No se ejecutaron importaciones, migraciones ni escrituras de datos durante la correccion.
+
+Prueba real pendiente:
+
+- Abrir nuevamente la lista 55 de Aquakrill y usar `Vista previa del archivo`.
+- Confirmar que aparezcan los encabezados y renglones del archivo nuevo.
+- Revisar el mapeo y ejecutar `Importar renglones` solo cuando la muestra sea correcta.
+- Confirmar que el conteo importado coincida con el archivo y que no se dupliquen renglones existentes.

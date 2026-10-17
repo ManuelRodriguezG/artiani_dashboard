@@ -106,6 +106,21 @@ docs/erp_ecommerce_publico_orden_activacion_autorizada.md
 
 ## Respaldos generados
 
+Catalogo: principales y referencias de variantes, autorizado por el dueno el 2026-10-16:
+
+```text
+archivo=C:\xampp\panel_db_backups\productivo_panel_20261016_antes_variantes_principal.sql
+base=artianicom_sys
+tamano_bytes=194252154
+sha256=3d110e66450fb53c90a11db9d56d092d8c997dae8f00ad3585c9e9753c1f5ff3
+validado=mysqldump_exit_0_y_marca_de_finalizacion
+aplicacion=storage/uat/apply_variantes_principal_authorized.php
+resultado=dos_columnas_creadas_en_erp_catalogo_skus
+skus_antes=1978
+skus_despues=1978
+relaciones_configuradas=0
+```
+
 Distribucion Mi catalogo e inventario cliente:
 
 ```text

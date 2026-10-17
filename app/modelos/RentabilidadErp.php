@@ -5517,6 +5517,7 @@ class RentabilidadErp extends CRUD {
             : "Resolver costo proveedor/compra.";
     }
 
+    /** IA: Codex GPT-6 | 2026-10-16. Usa principal explicito como respaldo tras costos propios y recetas. */
     private function resolverCostoVigenteSkuInterno($db, $idSku, $contexto, &$visitados) {
         if (in_array($idSku, $visitados, true)) {
             return $this->respuestaCostoSinEvidencia($idSku, "Ciclo de costo derivado detectado");
@@ -5545,7 +5546,7 @@ class RentabilidadErp extends CRUD {
         }
 
         $directoSinCatalogo = $this->resolverCostoDirectoSku($db, $sku, false);
-        if ($tipo === "sku_normal" || ($tipo === "auto" && floatval($directoSinCatalogo["costo"]) > 0)) {
+        if ($tipo === "sku_normal" || (in_array($tipo, array("auto", "variante"), true) && floatval($directoSinCatalogo["costo"]) > 0)) {
             return $directoSinCatalogo;
         }
 
@@ -5581,7 +5582,45 @@ class RentabilidadErp extends CRUD {
             return $this->respuestaCostoDerivadoBloqueado($sku, "apertura_empaque", "COST-DER-007", "Apertura sin confirmacion de Almacen/Tienda");
         }
 
+        if ($tipo === "auto" || $tipo === "variante") {
+            $variante = $this->resolverCostoVariantePrincipal($db, $sku, $contexto, $visitados);
+            if ($variante !== null) { return $variante; }
+        }
         return $this->resolverCostoDirectoSku($db, $sku, !isset($contexto["incluir_fallback_catalogo"]) || intval($contexto["incluir_fallback_catalogo"]) === 1);
+    }
+
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-16
+     * Proposito: heredar costo 1:1 desde principal explicito del mismo producto.
+     * Impacto: consultas de Rentabilidad y consumidores del resolutor; sin escrituras ni cambios de precio.
+     * Contrato: no usa hermanos al azar, ni reemplaza recetas; valida unidad/contenido al leer.
+     */
+    private function resolverCostoVariantePrincipal($db, $sku, $contexto, &$visitados) {
+        $stmt = $db->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='erp_catalogo_skus' AND COLUMN_NAME IN ('es_principal_variante','id_sku_principal_variante')");
+        if (intval($stmt->fetchColumn()) !== 2) { return null; }
+        $stmt = $db->prepare("SELECT s.id_sku_principal_variante, s.es_principal_variante, s.id_unidad_base, s.factor_unidad_base,
+            p.id_sku principal_id, p.sku principal_sku, p.es_principal_variante principal_confirmado,
+            p.id_sku_principal_variante principal_origen, p.id_unidad_base principal_unidad, p.factor_unidad_base principal_factor
+            FROM erp_catalogo_skus s LEFT JOIN erp_catalogo_skus p
+            ON p.id_sku=s.id_sku_principal_variante AND p.id_producto_erp=s.id_producto_erp AND p.estatus NOT IN ('fusionado','inactivo','cancelado')
+            WHERE s.id_sku=:sku");
+        $stmt->execute(array(":sku" => intval($sku["id_sku"])));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$fila || intval($fila["id_sku_principal_variante"]) <= 0) { return null; }
+        if (intval($fila["es_principal_variante"]) === 1 || !intval($fila["principal_id"]) || intval($fila["principal_confirmado"]) !== 1
+            || intval($fila["principal_origen"]) > 0 || intval($fila["principal_id"]) === intval($sku["id_sku"])
+            || intval($fila["id_unidad_base"]) !== intval($fila["principal_unidad"])
+            || abs(floatval($fila["factor_unidad_base"]) - floatval($fila["principal_factor"])) > 0.000001) {
+            return $this->respuestaCostoDerivadoBloqueado($sku, "variante", "COST-VAR-001", "Referencia principal invalida o contenido no equivalente; revisar en Catalogo");
+        }
+        // El principal se resuelve de forma independiente de otras ramas de una receta.
+        $ruta = $visitados;
+        $origen = $this->resolverCostoVigenteSkuInterno($db, intval($fila["principal_id"]), $this->contextoOrigenCosto($contexto), $ruta);
+        if (floatval($origen["costo"]) <= 0) {
+            return $this->respuestaCostoDerivadoBloqueado($sku, "variante", "COST-VAR-002", "El SKU principal no tiene costo disponible", $origen);
+        }
+        return $this->respuestaCostoDerivado($sku, "variante", "heredado_variante_principal", $origen["costo"], $origen,
+            intval($fila["principal_id"]), $fila["principal_sku"], 1, 0, "costo del SKU principal (equivalencia 1:1)");
     }
 
     private function consultarSkuBasicoCosto($db, $idSku) {
