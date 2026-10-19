@@ -106,6 +106,19 @@ docs/erp_ecommerce_publico_orden_activacion_autorizada.md
 
 ## Respaldos generados
 
+Catálogos comerciales: asignación de 45 portadas definitivas autorizada por el dueño el 2026-10-17:
+
+```text
+archivo=C:\xampp\panel_db_backups\productivo_panel_20261017_214205_antes_asignar_portadas_comerciales.sql
+tamano_bytes=459346
+sha256=3946ce43330f40d9952f1a0507c9cfe35b6c489a369bf2bd50b3fd3400742211
+alcance=erp_catalogo_comercial_catalogos,erp_catalogo_comercial_items,erp_catalogo_comercial_eventos
+validado=archivo_no_vacio_marca_final_y_sha256
+resultado=45_portadas_asignadas_5_anteriores_intactas_selecciones_sin_cambios
+```
+
+Respaldo de datos mediante INSERT, sin DDL: restaurar sólo con un plan explícito, no ejecutar sobre registros existentes sin resolver claves y el alcance de reversión. La operación modificó únicamente URL, tipo y activación de portada, además de los 45 eventos de auditoría.
+
 Catalogo: principales y referencias de variantes, autorizado por el dueno el 2026-10-16:
 
 ```text

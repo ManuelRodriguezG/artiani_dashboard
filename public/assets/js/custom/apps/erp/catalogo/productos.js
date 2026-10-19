@@ -943,9 +943,16 @@
             setValor(form, "sku", codigo || ("TMP-VRP-" + String(folio).replace(/[^A-Za-z0-9]/g, "")));
             setValor(form, "nombre_sku", descripcion);
         } else if (esCompra) {
-            var skuCompra = detalle.sku || ("TMP-COMP-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad));
+            /**
+             * IA: Codex GPT-5 | Fecha: 2026-10-17
+             * Proposito: mostrar un codigo temporal unico por incidencia de Compras.
+             * Impacto: UI de Catalogo ERP; evita confundir varias incidencias de una misma orden.
+             */
+            var idOrdenCompra = incidencia.id_referencia || 0;
+            var codigoCompraPorIncidencia = "TMP-COMP-OC" + idOrdenCompra + "-INC" + incidencia.id_incidencia_calidad;
+            var skuCompra = detalle.sku || codigoCompraPorIncidencia;
             var nombreCompra = detalle.nombre_producto || incidencia.titulo || "Producto pendiente de compra";
-            setValor(form, "codigo_producto", "TMP-COMP-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad));
+            setValor(form, "codigo_producto", codigoCompraPorIncidencia);
             setValor(form, "nombre_producto", nombreCompra);
             setValor(form, "sku", skuCompra);
             setValor(form, "nombre_sku", nombreCompra);

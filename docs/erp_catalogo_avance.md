@@ -4700,6 +4700,17 @@ Actualizacion 2026-09-03:
 - Nota operativa: las incidencias/pendientes hacia Rentabilidad se generan por el contrato de guardado de aperturas y presentaciones en `CatalogoErpDatos`. Rentabilidad debe resolver costo derivado; Listas de precios debe resolver precio comercial despues.
 - Pendiente de revision separada: confirmar si la relacion de proveedor de `TP-40311` debe ajustarse al nuevo criterio operativo de compra como empaque cerrado, porque esta tarea no modifico proveedores.
 
+## Correccion 2026-10-17 - Codigo unico para SKU temporal desde Compras
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Problema: al crear productos temporales desde incidencias de Compras, la UI usaba `id_referencia`, que representa la orden completa, por lo que varias incidencias de una misma orden proponian el mismo codigo.
+- Correccion: el `codigo_producto` temporal de Compras ahora se construye con ambos identificadores: `TMP-COMP-OC{id_orden}-INC{id_incidencia_calidad}`. Ejemplo: `TMP-COMP-OC29-INC232`.
+- Seguridad de flujo: el backend reconstruye este codigo para incidencias `compra_producto_pendiente_alta`; no depende del valor antiguo enviado por el formulario.
+- Alcance: la correccion solo afecta productos temporales originados en Compras. Los flujos de Proveedores y Ventas POS conservan sus convenciones.
+- Cache: se incremento la version del asset `productos.js` para que la vista de Catalogo cargue la correccion sin conservar el JavaScript anterior.
+- Verificacion: sintaxis PHP y JavaScript validada; no se ejecuto DDL ni se modificaron registros existentes.
+- Regla: `id_referencia` identifica la orden; `id_incidencia_calidad` identifica el pendiente individual. Ambos deben formar el codigo temporal.
+
 ## Avance 2026-10-12 - Prueba SKU granel GRAVA-5
 
 - Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.

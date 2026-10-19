@@ -64,6 +64,9 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
         .cc-cover-card { border: 1px solid #dfe3ea; border-radius: 8px; min-height: 150px; padding: 18px; margin-bottom: 12px; background: #f8fafc; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
         .cc-cover-card--image { min-height: 320px; position: relative; overflow: hidden; justify-content: flex-end; padding: 0; background: #111827; }
         .cc-cover-card--image img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* IA: Codex GPT-6 | 2026-10-17. Arte final completo, sin recortes ni textos sobre la imagen. */
+        .cc-cover-card--final { display: block; min-height: 0; padding: 0; background: #fff; }
+        .cc-cover-card--final img { display: block; width: 100%; height: auto; }
         .cc-cover-card__overlay { position: relative; z-index: 1; width: 100%; padding: 18px; color: #fff; background: linear-gradient(180deg, rgba(17,24,39,.08), rgba(17,24,39,.48)); }
         .cc-cover-card__overlay .cc-cover-card__title,
         .cc-cover-card__overlay .cc-cover-card__desc,
@@ -196,6 +199,7 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                         <select class="form-select form-select-solid form-select-sm" id="cc_portada_tipo">
                                             <option value="plantilla">Plantilla editable</option>
                                             <option value="imagen_completa">Imagen pagina completa</option>
+                                            <option value="imagen_final">Imagen final (sin textos)</option>
                                         </select>
                                     </div>
                                     <div class="w-250px">
@@ -502,6 +506,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20261001-seleccion-masiva-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20261017-portada-final-1"></script>
 </body>
 </html>

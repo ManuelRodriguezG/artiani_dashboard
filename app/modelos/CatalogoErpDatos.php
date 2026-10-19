@@ -3037,6 +3037,12 @@ class CatalogoErpDatos extends CRUD {
       ORDER BY c.id_documento_concepto")->fetchAll(PDO::FETCH_ASSOC);
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-17
+   * Proposito: crear productos temporales desde incidencias de Proveedores, Compras o POS.
+   * Impacto: Catalogo ERP/Compras; evita reutilizar el codigo de orden entre incidencias de compra.
+   * Contrato: para Compras el codigo_producto siempre usa OC + id_incidencia_calidad.
+   */
   public function crearSkuTemporalDesdeIncidenciaProveedor($datos, $idUsuario = 0) {
     $idIncidencia = intval(isset($datos["id_incidencia_calidad"]) ? $datos["id_incidencia_calidad"] : 0);
     $idUnidad = intval(isset($datos["id_unidad_base"]) ? $datos["id_unidad_base"] : 0);
@@ -3087,7 +3093,10 @@ class CatalogoErpDatos extends CRUD {
       }
       $idReferencia = intval(isset($incidencia["id_referencia"]) ? $incidencia["id_referencia"] : 0);
       $prefijoTemporal = $esVentaRapidaSinMatch ? "TMP-VRP-" : ($esCompraProductoPendiente ? "TMP-COMP-" : "TMP-PROV-");
-      $codigoProducto = $this->codigoTemporalCatalogo($this->texto($datos, "codigo_producto", $prefijoTemporal . $idReferencia), $prefijoTemporal . $idReferencia, 80);
+      $codigoCompraPorIncidencia = "TMP-COMP-OC" . $idReferencia . "-INC" . $idIncidencia;
+      $codigoProducto = $esCompraProductoPendiente
+        ? $codigoCompraPorIncidencia
+        : $this->codigoTemporalCatalogo($this->texto($datos, "codigo_producto", $prefijoTemporal . $idReferencia), $prefijoTemporal . $idReferencia, 80);
       $nombreProducto = $this->texto($datos, "nombre_producto", "");
       if ($nombreProducto === "") {
         $nombreProducto = $esVentaRapidaSinMatch
@@ -8250,13 +8259,14 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
+  /** IA: Codex GPT-6 | 2026-10-17. Reconstruye también imagen_final sin superposiciones; no requiere DDL. */
   private function materialCatalogoComercialDesdeFila($catalogo) {
     return array(
       "titulo" => $catalogo["titulo"],
       "subtitulo" => $catalogo["subtitulo"],
       "cta" => $catalogo["cta"],
       "portadaActiva" => intval($catalogo["portada_activa"]) === 1,
-      "portadaTipo" => isset($catalogo["portada_tipo"]) && $catalogo["portada_tipo"] === "imagen_completa" ? "imagen_completa" : "plantilla",
+      "portadaTipo" => isset($catalogo["portada_tipo"]) && in_array($catalogo["portada_tipo"], array("imagen_completa", "imagen_final"), true) ? $catalogo["portada_tipo"] : "plantilla",
       "portadaImagenUrl" => isset($catalogo["portada_imagen_url"]) ? $catalogo["portada_imagen_url"] : "",
       "logoUrl" => isset($catalogo["logo_url"]) ? $catalogo["logo_url"] : "",
       "contactoTexto" => isset($catalogo["contacto_texto"]) ? $catalogo["contacto_texto"] : "",
@@ -8336,7 +8346,8 @@ class CatalogoErpDatos extends CRUD {
       ":tam_meta" => $estiloVisual["tamMeta"],
       ":tam_precio" => $estiloVisual["tamPrecio"],
       ":portada_activa" => array_key_exists("portadaActiva", $material) ? (!empty($material["portadaActiva"]) ? 1 : 0) : 1,
-      ":portada_tipo" => isset($material["portadaTipo"]) && $material["portadaTipo"] === "imagen_completa" ? "imagen_completa" : "plantilla",
+      // IA: Codex GPT-6 | 2026-10-17. Persistir el modo final explícito al guardar sin alterar el arte ni otros campos.
+      ":portada_tipo" => isset($material["portadaTipo"]) && in_array($material["portadaTipo"], array("imagen_completa", "imagen_final"), true) ? $material["portadaTipo"] : "plantilla",
       ":portada_imagen_url" => substr(trim((string)(isset($material["portadaImagenUrl"]) ? $material["portadaImagenUrl"] : "")), 0, 255) ?: null,
       ":logo_url" => substr(trim((string)(isset($material["logoUrl"]) ? $material["logoUrl"] : "")), 0, 255) ?: null,
       ":contacto_texto" => substr(trim((string)(isset($material["contactoTexto"]) ? $material["contactoTexto"] : "")), 0, 255) ?: null,

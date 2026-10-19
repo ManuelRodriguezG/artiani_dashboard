@@ -284,7 +284,7 @@
         if ($("cc_material_subtitulo")) $("cc_material_subtitulo").value = datos.subtitulo || "";
         if ($("cc_material_cta")) $("cc_material_cta").value = datos.cta || "Pregunta por disponibilidad";
         if ($("cc_portada_activa")) $("cc_portada_activa").checked = datos.portadaActiva !== false;
-        if ($("cc_portada_tipo")) $("cc_portada_tipo").value = datos.portadaTipo === "imagen_completa" ? "imagen_completa" : "plantilla";
+        if ($("cc_portada_tipo")) $("cc_portada_tipo").value = normalizarTipoPortada(datos.portadaTipo);
         if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = datos.portadaEtiqueta || mesAnioCatalogoTexto();
         if ($("cc_portada_imagen_url")) $("cc_portada_imagen_url").value = datos.portadaImagenUrl || "";
         if ($("cc_logo_url")) $("cc_logo_url").value = datos.logoUrl || "";
@@ -308,6 +308,11 @@
         } catch (e) {
             aplicarOpciones({});
         }
+    }
+
+    /** IA: Codex GPT-6 | 2026-10-17. Conserva el modo final al restaurar borradores y datos del servidor. */
+    function normalizarTipoPortada(tipo) {
+        return ["imagen_completa", "imagen_final"].includes(tipo) ? tipo : "plantilla";
     }
 
     function materialActual() {
@@ -349,7 +354,7 @@
         if ($("cc_material_subtitulo")) $("cc_material_subtitulo").value = material.subtitulo || "";
         if ($("cc_material_cta")) $("cc_material_cta").value = material.cta || "Pregunta por disponibilidad";
         if ($("cc_portada_activa")) $("cc_portada_activa").checked = material.portadaActiva !== false;
-        if ($("cc_portada_tipo")) $("cc_portada_tipo").value = material.portadaTipo === "imagen_completa" ? "imagen_completa" : "plantilla";
+        if ($("cc_portada_tipo")) $("cc_portada_tipo").value = normalizarTipoPortada(material.portadaTipo);
         if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = material.portadaEtiqueta || mesAnioCatalogoTexto();
         if ($("cc_portada_imagen_url")) $("cc_portada_imagen_url").value = material.portadaImagenUrl || "";
         if ($("cc_logo_url")) $("cc_logo_url").value = material.logoUrl || "";
@@ -828,7 +833,10 @@
         </section>`;
         const logo = logoUrl ? `<img class="cc-cover-card__logo" src="${escapeHtml(normalizarRutaImagen(logoUrl))}" alt="">` : "";
         const contacto = contactoTexto ? `<div class="cc-cover-card__cta">${escapeHtml(contactoTexto)}</div>` : "";
-        const portada = portadaActiva ? (portadaTipo === "imagen_completa" && portadaImagenUrl
+        // IA: Codex GPT-6 | 2026-10-17. El arte final conserva sus propios textos y proporciones.
+        const portada = portadaActiva ? (portadaTipo === "imagen_final" && portadaImagenUrl
+            ? `<section class="cc-cover-card cc-cover-card--final"><img src="${escapeHtml(normalizarRutaImagen(portadaImagenUrl))}" alt="Portada de ${escapeHtml(titulo)}"></section>`
+            : portadaTipo === "imagen_completa" && portadaImagenUrl
             ? `<section class="cc-cover-card cc-cover-card--image">
                 <img src="${escapeHtml(normalizarRutaImagen(portadaImagenUrl))}" alt="">
                 <div class="cc-cover-card__overlay">
@@ -1971,7 +1979,14 @@
         ctx.restore();
     }
 
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-17.
+     * Proposito: conservar portadas finales Carta sin recortes, degradados ni textos superpuestos.
+     * Impacto: solo primera pagina en modo imagen_final; productos y modos previos conservan su layout.
+     */
     async function dibujarPaginaCatalogoCanvas(paginaDatos, numeroPagina, totalPaginas, layout, material, opciones) {
+        const imagenFinal = paginaDatos.portadaCompleta && material.portadaTipo === "imagen_final" && material.portadaImagenUrl;
+        if (imagenFinal) layout = { ...layout, width: 1275, height: 1650, pixelRatio: 2 };
         const canvas = document.createElement("canvas");
         const pixelRatio = layout.pixelRatio || 1;
         canvas.width = Math.round(layout.width * pixelRatio);
@@ -1982,6 +1997,12 @@
         if (pixelRatio !== 1) ctx.scale(pixelRatio, pixelRatio);
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, layout.width, layout.height);
+        if (imagenFinal) {
+            const imagen = await cargarImagenCanvas(material.portadaImagenUrl);
+            if (!imagen) throw new Error("No se pudo cargar la portada final. Revisa su archivo de imagen.");
+            ctx.drawImage(imagen, 0, 0, layout.width, layout.height);
+            return canvas;
+        }
         let y = layout.margen;
         if (paginaDatos.portadaCompleta) {
             await dibujarPortadaCompletaPagina(ctx, material, layout, opciones);

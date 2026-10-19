@@ -1,5 +1,31 @@
 # ERP Catalogo - Plan de catalogos comerciales
 
+## Auditoría de calidad por volumen — 2026-10-17
+
+IA: Codex GPT-6. El dueño pidió analizar los catálogos de mayor a menor cantidad, sin modificar productos. Se leyó el mismo contrato de precio e imagen del visor mediante `consultarCatalogoComercial`, compartiendo una transacción READ ONLY para los 50 catálogos.
+
+Informe: `docs/erp_catalogos_comerciales_auditoria_calidad_2026-10-17.md`. El orden usa SKUs guardados (conteo del listado) y muestra también productos maestros únicos. No sumar variantes como productos ni sumar incidencias como si fueran SKUs distintos. Sin precio se determina desde Listas de precios vigentes, no desde costos o precios legacy.
+
+Resultado: 1,096 selecciones, 952 SKUs distintos y 763 productos distintos. Hay 222 SKUs distintos sin precio (251 apariciones), 7 sin imagen, una inconsistencia visual confirmada entre nombre y color de foto (11392, presente en dos catálogos) y una selección no visible (CORRA-08, producto descontinuado). Marca, atributos de variante y publicación ecommerce se separan de los faltantes esenciales; ausencia de publicación ecommerce no bloquea por sí sola un catálogo comercial. No se hizo revisión visual de todas las fotos.
+
+Inicio del orden de trabajo: CC-00014, 80 SKUs / 40 productos. Falta precio a 10276; 11392 dice blanca y muestra la foto rosa usada por 11391; 11 SKUs de productos con variantes no tienen atributos y dos carecen de marca registrada. No se fusionaron ni retiraron SKUs y no se modificaron precios, fotos o inventario.
+
+## Portadas terminadas — 2026-10-17
+
+IA: Codex GPT-6. El dueño entregó 45 PNG definitivos y autorizó relacionarlos con los códigos de catálogo de sus nombres. Se asignaron por código CC exacto, contrastando manifiesto y catálogo actual; se preservaron las otras cinco portadas.
+
+- Nuevo modo explícito `imagen_final`, persistido en el campo VARCHAR existente `portada_tipo`; sin DDL.
+- En el visor, muestra la imagen íntegra con su proporción natural, sin logo, título, fecha, degradado o contacto adicionales sobre el arte ya terminado.
+- La primera página PNG en ese modo usa Carta de 2550 × 3300, sin recortes ni pie superpuesto. Los textos, aviso y fecha del catálogo siguen disponibles para las páginas de productos, que mantienen su configuración.
+- Los modos `plantilla` e `imagen_completa` conservan el comportamiento anterior. El selector muestra `Imagen final (sin textos)` y la restauración desde servidor/borrador conserva este valor.
+- Se conservaron los PNG originales y los nombres CC en `public/uploads/erp/catalogo/comerciales/portada/202610/definitivas-20261017/`.
+- Asignación transaccional con respaldo externo y 45 eventos `asignar_portada`. No se alteraron items, SKUs, precios, costos o inventario.
+- Validación: SHA-256 de 45 archivos, HTTP 200/image/png de las 45 URLs, lectura independiente de BD, cinco catálogos anteriores intactos y hash de la tabla de selecciones sin cambios. Reconstrucción del modelo comprobada para CC-00015, CC-00050 y control previo CC-00002.
+- Regresión de exportación: portada final a 2550 × 3300 sin operaciones de texto/degradado; página de productos conserva dimensiones previas; imagen final ausente devuelve error. Sintaxis PHP/JS y `git diff --check` correctos.
+- El navegador solicitó login para la vista protegida; se comprobó visualmente el recurso PNG servido por el host canónico, sin afirmar revisión visual de todo el catálogo autenticado.
+
+Detalle de asignaciones y respaldo: `docs/erp_catalogos_comerciales_portadas_asignacion_2026-10-17.md`.
+
 ## Integracion con Resumen ERP
 
 Fecha: 2026-08-27
