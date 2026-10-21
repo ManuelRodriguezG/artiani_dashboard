@@ -100,7 +100,8 @@
             fecha_hasta: document.getElementById("pos_rep_hasta").value,
             id_almacen: document.getElementById("pos_rep_almacen").value || "0",
             id_caja: document.getElementById("pos_rep_caja").value || "0",
-            solo_diferencias: document.getElementById("pos_rep_solo_diferencias").checked ? "1" : "0"
+            solo_diferencias: document.getElementById("pos_rep_solo_diferencias").checked ? "1" : "0",
+            incluir_historicas: document.getElementById("pos_rep_incluir_historicas").checked ? "1" : "0"
         });
         request("/ventas/reportes_caja_erp?" + params.toString()).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }

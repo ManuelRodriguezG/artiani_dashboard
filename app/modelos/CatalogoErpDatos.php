@@ -168,6 +168,9 @@ class CatalogoErpDatos extends CRUD {
           s.tipo_inventario, u.codigo AS unidad_codigo, u.abreviatura AS unidad_abreviatura,
           m.nombre AS marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria,
           COALESCE(img_sku.url_imagen, img.url_imagen) AS imagen_portada,
+          COALESCE(img_sku.tipo_imagen, img.tipo_imagen) AS imagen_tipo,
+          COALESCE(img_sku.orden, img.orden, 0) AS imagen_orden,
+          CASE WHEN img_sku.id_imagen_erp IS NOT NULL THEN 1 ELSE 0 END AS imagen_propia,
           " . $precioCatalogo["select"] . ",
           r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
           " . $selectInventario . ",
@@ -183,26 +186,7 @@ class CatalogoErpDatos extends CRUD {
         LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
         LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
         " . $precioCatalogo["join"] . "
-        LEFT JOIN (
-          SELECT i.id_sku, i.url_imagen
-          FROM erp_catalogo_imagenes i
-          INNER JOIN (
-            SELECT id_sku, MIN(id_imagen_erp) id_imagen_erp
-            FROM erp_catalogo_imagenes
-            WHERE estatus='activo' AND id_sku IS NOT NULL AND TRIM(COALESCE(url_imagen,''))<>''
-            GROUP BY id_sku
-          ) x ON x.id_imagen_erp=i.id_imagen_erp
-        ) img_sku ON img_sku.id_sku=s.id_sku
-        LEFT JOIN (
-          SELECT i.id_producto_erp, i.url_imagen
-          FROM erp_catalogo_imagenes i
-          INNER JOIN (
-            SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
-            FROM erp_catalogo_imagenes
-            WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
-            GROUP BY id_producto_erp
-          ) x ON x.id_imagen_erp=i.id_imagen_erp
-        ) img ON img.id_producto_erp=p.id_producto_erp
+        " . $this->imagenesCatalogoComercialSql() . "
         " . $joinPublicacion . "
         " . $joinPresentacion . "
         " . $joinPaquete . "
@@ -8036,6 +8020,31 @@ class CatalogoErpDatos extends CRUD {
   }
 
   /**
+   * IA: Codex GPT-6 | Fecha: 2026-10-19
+   * Proposito: resolver fotos comerciales por tipo, orden e ID, igual en busqueda y catalogos guardados.
+   * Impacto: solo lectura comercial; respeta portada y evita heredar fotos de otro SKU/color.
+   * Contrato: requiere alias s/p; devuelve joins img_sku/img. Fallback solo a imagen general sin SKU.
+   */
+  private function imagenesCatalogoComercialSql() {
+    return "LEFT JOIN erp_catalogo_imagenes img_sku ON img_sku.id_imagen_erp=(
+        SELECT foto.id_imagen_erp FROM erp_catalogo_imagenes foto
+        WHERE foto.id_sku=s.id_sku AND foto.id_producto_erp=p.id_producto_erp
+          AND foto.estatus='activo' AND TRIM(COALESCE(foto.url_imagen,''))<>''
+        ORDER BY FIELD(foto.tipo_imagen,'portada','empaque','detalle','galeria','referencia')=0,
+          FIELD(foto.tipo_imagen,'portada','empaque','detalle','galeria','referencia'),
+          foto.orden, foto.id_imagen_erp LIMIT 1
+      )
+      LEFT JOIN erp_catalogo_imagenes img ON img.id_imagen_erp=(
+        SELECT foto.id_imagen_erp FROM erp_catalogo_imagenes foto
+        WHERE foto.id_producto_erp=p.id_producto_erp AND foto.id_sku IS NULL
+          AND foto.estatus='activo' AND TRIM(COALESCE(foto.url_imagen,''))<>''
+        ORDER BY FIELD(foto.tipo_imagen,'portada','empaque','detalle','galeria','referencia')=0,
+          FIELD(foto.tipo_imagen,'portada','empaque','detalle','galeria','referencia'),
+          foto.orden, foto.id_imagen_erp LIMIT 1
+      )";
+  }
+
+  /**
    * IA: Codex GPT-5
    * Fecha: 2026-07-23
    * Proposito: convertir datos ERP de un SKU en contrato visual para catalogos comerciales.
@@ -8087,6 +8096,10 @@ class CatalogoErpDatos extends CRUD {
       "marca" => $fila["marca"],
       "categoria" => $fila["categoria"],
       "imagen_portada" => $fila["imagen_portada"],
+      // IA: Codex GPT-6 | 2026-10-19. Metadatos visuales; no cambian el SKU ni su imagen persistida.
+      "imagen_tipo" => isset($fila["imagen_tipo"]) ? $fila["imagen_tipo"] : null,
+      "imagen_orden" => intval(isset($fila["imagen_orden"]) ? $fila["imagen_orden"] : 0),
+      "imagen_propia" => !empty($fila["imagen_propia"]),
       "presentacion_comercial" => $presentacion,
       "precio" => (!empty($fila["precio"]) && floatval($fila["precio"]) > 0) ? floatval($fila["precio"]) : null,
       "moneda" => (!empty($fila["precio"]) && floatval($fila["precio"]) > 0) ? ($fila["moneda"] ?: "MXN") : null,
@@ -8179,6 +8192,9 @@ class CatalogoErpDatos extends CRUD {
         s.tipo_inventario, u.codigo AS unidad_codigo, u.abreviatura AS unidad_abreviatura,
         m.nombre AS marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria,
         COALESCE(img_sku.url_imagen, img.url_imagen) AS imagen_portada,
+        COALESCE(img_sku.tipo_imagen, img.tipo_imagen) AS imagen_tipo,
+        COALESCE(img_sku.orden, img.orden, 0) AS imagen_orden,
+        CASE WHEN img_sku.id_imagen_erp IS NOT NULL THEN 1 ELSE 0 END AS imagen_propia,
         " . $precioCatalogo["select"] . ",
         r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
         i.titulo_override, i.descripcion_override, i.precio_texto_override, i.nota_item,
@@ -8196,26 +8212,7 @@ class CatalogoErpDatos extends CRUD {
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
       " . $precioCatalogo["join"] . "
-      LEFT JOIN (
-        SELECT ii.id_sku, ii.url_imagen
-        FROM erp_catalogo_imagenes ii
-        INNER JOIN (
-          SELECT id_sku, MIN(id_imagen_erp) id_imagen_erp
-          FROM erp_catalogo_imagenes
-          WHERE estatus='activo' AND id_sku IS NOT NULL AND TRIM(COALESCE(url_imagen,''))<>''
-          GROUP BY id_sku
-        ) x ON x.id_imagen_erp=ii.id_imagen_erp
-      ) img_sku ON img_sku.id_sku=s.id_sku
-      LEFT JOIN (
-        SELECT ii.id_producto_erp, ii.url_imagen
-        FROM erp_catalogo_imagenes ii
-        INNER JOIN (
-          SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
-          FROM erp_catalogo_imagenes
-          WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
-          GROUP BY id_producto_erp
-        ) x ON x.id_imagen_erp=ii.id_imagen_erp
-      ) img ON img.id_producto_erp=p.id_producto_erp
+      " . $this->imagenesCatalogoComercialSql() . "
       " . $joinPublicacion . "
       " . $joinPresentacion . "
       " . $joinPaquete . "

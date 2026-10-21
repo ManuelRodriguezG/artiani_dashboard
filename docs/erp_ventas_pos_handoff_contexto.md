@@ -6854,6 +6854,8 @@ Regla:
 
 ## Corte vigente 2026-10-14 - Carga historica en sidebar y acciones de regularizacion
 
+Continuidad 2026-10-20: el dueno solicita captura asistida de ventas desde WhatsApp, identificacion de SKU y conciliacion con reportes de Mercado Pago. Dinamica, limites y equivalencias confirmadas en `docs/erp_ventas_historicas_captura_asistida.md`. La preparacion de este plan no registro ventas reales.
+
 Necesidad operativa:
 
 - El dueno necesita capturar ventas que no son del dia para ordenar el negocio sin mezclar esas ventas con POS en tiempo real.

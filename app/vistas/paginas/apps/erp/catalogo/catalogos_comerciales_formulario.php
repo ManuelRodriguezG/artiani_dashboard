@@ -506,6 +506,7 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20261017-portada-final-1"></script>
+<!-- IA: Codex GPT-6 | 2026-10-19. Renueva cache para usar el mismo representante en preview y PNG. -->
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20261019-representante-variantes-1"></script>
 </body>
 </html>

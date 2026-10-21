@@ -671,6 +671,8 @@
      * Impacto: Catalogos comerciales; permite mostrar variantes compactas en una sola tarjeta por producto.
      * Contrato: no fusiona ni borra SKUs; solo colapsa en memoria para preview, texto y PNG.
      */
+    // IA: Codex GPT-6 | 2026-10-19. Representante estable por portada/orden/SKU, independiente del orden del catalogo.
+    // Impacto: preview y PNG comparten titulo/foto del mismo SKU; conserva todas las miniaturas y precios.
     function itemsVisualesCatalogo() {
         const items = Array.from(estado.seleccion.values());
         if (!Boolean($("cc_agrupar_variantes")?.checked)) return items;
@@ -694,12 +696,24 @@
             if (!entrada.__grupoProducto) return entrada;
             const variantes = grupos.get(entrada.__grupoProducto) || [];
             if (variantes.length <= 1) return variantes[0];
-            const base = variantes[0] || {};
+            const tiposImagen = ["portada", "empaque", "detalle", "galeria", "referencia"];
+            const prioridadImagen = (item) => {
+                const posicion = tiposImagen.indexOf(item.imagen_tipo);
+                return posicion < 0 ? tiposImagen.length : posicion;
+            };
+            const conFoto = variantes.filter((item) => item.imagen_portada);
+            const propias = conFoto.filter((item) => item.imagen_propia);
+            const candidatas = propias.length ? propias : (conFoto.length ? conFoto : variantes);
+            const base = candidatas.slice().sort((a, b) =>
+                prioridadImagen(a) - prioridadImagen(b) ||
+                Number(a.imagen_orden || 0) - Number(b.imagen_orden || 0) ||
+                Number(a.id_sku) - Number(b.id_sku)
+            )[0] || variantes[0] || {};
             const precios = variantes.map((item) => Number(item.precio)).filter((precio) => Number.isFinite(precio) && precio > 0);
             const min = precios.length ? Math.min(...precios) : null;
             const max = precios.length ? Math.max(...precios) : null;
             const moneda = variantes.find((item) => item.moneda)?.moneda || "MXN";
-            const imagen = variantes.find((item) => item.imagen_portada)?.imagen_portada || base.imagen_portada || "";
+            const imagen = base.imagen_portada || "";
             const precioTexto = min && max && min !== max ? `${dinero(min, moneda)} - ${dinero(max, moneda)}` : dinero(min, moneda);
             return {
                 id_sku: `grupo-${entrada.__grupoProducto}`,
@@ -708,7 +722,7 @@
                 tipo_visual: "grupo_variantes",
                 codigo_producto: base.codigo_producto || "",
                 sku: variantes.map((item) => item.sku).filter(Boolean).join(", "),
-                nombre: base.producto || base.nombre || "Producto",
+                nombre: base.nombre || base.producto || "Producto",
                 producto: base.producto || base.nombre || "Producto",
                 maneja_variantes: true,
                 marca: base.marca || "",

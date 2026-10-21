@@ -91,6 +91,12 @@
                                             <span class="form-check-label">Solo con diferencia</span>
                                         </label>
                                     </div>
+                                    <div class="col-lg-3 col-md-4">
+                                        <label class="form-check form-check-custom form-check-solid mt-8">
+                                            <input class="form-check-input" id="pos_rep_incluir_historicas" type="checkbox" checked>
+                                            <span class="form-check-label">Incluir ventas históricas</span>
+                                        </label>
+                                    </div>
                                     <div class="col-lg-12 col-md-4">
                                         <div class="d-flex gap-2">
                                             <button class="btn btn-primary flex-grow-1" id="pos_rep_consultar" type="button"><i class="bi bi-bar-chart"></i> Consultar</button>

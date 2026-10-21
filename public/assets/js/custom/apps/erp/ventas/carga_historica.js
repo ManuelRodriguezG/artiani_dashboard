@@ -1,10 +1,10 @@
 "use strict";
 (function () {
-    var estado = {almacenes: [], metodos: [], acciones: {}, partidas: []};
+    var estado = {almacenes: [], metodos: [], acciones: {}, partidas: [], pagos: []};
 
     /**
-     * IA: Codex GPT-5 | Fecha: 2026-10-14
-     * Proposito: operar captura historica de ventas con acciones de regularizacion.
+     * IA: Codex GPT-5 | Fecha: 2026-10-20
+     * Proposito: operar captura historica de ventas con acciones de regularizacion y multiples pagos documentales.
      * Impacto: prevalidacion/guardado documental; no usa turno POS ni mueve inventario desde UI.
      */
     function request(url, data) {
@@ -48,6 +48,7 @@
             estado.metodos = data.metodos_pago || [];
             estado.acciones = data.acciones_regularizacion || {};
             llenarSelectores();
+            renderPagos();
             alerta(data.schema_historico_listo ? "info" : "warning", data.schema_historico_listo
                 ? "Carga historica lista para prevalidar. Guardar real requiere token."
                 : "Faltan columnas de carga historica. Se puede preparar captura, pero guardar quedara bloqueado.");
@@ -62,12 +63,56 @@
                 escapeHtml((item.codigo_almacen || item.id_almacen) + " - " + (item.almacen || item.nombre_comercial || "")) +
                 "</option>";
         }).join("") || "<option value=\"\">Sin almacenes</option>";
-        document.getElementById("vh_almacen").innerHTML = almacenesHtml;
-        var metodosHtml = estado.metodos.map(function (item) {
-            return "<option value=\"" + escapeHtml(item.id_metodo_pago || "") + "\">" +
-                escapeHtml(item.metodo_pago || item.nombre || ("Metodo " + item.id_metodo_pago)) + "</option>";
-        }).join("") || "<option value=\"\">No especificado</option>";
-        document.getElementById("vh_metodo_pago").innerHTML = "<option value=\"\">No especificado</option>" + metodosHtml;
+        var almacenSelect = document.getElementById("vh_almacen");
+        if (almacenSelect) { almacenSelect.innerHTML = almacenesHtml; }
+    }
+
+    function opcionesMetodoPago(selected) {
+        return "<option value=\"\">Seleccionar método</option>" + estado.metodos.map(function (item) {
+            var value = String(item.id_metodo_pago || "");
+            return "<option value=\"" + escapeHtml(value) + "\"" +
+                (String(selected || "") === value ? " selected" : "") + ">" +
+                escapeHtml(item.metodo_pago || item.nombre || ("Método " + value)) + "</option>";
+        }).join("");
+    }
+
+    function renderPagos() {
+        var body = document.getElementById("vh_pagos");
+        if (!body) { return; }
+        if (!estado.pagos.length) {
+            body.innerHTML = "<tr><td colspan=\"4\" class=\"text-muted fs-7\">Agrega un método si la venta tuvo pago.</td></tr>";
+            actualizarTotalPagado();
+            return;
+        }
+        body.innerHTML = estado.pagos.map(function (pago, index) {
+            return "<tr data-pago-index=\"" + index + "\">" +
+                "<td><select class=\"form-select form-select-sm vh-pago-metodo\">" + opcionesMetodoPago(pago.id_metodo_pago) + "</select></td>" +
+                "<td><input class=\"form-control form-control-sm vh-pago-referencia\" type=\"text\" maxlength=\"120\" value=\"" + escapeHtml(pago.referencia || "") + "\" placeholder=\"Folio o referencia\"></td>" +
+                "<td><input class=\"form-control form-control-sm text-end vh-pago-monto\" type=\"number\" min=\"0\" step=\"0.01\" value=\"" + escapeHtml(pago.monto || "") + "\" placeholder=\"0.00\"></td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-danger vh-pago-quitar\" type=\"button\" title=\"Quitar método\"><i class=\"bi bi-trash\"></i></button></td>" +
+                "</tr>";
+        }).join("");
+        actualizarTotalPagado();
+    }
+
+    function agregarPago() {
+        estado.pagos.push({id_metodo_pago: "", referencia: "", monto: ""});
+        renderPagos();
+    }
+
+    function sincronizarPago(row) {
+        var index = Number(row.getAttribute("data-pago-index"));
+        if (!estado.pagos[index]) { return; }
+        estado.pagos[index].id_metodo_pago = row.querySelector(".vh-pago-metodo").value || "";
+        estado.pagos[index].referencia = row.querySelector(".vh-pago-referencia").value || "";
+        estado.pagos[index].monto = numero(row.querySelector(".vh-pago-monto").value || 0);
+        actualizarTotalPagado();
+    }
+
+    function actualizarTotalPagado() {
+        var total = estado.pagos.reduce(function (sum, pago) { return sum + numero(pago.monto); }, 0);
+        var salida = document.getElementById("vh_pagado");
+        if (salida) { salida.textContent = money(total); }
     }
 
     function buscar() {
@@ -140,6 +185,7 @@
 
     function renderPartidas() {
         var body = document.getElementById("vh_partidas");
+        if (!body) { return; }
         if (!estado.partidas.length) {
             body.innerHTML = "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\">Agrega productos para capturar la venta historica.</td></tr>";
             recalcular();
@@ -195,9 +241,7 @@
         var total = Math.max(0, subtotal - descuento);
         document.getElementById("vh_subtotal").textContent = money(subtotal);
         document.getElementById("vh_total").textContent = money(total);
-        if (!document.getElementById("vh_pagado").value) {
-            document.getElementById("vh_pagado").value = total.toFixed(2);
-        }
+        actualizarTotalPagado();
     }
 
     function payload() {
@@ -205,10 +249,11 @@
             fecha_venta_real: document.getElementById("vh_fecha").value,
             id_almacen: document.getElementById("vh_almacen").value || "0",
             cliente_nombre_publico: document.getElementById("vh_cliente").value || "Cliente historico",
-            id_metodo_pago: document.getElementById("vh_metodo_pago").value || "0",
+            id_metodo_pago: estado.pagos.length ? (estado.pagos[0].id_metodo_pago || "0") : "0",
+            pagos: JSON.stringify(estado.pagos),
             observaciones: document.getElementById("vh_observaciones").value || "Carga historica de ventas",
             descuento_total: document.getElementById("vh_descuento").value || "0",
-            pagado_total: document.getElementById("vh_pagado").value || "0",
+            pagado_total: estado.pagos.reduce(function (sum, pago) { return sum + numero(pago.monto); }, 0).toFixed(2),
             token: document.getElementById("vh_token").value || "",
             items: JSON.stringify(estado.partidas)
         };
@@ -253,12 +298,15 @@
     }
 
     function alerta(tipo, mensaje) {
-        document.getElementById("vh_alerta").innerHTML = "<div class=\"alert alert-" + tipo + " py-3 mb-0\">" + escapeHtml(mensaje) + "</div>";
+        var contenedor = document.getElementById("vh_alerta");
+        if (contenedor) { contenedor.innerHTML = "<div class=\"alert alert-" + tipo + " py-3 mb-0\">" + escapeHtml(mensaje) + "</div>"; }
     }
 
     function resultado(tipo, mensaje, html) {
-        document.getElementById("vh_resultado").className = "alert alert-light-" + (tipo === "danger" ? "danger" : tipo) + " py-3 mb-0";
-        document.getElementById("vh_resultado").innerHTML = html ? mensaje : escapeHtml(mensaje);
+        var contenedor = document.getElementById("vh_resultado");
+        if (!contenedor) { return; }
+        contenedor.className = "alert alert-light-" + (tipo === "danger" ? "danger" : tipo) + " py-3 mb-0";
+        contenedor.innerHTML = html ? mensaje : escapeHtml(mensaje);
     }
 
     function empty(texto) {
@@ -273,17 +321,29 @@
             var index = Number(quitar.closest("tr").getAttribute("data-index"));
             estado.partidas.splice(index, 1);
             renderPartidas();
+            return;
+        }
+        if (event.target.closest("#vh_pago_agregar")) { agregarPago(); return; }
+        var quitarPago = event.target.closest(".vh-pago-quitar");
+        if (quitarPago) {
+            var pagoRow = quitarPago.closest("tr");
+            estado.pagos.splice(Number(pagoRow.getAttribute("data-pago-index")), 1);
+            renderPagos();
         }
     });
 
     document.addEventListener("input", function (event) {
         var row = event.target.closest("#vh_partidas tr");
         if (row) { sincronizarPartida(row); }
-        if (event.target.id === "vh_descuento" || event.target.id === "vh_pagado") { recalcular(); }
+        var pagoRow = event.target.closest("#vh_pagos tr");
+        if (pagoRow) { sincronizarPago(pagoRow); }
+        if (event.target.id === "vh_descuento") { recalcular(); }
     });
     document.addEventListener("change", function (event) {
         var row = event.target.closest("#vh_partidas tr");
         if (row) { sincronizarPartida(row); }
+        var pagoRow = event.target.closest("#vh_pagos tr");
+        if (pagoRow) { sincronizarPago(pagoRow); }
     });
 
     document.addEventListener("DOMContentLoaded", function () {
@@ -297,6 +357,5 @@
         document.getElementById("vh_btn_prevalidar").addEventListener("click", prevalidar);
         document.getElementById("vh_btn_guardar").addEventListener("click", guardar);
         document.getElementById("vh_descuento").addEventListener("input", recalcular);
-        document.getElementById("vh_pagado").addEventListener("input", recalcular);
     });
 })();

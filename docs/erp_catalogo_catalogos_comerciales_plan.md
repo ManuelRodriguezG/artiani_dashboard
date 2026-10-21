@@ -2008,3 +2008,16 @@ Cambios aplicados:
 Regla:
 
 - Estas acciones solo modifican la seleccion local del catalogo; no borran productos, SKUs ni catalogos guardados.
+
+
+## Correccion 2026-10-19 - Representante coherente de variantes
+
+IA: Codex GPT-6. Autorizacion: ajustar el defecto blanca/azul en todos los catalogos.
+
+- Busqueda y catalogos guardados comparten `imagenesCatalogoComercialSql`: foto activa propia por tipo (portada, empaque, detalle, galeria, referencia), orden e ID. Sin foto propia solo se permite imagen general del producto (sin SKU); no se hereda otro color.
+- La tarjeta agrupada elige entre variantes seleccionadas con foto propia, priorizando tipo y orden; desempata por ID de SKU para que reordenar la seleccion no cambie de color. Si no hay fotos propias, usa las generales disponibles. Sin fotos conserva el grupo y sus alertas.
+- Titulo e imagen grande provienen del mismo representante. No se reescriben nombres maestros ni se intenta deducir/eliminar colores mediante texto libre.
+- Se conservan todos los SKUs, miniaturas, rangos de precio y agrupacion por producto. Vista previa y PNG consumen la misma funcion `itemsVisualesCatalogo`.
+- Alcance: modelo y JS de Catalogos comerciales; sin DDL ni escrituras de datos, costos, inventario o rentabilidad. No requiere volver a guardar los catalogos; recargar el editor consulta datos vigentes.
+- Continuidad: mantener este criterio compartido entre candidatos, consulta guardada y exportacion; el nombre del representante sigue siendo el nombre capturado del SKU.
+- Validacion 2026-10-19: consultas reales en transaccion READ ONLY para los 50 catalogos; 6 SKUs mansion coinciden entre busqueda y consulta guardada. Cuatro escenarios SQL sinteticos sin escrituras prueban portada sobre galeria, orden, exclusion de inactivas y fallback sin cruzar colores. Ejecucion del agrupador JS real sobre 102 grupos confirma titulo/foto del mismo SKU, estabilidad al invertir seleccion, conservacion de variantes/miniaturas y productos sin imagen; caso blanca/azul verificado en CC-00005 y CC-00014. Sintaxis PHP/JS y `git diff --check` correctos. No se realizo revision visual manual del navegador ni exportacion PNG real; ambas rutas consumen el agrupador verificado.

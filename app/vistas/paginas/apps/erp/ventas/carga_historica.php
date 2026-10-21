@@ -10,9 +10,9 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
       IA: Codex GPT-5
-      Fecha: 2026-10-14
+      Fecha: 2026-10-20
       Proposito: capturar ventas pasadas separadas del POS tiempo real y generar acciones de regularizacion.
-      Impacto: Ventas/POS; no afecta caja ni inventario, pero prepara alertas hacia Inventario/Catalogo/Compras.
+      Impacto: Ventas/POS; permite multiples pagos documentales y no afecta caja ni inventario, pero prepara alertas hacia Inventario/Catalogo/Compras.
       Contrato: el guardado real requiere token backend; la prevalidacion no escribe BD.
     -->
     <style>
@@ -70,10 +70,6 @@
                                             <div class="col-md-6 col-xl-12">
                                                 <label class="form-label">Cliente</label>
                                                 <input class="form-control form-control-solid" id="vh_cliente" placeholder="Cliente mostrador / nombre opcional">
-                                            </div>
-                                            <div class="col-md-6 col-xl-12">
-                                                <label class="form-label">Metodo de pago documental</label>
-                                                <select class="form-select form-select-solid" id="vh_metodo_pago"></select>
                                             </div>
                                             <div class="col-12">
                                                 <label class="form-label">Observaciones</label>
@@ -145,13 +141,38 @@
                                                         <input class="form-control form-control-sm text-end w-125px" id="vh_descuento" type="number" min="0" step="0.01" value="0">
                                                     </div>
                                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <span class="text-muted">Pagado</span>
-                                                        <input class="form-control form-control-sm text-end w-125px" id="vh_pagado" type="number" min="0" step="0.01">
+                                                        <span class="text-muted">Total pagado</span>
+                                                        <span class="fw-bold" id="vh_pagado">$0.00</span>
                                                     </div>
                                                     <div class="separator my-3"></div>
                                                     <div class="d-flex justify-content-between fs-4"><span class="fw-bold">Total</span><span class="fw-bold" id="vh_total">$0.00</span></div>
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div class="border rounded p-4 mt-4">
+                                            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                                <div>
+                                                    <div class="fw-bold">Métodos de pago documentales</div>
+                                                    <div class="text-muted fs-7">Registra uno o varios métodos sin afectar caja.</div>
+                                                </div>
+                                                <button class="btn btn-sm btn-light-primary" type="button" id="vh_pago_agregar"><i class="bi bi-plus-lg"></i> Agregar método</button>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm align-middle mb-0">
+                                                    <thead>
+                                                        <tr class="text-muted fw-bold fs-8 text-uppercase">
+                                                            <th>Método</th>
+                                                            <th>Referencia</th>
+                                                            <th class="text-end">Monto</th>
+                                                            <th class="w-40px"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="vh_pagos">
+                                                        <tr><td colspan="4" class="text-muted fs-7">Agrega un método si la venta tuvo pago.</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="form-text">El total pagado se calcula con los montos de esta tabla.</div>
                                         </div>
                                     </div>
                                     <div class="alert alert-light-warning mt-4 mb-0">
@@ -170,6 +191,6 @@
 <script>window.ERP_CSRF_TOKEN = <?= json_encode(Sesionseguridad::csrfToken(), JSON_UNESCAPED_UNICODE) ?>;</script>
 <script src="/assets/plugins/global/plugins.bundle.js"></script>
 <script src="/assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/carga_historica.js?v=20261014-acciones1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/carga_historica.js?v=20261020-pagos2"></script>
 </body>
 </html>

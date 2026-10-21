@@ -282,8 +282,49 @@ class VentasErp extends CRUD {
             $descuento = $this->redondearPosReal($this->valor($datos, "descuento_total", 0));
             if ($descuento < 0) { $bloqueos[] = "Descuento historico invalido"; }
             $total = $this->redondearPosReal(max(0, $subtotal - $descuento));
-            $pagado = $this->redondearPosReal($this->valor($datos, "pagado_total", $this->valor($datos, "pago", $total)));
-            if ($pagado < 0) { $bloqueos[] = "Pago historico invalido"; }
+            // IA: Codex GPT-5 | 2026-10-20 | La carga historica permite pagos documentales multiples.
+            $pagosEntrada = $this->decodificarItems($this->valor($datos, "pagos", array()));
+            if (empty($pagosEntrada)) {
+                $pagadoLegado = $this->redondearPosReal($this->valor($datos, "pagado_total", $this->valor($datos, "pago", 0)));
+                if ($pagadoLegado > 0) {
+                    $pagosEntrada = array(array(
+                        "id_metodo_pago" => $this->valor($datos, "id_metodo_pago", 0),
+                        "monto" => $pagadoLegado,
+                        "referencia" => $this->valor($datos, "referencia_pago", "")
+                    ));
+                }
+            }
+            $metodosPago = array();
+            foreach ($this->listarMetodosPago($db) as $metodo) {
+                $metodosPago[intval($this->valor($metodo, "id_metodo_pago", 0))] = $metodo;
+            }
+            $pagos = array();
+            $pagado = 0;
+            foreach ($pagosEntrada as $indicePago => $pago) {
+                if (!is_array($pago)) { continue; }
+                $montoPago = $this->redondearPosReal($this->valor($pago, "monto", 0));
+                $idMetodoPago = intval($this->valor($pago, "id_metodo_pago", 0));
+                if ($montoPago < 0) {
+                    $bloqueos[] = "Pago " . ($indicePago + 1) . ": monto invalido";
+                    continue;
+                }
+                if ($montoPago <= 0) { continue; }
+                if ($idMetodoPago <= 0 || !isset($metodosPago[$idMetodoPago])) {
+                    $bloqueos[] = "Pago " . ($indicePago + 1) . ": selecciona un metodo de pago valido";
+                    continue;
+                }
+                $pagos[] = array(
+                    "id_metodo_pago" => $idMetodoPago,
+                    "metodo_pago" => $this->valor($metodosPago[$idMetodoPago], "metodo_pago", $this->valor($metodosPago[$idMetodoPago], "nombre", "Historico")),
+                    "monto" => $montoPago,
+                    "referencia" => trim((string) $this->valor($pago, "referencia", ""))
+                );
+                $pagado += $montoPago;
+            }
+            $pagado = $this->redondearPosReal($pagado);
+            if ($pagado > $total) {
+                $avisos[] = "Los pagos documentales superan el total; se conservaran para revision y el pagado historico se limitara al total.";
+            }
 
             return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Dry-run de venta historica valido" : "Venta historica con pendientes por resolver", array(
                 "dry_run" => true,
@@ -298,6 +339,7 @@ class VentasErp extends CRUD {
                     "pagado_total" => min($pagado, $total),
                     "saldo_total" => max(0, $total - $pagado)
                 ),
+                "pagos" => $pagos,
                 "avisos" => array_values(array_unique($avisos)),
                 "bloqueos" => array_values(array_unique($bloqueos)),
                 "contrato" => array(
@@ -417,29 +459,26 @@ class VentasErp extends CRUD {
             }
 
             $pagado = $this->redondearPosReal($this->valor($totales, "pagado_total", 0));
+            $pagosHistoricos = $this->valor($depurarDry, "pagos", array());
             if ($pagado > 0 && $this->tablaExiste($db, "erp_ventas_pagos")) {
-                $idMetodo = intval($this->valor($datos, "id_metodo_pago", 0));
-                $metodoNombre = "Historico";
-                foreach ($this->listarMetodosPago($db) as $metodo) {
-                    if (intval($this->valor($metodo, "id_metodo_pago", 0)) === $idMetodo) {
-                        $metodoNombre = $this->valor($metodo, "metodo_pago", $this->valor($metodo, "nombre", "Historico"));
-                        break;
-                    }
-                }
                 $stmtPago = $db->prepare("INSERT INTO erp_ventas_pagos
                     (id_venta, id_caja, id_turno_caja, id_movimiento_caja, id_metodo_pago,
                      metodo_pago, tipo_pago, monto, moneda, referencia, estatus, fecha_pago, creado_por)
                     VALUES (:venta, NULL, NULL, NULL, :metodo_id,
                      :metodo, 'pago_historico', :monto, 'MXN', :referencia, 'registrado', :fecha_pago, :usuario)");
-                $stmtPago->execute(array(
-                    ":venta" => $idVenta,
-                    ":metodo_id" => $idMetodo > 0 ? $idMetodo : null,
-                    ":metodo" => $metodoNombre,
-                    ":monto" => $pagado,
-                    ":referencia" => trim((string) $this->valor($datos, "referencia_pago", "")) ?: null,
-                    ":fecha_pago" => $fechaVenta,
-                    ":usuario" => $idUsuario
-                ));
+                foreach ($pagosHistoricos as $pagoHistorico) {
+                    $montoPago = $this->redondearPosReal($this->valor($pagoHistorico, "monto", 0));
+                    if ($montoPago <= 0) { continue; }
+                    $stmtPago->execute(array(
+                        ":venta" => $idVenta,
+                        ":metodo_id" => intval($this->valor($pagoHistorico, "id_metodo_pago", 0)) ?: null,
+                        ":metodo" => $this->valor($pagoHistorico, "metodo_pago", "Historico"),
+                        ":monto" => $montoPago,
+                        ":referencia" => trim((string) $this->valor($pagoHistorico, "referencia", "")) ?: null,
+                        ":fecha_pago" => $fechaVenta,
+                        ":usuario" => $idUsuario
+                    ));
+                }
             }
 
             $this->registrarEventoVentaPosReal($db, $idVenta, $folio, "venta_historica_cargada", null, "pagada", $this->valor($totales, "total", 0), "", array(
@@ -697,10 +736,10 @@ class VentasErp extends CRUD {
     }
 
     /**
-     * Documentacion IA: Codex GPT-5, 2026-10-13.
-     * Proposito: alimentar el tablero comercial POS con ventas, metodos de pago, almacenes y productos.
+     * Documentacion IA: Codex GPT-5, 2026-10-20.
+     * Proposito: alimentar el tablero comercial con ventas POS y ventas historicas, metodos de pago, almacenes y productos.
      * Impacto: consulta indicadores gerenciales sin modificar ventas, caja, inventario ni alertas.
-     * Contrato: read-only; filtra por fecha, almacen y caja; excluye ventas canceladas de importes operativos.
+     * Contrato: read-only; filtra por fecha, almacen, caja e inclusion historica; excluye ventas canceladas de importes operativos.
      */
     public function reporteVentasPosReadOnly($filtros = array()) {
         try {
@@ -729,8 +768,13 @@ class VentasErp extends CRUD {
             }
             $idAlmacen = intval($this->valor($filtros, "id_almacen", 0));
             $idCaja = intval($this->valor($filtros, "id_caja", 0));
+            $incluirHistoricas = intval($this->valor($filtros, "incluir_historicas", 1)) === 1;
 
-            $whereBase = array("v.tipo_documento='venta'", "v.canal='pos'", "DATE(v.fecha_venta) BETWEEN :desde AND :hasta");
+            $origenVenta = "v.canal='pos'";
+            if ($incluirHistoricas) {
+                $origenVenta = "(v.canal='pos' OR (v.origen_venta='carga_historica' AND v.modo_operacion='historico_sin_afectacion'))";
+            }
+            $whereBase = array("v.tipo_documento='venta'", $origenVenta, "DATE(v.fecha_venta) BETWEEN :desde AND :hasta");
             $paramsBase = array(":desde" => $fechaDesde, ":hasta" => $fechaHasta);
             if ($idAlmacen > 0) {
                 $whereBase[] = "v.id_almacen=:almacen";
@@ -859,7 +903,8 @@ class VentasErp extends CRUD {
                     "fecha_desde" => $fechaDesde,
                     "fecha_hasta" => $fechaHasta,
                     "id_almacen" => $idAlmacen,
-                    "id_caja" => $idCaja
+                    "id_caja" => $idCaja,
+                    "incluir_historicas" => $incluirHistoricas
                 ),
                 "resumen" => $resumen,
                 "por_dia" => $porDia,
