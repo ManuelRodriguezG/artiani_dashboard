@@ -2956,7 +2956,7 @@ class EcommerceCatalogoPublico extends CRUD {
         $price = floatval($this->valor($item, "precio", 0));
         $availability = $this->metaAvailability($this->valor($item, "disponibilidad", ""));
         $link = $this->metaAbsoluteUrl($this->valor($item, "canonical_url", $this->valor($item, "url", "")), $baseUrl);
-        $image = $this->metaAbsoluteUrl($this->valor($item, "imagen", ""), $baseUrl);
+        $image = $this->metaImageAbsoluteUrl($this->valor($item, "imagen", ""));
         if ($title === "" || $description === "" || $brand === "" || $price <= 0 || $availability === "" || $link === "" || $image === "") {
           continue;
         }
@@ -2999,6 +2999,29 @@ class EcommerceCatalogoPublico extends CRUD {
       return $url;
     }
     return rtrim((string) $baseUrl, "/") . "/" . ltrim($url, "/");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-23
+   * Proposito: resolver imagenes de Catalogo ERP en el host que realmente publica los archivos.
+   * Impacto: feed Meta; evita convertir rutas relativas de `erp_catalogo_imagenes` en URLs rotas del frontend.
+   * Contrato: conserva URLs absolutas; para rutas relativas usa exclusivamente el host publico de archivos ERP.
+   */
+  private function metaImageAbsoluteUrl($url) {
+    $url = trim((string) $url);
+    if ($url === "") {
+      return "";
+    }
+    if (preg_match('/^https?:\/\//i', $url)) {
+      $partes = parse_url($url);
+      $host = strtolower((string) $this->valor($partes, "host", ""));
+      $path = (string) $this->valor($partes, "path", "");
+      if ($host === "artiani.com.mx" && preg_match('/^\/(media\/apps\/ecommerce\/productos|uploads\/erp\/catalogo\/productos)\//i', $path)) {
+        return "https://sys.artiani.com.mx" . $path;
+      }
+      return $url;
+    }
+    return "https://sys.artiani.com.mx/" . ltrim($url, "/");
   }
 
   private function metaGoogleProductCategory($item) {
@@ -7032,6 +7055,126 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-23
+   * Proposito: registrar una cotizacion comercial capturada desde Ventas.
+   * Impacto: guarda snapshot comercial y evento de creacion; no crea pedido, venta ni movimiento de inventario.
+   * Contrato: POST interno validado por el controlador; requiere contacto, al menos una partida y tablas existentes.
+   */
+  public function cotizacionRegistrarInterna($datos = array(), $idUsuario = 0) {
+    $db = null;
+    try {
+      $db = $this->getConexion();
+      $tablas = $this->tablasCotizacionesDisponibles($db);
+      foreach ($tablas as $tabla => $disponible) {
+        if (!$disponible) {
+          return $this->respuesta(true, "warning", "La tabla de cotizaciones no esta disponible: " . $tabla, array("no_ejecuta_ddl" => true));
+        }
+      }
+
+      $nombre = trim(substr((string) $this->valor($datos, "nombre_contacto", ""), 0, 180));
+      $telefono = trim(substr((string) $this->valor($datos, "telefono_contacto", ""), 0, 60));
+      $correo = trim(substr((string) $this->valor($datos, "correo_contacto", ""), 0, 180));
+      $canal = trim(substr((string) $this->valor($datos, "canal_contacto_preferido", "email"), 0, 30));
+      $notas = trim(substr((string) $this->valor($datos, "mensaje_cliente", ""), 0, 1000));
+      $moneda = strtoupper(trim(substr((string) $this->valor($datos, "moneda", "MXN"), 0, 3)));
+      $fechaExpiracion = trim((string) $this->valor($datos, "fecha_expiracion", ""));
+      if ($nombre === "") {
+        return $this->respuesta(true, "warning", "Indica el nombre del cliente o empresa");
+      }
+      if ($correo !== "" && !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+        return $this->respuesta(true, "warning", "El correo del cliente no es valido");
+      }
+      if (!preg_match('/^[A-Z]{3}$/', $moneda)) {
+        return $this->respuesta(true, "warning", "La moneda debe ser un codigo de tres letras, por ejemplo MXN");
+      }
+      if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaExpiracion)) {
+        $fechaExpiracion = date("Y-m-d", strtotime("+7 days"));
+      }
+
+      $lineas = $this->valor($datos, "lineas", array());
+      if (is_string($lineas)) {
+        $lineas = json_decode($lineas, true);
+      }
+      if (!is_array($lineas)) { $lineas = array(); }
+      if (count($lineas) < 1) {
+        return $this->respuesta(true, "warning", "Agrega al menos una partida a la cotizacion");
+      }
+      if (count($lineas) > 100) {
+        return $this->respuesta(true, "warning", "La cotizacion no puede tener mas de 100 partidas");
+      }
+
+      $detalle = array();
+      $subtotal = 0;
+      foreach ($lineas as $indice => $linea) {
+        if (!is_array($linea)) { continue; }
+        $descripcion = trim(substr((string) $this->valor($linea, "descripcion", $this->valor($linea, "nombre", "")), 0, 500));
+        $cantidad = floatval($this->valor($linea, "cantidad", 0));
+        $precio = floatval($this->valor($linea, "precio_unitario", $this->valor($linea, "precio", 0)));
+        if ($descripcion === "") {
+          return $this->respuesta(true, "warning", "La partida " . (intval($indice) + 1) . " necesita descripcion");
+        }
+        if ($cantidad <= 0 || $cantidad > 1000000) {
+          return $this->respuesta(true, "warning", "La cantidad de la partida " . (intval($indice) + 1) . " no es valida");
+        }
+        if ($precio < 0 || $precio > 1000000000) {
+          return $this->respuesta(true, "warning", "El precio de la partida " . (intval($indice) + 1) . " no es valido");
+        }
+        $importe = round($cantidad * $precio, 6);
+        $subtotal += $importe;
+        $detalle[] = array(
+          "renglon" => count($detalle) + 1,
+          "id_publicacion" => intval($this->valor($linea, "id_publicacion", 0)),
+          "id_producto_erp" => intval($this->valor($linea, "id_producto_erp", 0)),
+          "id_sku" => intval($this->valor($linea, "id_sku", 0)),
+          "sku" => trim(substr((string) $this->valor($linea, "sku", ""), 0, 100)),
+          "descripcion" => $descripcion,
+          "unidad" => trim(substr((string) $this->valor($linea, "unidad", "pz"), 0, 50)),
+          "precio_unitario" => round($precio, 6),
+          "cantidad" => round($cantidad, 6),
+          "subtotal" => $importe
+        );
+      }
+      if (empty($detalle)) {
+        return $this->respuesta(true, "warning", "Agrega al menos una partida valida a la cotizacion");
+      }
+
+      $folio = $this->folioCotizacionInterna($db);
+      $db->beginTransaction();
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_cotizaciones (folio, origen, estatus, id_cliente_crm, nombre_contacto, telefono_contacto, correo_contacto, canal_contacto_preferido, mensaje_cliente, moneda, subtotal_estimado, total_estimado, utm_json, ip_hash, user_agent_hash, fecha_expiracion, fecha_registro, fecha_actualizacion) VALUES (:folio, 'erp_interno', 'borrador', NULL, :nombre, :telefono, :correo, :canal, :notas, :moneda, :subtotal, :total, :utm, 'ERP_INTERNO', 'ERP_INTERNO', :expiracion, NOW(), NOW())");
+      $stmt->execute(array(
+        ":folio" => $folio, ":nombre" => $nombre, ":telefono" => $telefono, ":correo" => $correo,
+        ":canal" => $canal, ":notas" => $notas, ":moneda" => $moneda, ":subtotal" => $subtotal,
+        ":total" => $subtotal, ":utm" => json_encode(array("origen" => "ventas_interno"), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ":expiracion" => $fechaExpiracion
+      ));
+      $idCotizacion = intval($db->lastInsertId());
+      $stmtDetalle = $db->prepare("INSERT INTO erp_ecommerce_cotizaciones_detalle (id_cotizacion, renglon, id_publicacion, id_producto_erp, id_sku, sku_snapshot, nombre_snapshot, presentacion_snapshot, precio_snapshot, moneda_snapshot, cantidad, disponibilidad_snapshot, subtotal, estatus, fecha_registro) VALUES (:id, :renglon, :publicacion, :producto, :sku_id, :sku, :nombre, :unidad, :precio, :moneda, :cantidad, 'captura_manual', :subtotal, 'activa', NOW())");
+      foreach ($detalle as $linea) {
+        $stmtDetalle->execute(array(
+          ":id" => $idCotizacion, ":renglon" => $linea["renglon"], ":publicacion" => $linea["id_publicacion"] ?: null,
+          ":producto" => $linea["id_producto_erp"] ?: null, ":sku_id" => $linea["id_sku"] ?: null,
+          ":sku" => $linea["sku"], ":nombre" => $linea["descripcion"], ":unidad" => $linea["unidad"],
+          ":precio" => $linea["precio_unitario"], ":moneda" => $moneda, ":cantidad" => $linea["cantidad"], ":subtotal" => $linea["subtotal"]
+        ));
+      }
+      $stmtEvento = $db->prepare("INSERT INTO erp_ecommerce_cotizaciones_eventos (id_cotizacion, tipo_evento, canal, resultado, detalle_json, creado_por, fecha_registro) VALUES (:id, 'creada_erp', 'erp_interno', 'borrador', :detalle, :usuario, NOW())");
+      $stmtEvento->execute(array(
+        ":id" => $idCotizacion,
+        ":detalle" => json_encode(array("origen" => "captura_ventas", "partidas" => count($detalle), "subtotal" => $subtotal), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ":usuario" => intval($idUsuario) ?: null
+      ));
+      $db->commit();
+      return $this->respuesta(false, "success", "Cotizacion guardada correctamente", array(
+        "id_cotizacion" => $idCotizacion, "folio" => $folio, "subtotal_estimado" => $subtotal,
+        "total_estimado" => $subtotal, "no_crea_venta" => true, "no_descuenta_inventario" => true
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
    * Proposito: listar cotizaciones ecommerce para bandeja interna de seguimiento.
    * Impacto: prepara operacion post-WhatsApp sin crear pedidos, ventas ni movimientos.
@@ -7164,7 +7307,11 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       $detalle = array();
       if ($tablas["erp_ecommerce_cotizaciones_detalle"]) {
-        $stmtDetalle = $db->prepare("SELECT * FROM erp_ecommerce_cotizaciones_detalle WHERE id_cotizacion=:id ORDER BY renglon ASC, id_cotizacion_detalle ASC");
+        $sqlDetalle = "SELECT d.* FROM erp_ecommerce_cotizaciones_detalle d WHERE d.id_cotizacion=:id ORDER BY d.renglon ASC, d.id_cotizacion_detalle ASC";
+        if ($this->tablaExiste($db, "erp_catalogo_imagenes")) {
+          $sqlDetalle = "SELECT d.*, COALESCE((SELECT i.url_imagen FROM erp_catalogo_imagenes i WHERE i.estatus='activo' AND i.id_sku=d.id_sku AND TRIM(COALESCE(i.url_imagen,''))<>'' ORDER BY i.id_imagen_erp ASC LIMIT 1), (SELECT i.url_imagen FROM erp_catalogo_imagenes i WHERE i.estatus='activo' AND i.id_producto_erp=d.id_producto_erp AND (i.id_sku IS NULL OR i.id_sku=0) AND TRIM(COALESCE(i.url_imagen,''))<>'' ORDER BY i.id_imagen_erp ASC LIMIT 1), '') AS url_imagen FROM erp_ecommerce_cotizaciones_detalle d WHERE d.id_cotizacion=:id ORDER BY d.renglon ASC, d.id_cotizacion_detalle ASC";
+        }
+        $stmtDetalle = $db->prepare($sqlDetalle);
         $stmtDetalle->execute(array(":id" => intval($cotizacion["id_cotizacion"])));
         $detalle = $stmtDetalle->fetchAll(PDO::FETCH_ASSOC);
       }
@@ -18420,6 +18567,13 @@ class EcommerceCatalogoPublico extends CRUD {
       $siguiente = intval($stmt->fetchColumn()) + 1;
     }
     return "ECOM-" . $fecha . "-" . str_pad((string) $siguiente, 6, "0", STR_PAD_LEFT);
+  }
+
+  private function folioCotizacionInterna($db) {
+    $fecha = date("Ymd");
+    $stmt = $db->prepare("SELECT COUNT(*) FROM erp_ecommerce_cotizaciones WHERE folio LIKE :folio");
+    $stmt->execute(array(":folio" => "COT-" . $fecha . "-%"));
+    return "COT-" . $fecha . "-" . str_pad((string) (intval($stmt->fetchColumn()) + 1), 6, "0", STR_PAD_LEFT);
   }
 
   private function tablasCotizacionesDisponibles($db) {

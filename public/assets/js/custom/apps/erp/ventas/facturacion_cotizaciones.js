@@ -1,6 +1,6 @@
 "use strict";
 (function () {
-    var estado = {cotizaciones: [], actual: null, empresa: {}, cfdi: null};
+    var estado = {cotizaciones: [], actual: null, cotizacionDetalle: [], empresa: {}, cfdi: null, cfdiImportadoId: 0, cfdiGuardados: [], nueva: {lineas: [], resultados: []}};
 
     function $(id) { return document.getElementById(id); }
 
@@ -83,7 +83,8 @@
         var uuid = String(data.uuid || "").trim();
         var rfcEmisor = String(data.rfc_emisor || "").trim();
         var rfcReceptor = String(data.rfc_receptor || "").trim();
-        var total = String(data.total || "").trim();
+        var totalNumerico = Number(String(data.total || "").replace(",", "."));
+        var total = Number.isFinite(totalNumerico) ? totalNumerico.toFixed(6) : "";
         var sello = String(data.sello_cfdi || "").replace(/\s+/g, "");
         if (!uuid || !rfcEmisor || !rfcReceptor || !total || !sello) { return ""; }
         return "https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=" + encodeURIComponent(uuid) + "&re=" + encodeURIComponent(rfcEmisor) + "&rr=" + encodeURIComponent(rfcReceptor) + "&tt=" + encodeURIComponent(total) + "&fe=" + encodeURIComponent(sello.slice(-8));
@@ -125,6 +126,120 @@
         return etiquetas[value] || value || "Sin estatus";
     }
 
+    function fechaNuevaCotizacion() {
+        var fecha = new Date(Date.now() + (7 * 86400000));
+        var mes = String(fecha.getMonth() + 1).padStart(2, "0");
+        var dia = String(fecha.getDate()).padStart(2, "0");
+        return fecha.getFullYear() + "-" + mes + "-" + dia;
+    }
+
+    function actualizarNuevaTotal() {
+        var moneda = $("fc_nueva_moneda").value || "MXN";
+        var total = estado.nueva.lineas.reduce(function (suma, linea) { return suma + (numero(linea.cantidad) * numero(linea.precio_unitario)); }, 0);
+        $("fc_nueva_total").textContent = dinero(total, moneda) + " " + moneda;
+    }
+
+    function renderNuevaLineas() {
+        var contenedor = $("fc_nueva_lineas");
+        if (!estado.nueva.lineas.length) {
+            contenedor.innerHTML = "<tr><td colspan=\"6\" class=\"text-center text-muted py-3\">Agrega productos o una partida manual.</td></tr>";
+            actualizarNuevaTotal();
+            return;
+        }
+        contenedor.innerHTML = estado.nueva.lineas.map(function (linea, indice) {
+            var importe = numero(linea.cantidad) * numero(linea.precio_unitario);
+            return "<tr><td><input class=\"form-control form-control-sm form-control-solid\" data-nueva-campo=\"descripcion\" data-nueva-indice=\"" + indice + "\" value=\"" + esc(linea.descripcion || "") + "\" placeholder=\"Descripción\"></td><td><input class=\"form-control form-control-sm form-control-solid text-end\" data-nueva-campo=\"cantidad\" data-nueva-indice=\"" + indice + "\" type=\"number\" min=\"0.000001\" step=\"0.01\" value=\"" + esc(linea.cantidad || 1) + "\"></td><td><input class=\"form-control form-control-sm form-control-solid\" data-nueva-campo=\"unidad\" data-nueva-indice=\"" + indice + "\" value=\"" + esc(linea.unidad || "pz") + "\"></td><td><input class=\"form-control form-control-sm form-control-solid text-end\" data-nueva-campo=\"precio_unitario\" data-nueva-indice=\"" + indice + "\" type=\"number\" min=\"0\" step=\"0.01\" value=\"" + esc(linea.precio_unitario || 0) + "\"></td><td class=\"text-end fw-semibold\" data-nueva-importe=\"" + indice + "\">" + dinero(importe, $("fc_nueva_moneda").value || "MXN") + "</td><td class=\"text-end\"><button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" data-nueva-eliminar=\"" + indice + "\" title=\"Quitar partida\"><i class=\"bi bi-x-lg\"></i></button></td></tr>";
+        }).join("");
+        contenedor.querySelectorAll("[data-nueva-campo]").forEach(function (campo) {
+            campo.addEventListener("input", function () {
+                var indice = Number(campo.getAttribute("data-nueva-indice"));
+                var clave = campo.getAttribute("data-nueva-campo");
+                estado.nueva.lineas[indice][clave] = clave === "descripcion" || clave === "unidad" ? campo.value : numero(campo.value);
+                var importe = campo.closest("tr").querySelector("[data-nueva-importe]");
+                if (importe) { importe.textContent = dinero(numero(estado.nueva.lineas[indice].cantidad) * numero(estado.nueva.lineas[indice].precio_unitario), $("fc_nueva_moneda").value || "MXN"); }
+                actualizarNuevaTotal();
+            });
+        });
+        contenedor.querySelectorAll("[data-nueva-eliminar]").forEach(function (boton) {
+            boton.addEventListener("click", function () { estado.nueva.lineas.splice(Number(boton.getAttribute("data-nueva-eliminar")), 1); renderNuevaLineas(); });
+        });
+        actualizarNuevaTotal();
+    }
+
+    function reiniciarNuevaCotizacion() {
+        estado.nueva = {lineas: [], resultados: []};
+        $("fc_nueva_nombre").value = "";
+        $("fc_nueva_telefono").value = "";
+        $("fc_nueva_correo").value = "";
+        $("fc_nueva_vigencia").value = fechaNuevaCotizacion();
+        $("fc_nueva_moneda").value = "MXN";
+        $("fc_nueva_canal").value = "email";
+        $("fc_nueva_buscar").value = "";
+        $("fc_nueva_notas").value = "";
+        $("fc_nueva_resultados").innerHTML = "";
+        renderNuevaLineas();
+    }
+
+    function mostrarNuevaCotizacion(mostrar) {
+        var panel = $("fc_cot_nueva_panel");
+        if (mostrar) { reiniciarNuevaCotizacion(); panel.classList.remove("d-none"); $("fc_nueva_nombre").focus(); }
+        else { panel.classList.add("d-none"); }
+    }
+
+    function agregarLineaManual() {
+        estado.nueva.lineas.push({id_publicacion: 0, id_producto_erp: 0, id_sku: 0, sku: "", descripcion: "", unidad: "pz", cantidad: 1, precio_unitario: 0});
+        renderNuevaLineas();
+    }
+
+    function agregarProductoNueva(item) {
+        var idSku = Number(item.id_sku || 0);
+        var existente = estado.nueva.lineas.find(function (linea) { return idSku > 0 && Number(linea.id_sku || 0) === idSku; });
+        if (existente) { existente.cantidad = numero(existente.cantidad) + 1; }
+        else {
+            estado.nueva.lineas.push({
+                id_publicacion: Number(item.id_publicacion || 0), id_producto_erp: Number(item.id_producto_erp || 0), id_sku: idSku,
+                sku: item.sku || "", descripcion: item.nombre_sku || item.producto || item.nombre || "", unidad: item.unidad_venta_label || "pz",
+                cantidad: 1, precio_unitario: numero(item.precio || item.precio_base || 0)
+            });
+        }
+        $("fc_nueva_resultados").innerHTML = "";
+        $("fc_nueva_buscar").value = "";
+        renderNuevaLineas();
+    }
+
+    function buscarProductosNueva() {
+        var termino = $("fc_nueva_buscar").value.trim();
+        if (termino.length < 2) { $("fc_nueva_resultados").innerHTML = ""; return; }
+        request("/ventas/pos_buscar_skus_erp?q=" + encodeURIComponent(termino) + "&limite=15").then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No fue posible buscar productos"); }
+            estado.nueva.resultados = Array.isArray(response.depurar) ? response.depurar : ((response.depurar || {}).items || []);
+            if (!estado.nueva.resultados.length) { $("fc_nueva_resultados").innerHTML = "<div class=\"text-muted fs-8 p-2\">Sin productos encontrados.</div>"; return; }
+            $("fc_nueva_resultados").innerHTML = estado.nueva.resultados.map(function (item, indice) {
+                return "<div class=\"fc-search-result d-flex justify-content-between align-items-center mb-1\" data-nueva-producto=\"" + indice + "\"><span><strong>" + esc(item.nombre_sku || item.producto || item.nombre || "Sin nombre") + "</strong><small class=\"d-block text-muted\">" + esc(item.sku || item.codigo_producto || "") + " · " + esc(item.unidad_venta_label || "pz") + "</small></span><span class=\"fw-semibold\">" + dinero(item.precio || item.precio_base || 0, item.moneda || $("fc_nueva_moneda").value) + "</span></div>";
+            }).join("");
+            $("fc_nueva_resultados").querySelectorAll("[data-nueva-producto]").forEach(function (nodo) { nodo.addEventListener("click", function () { agregarProductoNueva(estado.nueva.resultados[Number(nodo.getAttribute("data-nueva-producto"))]); }); });
+        }).catch(function (error) { $("fc_nueva_resultados").innerHTML = "<div class=\"text-danger fs-8 p-2\">" + esc(error.message || "No fue posible buscar productos") + "</div>"; });
+    }
+
+    function guardarNuevaCotizacion() {
+        if (!$("fc_nueva_nombre").value.trim()) { alerta("Indica el cliente o empresa", "warning"); return; }
+        if (!estado.nueva.lineas.length) { alerta("Agrega al menos una partida", "warning"); return; }
+        var boton = $("fc_nueva_guardar");
+        boton.disabled = true;
+        request("/ventas/cotizacion_comercial_guardar_erp", {
+            nombre_contacto: $("fc_nueva_nombre").value.trim(), telefono_contacto: $("fc_nueva_telefono").value.trim(), correo_contacto: $("fc_nueva_correo").value.trim(),
+            fecha_expiracion: $("fc_nueva_vigencia").value, moneda: $("fc_nueva_moneda").value, canal_contacto_preferido: $("fc_nueva_canal").value,
+            mensaje_cliente: $("fc_nueva_notas").value.trim(), lineas: JSON.stringify(estado.nueva.lineas)
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No fue posible guardar la cotización"); }
+            var id = Number((response.depurar || {}).id_cotizacion || 0);
+            mostrarNuevaCotizacion(false);
+            alerta(response.mensaje || "Cotización guardada", "success");
+            cargarCotizaciones();
+            if (id > 0) { setTimeout(function () { consultarCotizacion(id); }, 350); }
+        }).catch(function (error) { alerta(error.message || "No fue posible guardar la cotización", "danger"); }).finally(function () { boton.disabled = false; });
+    }
+
     function cargarCotizaciones() {
         var params = new URLSearchParams({q: $("fc_cot_q").value.trim(), estatus: $("fc_cot_estatus").value, limite: "50"});
         request("/ventas/cotizaciones_comerciales_listar_erp?" + params.toString()).then(function (response) {
@@ -141,9 +256,11 @@
                 consultarCotizacion(estado.cotizaciones[0].id_cotizacion);
             } else {
                 estado.actual = null;
+                estado.cotizacionDetalle = [];
                 $("fc_cot_detalle").className = "fc-empty d-flex align-items-center justify-content-center text-muted";
                 $("fc_cot_detalle").textContent = "No hay cotizaciones visibles con estos filtros.";
                 $("fc_cot_plan").disabled = true;
+                $("fc_cot_imprimir").disabled = true;
             }
         }).catch(function (error) { alerta(error.message || "No fue posible cargar cotizaciones", "danger"); });
     }
@@ -171,6 +288,7 @@
             if (response.error) { throw new Error(response.mensaje || "No fue posible consultar el detalle"); }
             estado.actual = (response.depurar || {}).item || null;
             var data = response.depurar || {};
+            estado.cotizacionDetalle = data.detalle || [];
             renderLista();
             renderDetalle(data);
         }).catch(function (error) { alerta(error.message || "No fue posible consultar la cotizacion", "danger"); });
@@ -180,8 +298,10 @@
         var item = data.item || {};
         var detalle = data.detalle || [];
         $("fc_cot_plan").disabled = !item.folio;
+        $("fc_cot_imprimir").disabled = !item.folio;
         $("fc_cot_subtitulo").textContent = item.folio ? (item.nombre_contacto || "Sin contacto") + " · " + estadoCotizacion(item.estatus) : "Selecciona una cotizacion";
         if (!item.folio) {
+            $("fc_cot_imprimir").disabled = true;
             $("fc_cot_detalle").className = "fc-empty d-flex align-items-center justify-content-center text-muted";
             $("fc_cot_detalle").textContent = "Cotizacion no encontrada.";
             return;
@@ -200,7 +320,7 @@
         request("/ventas/facturacion_correo_plantilla_erp").then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No fue posible cargar la plantilla"); }
             var data = response.depurar || {};
-            $("fc_correo_estado").textContent = data.envio_habilitado ? "Envio habilitado" : "Solo plantilla; envio pendiente de autorizacion tecnica";
+            $("fc_correo_estado").textContent = "Plantilla lista para copiar en Gmail";
             $("fc_correo_asunto").value = data.asunto || "";
             $("fc_correo_cuerpo").value = data.cuerpo || "";
             var empresa = data.empresa || {};
@@ -214,6 +334,58 @@
         }).catch(function (error) { $("fc_correo_estado").textContent = error.message || "Plantilla no disponible"; });
     }
 
+    function copiarCampo(id) {
+        var campo = $(id);
+        if (!campo) { return; }
+        var texto = campo.value || "";
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(function () { alerta("Texto copiado al portapapeles", "success"); }).catch(function () { campo.focus(); campo.select(); document.execCommand("copy"); alerta("Texto copiado al portapapeles", "success"); });
+            return;
+        }
+        campo.focus();
+        campo.select();
+        document.execCommand("copy");
+        alerta("Texto copiado al portapapeles", "success");
+    }
+
+    function renderCfdiGuardados() {
+        var contenedor = $("fc_cfdi_lista");
+        if (!contenedor) { return; }
+        if (!estado.cfdiGuardados.length) {
+            contenedor.innerHTML = "<div class=\"text-muted fs-7 py-3\">Aún no hay CFDI conservados.</div>";
+            return;
+        }
+        contenedor.innerHTML = estado.cfdiGuardados.map(function (item) {
+            var activo = String(estado.cfdiImportadoId) === String(item.id_documento_fiscal) ? " active" : "";
+            var folio = [item.serie, item.folio].filter(function (value) { return String(value || "").trim() !== ""; }).join(" ") || "Sin folio";
+            return "<div class=\"fc-list-row p-2" + activo + "\" data-fc-cfdi=\"" + esc(item.id_documento_fiscal) + "\"><div class=\"d-flex justify-content-between gap-2\"><span class=\"fw-semibold\">" + esc(folio) + "</span><span class=\"badge badge-light-info\">" + esc(item.estatus_conciliacion || "pendiente") + "</span></div><div class=\"text-muted fs-8 mt-1\">" + esc(item.nombre_receptor || item.rfc_receptor || "Sin receptor") + " · " + esc(dinero(item.total, item.moneda)) + "</div><div class=\"d-flex justify-content-between align-items-center mt-1\"><span class=\"text-muted fs-8\">" + esc(item.uuid || "Sin UUID") + "</span><a class=\"fs-8\" target=\"_blank\" href=\"/ventas/facturacion_cfdi_pdf_erp?id_documento_fiscal=" + encodeURIComponent(item.id_documento_fiscal) + "\">PDF</a></div></div>";
+        }).join("");
+        contenedor.querySelectorAll("[data-fc-cfdi]").forEach(function (node) {
+            node.addEventListener("click", function (event) {
+                if (event.target && event.target.tagName === "A") { return; }
+                consultarCfdiGuardado(node.getAttribute("data-fc-cfdi"));
+            });
+        });
+    }
+
+    function cargarCfdiGuardados() {
+        request("/ventas/facturacion_cfdi_listar_erp?limite=50").then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No fue posible consultar CFDI"); }
+            estado.cfdiGuardados = (response.depurar || {}).documentos || [];
+            renderCfdiGuardados();
+        }).catch(function (error) { $("fc_cfdi_lista").innerHTML = "<div class=\"text-muted fs-7 py-3\">" + esc(error.message || "No fue posible cargar CFDI") + "</div>"; });
+    }
+
+    function consultarCfdiGuardado(id) {
+        request("/ventas/facturacion_cfdi_consultar_erp?id_documento_fiscal=" + encodeURIComponent(id)).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No fue posible consultar el CFDI"); }
+            estado.cfdiImportadoId = Number(id);
+            renderCfdiGuardados();
+            var documento = (response.depurar || {}).documento || {};
+            if (documento.nombre_receptor) { $("fc_correo_estado").textContent = "CFDI seleccionado para consulta: " + documento.nombre_receptor + ". La plantilla se copia en Gmail."; }
+        }).catch(function (error) { alerta(error.message || "No fue posible consultar el CFDI", "danger"); });
+    }
+
     function analizarCfdi(event) {
         event.preventDefault();
         var archivo = $("fc_cfdi_archivo").files[0];
@@ -224,8 +396,58 @@
         fetch("/ventas/facturacion_cfdi_parsear_erp", {method: "POST", body: data, credentials: "same-origin", headers: {"Accept": "application/json", "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}}).then(function (response) { return response.json(); }).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "El XML no pudo analizarse"); }
             estado.cfdi = response.depurar || {};
+            estado.cfdiImportadoId = 0;
+            $("fc_cfdi_importar").disabled = false;
             renderCfdi(estado.cfdi);
         }).catch(function (error) { $("fc_cfdi_resultado").innerHTML = "<div class=\"alert alert-danger mb-0\">" + esc(error.message || "No fue posible analizar el XML") + "</div>"; });
+    }
+
+    function importarCfdi() {
+        var archivo = $("fc_cfdi_archivo").files[0];
+        if (!archivo) { alerta("Selecciona primero un XML CFDI", "warning"); return; }
+        var data = new FormData();
+        data.append("archivo_xml", archivo);
+        $("fc_cfdi_importar").disabled = true;
+        $("fc_cfdi_importar").innerHTML = "<i class=\"bi bi-hourglass-split\"></i> Guardando";
+        fetch("/ventas/facturacion_cfdi_importar_erp", {method: "POST", body: data, credentials: "same-origin", headers: {"Accept": "application/json", "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}}).then(function (response) { return response.json(); }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No fue posible guardar el XML"); }
+            estado.cfdiImportadoId = Number((response.depurar || {}).id_documento_fiscal || 0);
+            alerta(response.mensaje || "CFDI guardado", "success");
+            cargarCfdiGuardados();
+            renderCfdiGuardados();
+        }).catch(function (error) { alerta(error.message || "No fue posible guardar el XML", "danger"); }).finally(function () { $("fc_cfdi_importar").disabled = false; $("fc_cfdi_importar").innerHTML = "<i class=\"bi bi-archive\"></i> Guardar"; });
+    }
+
+    function imprimirCotizacionFormal() {
+        var item = estado.actual || {};
+        if (!item.folio) { alerta("Selecciona una cotización antes de imprimirla", "warning"); return; }
+        var empresa = estado.empresa || {};
+        var moneda = item.moneda || "MXN";
+        var logoUrl = String(empresa.logo_url || "").trim();
+        var logo = /^(https?:\/\/|\/|assets\/)/i.test(logoUrl) ? "<img src=\"" + esc(logoUrl.charAt(0) === "/" ? logoUrl : "/" + logoUrl.replace(/^\/+/, "")) + "\" alt=\"Logo del negocio\">" : "";
+        var filas = estado.cotizacionDetalle.length ? estado.cotizacionDetalle.map(function (linea, indice) {
+            var cantidad = numero(linea.cantidad || linea.cantidad_solicitada || 0);
+            var importe = numero(linea.subtotal || linea.importe || linea.total || 0);
+            var unitario = numero(linea.precio_unitario || linea.precio || linea.valor_unitario || (cantidad > 0 ? importe / cantidad : 0));
+            return "<tr><td class=\"text-center\">" + esc(indice + 1) + "</td><td><strong>" + esc(linea.descripcion || linea.nombre_publico || linea.nombre_snapshot || "Sin descripción") + "</strong>" + (linea.sku ? "<small>SKU: " + esc(linea.sku) + "</small>" : "") + "</td><td class=\"text-end\">" + esc(cantidad || "0") + "</td><td>" + esc(linea.unidad || linea.unidad_medida || "pz") + "</td><td class=\"text-end\">" + dinero(unitario, moneda) + "</td><td class=\"text-end\">" + dinero(importe, moneda) + "</td></tr>";
+        }).join("") : "<tr><td colspan=\"6\" class=\"text-center\">Sin partidas disponibles en este snapshot.</td></tr>";
+        var descuento = item.descuento_estimado != null ? numero(item.descuento_estimado) : (item.descuento != null ? numero(item.descuento) : null);
+        var impuestos = item.impuestos_estimados != null ? numero(item.impuestos_estimados) : (item.impuestos != null ? numero(item.impuestos) : null);
+        var filasTotales = "<div><span>Subtotal</span><strong>" + dinero(item.subtotal_estimado, moneda) + "</strong></div>";
+        if (descuento !== null) { filasTotales += "<div><span>Descuento</span><strong>" + dinero(descuento, moneda) + "</strong></div>"; }
+        if (impuestos !== null) { filasTotales += "<div><span>Impuestos</span><strong>" + dinero(impuestos, moneda) + "</strong></div>"; }
+        filasTotales += "<div class=\"total\"><span>Total</span><strong>" + dinero(item.total_estimado, moneda) + "</strong></div>";
+        var cliente = [item.nombre_contacto, item.telefono_contacto, item.correo_contacto].filter(function (value) { return String(value || "").trim() !== ""; }).join(" · ");
+        var direccionEmpresa = [empresa.direccion, empresa.sitio_web].filter(function (value) { return String(value || "").trim() !== ""; }).join(" · ");
+        var documento = "<div class=\"qc-document\"><header><div class=\"qc-brand\">" + logo + "<div><strong>" + esc(empresa.nombre || "Artiani") + "</strong><span>RFC: " + esc(empresa.rfc || "") + "</span><span>" + esc(direccionEmpresa || [empresa.telefono, empresa.correo].filter(function (value) { return String(value || "").trim() !== ""; }).join(" · ")) + "</span></div></div><div class=\"qc-title\"><small>COTIZACIÓN</small><b>" + esc(item.folio) + "</b><span>Fecha: " + esc(item.fecha_registro || "") + "</span><span>Vigencia: " + esc(item.fecha_expiracion || "No definida") + "</span></div></header><section class=\"qc-client\"><div><label>Cliente</label><strong>" + esc(item.nombre_contacto || "Sin contacto") + "</strong><span>" + esc(cliente || "Sin datos de contacto") + "</span></div><div><label>Estatus</label><strong>" + esc(estadoCotizacion(item.estatus)) + "</strong><span>Moneda: " + esc(moneda) + "</span></div></section><table class=\"qc-lines\"><colgroup><col style=\"width:7%\"><col style=\"width:45%\"><col style=\"width:10%\"><col style=\"width:10%\"><col style=\"width:14%\"><col style=\"width:14%\"></colgroup><thead><tr><th>#</th><th>Descripción</th><th>Cant.</th><th>Unidad</th><th>Precio unitario</th><th>Importe</th></tr></thead><tbody>" + filas + "</tbody></table><section class=\"qc-bottom\"><div class=\"qc-note\"><strong>Observaciones</strong><p>Precios sujetos a confirmación de existencia y vigencia. Esta cotización representa una propuesta comercial y no es un CFDI.</p></div><div class=\"qc-totals\">" + filasTotales + "</div></section><footer>Cotización comercial · Artiani · Documento no fiscal</footer></div>";
+        var estilos = "body{font-family:Arial,sans-serif;background:#f3f6f7;color:#202124;margin:0;padding:18px}.qc-document{box-sizing:border-box;max-width:980px;margin:0 auto;background:#fff;padding:24px;border:1px solid #d9e2e5}.qc-document header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding-bottom:16px;border-bottom:3px solid #e9485b}.qc-brand{display:flex;gap:14px;align-items:center;min-width:0}.qc-brand img{max-width:180px;max-height:64px;object-fit:contain}.qc-brand strong{display:block;font-size:18px;color:#202124;margin-bottom:4px}.qc-brand span{display:block;font-size:10px;line-height:1.5;color:#202124;overflow-wrap:anywhere}.qc-title{text-align:right;min-width:180px}.qc-title small{display:block;color:#0b7376;font-size:11px;font-weight:700;letter-spacing:.12em}.qc-title b{display:block;color:#e9485b;font-size:25px;line-height:1.2}.qc-title span{display:block;color:#202124;font-size:10px;line-height:1.5}.qc-client{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:14px;padding:10px 12px;border:1px solid #d7e1e4;border-left:4px solid #0b7376}.qc-client label{display:block;color:#0b7376;font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:3px}.qc-client strong{display:block;font-size:12px}.qc-client span{display:block;font-size:10px;color:#202124;line-height:1.5;overflow-wrap:anywhere}.qc-lines{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:16px}.qc-lines th{background:#0b7376;color:#fff;padding:7px 5px;font-size:9px;text-transform:uppercase;text-align:left}.qc-lines th:nth-child(n+3),.qc-lines td:nth-child(n+3){text-align:right}.qc-lines th:first-child,.qc-lines td:first-child,.qc-lines th:nth-child(4),.qc-lines td:nth-child(4){text-align:center}.qc-lines td{padding:7px 5px;border-bottom:1px solid #e4ebed;color:#202124;font-size:10px;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}.qc-lines td strong{font-size:10px}.qc-lines td small{display:block;color:#202124;font-size:8px;margin-top:2px}.qc-lines tr:nth-child(even) td{background:#fbfdfd}.qc-bottom{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:22px;margin-top:18px;align-items:start}.qc-note{font-size:10px;color:#202124}.qc-note strong{color:#0b7376;font-size:10px;text-transform:uppercase}.qc-note p{margin-top:6px;line-height:1.5}.qc-totals{border-top:2px solid #0b7376}.qc-totals div{display:flex;justify-content:space-between;gap:12px;padding:6px 8px;border-bottom:1px solid #e5ebed;font-size:10px}.qc-totals .total{background:#e9485b;color:#fff;border-bottom:0;font-size:12px}.qc-totals .total strong{font-size:15px}.qc-document footer{margin-top:26px;padding:7px;background:#0b7376;color:#fff;text-align:center;font-size:9px}@media print{body{padding:0;background:#fff}.qc-document{border:0;max-width:none;padding:12px}.qc-lines,.qc-bottom{break-inside:avoid}}";
+        var ventana = window.open("", "_blank", "width=980,height=900");
+        if (!ventana) { alerta("Permite las ventanas emergentes para imprimir la cotización", "warning"); return; }
+        ventana.document.write("<!doctype html><html lang=\"es\"><head><meta charset=\"utf-8\"><title>Cotización " + esc(item.folio) + "</title><style>" + estilos + "</style></head><body>" + documento + "</body></html>");
+        ventana.document.close(); ventana.focus();
+        var imprimir = function () { ventana.focus(); ventana.print(); };
+        var pendientes = Array.prototype.filter.call(ventana.document.images, function (imagen) { return !imagen.complete; });
+        if (pendientes.length) { pendientes.forEach(function (imagen) { var terminar = function () { pendientes.splice(pendientes.indexOf(imagen), 1); if (!pendientes.length) { imprimir(); } }; imagen.addEventListener("load", terminar); imagen.addEventListener("error", terminar); }); setTimeout(imprimir, 1800); } else { setTimeout(imprimir, 300); }
     }
 
     function renderCfdi(data) {
@@ -243,7 +465,7 @@
         var folio = [data.serie, data.folio].filter(function (value) { return String(value || "").trim() !== ""; }).join(" ") || "Sin folio";
         var condicionesOperacion = data.condiciones_pago ? "<div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">Condiciones de pago</div><div class=\"fw-semibold\">" + esc(data.condiciones_pago) + "</div></div>" : "";
         var datosOperacion = "<div class=\"fc-invoice-facts mb-3\"><div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">Lugar de expedición</div><div class=\"fw-semibold\">" + esc(data.lugar_expedicion || "-") + "</div></div><div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">Forma de pago</div><div class=\"fw-semibold\">" + esc(formaPago(data.forma_pago)) + "</div></div><div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">Método de pago</div><div class=\"fw-semibold\">" + esc(metodoPago(data.metodo_pago)) + "</div></div><div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">Uso CFDI</div><div class=\"fw-semibold\">" + esc(usoCfdi(data.uso_cfdi)) + "</div></div><div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">Régimen emisor</div><div class=\"fw-semibold\">" + esc(regimenFiscal(data.regimen_fiscal_emisor)) + "</div></div><div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">Régimen receptor</div><div class=\"fw-semibold\">" + esc(regimenFiscal(data.regimen_fiscal_receptor)) + "</div></div><div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">C.P. receptor</div><div class=\"fw-semibold\">" + esc(data.domicilio_fiscal_receptor || "-") + "</div></div><div class=\"fc-invoice-fact\"><div class=\"text-muted fs-8\">Exportación</div><div class=\"fw-semibold\">" + esc(exportacion(data.exportacion)) + "</div></div>" + condicionesOperacion + "</div>";
-        var aviso = "<div class=\"alert alert-info fs-7 d-flex justify-content-between align-items-center gap-3 flex-wrap\"><span>Vista previa Artiani Compacta. Puedes guardarla o imprimirla; esta acción no crea ventas ni modifica inventario o caja.</span><div class=\"d-flex gap-2 flex-wrap\"><button type=\"button\" class=\"btn btn-sm btn-light-primary text-nowrap\" id=\"fc_cfdi_imprimir\"><i class=\"bi bi-printer\"></i> Artiani Compacta</button><button type=\"button\" class=\"btn btn-sm btn-primary text-nowrap\" id=\"fc_cfdi_imprimir_fiscal\"><i class=\"bi bi-layout-text-window-reverse\"></i> Artiani Fiscal</button></div></div>";
+        var aviso = "<div class=\"alert alert-info fs-7 d-flex justify-content-between align-items-center gap-3 flex-wrap\"><span>La salida predeterminada es Artiani Fiscal. Puedes guardarla o imprimirla; esta acción no crea ventas ni modifica inventario o caja.</span><div class=\"d-flex gap-2 flex-wrap\"><button type=\"button\" class=\"btn btn-sm btn-primary text-nowrap\" id=\"fc_cfdi_imprimir_fiscal\"><i class=\"bi bi-layout-text-window-reverse\"></i> Artiani Fiscal</button><button type=\"button\" class=\"btn btn-sm btn-light-primary text-nowrap\" id=\"fc_cfdi_imprimir\"><i class=\"bi bi-printer\"></i> Artiani Compacta</button></div></div>";
         var preview = "<div class=\"fc-invoice-preview\" id=\"fc_invoice_preview\"><div class=\"fc-invoice-brand d-flex justify-content-between align-items-start gap-4 mb-3\"><div>" + logo + "<div class=\"fw-bold fs-3 mt-2\">" + esc(nombreEmpresa) + "</div><div class=\"text-muted\">" + esc(rfcEmpresa) + "</div><div class=\"text-muted fs-7\">" + esc(contactoEmpresa) + "</div><div class=\"text-muted fs-7\">" + esc(direccionEmpresa) + "</div></div><div class=\"text-end\"><div class=\"text-uppercase text-muted fs-8\">Factura</div><div class=\"fw-bold fs-2\">" + esc(folio) + "</div><div class=\"text-muted fs-7\">" + esc(data.fecha || "") + "</div><span class=\"badge badge-light-primary mt-2\">CFDI " + esc(data.version || "4.0") + " · " + esc(data.tipo_comprobante || "I") + "</span></div></div>" +
             "<div class=\"row g-3 mb-3\"><div class=\"col-md-6\"><div class=\"fc-invoice-meta h-100\"><div class=\"text-muted fs-8 text-uppercase mb-1\">Emisor fiscal</div><div class=\"fw-semibold\">" + esc(data.nombre_emisor || "-") + "</div><div class=\"text-muted fs-7\">RFC: " + esc(data.rfc_emisor || "-") + "</div></div></div><div class=\"col-md-6\"><div class=\"fc-invoice-meta h-100\"><div class=\"text-muted fs-8 text-uppercase mb-1\">Receptor</div><div class=\"fw-semibold\">" + esc(data.nombre_receptor || "-") + "</div><div class=\"text-muted fs-7\">RFC: " + esc(data.rfc_receptor || "-") + "</div></div></div></div>" + datosOperacion +
             "<div class=\"fc-invoice-table table-responsive mb-3\"><table class=\"table align-middle mb-0\"><colgroup><col style=\"width:16%\"><col style=\"width:34%\"><col style=\"width:8%\"><col style=\"width:10%\"><col style=\"width:12%\"><col style=\"width:10%\"><col style=\"width:10%\"></colgroup><thead><tr><th>Clave / identificación</th><th>Descripción</th><th class=\"text-end\">Cantidad</th><th>Unidad</th><th class=\"text-end\">Precio</th><th class=\"text-end\">Descuento</th><th class=\"text-end\">Importe</th></tr></thead><tbody>" + filas + "</tbody></table></div>" +
@@ -282,9 +504,10 @@
             "<div class=\"af-bar\">Información de pago y totales</div><section class=\"af-payment\"><div><p><b>Lugar de expedición:</b> " + esc(data.lugar_expedicion || "-") + "</p><p><b>Forma de pago:</b> " + esc(formaPago(data.forma_pago)) + "</p><p><b>Método de pago:</b> " + esc(metodoPago(data.metodo_pago)) + "</p><p><b>Condiciones de pago:</b> " + esc(data.condiciones_pago || "No especificadas en el XML") + "</p><p><b>Moneda:</b> " + esc(data.moneda || "MXN") + " · Tipo de cambio: " + esc(data.tipo_cambio || "1") + "</p></div><div class=\"af-totals\"><p><span>Subtotal</span><b>" + dinero(data.subtotal, data.moneda) + "</b></p><p><span>Descuento</span><b>" + dinero(data.descuento, data.moneda) + "</b></p><p><span>Impuestos trasladados</span><b>" + dinero(data.impuestos_trasladados, data.moneda) + "</b></p><p class=\"af-total\"><span>Total</span><b>" + dinero(data.total, data.moneda) + "</b></p></div></section>",
             "<div class=\"af-bar af-bar-split\"><span>Código bidimensional</span><span>Sellos digitales</span></div><section class=\"af-seals\"><div class=\"af-qr-wrap\">" + qr + "<small>Consulta la factura en el SAT</small></div><div><label>Sello digital del CFDI</label><p>" + esc(selloCfdi) + "</p><label>Sello digital del SAT</label><p>" + esc(selloSat) + "</p></div></section><div class=\"af-bar af-chain-bar\">Cadena original del complemento de certificación digital del SAT</div><p class=\"af-chain\">" + esc(cadena) + "</p><footer>Este documento es una representación impresa de un CFDI · Versión " + esc(data.version || "4.0") + "</footer></div>"
         ].join("");
-        var estilos = "body{font-family:Arial,sans-serif;background:#f4f6f8;color:#202124;margin:0;padding:18px}.af-document{box-sizing:border-box;width:100%;max-width:980px;margin:0 auto;background:#fff;padding:18px;border:1px solid #d9e2e5}.af-header{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:14px;align-items:start;padding-bottom:12px;border-bottom:3px solid #e9485b}.af-supplier{display:flex;gap:16px;align-items:center;min-width:0}.af-supplier>div{min-width:0}.af-supplier img{max-width:190px;max-height:62px;object-fit:contain}.af-supplier strong{display:block;font-size:11px;color:#202124;margin-bottom:4px}.af-supplier span,.af-invoice-title small{display:block;font-size:9px;color:#202124;line-height:1.4;overflow-wrap:anywhere;word-break:break-word}.af-invoice-title{min-width:0;text-align:right}.af-invoice-title span{display:block;font-size:10px;color:#0b7376;font-weight:700;letter-spacing:.08em}.af-invoice-title b{display:block;font-size:24px;color:#e9485b;line-height:1.15}.af-bar{display:flex;justify-content:center;align-items:center;min-height:22px;margin-top:10px;padding:4px 8px;box-sizing:border-box;background:#0b7376;color:#fff;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em}.af-chain-bar{background:#0b7376}.af-bar-split{display:grid;grid-template-columns:1fr 1fr;gap:1px;padding:0;background:transparent}.af-bar-split span{display:block;background:#e9485b;padding:5px 8px;text-align:center}.af-bar-split span:last-child{background:#0b7376}.af-receiver{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,42%);gap:16px;padding:9px 6px 8px;border:1px solid #e8eef0;border-top:0}.af-receiver span,.af-receiver strong{display:block;font-size:10px;line-height:1.45;overflow-wrap:anywhere;word-break:break-word;color:#202124}.af-receiver strong{font-size:11px;color:#202124}.af-certificates{display:grid;gap:5px;align-content:start}.af-certificates b,.af-certificates span{display:block;padding:5px 7px;background:#f1fbfb;border-left:3px solid #0b7376;font-size:9px;word-break:break-word;color:#202124}.af-certificates b{color:#202124}.af-table{box-sizing:border-box;width:100%;margin-top:10px;border:1px solid #d7e1e4;overflow:hidden}.af-table table{box-sizing:border-box;width:100%;table-layout:fixed;border-collapse:collapse}.af-table th,.af-table td{box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word}.af-table th{background:#e9485b;color:#fff;padding:5px 4px;font-size:8.5px;line-height:1.2;text-transform:uppercase}.af-table td{padding:5px 4px;border-bottom:1px solid #e7edef;font-size:8.5px;line-height:1.25;vertical-align:top;color:#202124}.af-table td small{display:block;color:#202124;font-size:7.5px;margin-top:2px}.af-table tr:nth-child(even) td{background:#fffafa}.af-payment{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:18px;border:1px solid #d7e1e4;border-top:0;padding:10px 8px}.af-payment p{margin:0 0 5px;font-size:10px;color:#202124}.af-payment p:last-child{margin-bottom:0}.af-totals{border-left:1px solid #b9d9da;padding-left:18px}.af-totals p{display:flex;justify-content:space-between;gap:12px;color:#202124}.af-total{box-sizing:border-box;border-top:0;padding:7px 9px;margin-top:8px!important;background:#e9485b;color:#fff;font-size:11px!important}.af-total b{font-size:14px}.af-seals{display:grid;grid-template-columns:150px minmax(0,1fr);gap:15px;border:1px solid #d7e1e4;border-top:0;padding:10px 8px}.af-qr-wrap{text-align:center}.af-qr{display:block;width:132px;height:132px;margin:0 auto 4px;image-rendering:pixelated}.af-qr-empty{height:132px;background:#f1fbfb;color:#0b7376;font-size:10px;padding-top:58px;box-sizing:border-box}.af-qr-wrap small{font-size:8px;color:#202124}.af-seals label{display:block;color:#0b7376;font-size:9px;font-weight:700;margin-bottom:2px}.af-seals p{margin:0 0 8px;font-family:Courier,monospace;font-size:8px;line-height:1.3;word-break:break-all;color:#202124}.af-chain{margin:0;padding:8px;border:1px solid #d7e1e4;border-top:0;font-family:Courier,monospace;font-size:8px;line-height:1.3;word-break:break-all;color:#202124}.af-document footer{margin-top:10px;padding:6px;background:#e9485b;color:#fff;text-align:center;font-size:8px}@media print{body{padding:0;background:#fff}.af-document{border:0;max-width:none;padding:10px}.af-table,.af-payment,.af-seals,.af-chain{break-inside:avoid}}";
+        var estilos = "body{font-family:Arial,sans-serif;background:#f4f6f8;color:#202124;margin:0;padding:18px}.af-document{box-sizing:border-box;width:100%;max-width:980px;margin:0 auto;background:#fff;padding:18px;border:1px solid #d9e2e5}.af-header{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:14px;align-items:start;padding-bottom:12px;border-bottom:3px solid #e9485b}.af-supplier{display:flex;gap:16px;align-items:center;min-width:0}.af-supplier>div{min-width:0}.af-supplier img{max-width:190px;max-height:62px;object-fit:contain}.af-supplier strong{display:block;font-size:10px;color:#202124;margin-bottom:4px}.af-supplier span,.af-invoice-title small{display:block;font-size:8px;color:#202124;line-height:1.4;overflow-wrap:anywhere;word-break:break-word}.af-invoice-title{min-width:0;text-align:right}.af-invoice-title span{display:block;font-size:10px;color:#0b7376;font-weight:700;letter-spacing:.08em}.af-invoice-title b{display:block;font-size:24px;color:#e9485b;line-height:1.15}.af-bar{display:flex;justify-content:center;align-items:center;min-height:22px;margin-top:10px;padding:4px 8px;box-sizing:border-box;background:#0b7376;color:#fff;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em}.af-chain-bar{background:#0b7376}.af-bar-split{display:grid;grid-template-columns:1fr 1fr;gap:1px;padding:0;background:transparent}.af-bar-split span{display:block;background:#e9485b;padding:5px 8px;text-align:center}.af-bar-split span:last-child{background:#0b7376}.af-receiver{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,42%);gap:16px;padding:9px 6px 8px;border:1px solid #e8eef0;border-top:0}.af-receiver span,.af-receiver strong{display:block;font-size:9px;line-height:1.45;overflow-wrap:anywhere;word-break:break-word;color:#202124}.af-receiver strong{font-size:10px;color:#202124}.af-certificates{display:grid;gap:5px;align-content:start}.af-certificates b,.af-certificates span{display:block;padding:5px 7px;background:#f1fbfb;border-left:3px solid #0b7376;font-size:8px;word-break:break-word;color:#202124}.af-certificates b{color:#202124}.af-table{box-sizing:border-box;width:100%;margin-top:10px;border:1px solid #d7e1e4;overflow:hidden}.af-table table{box-sizing:border-box;width:100%;table-layout:fixed;border-collapse:collapse}.af-table th,.af-table td{box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word}.af-table th{background:#e9485b;color:#fff;padding:5px 4px;font-size:8.5px;line-height:1.2;text-transform:uppercase}.af-table td{padding:5px 4px;border-bottom:1px solid #e7edef;font-size:8.5px;line-height:1.25;vertical-align:top;color:#202124}.af-table td small{display:block;color:#202124;font-size:7.5px;margin-top:2px}.af-table tr:nth-child(even) td{background:#fffafa}.af-payment{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:18px;border:1px solid #d7e1e4;border-top:0;padding:10px 8px}.af-payment p{margin:0 0 5px;font-size:10px;color:#202124}.af-payment p:last-child{margin-bottom:0}.af-totals{border-left:1px solid #b9d9da;padding-left:18px}.af-totals p{display:flex;justify-content:space-between;gap:12px;color:#202124}.af-total{box-sizing:border-box;border-top:0;padding:7px 9px;margin-top:8px!important;background:#e9485b;color:#fff;font-size:11px!important}.af-total b{font-size:14px}.af-seals{display:grid;grid-template-columns:150px minmax(0,1fr);gap:15px;border:1px solid #d7e1e4;border-top:0;padding:10px 8px}.af-qr-wrap{text-align:center}.af-qr{display:block;width:132px;height:132px;margin:0 auto 4px;image-rendering:pixelated}.af-qr-empty{height:132px;background:#f1fbfb;color:#0b7376;font-size:10px;padding-top:58px;box-sizing:border-box}.af-qr-wrap small{font-size:8px;color:#202124}.af-seals label{display:block;color:#0b7376;font-size:9px;font-weight:700;margin-bottom:2px}.af-seals p{margin:0 0 8px;font-family:Courier,monospace;font-size:8px;line-height:1.3;word-break:break-all;color:#202124}.af-chain{margin:0;padding:8px;border:1px solid #d7e1e4;border-top:0;font-family:Courier,monospace;font-size:8px;line-height:1.3;word-break:break-all;color:#202124}.af-document footer{margin-top:10px;padding:6px;background:#e9485b;color:#fff;text-align:center;font-size:8px}@media print{body{padding:0;background:#fff}.af-document{border:0;max-width:none;padding:10px}.af-table,.af-payment,.af-seals,.af-chain{break-inside:avoid}}";
         var ventana = window.open("", "_blank", "width=980,height=900");
         if (!ventana) { alerta("Permite las ventanas emergentes para imprimir la factura", "warning"); return; }
+        estilos += ".af-header{border-bottom-color:#0b7376}.af-invoice-title b{color:#0b7376}.af-bar-split span:first-child{background:#0b7376}.af-document footer{background:#0b7376}.af-totals{box-sizing:border-box;overflow:hidden}.af-total{width:100%;margin-left:0!important;margin-right:0!important}";
         ventana.document.write("<!doctype html><html lang=\"es\"><head><meta charset=\"utf-8\"><title>Artiani Fiscal</title><style>" + estilos + "</style></head><body>" + documento + "</body></html>");
         ventana.document.close(); ventana.focus();
         var imprimir = function () { ventana.focus(); ventana.print(); };
@@ -317,15 +540,27 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+        $("fc_cot_nueva").addEventListener("click", function () { mostrarNuevaCotizacion(true); });
+        $("fc_nueva_cancelar").addEventListener("click", function () { mostrarNuevaCotizacion(false); });
+        $("fc_nueva_manual").addEventListener("click", agregarLineaManual);
+        $("fc_nueva_guardar").addEventListener("click", guardarNuevaCotizacion);
+        $("fc_nueva_buscar").addEventListener("input", function () { clearTimeout(window.fcNuevaBusquedaTimer); window.fcNuevaBusquedaTimer = setTimeout(buscarProductosNueva, 300); });
+        $("fc_nueva_moneda").addEventListener("change", function () { renderNuevaLineas(); });
         $("fc_cot_recargar").addEventListener("click", cargarCotizaciones);
         $("fc_cot_q").addEventListener("keyup", function () { clearTimeout(window.fcCotTimer); window.fcCotTimer = setTimeout(cargarCotizaciones, 350); });
         $("fc_cot_estatus").addEventListener("change", cargarCotizaciones);
         $("fc_cfdi_form").addEventListener("submit", analizarCfdi);
+        $("fc_cfdi_importar").addEventListener("click", importarCfdi);
+        $("fc_cfdi_recargar").addEventListener("click", cargarCfdiGuardados);
+        $("fc_correo_copiar_asunto").addEventListener("click", function () { copiarCampo("fc_correo_asunto"); });
+        $("fc_correo_copiar_cuerpo").addEventListener("click", function () { copiarCampo("fc_correo_cuerpo"); });
+        $("fc_cot_imprimir").addEventListener("click", imprimirCotizacionFormal);
         $("fc_cot_plan").addEventListener("click", function () {
             if (!estado.actual) { return; }
             request("/ventas/cotizacion_comercial_accion_plan_erp", {id_cotizacion: estado.actual.id_cotizacion, folio: estado.actual.folio, accion: "marcar_seguimiento"}).then(function (response) { alerta(response.mensaje || "Plan consultado", response.error ? "warning" : "info"); });
         });
         cargarCotizaciones();
         cargarCorreo();
+        cargarCfdiGuardados();
     });
 }());

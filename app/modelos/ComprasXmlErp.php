@@ -178,6 +178,64 @@ class ComprasXmlErp extends CRUD {
     }
 
     /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-23
+     * Proposito: reutilizar el parser fiscal para XML ya conservados fuera de una carga HTTP.
+     * Impacto: permite generar representaciones PDF y adjuntos sin volver a cargar el XML al navegador.
+     * Contrato: read-only; recibe contenido XML, bloquea entidades externas y devuelve el mismo contrato de parsear().
+     */
+    public function parsearContenido($contenido) {
+        if (!is_string($contenido) || trim($contenido) === "") {
+            return $this->respuesta(true, "warning", "El XML esta vacio");
+        }
+        if (strlen($contenido) > 5242880 || stripos($contenido, "<!DOCTYPE") !== false || stripos($contenido, "<!ENTITY") !== false) {
+            return $this->respuesta(true, "danger", "El archivo XML no es seguro");
+        }
+        try {
+            $cfdi = $this->leerCfdi($contenido);
+            return $this->respuesta(false, "success", "XML analizado correctamente", array(
+                "uuid" => $cfdi["uuid"],
+                "no_certificado" => $cfdi["no_certificado"],
+                "certificado" => $cfdi["certificado"],
+                "sello_cfdi" => $cfdi["sello_cfdi"],
+                "fecha_timbrado" => $cfdi["fecha_timbrado"],
+                "rfc_prov_certif" => $cfdi["rfc_prov_certif"],
+                "no_certificado_sat" => $cfdi["no_certificado_sat"],
+                "sello_sat" => $cfdi["sello_sat"],
+                "lugar_expedicion" => $cfdi["lugar_expedicion"],
+                "forma_pago" => $cfdi["forma_pago"],
+                "metodo_pago" => $cfdi["metodo_pago"],
+                "exportacion" => $cfdi["exportacion"],
+                "condiciones_pago" => $cfdi["condiciones_pago"],
+                "version" => $cfdi["version"],
+                "tipo_comprobante" => $cfdi["tipo_comprobante"],
+                "serie" => $cfdi["serie"],
+                "folio" => $cfdi["folio"],
+                "fecha" => $cfdi["fecha"],
+                "conceptos" => $cfdi["conceptos"],
+                "subtotal" => $cfdi["subtotal"],
+                "descuento" => $cfdi["descuento"],
+                "impuestos_trasladados" => $cfdi["impuestos_trasladados"],
+                "impuestos_retenidos" => $cfdi["impuestos_retenidos"],
+                "impuestos_total" => $cfdi["impuestos_total"],
+                "total" => $cfdi["total"],
+                "moneda" => $cfdi["moneda"],
+                "tipo_cambio" => $cfdi["tipo_cambio"],
+                "nombre_emisor" => $cfdi["nombre_emisor"],
+                "rfc_emisor" => $cfdi["rfc_emisor"],
+                "nombre_receptor" => $cfdi["nombre_receptor"],
+                "rfc_receptor" => $cfdi["rfc_receptor"],
+                "regimen_fiscal_emisor" => $cfdi["regimen_fiscal_emisor"],
+                "regimen_fiscal_receptor" => $cfdi["regimen_fiscal_receptor"],
+                "domicilio_fiscal_receptor" => $cfdi["domicilio_fiscal_receptor"],
+                "uso_cfdi" => $cfdi["uso_cfdi"]
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Modulo: ERP Compras
      * Funcion: enriquecerConceptosConProveedor
      * Documentacion IA: Codex GPT-5

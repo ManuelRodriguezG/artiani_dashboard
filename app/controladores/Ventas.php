@@ -216,12 +216,24 @@ class Ventas extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-10-22
    * Proposito: abrir la consola inicial de facturacion documental y cotizaciones.
-   * Impacto: concentra consulta comercial, previsualizacion CFDI y plantilla de correo sin emitir CFDI ni enviar mensajes.
-   * Contrato: vista protegida; no escribe BD ni modifica inventario, caja o estatus comercial.
+   * Impacto: concentra captura y consulta comercial, previsualizacion CFDI y plantilla de correo sin emitir CFDI ni enviar mensajes.
+   * Contrato: vista protegida; la captura escribe solo la cotizacion comercial y no modifica inventario, caja ni ventas.
    */
   public function facturacion_cotizaciones() {
     $this->requerirAlgunPermiso(array("ventas.ver", "finanzas.ver"));
     $this->vista("apps/erp/ventas/facturacion_cotizaciones");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-23
+   * Proposito: abrir la consola independiente de cotizaciones comerciales.
+   * Impacto: separa captura, configuracion visual y representacion de cotizaciones de la facturacion documental.
+   * Contrato: vista protegida; la persistencia usa el endpoint de cotizacion y no crea ventas ni CFDI.
+   */
+  public function cotizaciones() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    $this->vista("apps/erp/ventas/cotizaciones");
   }
 
   /**
@@ -246,6 +258,27 @@ class Ventas extends Controlador {
   public function cotizacion_comercial_consultar_erp() {
     $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
     return json_encode($this->modelo("EcommerceCatalogoPublico")->cotizacionDetalleInterna($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-23
+   * Proposito: guardar una cotizacion comercial capturada desde Ventas.
+   * Impacto: conserva snapshot y evento comercial; no crea pedido, venta, cobro ni inventario.
+   * Contrato: POST con CSRF y permiso ventas.operar; requiere contacto y partidas.
+   */
+  public function cotizacion_comercial_guardar_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->cotizacionRegistrarInterna($_POST, $this->usuarioActualId());
+    if (is_array($respuesta) && empty($respuesta["error"])) {
+      Sesionseguridad::registrarAuditoria("ventas_cotizaciones", "cotizacion_crear", array(
+        "entidad" => "erp_ecommerce_cotizaciones",
+        "entidad_id" => isset($respuesta["depurar"]["id_cotizacion"]) ? intval($respuesta["depurar"]["id_cotizacion"]) : null,
+        "resultado" => "ok",
+        "datos_despues" => array("folio" => isset($respuesta["depurar"]["folio"]) ? $respuesta["depurar"]["folio"] : "")
+      ));
+    }
+    return json_encode($respuesta);
   }
 
   /**
@@ -322,6 +355,56 @@ class Ventas extends Controlador {
       ));
     }
     return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-23
+   * Proposito: generar y descargar la representacion PDF Artiani Fiscal de un CFDI conservado.
+   * Impacto: entrega un archivo documental sin emitir, cancelar ni modificar el comprobante fiscal.
+   * Contrato: GET protegido por ventas.ver o finanzas.ver.
+   */
+  public function facturacion_cfdi_pdf_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "finanzas.ver"));
+    $respuesta = $this->modelo("VentasErp")->facturacionCfdiGenerarPdf(isset($_GET["id_documento_fiscal"]) ? $_GET["id_documento_fiscal"] : 0);
+    if (!is_array($respuesta) || !empty($respuesta["error"])) {
+      http_response_code(404);
+      header("Content-Type: text/plain; charset=UTF-8");
+      echo is_array($respuesta) ? $respuesta["mensaje"] : "PDF no disponible";
+      exit;
+    }
+    $archivo = $respuesta["depurar"];
+    $ruta = dirname(__DIR__, 2) . "/" . ltrim(str_replace("\\", "/", $archivo["archivo_ruta"]), "/");
+    if (!is_file($ruta)) {
+      http_response_code(404);
+      header("Content-Type: text/plain; charset=UTF-8");
+      echo "PDF no disponible";
+      exit;
+    }
+    while (ob_get_level() > 0) { ob_end_clean(); }
+    header("X-Content-Type-Options: nosniff");
+    header("Content-Type: application/pdf");
+    header("Content-Length: " . filesize($ruta));
+    header("Content-Disposition: inline; filename=\"" . basename($archivo["nombre_archivo"]) . "\"");
+    readfile($ruta);
+    exit;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-23
+   * Proposito: conservar una ruta defensiva sin habilitar envio de correo desde el panel.
+   * Impacto: no envia correo, no registra envio y no crea ventas, cobros ni CFDI.
+   * Contrato: POST autenticado; devuelve una indicacion para usar la plantilla manualmente en Gmail.
+   */
+  public function facturacion_cfdi_enviar_erp() {
+    $this->requerirPermiso("finanzas.operar");
+    return json_encode(array(
+      "error" => true,
+      "tipo" => "info",
+      "mensaje" => "El panel no envia correos. Copia la plantilla y enviala manualmente desde Gmail.",
+      "depurar" => array("solo_gmail" => true)
+    ));
   }
 
   /**

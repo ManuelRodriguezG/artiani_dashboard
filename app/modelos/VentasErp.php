@@ -5651,6 +5651,7 @@ class VentasErp extends CRUD {
             return $this->respuesta(false, "success", "Plantilla de correo de factura consultada", array(
                 "read_only" => true,
                 "envio_habilitado" => false,
+                "solo_gmail" => true,
                 "empresa" => array(
                     "nombre" => $empresa,
                     "rfc" => $this->valor($valores, "empresa.rfc", ""),
@@ -5666,9 +5667,9 @@ class VentasErp extends CRUD {
                     "{cliente_nombre}", "{folio}", "{uuid}", "{moneda}", "{total}", "{empresa_nombre}", "{empresa_rfc}", "{correo_respuesta}"
                 ),
                 "pendientes" => array(
-                    "Definir proveedor o cuenta SMTP autorizada",
-                    "Guardar bitacora de envio y resultado",
-                    "Adjuntar XML/PDF desde un CFDI importado y validado"
+                    "Copiar la plantilla en Gmail",
+                    "Adjuntar manualmente el XML y el PDF conservados",
+                    "Validar la evidencia de entrega en Gmail"
                 )
             ));
         } catch (Exception $e) {
@@ -5906,6 +5907,248 @@ class VentasErp extends CRUD {
             if ($ruta !== "" && is_file($ruta)) { unlink($ruta); }
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-23
+     * Proposito: generar la representacion PDF Artiani Fiscal desde un CFDI conservado.
+     * Impacto: entrega un documento documental con texto seleccionable; no modifica el CFDI ni emite uno nuevo.
+     * Contrato: requiere un id_documento_fiscal importado y devuelve la ruta interna del PDF generado.
+     */
+    public function facturacionCfdiGenerarPdf($idDocumento) {
+        try {
+            $db = $this->getConexion();
+            $expediente = $this->facturacionCfdiExpediente($db, $idDocumento);
+            if (!$expediente) {
+                return $this->respuesta(true, "warning", "CFDI no encontrado");
+            }
+            $rutaXml = $this->facturacionCfdiRutaSegura($expediente["documento"]["archivo_ruta"]);
+            if ($rutaXml === "" || !is_file($rutaXml)) {
+                return $this->respuesta(true, "warning", "El XML conservado no esta disponible");
+            }
+            $pdf = $this->facturacionCfdiGenerarPdfInterno($expediente["documento"], $expediente["conceptos"], file_get_contents($rutaXml));
+            return $this->respuesta(false, "success", "PDF generado", array(
+                "id_documento_fiscal" => intval($idDocumento),
+                "archivo_ruta" => $pdf["ruta_relativa"],
+                "nombre_archivo" => $pdf["nombre"]
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-23
+     * Proposito: bloquear el envio de correo desde el dominio fiscal documental.
+     * Impacto: no envia correo, no genera trazabilidad de envio y no modifica datos.
+     * Contrato: devuelve siempre una indicacion para copiar la plantilla en Gmail.
+     */
+    public function facturacionCfdiEnviarCorreo($datos, $idUsuario) {
+        return $this->respuesta(true, "info", "El panel no envia correos. Copia la plantilla y enviala manualmente desde Gmail.", array("solo_gmail" => true));
+        $db = null;
+        try {
+            $db = $this->getConexion();
+            $idDocumento = intval($this->valor($datos, "id_documento_fiscal", 0));
+            $destino = trim((string) $this->valor($datos, "destino", ""));
+            if ($idDocumento <= 0 || !filter_var($destino, FILTER_VALIDATE_EMAIL)) {
+                return $this->respuesta(true, "warning", "Indica un CFDI y un correo destinatario valido");
+            }
+            $expediente = $this->facturacionCfdiExpediente($db, $idDocumento);
+            if (!$expediente) {
+                return $this->respuesta(true, "warning", "CFDI no encontrado");
+            }
+            $rutaXml = $this->facturacionCfdiRutaSegura($expediente["documento"]["archivo_ruta"]);
+            if ($rutaXml === "" || !is_file($rutaXml)) {
+                return $this->respuesta(true, "warning", "El XML conservado no esta disponible");
+            }
+            $config = $this->facturacionCfdiConfiguracionCorreo($db);
+            if (empty($config["host"]) || empty($config["remitente"]) || ($config["auth"] && empty($config["password"]))) {
+                return $this->respuesta(true, "warning", "El envio esta pendiente: configura el servidor SMTP de facturacion", array("envio_habilitado" => false));
+            }
+            require_once dirname(__DIR__) . "/core/PHPMailer/vendor/autoload.php";
+            $pdf = $this->facturacionCfdiGenerarPdfInterno($expediente["documento"], $expediente["conceptos"], file_get_contents($rutaXml));
+            $documento = $expediente["documento"];
+            $cfdi = $this->facturacionCfdiParsearConservado($rutaXml);
+            if (!empty($cfdi["error"])) {
+                return $cfdi;
+            }
+            $datosCfdi = isset($cfdi["depurar"]) ? $cfdi["depurar"] : array();
+            $empresa = $config["nombre"] !== "" ? $config["nombre"] : $this->valor($datosCfdi, "nombre_emisor", "Artiani");
+            $reemplazos = array(
+                "{cliente_nombre}" => $this->valor($datosCfdi, "nombre_receptor", $this->valor($documento, "nombre_receptor", "cliente")),
+                "{folio}" => trim($this->valor($documento, "serie", "") . " " . $this->valor($documento, "folio", "")),
+                "{uuid}" => $this->valor($datosCfdi, "uuid", $this->valor($documento, "uuid", "")),
+                "{moneda}" => $this->valor($datosCfdi, "moneda", $this->valor($documento, "moneda", "MXN")),
+                "{total}" => number_format(floatval($this->valor($documento, "total", 0)), 2, ".", ","),
+                "{empresa_nombre}" => $empresa,
+                "{empresa_rfc}" => $config["rfc"],
+                "{correo_respuesta}" => $config["remitente"]
+            );
+            $asunto = strtr(trim((string) $this->valor($datos, "asunto", "Factura {folio} - {empresa_nombre}")), $reemplazos);
+            $cuerpo = strtr((string) $this->valor($datos, "cuerpo", "Hola {cliente_nombre},\n\nTe compartimos tu factura."), $reemplazos);
+            $adjuntarXml = $this->facturacionCfdiBooleano($this->valor($datos, "adjuntar_xml", 1));
+            $adjuntarPdf = $this->facturacionCfdiBooleano($this->valor($datos, "adjuntar_pdf", 1));
+            if (!$adjuntarXml && !$adjuntarPdf) {
+                return $this->respuesta(true, "warning", "Selecciona al menos un archivo para adjuntar");
+            }
+
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = $config["host"];
+            $mail->Port = $config["port"] > 0 ? $config["port"] : 587;
+            $mail->SMTPAuth = $config["auth"];
+            $mail->Username = $config["usuario"];
+            $mail->Password = $config["password"];
+            if ($config["seguridad"] === "ssl") { $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS; }
+            if ($config["seguridad"] === "tls") { $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS; }
+            $mail->CharSet = "UTF-8";
+            $mail->setFrom($config["remitente"], $config["nombre"] !== "" ? $config["nombre"] : "Artiani");
+            $mail->addAddress($destino);
+            $mail->Subject = $asunto !== "" ? $asunto : "Factura " . $this->valor($documento, "folio", "");
+            $mail->Body = $cuerpo;
+            $mail->AltBody = $cuerpo;
+            if ($adjuntarXml) { $mail->addAttachment($rutaXml, basename($rutaXml)); }
+            if ($adjuntarPdf) { $mail->addAttachment($pdf["ruta_absoluta"], $pdf["nombre"]); }
+            $mail->send();
+            $detalle = json_encode(array("destino" => $destino, "adjuntos" => array("xml" => $adjuntarXml, "pdf" => $adjuntarPdf), "fecha" => date("c")), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $stmt = $db->prepare("INSERT INTO erp_ventas_documentos_fiscales_eventos (id_documento_fiscal, tipo_evento, estatus_nuevo, detalle_json, creado_por) VALUES (:documento,'envio_correo','enviado',:detalle,:usuario)");
+            $stmt->execute(array(":documento" => $idDocumento, ":detalle" => $detalle, ":usuario" => intval($idUsuario) ?: null));
+            return $this->respuesta(false, "success", "Factura enviada correctamente", array("id_documento_fiscal" => $idDocumento, "destino" => $destino, "adjuntos" => array("xml" => $adjuntarXml, "pdf" => $adjuntarPdf)));
+        } catch (Exception $e) {
+            if ($db && $this->tablaExiste($db, "erp_ventas_documentos_fiscales_eventos") && !empty($idDocumento)) {
+                try {
+                    $stmt = $db->prepare("INSERT INTO erp_ventas_documentos_fiscales_eventos (id_documento_fiscal, tipo_evento, estatus_nuevo, detalle_json, creado_por) VALUES (:documento,'envio_correo','error',:detalle,:usuario)");
+                    $stmt->execute(array(":documento" => $idDocumento, ":detalle" => json_encode(array("destino" => isset($destino) ? $destino : "", "error" => $e->getMessage()), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ":usuario" => intval($idUsuario) ?: null));
+                } catch (Exception $ignorar) { }
+            }
+            return $this->respuesta(true, "danger", "No fue posible enviar la factura: " . $e->getMessage());
+        }
+    }
+
+    private function facturacionCfdiExpediente($db, $idDocumento) {
+        if (!$this->facturacionCfdiEsquemaDisponible($db) || intval($idDocumento) <= 0) { return null; }
+        $stmt = $db->prepare("SELECT * FROM erp_ventas_documentos_fiscales WHERE id_documento_fiscal=:id LIMIT 1");
+        $stmt->execute(array(":id" => intval($idDocumento)));
+        $documento = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$documento) { return null; }
+        $stmt = $db->prepare("SELECT * FROM erp_ventas_documentos_fiscales_conceptos WHERE id_documento_fiscal=:id ORDER BY renglon ASC, id_documento_concepto ASC");
+        $stmt->execute(array(":id" => intval($idDocumento)));
+        return array("documento" => $documento, "conceptos" => $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    private function facturacionCfdiRutaSegura($rutaRelativa) {
+        $rutaRelativa = str_replace("\\", "/", trim((string) $rutaRelativa));
+        if ($rutaRelativa === "" || strpos($rutaRelativa, "storage/erp/ventas/fiscales/") !== 0 || strpos($rutaRelativa, "..") !== false) { return ""; }
+        return dirname(__DIR__, 2) . "/" . ltrim($rutaRelativa, "/");
+    }
+
+    private function facturacionCfdiParsearConservado($rutaXml) {
+        require_once __DIR__ . "/ComprasXmlErp.php";
+        $parser = new ComprasXmlErp();
+        return $parser->parsearContenido(file_get_contents($rutaXml));
+    }
+
+    private function facturacionCfdiConfiguracionCorreo($db) {
+        $claves = array("correo.smtp_host", "correo.smtp_port", "correo.smtp_usuario", "correo.smtp_password", "correo.smtp_seguridad", "correo.smtp_remitente", "correo.smtp_nombre", "correo.smtp_auth", "empresa.rfc", "empresa.nombre_comercial", "empresa.razon_social", "empresa.email_facturacion");
+        $valores = array();
+        if ($this->tablaExiste($db, "sys_configuracion_parametros")) {
+            $marcadores = implode(",", array_fill(0, count($claves), "?"));
+            $stmt = $db->prepare("SELECT clave, valor FROM sys_configuracion_parametros WHERE clave IN (" . $marcadores . ") AND estatus=1");
+            $stmt->execute($claves);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) { $valores[$fila["clave"]] = trim((string) $fila["valor"]); }
+        }
+        return array(
+            "host" => $this->valor($valores, "correo.smtp_host", ""),
+            "port" => intval($this->valor($valores, "correo.smtp_port", 587)),
+            "usuario" => $this->valor($valores, "correo.smtp_usuario", ""),
+            "password" => $this->valor($valores, "correo.smtp_password", ""),
+            "seguridad" => strtolower($this->valor($valores, "correo.smtp_seguridad", "tls")),
+            "remitente" => $this->valor($valores, "correo.smtp_remitente", $this->valor($valores, "empresa.email_facturacion", "")),
+            "nombre" => $this->valor($valores, "correo.smtp_nombre", $this->valor($valores, "empresa.nombre_comercial", $this->valor($valores, "empresa.razon_social", "Artiani"))),
+            "rfc" => $this->valor($valores, "empresa.rfc", ""),
+            "auth" => strtolower($this->valor($valores, "correo.smtp_auth", "1")) !== "0"
+        );
+    }
+
+    private function facturacionCfdiBooleano($valor) {
+        return !in_array(strtolower(trim((string) $valor)), array("", "0", "false", "no", "off"), true);
+    }
+
+    private function facturacionCfdiEtiqueta($codigo, $tipo) {
+        $catalogos = array(
+            "forma" => array("01" => "Efectivo", "02" => "Cheque nominativo", "03" => "Transferencia electrónica de fondos", "04" => "Tarjeta de crédito", "28" => "Tarjeta de débito", "99" => "Por definir"),
+            "metodo" => array("PUE" => "Pago en una sola exhibición", "PPD" => "Pago en parcialidades o diferido"),
+            "uso" => array("G01" => "Adquisición de mercancías", "G02" => "Devoluciones, descuentos o bonificaciones", "G03" => "Gastos en general", "S01" => "Sin efectos fiscales", "CP01" => "Pagos"),
+            "regimen" => array("601" => "General de Ley Personas Morales", "603" => "Personas Morales con Fines no Lucrativos", "605" => "Sueldos y Salarios e Ingresos Asimilados a Salarios", "612" => "Personas Físicas con Actividades Empresariales y Profesionales", "626" => "Régimen Simplificado de Confianza")
+        );
+        $codigo = trim((string) $codigo);
+        if ($codigo === "") { return "-"; }
+        return (isset($catalogos[$tipo][$codigo]) ? $catalogos[$tipo][$codigo] : "Código fiscal") . " (" . $codigo . ")";
+    }
+
+    private function facturacionCfdiMonto($valor, $moneda) {
+        return number_format(floatval($valor), 2, ".", ",") . " " . ($moneda !== "" ? $moneda : "MXN");
+    }
+
+    private function facturacionCfdiEsc($valor) {
+        return htmlspecialchars((string) $valor, ENT_QUOTES, "UTF-8");
+    }
+
+    private function facturacionCfdiGenerarPdfInterno($documento, $conceptos, $contenidoXml) {
+        $parseo = $this->facturacionCfdiParsearContenidoInterno($contenidoXml);
+        if (!empty($parseo["error"])) { throw new Exception($parseo["mensaje"]); }
+        $cfdi = $parseo["depurar"];
+        $moneda = $this->valor($cfdi, "moneda", $this->valor($documento, "moneda", "MXN"));
+        $folio = trim($this->valor($cfdi, "serie", "") . " " . $this->valor($cfdi, "folio", ""));
+        if ($folio === "") { $folio = "Sin folio"; }
+        $logoData = "";
+        $logoPdf = dirname(__DIR__, 2) . "/public/assets/media/logos/artiani-logo-pdf.jpg";
+        $logo = dirname(__DIR__, 2) . "/public/assets/media/logos/artiani-logo.png";
+        if (is_file($logoPdf)) { $logoData = "data:image/jpeg;base64," . base64_encode(file_get_contents($logoPdf)); }
+        if ($logoData === "" && is_file($logo) && extension_loaded("gd")) { $logoData = "data:image/png;base64," . base64_encode(file_get_contents($logo)); }
+        $logoMarkup = $logoData !== "" ? "<img src=\"" . $logoData . "\">" : "<div class=\"brand-mark\"><b>ARTIANI</b><span>Artículos para Animales</span></div>";
+        $filas = "";
+        foreach ($conceptos as $concepto) {
+            $filas .= "<tr><td class=\"right\">" . $this->facturacionCfdiEsc($this->valor($concepto, "cantidad", 0)) . "</td><td>" . $this->facturacionCfdiEsc($this->valor($concepto, "unidad", $this->valor($concepto, "clave_unidad_sat", "-"))) . "</td><td><b>" . $this->facturacionCfdiEsc($this->valor($concepto, "descripcion", "-")) . "</b><small>Clave SAT: " . $this->facturacionCfdiEsc($this->valor($concepto, "clave_producto_sat", "-")) . "</small></td><td class=\"right\">" . $this->facturacionCfdiMonto($this->valor($concepto, "valor_unitario", 0), $moneda) . "</td><td class=\"right\">" . $this->facturacionCfdiMonto($this->valor($concepto, "descuento", 0), $moneda) . "</td><td class=\"right\">" . $this->facturacionCfdiMonto($this->valor($concepto, "importe", 0), $moneda) . "</td></tr>";
+        }
+        $selloCfdi = $this->valor($cfdi, "sello_cfdi", "No disponible");
+        $selloSat = $this->valor($cfdi, "sello_sat", "No disponible");
+        $cadena = "||" . $this->valor($cfdi, "version", "4.0") . "|" . $this->valor($cfdi, "uuid", "") . "|" . $this->valor($cfdi, "fecha_timbrado", "") . "|" . $this->valor($cfdi, "rfc_prov_certif", "") . "|" . $selloCfdi . "|" . $this->valor($cfdi, "no_certificado_sat", "") . "||";
+        $urlSat = "https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=" . rawurlencode($this->valor($cfdi, "uuid", "")) . "&re=" . rawurlencode($this->valor($cfdi, "rfc_emisor", "")) . "&rr=" . rawurlencode($this->valor($cfdi, "rfc_receptor", "")) . "&tt=" . rawurlencode(number_format(floatval($this->valor($cfdi, "total", 0)), 6, ".", "")) . "&fe=" . rawurlencode(substr(preg_replace("/\s+/", "", $selloCfdi), -8));
+        $qrUrl = "https://quickchart.io/qr?text=" . rawurlencode($urlSat) . "&size=240&margin=1";
+        $qrMarkup = "<img src=\"" . $this->facturacionCfdiEsc($qrUrl) . "\" alt=\"Código QR de verificación del SAT\"><small>Escanea para consultar el CFDI en el SAT</small>";
+        $html = "<!doctype html><html lang=\"es\"><head><meta charset=\"UTF-8\"><style>" .
+            "@page{margin:14px 18px 18px}body{font-family:DejaVu Sans,Arial,sans-serif;color:#202124;font-size:8px;margin:0}.document{border:1px solid #d7e1e4;padding:10px}" .
+            "table{border-collapse:collapse;width:100%}.header{border-bottom:3px solid #e9485b;padding-bottom:7px}.header td{vertical-align:top}.supplier{width:72%}.supplier img,.brand-mark{float:left;margin-right:10px;max-width:130px;max-height:42px}.brand-mark{width:130px;height:38px;border:2px solid #0b7376;border-radius:4px;padding:3px 7px;box-sizing:border-box}.brand-mark b{display:block;color:#e9485b;font-size:18px;letter-spacing:2px}.brand-mark span{display:block;color:#0b7376;font-size:6px}.supplier b{display:block;font-size:10px}.supplier span,.title small{display:block;font-size:7px;line-height:1.3}.title{text-align:right;width:28%}.title span{display:block;color:#0b7376;font-weight:bold;font-size:8px}.title b{display:block;color:#e9485b;font-size:18px}.bar{background:#0b7376;color:#fff;padding:4px 6px;margin-top:6px;font-size:7px;font-weight:bold;text-transform:uppercase}.split td{padding:4px;text-align:center;color:#fff;font-weight:bold}.split td:first-child{background:#e9485b}.split td:last-child{background:#0b7376}.receiver{border:1px solid #e8eef0;border-top:0}.receiver td{vertical-align:top;padding:6px;width:58%;font-size:7px;line-height:1.35}.receiver td:last-child{width:42%}.receiver b,.receiver span{display:block}.cert{padding:0 0 0 8px}.cert b,.cert span{display:block;padding:4px;background:#f1fbfb;border-left:3px solid #0b7376;font-size:6.5px;overflow-wrap:anywhere}.items{table-layout:fixed;margin-top:6px}.items th{background:#e9485b;color:#fff;font-size:6.5px;text-transform:uppercase;padding:4px 3px;text-align:left}.items td{border-bottom:1px solid #e7edef;padding:4px 3px;font-size:7px;vertical-align:top;overflow-wrap:anywhere}.items th:nth-child(1),.items td:nth-child(1){width:9%}.items th:nth-child(2),.items td:nth-child(2){width:11%}.items th:nth-child(3),.items td:nth-child(3){width:39%}.items th:nth-child(4),.items td:nth-child(4){width:14%}.items th:nth-child(5),.items td:nth-child(5){width:12%}.items th:nth-child(6),.items td:nth-child(6){width:15%}.items small{display:block;font-size:6px}.right{text-align:right}.payment{border:1px solid #d7e1e4;border-top:0}.payment td{vertical-align:top;padding:6px;font-size:7px}.payment td:first-child{width:62%}.payment td:last-child{width:38%;border-left:1px solid #b9d9da}.payment p{margin:0 0 3px}.totals p{display:table;width:100%;margin:0 0 3px}.totals p span,.totals p b{display:table-cell}.totals p b{text-align:right}.total{background:#e9485b;color:#fff;padding:5px;font-size:8px;font-weight:bold}.seals{border:1px solid #d7e1e4;border-top:0}.seals td{vertical-align:top;padding:6px}.seals td:first-child{width:28%}.qr{height:100px;background:#fff;border:0;color:#0b7376;text-align:center;box-sizing:border-box;font-size:6px}.qr img{display:block;width:86px;height:86px;margin:0 auto 2px}.qr small{display:block;font-size:6px;line-height:1.1}.label{display:block;color:#0b7376;font-size:7px;font-weight:bold;margin-bottom:2px}.seal{font-family:DejaVu Sans Mono,monospace;font-size:5.3px;line-height:1.15;word-break:break-all;margin:0 0 4px}.chain{border:1px solid #d7e1e4;border-top:0;padding:5px;font-family:DejaVu Sans Mono,monospace;font-size:5.3px;line-height:1.15;word-break:break-all;margin:0}.footer{margin-top:6px;background:#e9485b;color:#fff;text-align:center;padding:4px;font-size:6.5px}tr{page-break-inside:avoid}</style></head><body><div class=\"document\">" .
+            "<table class=\"header\"><tr><td class=\"supplier\">" . $logoMarkup . "<div><b>" . $this->facturacionCfdiEsc($this->valor($cfdi, "nombre_emisor", "Artiani")) . "</b><span>RFC: " . $this->facturacionCfdiEsc($this->valor($cfdi, "rfc_emisor", "")) . "</span><span>Régimen fiscal: " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "regimen_fiscal_emisor", ""), "regimen")) . "</span><span>Lugar de expedición: " . $this->facturacionCfdiEsc($this->valor($cfdi, "lugar_expedicion", "-")) . "</span></div></td><td class=\"title\"><span>FACTURA</span><b>" . $this->facturacionCfdiEsc($folio) . "</b><small>Fecha de emisión: " . $this->facturacionCfdiEsc($this->valor($cfdi, "fecha", "-")) . "</small><small>Fecha de certificación: " . $this->facturacionCfdiEsc($this->valor($cfdi, "fecha_timbrado", "-")) . "</small></td></tr></table>" .
+            "<table class=\"split bar\"><tr><td>Receptor del comprobante fiscal</td><td>Folio fiscal</td></tr></table><table class=\"receiver\"><tr><td><b>" . $this->facturacionCfdiEsc($this->valor($cfdi, "nombre_receptor", "-")) . "</b><span>RFC: " . $this->facturacionCfdiEsc($this->valor($cfdi, "rfc_receptor", "-")) . "</span><span>Régimen fiscal: " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "regimen_fiscal_receptor", ""), "regimen")) . "</span><span>Domicilio fiscal: " . $this->facturacionCfdiEsc($this->valor($cfdi, "domicilio_fiscal_receptor", "-")) . "</span><span>Uso CFDI: " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "uso_cfdi", ""), "uso")) . "</span></td><td class=\"cert\"><b>" . $this->facturacionCfdiEsc($this->valor($cfdi, "uuid", "-")) . "</b><span>No. certificado digital: " . $this->facturacionCfdiEsc($this->valor($cfdi, "no_certificado", "-")) . "</span><span>No. certificado SAT: " . $this->facturacionCfdiEsc($this->valor($cfdi, "no_certificado_sat", "-")) . "</span></td></tr></table>" .
+            "<table class=\"items\"><thead><tr><th>Cantidad</th><th>Unidad</th><th>Descripción</th><th>Precio</th><th>Descuento</th><th>Importe</th></tr></thead><tbody>" . $filas . "</tbody></table>" .
+            "<div class=\"bar\">Información de pago y totales</div><table class=\"payment\"><tr><td><p><b>Lugar de expedición:</b> " . $this->facturacionCfdiEsc($this->valor($cfdi, "lugar_expedicion", "-")) . "</p><p><b>Forma de pago:</b> " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "forma_pago", ""), "forma")) . "</p><p><b>Método de pago:</b> " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "metodo_pago", ""), "metodo")) . "</p><p><b>Moneda:</b> " . $this->facturacionCfdiEsc($moneda) . " · Tipo de cambio: " . $this->facturacionCfdiEsc($this->valor($cfdi, "tipo_cambio", "1")) . "</p></td><td class=\"totals\"><p><span>Subtotal</span><b>" . $this->facturacionCfdiMonto($this->valor($cfdi, "subtotal", 0), $moneda) . "</b></p><p><span>Descuento</span><b>" . $this->facturacionCfdiMonto($this->valor($cfdi, "descuento", 0), $moneda) . "</b></p><p><span>Impuestos</span><b>" . $this->facturacionCfdiMonto($this->valor($cfdi, "impuestos_total", 0), $moneda) . "</b></p><p class=\"total\"><span>Total</span><b>" . $this->facturacionCfdiMonto($this->valor($cfdi, "total", 0), $moneda) . "</b></p></td></tr></table>" .
+            "<table class=\"split bar\"><tr><td>Código de verificación SAT</td><td>Sellos digitales</td></tr></table><table class=\"seals\"><tr><td><div class=\"qr\">" . $qrMarkup . "</div></td><td><span class=\"label\">Sello digital del CFDI</span><p class=\"seal\">" . $this->facturacionCfdiEsc($selloCfdi) . "</p><span class=\"label\">Sello digital del SAT</span><p class=\"seal\">" . $this->facturacionCfdiEsc($selloSat) . "</p></td></tr></table><div class=\"bar\">Cadena original del complemento de certificación digital del SAT</div><p class=\"chain\">" . $this->facturacionCfdiEsc($cadena) . "</p><div class=\"footer\">Este documento es una representación impresa de un CFDI · Versión " . $this->facturacionCfdiEsc($this->valor($cfdi, "version", "4.0")) . "</div></div></body></html>";
+        $html = str_replace("</style></head>", ".header{border-bottom-color:#0b7376}.brand-mark b{color:#0b7376}.title b{color:#0b7376}.split td:first-child{background:#0b7376}.footer{background:#0b7376}.totals{box-sizing:border-box;overflow:hidden}.total{width:100%;box-sizing:border-box;margin-left:0;margin-right:0}</style></head>", $html);
+        require_once dirname(__DIR__) . "/helpers/PDF/autoload.inc.php";
+        $options = new \Dompdf\Options();
+        $options->set("isRemoteEnabled", true);
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->loadHtml($html, "UTF-8");
+        $dompdf->setPaper("letter", "portrait");
+        $dompdf->render();
+        $uuid = preg_replace("/[^A-Za-z0-9_-]/", "", (string) $this->valor($cfdi, "uuid", $this->valor($documento, "id_documento_fiscal", "cfdi")));
+        $directorioRelativo = "storage/erp/ventas/fiscales/";
+        $directorio = dirname(__DIR__, 2) . "/" . $directorioRelativo;
+        if (!is_dir($directorio) && !mkdir($directorio, 0775, true)) { throw new Exception("No se pudo preparar el directorio fiscal"); }
+        $nombre = ($uuid !== "" ? $uuid : "cfdi_" . intval($this->valor($documento, "id_documento_fiscal", 0))) . ".pdf";
+        $rutaAbsoluta = $directorio . $nombre;
+        if (file_put_contents($rutaAbsoluta, $dompdf->output()) === false) { throw new Exception("No se pudo conservar el PDF"); }
+        return array("ruta_absoluta" => $rutaAbsoluta, "ruta_relativa" => $directorioRelativo . $nombre, "nombre" => $nombre);
+    }
+
+    private function facturacionCfdiParsearContenidoInterno($contenido) {
+        require_once __DIR__ . "/ComprasXmlErp.php";
+        $parser = new ComprasXmlErp();
+        return $parser->parsearContenido($contenido);
     }
 
     /**

@@ -123,7 +123,7 @@ $gruposMenu = array(
         'seccion' => 'ERP',
         'titulo' => 'Ventas y POS',
         'icono' => 'bi-receipt',
-        'permiso' => 'ventas.ver',
+        'permiso' => array('ventas.ver', 'finanzas.ver'),
         'items' => array(
             array('titulo' => 'Tablero de ventas', 'ruta' => '/ventas/mostrar', 'permiso' => 'ventas.ver'),
             array('titulo' => 'POS', 'ruta' => '/ventas/pos', 'permiso' => 'ventas.operar'),
@@ -133,7 +133,8 @@ $gruposMenu = array(
             array('titulo' => 'Carga historica', 'ruta' => '/ventas/carga_historica', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Correcciones historicas', 'ruta' => '/ventas/correcciones_historicas', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver'),
-            array('titulo' => 'Facturacion y cotizaciones', 'ruta' => '/ventas/facturacion_cotizaciones', 'permiso' => array('ventas.ver', 'finanzas.ver')),
+            array('titulo' => 'Cotizaciones', 'ruta' => '/ventas/cotizaciones', 'permiso' => array('ventas.ver', 'catalogo.ver')),
+            array('titulo' => 'Facturacion documental', 'ruta' => '/ventas/facturacion_cotizaciones', 'permiso' => array('ventas.ver', 'finanzas.ver')),
             array('titulo' => 'Envios foraneos', 'ruta' => '/ventas/envios_foraneos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver'),

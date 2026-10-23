@@ -293,6 +293,8 @@ Reglas actuales:
 - `agotado` se envía como `out of stock`.
 - `consultar_disponibilidad` no se envía.
 - Se excluyen fichas sin SKU, título, descripción pública, precio positivo, marca, URL o imagen.
+- Las rutas relativas de `erp_catalogo_imagenes` se convierten al host público de archivos `https://sys.artiani.com.mx`; no se antepone `https://artiani.com.mx` a imágenes ERP.
+- La auditoría productiva del 2026-10-23 encontró 1,572 URLs con imagen: 1,564 accesibles como imagen y 8 redirigidas al login; las 8 quedan excluidas del archivo validado.
 - `quantity_to_sell_on_facebook` queda vacío para no publicar existencias exactas.
 - `google_product_category` se asigna solo cuando una regla de producto/categoría ofrece una coincidencia razonable; los demás quedan vacíos para revisión.
 
