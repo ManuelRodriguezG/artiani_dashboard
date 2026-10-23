@@ -1,0 +1,3233 @@
+[
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-10030",
+      "nombre": "PERA-10030",
+      "proveedor": "",
+      "largo": 102.3,
+      "fondo": 30.0,
+      "alto": 30.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-10030. Hojas origen: Pedido, Pedido 15, Pedido 16, Pedido 17, Pedido 18, Pedido 2, Pedido 22, Pedido 27, Pedido 4, Pedido 5. Variantes conservadas: 8.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-10030"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          102.3,
+          30.0,
+          4.0
+        ],
+        [
+          "Frontal",
+          102.3,
+          30.0,
+          6.0
+        ],
+        [
+          "Frontal",
+          102.3,
+          30.0,
+          10.0
+        ],
+        [
+          "Lateral",
+          30.0,
+          25.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          30.0,
+          25.0,
+          9.0
+        ],
+        [
+          "Piso",
+          101.1,
+          25.0,
+          4.0
+        ],
+        [
+          "Piso",
+          101.1,
+          25.0,
+          6.0
+        ],
+        [
+          "Piso",
+          101.1,
+          25.0,
+          9.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 102.3,
+        "ancho": 30.0,
+        "espesor": 10.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 30.0,
+        "ancho": 25.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 101.1,
+        "ancho": 25.0,
+        "espesor": 9.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-10050",
+      "nombre": "PERA-10050",
+      "proveedor": "",
+      "largo": 102.3,
+      "fondo": 50.0,
+      "alto": 50.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-10050. Hojas origen: Pedido, Pedido 13, Pedido 14, Pedido 15, Pedido 2, Pedido 2-6mm, Pedido 21, Pedido 24, Pedido 4, Pedido 5, Pedido 8. Variantes conservadas: 8.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-10050"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          102.3,
+          50.0,
+          6.0
+        ],
+        [
+          "Frontal",
+          102.3,
+          50.0,
+          10.0
+        ],
+        [
+          "Frontal",
+          102.3,
+          50.0,
+          12.0
+        ],
+        [
+          "Lateral",
+          25.0,
+          50.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          25.0,
+          50.0,
+          12.0
+        ],
+        [
+          "Piso",
+          101.1,
+          25.0,
+          3.0
+        ],
+        [
+          "Piso",
+          101.1,
+          25.0,
+          4.0
+        ],
+        [
+          "Piso",
+          101.1,
+          25.0,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 102.3,
+        "ancho": 50.0,
+        "espesor": 12.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 25.0,
+        "ancho": 50.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 101.1,
+        "ancho": 25.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-12040",
+      "nombre": "PERA-12040",
+      "proveedor": "",
+      "largo": 123.8,
+      "fondo": 50.0,
+      "alto": 50.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-12240. Hojas origen: Pedido 2-6mm. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-12240"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          123.8,
+          50.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          30.4,
+          6.0
+        ],
+        [
+          "Piso",
+          122.6,
+          30.4,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 123.8,
+        "ancho": 50.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 50.0,
+        "ancho": 30.4,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 122.6,
+        "ancho": 30.4,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-12050",
+      "nombre": "PERA-12050",
+      "proveedor": "",
+      "largo": 123.8,
+      "fondo": 50.0,
+      "alto": 50.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-12250. Hojas origen: Pedido 11, Pedido 14, Pedido 16, Pedido 2, Pedido 2-6mm, Pedido 20, Pedido 22, Pedido 4, Pedido 5, Pedido 6, Pedido 9. Variantes conservadas: 11.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-12250"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          123.8,
+          50.0,
+          6.0
+        ],
+        [
+          "Frontal",
+          123.8,
+          50.0,
+          10.0
+        ],
+        [
+          "Frontal",
+          123.8,
+          50.0,
+          12.0
+        ],
+        [
+          "Lateral",
+          30.0,
+          30.4,
+          6.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          30.4,
+          6.0
+        ],
+        [
+          "Piso",
+          122.6,
+          30.4,
+          3.0
+        ],
+        [
+          "Piso",
+          122.6,
+          30.4,
+          4.0
+        ],
+        [
+          "Piso",
+          122.6,
+          30.4,
+          5.0
+        ],
+        [
+          "Piso",
+          122.6,
+          30.4,
+          6.0
+        ],
+        [
+          "Respaldo",
+          123.8,
+          30.0,
+          3.0
+        ],
+        [
+          "Sustrato",
+          123.8,
+          10.0,
+          4.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 123.8,
+        "ancho": 50.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 50.0,
+        "ancho": 30.4,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 122.6,
+        "ancho": 30.4,
+        "espesor": 5.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Respaldo",
+        "largo": 123.8,
+        "ancho": 30.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Sustrato",
+        "largo": 123.8,
+        "ancho": 10.0,
+        "espesor": 4.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-1515",
+      "nombre": "PERA-1515",
+      "proveedor": "",
+      "largo": 15.8,
+      "fondo": 15.0,
+      "alto": 15.0,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-1515. Hojas origen: Pedido 10, Pedido 14, Pedido 15, Pedido 2-3mm, Pedido 3. Variantes conservadas: 5.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-1515"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          15.8,
+          15.0,
+          3.0
+        ],
+        [
+          "Frontal",
+          15.8,
+          15.2,
+          3.0
+        ],
+        [
+          "Lateral",
+          15.0,
+          10.4,
+          3.0
+        ],
+        [
+          "Lateral",
+          15.2,
+          10.4,
+          3.0
+        ],
+        [
+          "Piso",
+          15.2,
+          10.4,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 15.8,
+        "ancho": 15.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 15.0,
+        "ancho": 10.4,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 15.2,
+        "ancho": 10.4,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-2020",
+      "nombre": "PERA-2020",
+      "proveedor": "",
+      "largo": 22.9,
+      "fondo": 20.0,
+      "alto": 20.0,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-2020. Hojas origen: Pedido 14, Pedido 19, Pedido 2-3mm, Pedido 26, Pedido 3. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-2020"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          22.9,
+          20.0,
+          3.0
+        ],
+        [
+          "Lateral",
+          20.0,
+          11.0,
+          3.0
+        ],
+        [
+          "Piso",
+          22.3,
+          11.0,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 22.9,
+        "ancho": 20.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 20.0,
+        "ancho": 11.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 22.3,
+        "ancho": 11.0,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-3020",
+      "nombre": "PERA-3020",
+      "proveedor": "",
+      "largo": 29.9,
+      "fondo": 20.0,
+      "alto": 20.0,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-3020. Hojas origen: Pedido 12, Pedido 14, Pedido 15, Pedido 18, Pedido 25, Pedido 3, Pedido 5, Pedido 9. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-3020"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          29.9,
+          20.0,
+          3.0
+        ],
+        [
+          "Lateral",
+          20.0,
+          14.2,
+          3.0
+        ],
+        [
+          "Piso",
+          29.3,
+          14.2,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 29.9,
+        "ancho": 20.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 20.0,
+        "ancho": 14.2,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 29.3,
+        "ancho": 14.2,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-3040",
+      "nombre": "PERA-3040",
+      "proveedor": "",
+      "largo": 40.0,
+      "fondo": 40.0,
+      "alto": 29.9,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-3040. Hojas origen: Pedido 14, Pedido 8. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-3040"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          29.9,
+          40.0,
+          3.0
+        ],
+        [
+          "Lateral",
+          40.0,
+          14.2,
+          3.0
+        ],
+        [
+          "Piso",
+          29.3,
+          14.2,
+          10.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 29.9,
+        "ancho": 40.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 40.0,
+        "ancho": 14.2,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 29.3,
+        "ancho": 14.2,
+        "espesor": 10.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-4025",
+      "nombre": "PERA-4025",
+      "proveedor": "",
+      "largo": 40.4,
+      "fondo": 25.0,
+      "alto": 25.0,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-4025. Hojas origen: Pedido 14, Pedido 15, Pedido 16, Pedido 17, Pedido 18, Pedido 2, Pedido 2-3mm, Pedido 23, Pedido 26, Pedido 3, Pedido 6, Pedido 9. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-4025"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          40.4,
+          25.0,
+          3.0
+        ],
+        [
+          "Lateral",
+          25.0,
+          20.0,
+          3.0
+        ],
+        [
+          "Piso",
+          39.8,
+          20.0,
+          12.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 40.4,
+        "ancho": 25.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 25.0,
+        "ancho": 20.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 39.8,
+        "ancho": 20.0,
+        "espesor": 12.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-4040",
+      "nombre": "PERA-4040",
+      "proveedor": "",
+      "largo": 40.4,
+      "fondo": 40.0,
+      "alto": 40.0,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-4040. Hojas origen: Pedido 17, Pedido 18, Pedido 4, Pedido 9. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-4040"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          40.4,
+          40.0,
+          3.0
+        ],
+        [
+          "Lateral",
+          40.0,
+          20.0,
+          3.0
+        ],
+        [
+          "Piso",
+          39.8,
+          20.0,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 40.4,
+        "ancho": 40.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 40.0,
+        "ancho": 20.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 39.8,
+        "ancho": 20.0,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-5030",
+      "nombre": "PERA-5030",
+      "proveedor": "",
+      "largo": 50.8,
+      "fondo": 30.0,
+      "alto": 30.0,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-5030. Hojas origen: Pedido 12, Pedido 14, Pedido 15, Pedido 16, Pedido 18, Pedido 19, Pedido 2, Pedido 2-3mm, Pedido 22, Pedido 23, Pedido 25, Pedido 27, Pedido 3, Pedido 6, Pedido 8, Pedido 9. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-5030"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          50.8,
+          30.0,
+          3.0
+        ],
+        [
+          "Lateral",
+          30.0,
+          25.3,
+          3.0
+        ],
+        [
+          "Piso",
+          50.2,
+          25.3,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 50.8,
+        "ancho": 30.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 30.0,
+        "ancho": 25.3,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 50.2,
+        "ancho": 25.3,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-5050",
+      "nombre": "PERA-5050",
+      "proveedor": "",
+      "largo": 50.8,
+      "fondo": 50.0,
+      "alto": 50.0,
+      "espesor": 10.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-5050. Hojas origen: Pedido 13, Pedido 15, Pedido 18, Pedido 2-6mm, Pedido 9. Variantes conservadas: 11.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-5050"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          50.8,
+          50.0,
+          6.0
+        ],
+        [
+          "Frontal",
+          50.8,
+          50.0,
+          9.0
+        ],
+        [
+          "Frontal",
+          50.8,
+          50.0,
+          10.0
+        ],
+        [
+          "Frontal",
+          50.8,
+          50.0,
+          12.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          24.7,
+          5.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          24.7,
+          6.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          24.7,
+          10.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          24.7,
+          12.0
+        ],
+        [
+          "Piso",
+          49.6,
+          24.7,
+          4.0
+        ],
+        [
+          "Piso",
+          49.6,
+          24.7,
+          5.0
+        ],
+        [
+          "Piso",
+          49.6,
+          24.7,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 50.8,
+        "ancho": 50.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 50.0,
+        "ancho": 24.7,
+        "espesor": 10.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 49.6,
+        "ancho": 24.7,
+        "espesor": 5.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-5060",
+      "nombre": "PERA-5060",
+      "proveedor": "",
+      "largo": 60.0,
+      "fondo": 60.0,
+      "alto": 50.8,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-5060. Hojas origen: Pedido 18, Pedido 4, Pedido 5. Variantes conservadas: 5.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-5060"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          50.8,
+          60.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          60.0,
+          24.7,
+          6.0
+        ],
+        [
+          "Piso",
+          49.6,
+          24.7,
+          3.0
+        ],
+        [
+          "Piso",
+          49.6,
+          24.7,
+          4.0
+        ],
+        [
+          "Piso",
+          49.6,
+          24.7,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 50.8,
+        "ancho": 60.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 60.0,
+        "ancho": 24.7,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 49.6,
+        "ancho": 24.7,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-6035",
+      "nombre": "PERA-6035",
+      "proveedor": "",
+      "largo": 60.5,
+      "fondo": 38.0,
+      "alto": 35.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-604035. Hojas origen: Pedido 25. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-604035"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          35.0,
+          60.5,
+          10.0
+        ],
+        [
+          "Lateral",
+          35.0,
+          38.0,
+          6.0
+        ],
+        [
+          "Piso",
+          59.5,
+          38.0,
+          5.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 35.0,
+        "ancho": 60.5,
+        "espesor": 10.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 35.0,
+        "ancho": 38.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 59.5,
+        "ancho": 38.0,
+        "espesor": 5.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-6040",
+      "nombre": "PERA-6040",
+      "proveedor": "",
+      "largo": 60.5,
+      "fondo": 40.0,
+      "alto": 40.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-6040. Hojas origen: Pedido 25. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-6040"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          40.0,
+          60.5,
+          6.0
+        ],
+        [
+          "Lateral",
+          40.0,
+          28.8,
+          6.0
+        ],
+        [
+          "Piso",
+          59.5,
+          28.8,
+          5.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 40.0,
+        "ancho": 60.5,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 40.0,
+        "ancho": 28.8,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 59.5,
+        "ancho": 28.8,
+        "espesor": 5.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-6050",
+      "nombre": "PERA-6050",
+      "proveedor": "",
+      "largo": 60.5,
+      "fondo": 50.0,
+      "alto": 50.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-6050. Hojas origen: Pedido 15, Pedido 2, Pedido 2-6mm, Pedido 21, Pedido 9. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-6050"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          50.0,
+          60.5,
+          6.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          28.8,
+          6.0
+        ],
+        [
+          "Piso",
+          59.5,
+          28.8,
+          4.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 50.0,
+        "ancho": 60.5,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 50.0,
+        "ancho": 28.8,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 59.5,
+        "ancho": 28.8,
+        "espesor": 4.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-6060",
+      "nombre": "PERA-6060",
+      "proveedor": "",
+      "largo": 60.5,
+      "fondo": 60.0,
+      "alto": 60.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-6060. Hojas origen: Pedido 15, Pedido 2, Pedido 2-6mm, Pedido 21, Pedido 9. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-6060"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          60.0,
+          60.5,
+          6.0
+        ],
+        [
+          "Lateral",
+          60.0,
+          28.8,
+          6.0
+        ],
+        [
+          "Piso",
+          59.5,
+          28.8,
+          4.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 60.0,
+        "ancho": 60.5,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 60.0,
+        "ancho": 28.8,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 59.5,
+        "ancho": 28.8,
+        "espesor": 4.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-8035",
+      "nombre": "PERA-8035",
+      "proveedor": "",
+      "largo": 80.0,
+      "fondo": 38.1,
+      "alto": 35.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-8035. Hojas origen: Pedido 18, Pedido 19, Pedido 20, Pedido 21, Pedido 22, Pedido 24, Pedido 27. Variantes conservadas: 9.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-8035"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          35.0,
+          80.0,
+          6.0
+        ],
+        [
+          "Frontal",
+          35.0,
+          80.0,
+          10.0
+        ],
+        [
+          "Frontal",
+          35.0,
+          80.0,
+          12.0
+        ],
+        [
+          "Lateral",
+          38.1,
+          35.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          38.1,
+          35.0,
+          10.0
+        ],
+        [
+          "Lateral",
+          38.1,
+          35.0,
+          12.0
+        ],
+        [
+          "Piso",
+          38.1,
+          78.8,
+          4.0
+        ],
+        [
+          "Piso",
+          38.1,
+          78.8,
+          5.0
+        ],
+        [
+          "Piso",
+          38.1,
+          78.8,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 35.0,
+        "ancho": 80.0,
+        "espesor": 10.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 38.1,
+        "ancho": 35.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 38.1,
+        "ancho": 78.8,
+        "espesor": 4.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-8050",
+      "nombre": "PERA-8050",
+      "proveedor": "",
+      "largo": 80.0,
+      "fondo": 50.0,
+      "alto": 50.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-8050. Hojas origen: Pedido 10, Pedido 15, Pedido 16, Pedido 18, Pedido 25. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-8050"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          50.0,
+          80.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          38.1,
+          50.0,
+          6.0
+        ],
+        [
+          "Piso",
+          38.1,
+          78.8,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 50.0,
+        "ancho": 80.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 38.1,
+        "ancho": 50.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 38.1,
+        "ancho": 78.8,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-B10025",
+      "nombre": "PERA-B10025",
+      "proveedor": "",
+      "largo": 118.0,
+      "fondo": 25.0,
+      "alto": 25.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-B10025. Hojas origen: Pedido 6. Variantes conservadas: 4.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-B10025"
+      ],
+      "variantes_historicas": [
+        [
+          "Division",
+          116.6,
+          24.0,
+          6.0
+        ],
+        [
+          "Frontal",
+          118.0,
+          25.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          25.0,
+          25.0,
+          6.0
+        ],
+        [
+          "Piso",
+          116.25,
+          25.0,
+          4.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Division",
+        "largo": 116.6,
+        "ancho": 24.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Frontal",
+        "largo": 118.0,
+        "ancho": 25.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 25.0,
+        "ancho": 25.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 116.25,
+        "ancho": 25.0,
+        "espesor": 4.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-B4020",
+      "nombre": "PERA-B4020",
+      "proveedor": "",
+      "largo": 60,
+      "fondo": 20.0,
+      "alto": 40,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: PERA-B4020D, PERA-B4020L. Hojas origen: Pedido 18, Pedido 2-3mm, Pedido 24, Pedido 25, Pedido 3. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "PERA-B4020D",
+        "PERA-B4020L"
+      ],
+      "variantes_historicas": [
+        [
+          "Division",
+          20.0,
+          10.3,
+          0
+        ],
+        [
+          "Division",
+          20.0,
+          10.3,
+          3.0
+        ],
+        [
+          "Lateral",
+          20.0,
+          10.7,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Division",
+        "largo": 20.0,
+        "ancho": 10.3,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 20.0,
+        "ancho": 10.7,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C2212",
+      "nombre": "PERA-C2212",
+      "proveedor": "",
+      "largo": 21.1,
+      "fondo": 21.1,
+      "alto": 21.1,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: PERA-CT2012L, PERA-CT2012P. Hojas origen: Pedido 15, Pedido 18, Pedido 23, Pedido 9. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "PERA-CT2012L",
+        "PERA-CT2012P"
+      ],
+      "variantes_historicas": [
+        [
+          "Lateral",
+          12.0,
+          21.1,
+          3.0
+        ],
+        [
+          "Piso",
+          21.1,
+          21.1,
+          3.0
+        ],
+        [
+          "Piso",
+          21.1,
+          21.1,
+          10.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Lateral",
+        "largo": 12.0,
+        "ancho": 21.1,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 21.1,
+        "ancho": 21.1,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C2222",
+      "nombre": "PERA-C2222",
+      "proveedor": "",
+      "largo": 21.1,
+      "fondo": 22.0,
+      "alto": 21.1,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: PERA-C2020L, PERA-C2020P. Hojas origen: Pedido 14, Pedido 15, Pedido 18, Pedido 19, Pedido 2-3mm, Pedido 23, Pedido 25, Pedido 3, Pedido 9. Variantes conservadas: 5.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "PERA-C2020L",
+        "PERA-C2020P"
+      ],
+      "variantes_historicas": [
+        [
+          "Lateral",
+          22.0,
+          21.1,
+          3.0
+        ],
+        [
+          "Lateral",
+          22.0,
+          21.1,
+          10.0
+        ],
+        [
+          "Piso",
+          21.1,
+          21.1,
+          3.0
+        ],
+        [
+          "Piso",
+          21.1,
+          21.1,
+          5.0
+        ],
+        [
+          "Piso",
+          21.1,
+          21.1,
+          10.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Lateral",
+        "largo": 22.0,
+        "ancho": 21.1,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 21.1,
+        "ancho": 21.1,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C2240",
+      "nombre": "PERA-C2240",
+      "proveedor": "",
+      "largo": 21.1,
+      "fondo": 40.0,
+      "alto": 21.1,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: PERA-C2040L, PERA-C2040P. Hojas origen: Pedido 14, Pedido 17, Pedido 18, Pedido 2-3mm, Pedido 26, Pedido 3, Pedido 4, Pedido 9. Variantes conservadas: 6.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "PERA-C2040L",
+        "PERA-C2040P"
+      ],
+      "variantes_historicas": [
+        [
+          "Lateral",
+          40.0,
+          21.1,
+          3.0
+        ],
+        [
+          "Lateral",
+          40.0,
+          21.1,
+          6.0
+        ],
+        [
+          "Lateral",
+          40.0,
+          21.1,
+          10.0
+        ],
+        [
+          "Piso",
+          21.1,
+          21.1,
+          3.0
+        ],
+        [
+          "Piso",
+          21.1,
+          21.1,
+          5.0
+        ],
+        [
+          "Piso",
+          21.1,
+          21.1,
+          12.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Lateral",
+        "largo": 40.0,
+        "ancho": 21.1,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 21.1,
+        "ancho": 21.1,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C3030",
+      "nombre": "PERA-C3030",
+      "proveedor": "",
+      "largo": 30.0,
+      "fondo": 30.0,
+      "alto": 29.4,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-C3030. Hojas origen: Pedido 15, Pedido 18, Pedido 19, Pedido 21, Pedido 27, Pedido 9. Variantes conservadas: 4.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-C3030"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          29.4,
+          30.0,
+          3.0
+        ],
+        [
+          "Lateral",
+          30.0,
+          28.8,
+          3.0
+        ],
+        [
+          "Piso",
+          28.8,
+          28.8,
+          3.0
+        ],
+        [
+          "Piso",
+          28.8,
+          28.8,
+          10.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 29.4,
+        "ancho": 30.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 30.0,
+        "ancho": 28.8,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 28.8,
+        "ancho": 28.8,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C3050",
+      "nombre": "PERA-C3050",
+      "proveedor": "",
+      "largo": 50.8,
+      "fondo": 50.8,
+      "alto": 29.4,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: PEC-3050, Pec-3050. Hojas origen: Pedido 2, Pedido 2- 4mm, Pedido 2-3mm, Pedido 26, Pedido 27, Pedido 3, Pedido 4, Pedido 9. Variantes conservadas: 12.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "PEC-3050",
+        "Pec-3050"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          29.4,
+          50.0,
+          3.0
+        ],
+        [
+          "Frontal",
+          50.0,
+          29.4,
+          3.0
+        ],
+        [
+          "Frontal",
+          50.0,
+          29.4,
+          5.0
+        ],
+        [
+          "Frontal",
+          50.8,
+          29.4,
+          3.0
+        ],
+        [
+          "Frontal",
+          50.8,
+          29.4,
+          12.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          28.6,
+          3.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          28.8,
+          3.0
+        ],
+        [
+          "Lateral",
+          50.8,
+          28.8,
+          3.0
+        ],
+        [
+          "Piso",
+          28.6,
+          28.6,
+          3.0
+        ],
+        [
+          "Piso",
+          28.8,
+          28.8,
+          3.0
+        ],
+        [
+          "Piso",
+          28.8,
+          28.8,
+          5.0
+        ],
+        [
+          "Piso",
+          28.8,
+          28.8,
+          10.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 50.8,
+        "ancho": 29.4,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 50.8,
+        "ancho": 28.8,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 28.8,
+        "ancho": 28.8,
+        "espesor": 5.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C4040",
+      "nombre": "PERA-C4040",
+      "proveedor": "",
+      "largo": 40.0,
+      "fondo": 40.0,
+      "alto": 39.3,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-C4040. Hojas origen: Pedido 2-6mm, Pedido 24. Variantes conservadas: 4.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-C4040"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          40.0,
+          39.2,
+          6.0
+        ],
+        [
+          "Frontal",
+          40.0,
+          39.3,
+          6.0
+        ],
+        [
+          "Lateral",
+          40.0,
+          38.0,
+          6.0
+        ],
+        [
+          "Piso",
+          38.0,
+          38.0,
+          3.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 40.0,
+        "ancho": 39.3,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 40.0,
+        "ancho": 38.0,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 38.0,
+        "ancho": 38.0,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C4050",
+      "nombre": "PERA-C4050",
+      "proveedor": "",
+      "largo": 50.0,
+      "fondo": 50.0,
+      "alto": 39.3,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-C4050. Hojas origen: Pedido 2-6mm, Pedido 24. Variantes conservadas: 6.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-C4050"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          50.0,
+          39.2,
+          6.0
+        ],
+        [
+          "Frontal",
+          50.0,
+          39.3,
+          6.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          38.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          38.1,
+          6.0
+        ],
+        [
+          "Piso",
+          38.0,
+          38.0,
+          3.0
+        ],
+        [
+          "Piso",
+          38.1,
+          38.1,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 50.0,
+        "ancho": 39.3,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 50.0,
+        "ancho": 38.1,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 38.1,
+        "ancho": 38.1,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C4060",
+      "nombre": "PERA-C4060",
+      "proveedor": "",
+      "largo": 60.0,
+      "fondo": 60.0,
+      "alto": 39.3,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-4060, Pec-C4060. Hojas origen: Pedido 2, Pedido 2-6mm, Pedido 24, Pedido 5. Variantes conservadas: 7.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-4060",
+        "Pec-C4060"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          60.0,
+          39.2,
+          6.0
+        ],
+        [
+          "Frontal",
+          60.0,
+          39.3,
+          6.0
+        ],
+        [
+          "Lateral",
+          60.0,
+          38.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          60.0,
+          38.1,
+          6.0
+        ],
+        [
+          "Piso",
+          38.0,
+          38.0,
+          4.0
+        ],
+        [
+          "Piso",
+          38.1,
+          38.1,
+          3.0
+        ],
+        [
+          "Piso",
+          38.1,
+          38.1,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 60.0,
+        "ancho": 39.3,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 60.0,
+        "ancho": 38.1,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 38.1,
+        "ancho": 38.1,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-C5040",
+      "nombre": "PERA-C5040",
+      "proveedor": "",
+      "largo": 49.4,
+      "fondo": 48.6,
+      "alto": 40.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: PERA-C5040. Hojas origen: Pedido 15, Pedido 18, Pedido 20. Variantes conservadas: 8.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "PERA-C5040"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          49.4,
+          40.0,
+          5.0
+        ],
+        [
+          "Frontal",
+          49.4,
+          40.0,
+          6.0
+        ],
+        [
+          "Frontal",
+          49.8,
+          40.0,
+          6.0
+        ],
+        [
+          "Latera",
+          48.6,
+          40.0,
+          4.0
+        ],
+        [
+          "Latera",
+          48.6,
+          40.0,
+          6.0
+        ],
+        [
+          "Piso",
+          48.6,
+          48.6,
+          3.0
+        ],
+        [
+          "Piso",
+          48.6,
+          48.6,
+          4.0
+        ],
+        [
+          "Piso",
+          48.6,
+          48.6,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 49.4,
+        "ancho": 40.0,
+        "espesor": 5.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Latera",
+        "largo": 48.6,
+        "ancho": 40.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 48.6,
+        "ancho": 48.6,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-H3850",
+      "nombre": "PERA-H3850",
+      "proveedor": "",
+      "largo": 41.0,
+      "fondo": 50.0,
+      "alto": 35.1,
+      "espesor": 4.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: PERA-H3850. Hojas origen: Pedido 15, Pedido 19. Variantes conservadas: 3.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "PERA-H3850"
+      ],
+      "variantes_historicas": [
+        [
+          "Lateral",
+          50.0,
+          20.6,
+          4.0
+        ],
+        [
+          "Piso",
+          41.0,
+          35.1,
+          3.0
+        ],
+        [
+          "Piso",
+          41.0,
+          35.1,
+          4.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Lateral",
+        "largo": 50.0,
+        "ancho": 20.6,
+        "espesor": 4.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 41.0,
+        "ancho": 35.1,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-P5030",
+      "nombre": "PERA-P5030",
+      "proveedor": "",
+      "largo": 58.0,
+      "fondo": 30.0,
+      "alto": 30.0,
+      "espesor": 4.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-p5030. Hojas origen: Pedido 11, Pedido 12, Pedido 2, Pedido 24, Pedido 4. Variantes conservadas: 9.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-p5030"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          58.0,
+          30.0,
+          4.0
+        ],
+        [
+          "Frontal",
+          58.0,
+          30.0,
+          10.0
+        ],
+        [
+          "Lateral",
+          30.0,
+          24.7,
+          4.0
+        ],
+        [
+          "Piso",
+          51.7,
+          38.0,
+          4.0
+        ],
+        [
+          "Piso",
+          51.7,
+          38.0,
+          6.0
+        ],
+        [
+          "Piso",
+          51.7,
+          38.0,
+          9.0
+        ],
+        [
+          "Respaldo",
+          52.5,
+          30.0,
+          6.0
+        ],
+        [
+          "Respaldo",
+          52.5,
+          30.0,
+          10.0
+        ],
+        [
+          "Respaldo",
+          52.5,
+          30.0,
+          12.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 58.0,
+        "ancho": 30.0,
+        "espesor": 4.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 30.0,
+        "ancho": 24.7,
+        "espesor": 4.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 51.7,
+        "ancho": 38.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Respaldo",
+        "largo": 52.5,
+        "ancho": 30.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-P5050",
+      "nombre": "PERA-P5050",
+      "proveedor": "",
+      "largo": 58.0,
+      "fondo": 50.0,
+      "alto": 50.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-p5050. Hojas origen: Pedido 17, Pedido 21, Pedido 8. Variantes conservadas: 5.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-p5050"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          58.0,
+          50.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          50.0,
+          24.5,
+          6.0
+        ],
+        [
+          "Piso",
+          51.4,
+          38.0,
+          5.0
+        ],
+        [
+          "Piso",
+          51.4,
+          38.0,
+          6.0
+        ],
+        [
+          "Respaldo",
+          52.6,
+          50.0,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 58.0,
+        "ancho": 50.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 50.0,
+        "ancho": 24.5,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 51.4,
+        "ancho": 38.0,
+        "espesor": 5.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Respaldo",
+        "largo": 52.6,
+        "ancho": 50.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "PERA-P5060",
+      "nombre": "PERA-P5060",
+      "proveedor": "",
+      "largo": 60.0,
+      "fondo": 60.0,
+      "alto": 58.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-p5060. Hojas origen: Pedido 17, Pedido 21, Pedido 8. Variantes conservadas: 5.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-p5060"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          58.0,
+          60.0,
+          6.0
+        ],
+        [
+          "Lateral",
+          60.0,
+          24.5,
+          6.0
+        ],
+        [
+          "Lateral",
+          60.0,
+          24.5,
+          12.0
+        ],
+        [
+          "Piso",
+          51.4,
+          38.0,
+          6.0
+        ],
+        [
+          "Respaldo",
+          52.6,
+          60.0,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 58.0,
+        "ancho": 60.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 60.0,
+        "ancho": 24.5,
+        "espesor": 12.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 51.4,
+        "ancho": 38.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Respaldo",
+        "largo": 52.6,
+        "ancho": 60.0,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "TORO-3020",
+      "nombre": "TORO-3020",
+      "proveedor": "",
+      "largo": 29.4,
+      "fondo": 28.8,
+      "alto": 20.0,
+      "espesor": 3.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: Pec-T3020. Hojas origen: Pedido 15, Pedido 18, Pedido 23, Pedido 9. Variantes conservadas: 4.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "Pec-T3020"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          29.4,
+          20.0,
+          3.0
+        ],
+        [
+          "Lateral",
+          20.0,
+          28.8,
+          3.0
+        ],
+        [
+          "Piso",
+          28.8,
+          28.8,
+          3.0
+        ],
+        [
+          "Piso",
+          28.8,
+          28.8,
+          10.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 29.4,
+        "ancho": 20.0,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 20.0,
+        "ancho": 28.8,
+        "espesor": 3.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 28.8,
+        "ancho": 28.8,
+        "espesor": 3.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  },
+  {
+    "datos": {
+      "id": 0,
+      "codigo": "TORO-6030",
+      "nombre": "TORO-6030",
+      "proveedor": "",
+      "largo": 60.5,
+      "fondo": 30.0,
+      "alto": 30.0,
+      "espesor": 6.0,
+      "cantidad": 1,
+      "base": "interior",
+      "holgura": 2,
+      "descuento_corte": 2,
+      "refuerzos": "ninguno",
+      "refuerzo_ancho": 5,
+      "tapa": "no",
+      "tapa_piezas": 1,
+      "costo_m2": 0,
+      "costo_corte": 0,
+      "observaciones": "Importado del historial de pedidos. Alias historicos: PEC-T6030. Hojas origen: Pedido 12, Pedido 15, Pedido 17, Pedido 18, Pedido 19, Pedido 2, Pedido 2- 4mm, Pedido 21, Pedido 22, Pedido 23, Pedido 24, Pedido 25, Pedido 26, Pedido 27, Pedido 3, Pedido 4, Pedido 9. Variantes conservadas: 7.",
+      "origen_importacion": "Pedidos Peceras.xlsx",
+      "alias_historicos": [
+        "PEC-T6030"
+      ],
+      "variantes_historicas": [
+        [
+          "Frontal",
+          30.0,
+          60.5,
+          6.0
+        ],
+        [
+          "Frontal",
+          30.0,
+          60.5,
+          9.0
+        ],
+        [
+          "Frontal",
+          30.0,
+          60.5,
+          12.0
+        ],
+        [
+          "Lateral",
+          30.0,
+          29.2,
+          4.0
+        ],
+        [
+          "Lateral",
+          30.0,
+          60.5,
+          4.0
+        ],
+        [
+          "Piso",
+          59.9,
+          29.2,
+          4.0
+        ],
+        [
+          "Piso",
+          59.9,
+          29.2,
+          6.0
+        ]
+      ]
+    },
+    "piezas": [
+      {
+        "nombre": "Frontal",
+        "largo": 30.0,
+        "ancho": 60.5,
+        "espesor": 6.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Lateral",
+        "largo": 30.0,
+        "ancho": 29.2,
+        "espesor": 4.0,
+        "cantidad": 2,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      },
+      {
+        "nombre": "Piso",
+        "largo": 59.9,
+        "ancho": 29.2,
+        "espesor": 6.0,
+        "cantidad": 1,
+        "acabado": "filo_muerto",
+        "observaciones": "Variante representativa importada del historial."
+      }
+    ]
+  }
+]

@@ -1,8 +1,12 @@
 "use strict";
 (function () {
     var piezas = [];
-    var borradores = [];
-    var storageKey = "erp_produccion_peceras_borradores_v1";
+    var perfiles = [];
+    var perfilActualId = 0;
+    var endpoints = {
+        listar: "/produccion/peceras_perfiles_listar_erp",
+        guardar: "/produccion/pecera_guardar_erp"
+    };
 
     function el(id) { return document.getElementById(id); }
     function escapeHtml(value) {
@@ -41,6 +45,7 @@
     }
     function datosFormulario() {
         return {
+            codigo: el("peceras_codigo").value.trim(),
             nombre: el("peceras_nombre").value.trim(),
             proveedor: el("peceras_proveedor").value.trim(),
             largo: numero(el("peceras_largo").value),
@@ -435,31 +440,47 @@
             "<div style=\"font-size:13px;margin-top:14px\"><strong>Resumen:</strong> " + escapeHtml(r.totalPiezas) + " piezas | " + escapeHtml(formato(r.areaTotal, 4)) + " m2 | Estimado " + escapeHtml(dinero(r.costoTotal)) + "</div>" +
             (datos.observaciones ? "<p style=\"font-size:13px;margin-top:10px\"><strong>Observaciones:</strong> " + escapeHtml(datos.observaciones) + "</p>" : "");
     }
-    function cargarBorradores() {
-        try {
-            borradores = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        } catch (e) {
-            borradores = [];
-        }
-        var select = el("peceras_borradores");
-        select.innerHTML = "<option value=\"\">Borradores locales</option>" + borradores.map(function (item) {
-            return "<option value=\"" + escapeHtml(item.id) + "\">" + escapeHtml(item.nombre || "Pecera sin nombre") + "</option>";
-        }).join("");
+    function jsonResponse(response) {
+        if (!response.ok) { throw new Error("No fue posible consultar los perfiles de pecera."); }
+        return response.json();
     }
-    function guardarBorrador() {
+    function consultar(url) {
+        return fetch(url, {method: "GET", credentials: "same-origin", headers: {"Accept": "application/json"}}).then(jsonResponse);
+    }
+    function enviar(url, datos) {
+        var body = new URLSearchParams();
+        Object.keys(datos).forEach(function (clave) { body.append(clave, datos[clave]); });
+        return fetch(url, {method: "POST", credentials: "same-origin", headers: {"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}, body: body.toString()}).then(jsonResponse);
+    }
+    function cargarPerfiles() {
+        return consultar(endpoints.listar).then(function (respuesta) {
+            perfiles = respuesta && respuesta.depurar && Array.isArray(respuesta.depurar.perfiles) ? respuesta.depurar.perfiles : [];
+            if (respuesta && respuesta.depurar && respuesta.depurar.schema_pendiente) {
+                toast("Falta activar el esquema de Produccion para guardar perfiles.", "warning");
+            }
+            var select = el("peceras_borradores");
+            select.innerHTML = "<option value=\"\">Perfiles guardados</option>" + perfiles.map(function (item) {
+                return "<option value=\"" + escapeHtml(item.id) + "\">" + escapeHtml(item.nombre || "Pecera sin nombre") + "</option>";
+            }).join("");
+        }).catch(function (error) {
+            perfiles = [];
+            toast(error.message, "danger");
+        });
+    }
+    function guardarPerfil() {
         var datos = datosFormulario();
-        var id = el("peceras_borradores").value || uuid();
-        var nombre = datos.nombre || ("Pecera " + formato(datos.largo, 0) + "x" + formato(datos.fondo, 0) + "x" + formato(datos.alto, 0));
-        var payload = {id: id, nombre: nombre, fecha: new Date().toISOString(), datos: datos, piezas: piezas};
-        borradores = borradores.filter(function (item) { return item.id !== id; });
-        borradores.unshift(payload);
-        borradores = borradores.slice(0, 20);
-        localStorage.setItem(storageKey, JSON.stringify(borradores));
-        cargarBorradores();
-        el("peceras_borradores").value = id;
-        toast("Borrador guardado localmente.");
+        datos.id_pecera = perfilActualId;
+        enviar(endpoints.guardar, {datos: JSON.stringify(datos), piezas: JSON.stringify(piezas)}).then(function (respuesta) {
+            if (respuesta.error) { throw new Error(respuesta.mensaje || "No fue posible guardar el perfil."); }
+            perfilActualId = Number(respuesta.depurar.id_pecera || 0);
+            return cargarPerfiles();
+        }).then(function () {
+            el("peceras_borradores").value = String(perfilActualId);
+            toast("Perfil guardado en el sistema.");
+        }).catch(function (error) { toast(error.message, "danger"); });
     }
     function aplicarDatos(datos) {
+        el("peceras_codigo").value = datos.codigo || "";
         el("peceras_nombre").value = datos.nombre || "";
         el("peceras_proveedor").value = datos.proveedor || "";
         el("peceras_largo").value = datos.largo || 60;
@@ -479,15 +500,17 @@
         el("peceras_observaciones").value = datos.observaciones || "";
     }
     function cargarBorrador(id) {
-        var item = borradores.find(function (borrador) { return borrador.id === id; });
+        var item = perfiles.find(function (perfil) { return String(perfil.id) === String(id); });
         if (!item) {
             return;
         }
+        perfilActualId = Number(item.id || item.id_pecera || 0);
         aplicarDatos(item.datos || {});
         piezas = Array.isArray(item.piezas) ? item.piezas : [];
         renderPiezas();
     }
     function nuevo() {
+        perfilActualId = 0;
         el("peceras_borradores").value = "";
         aplicarDatos({largo: 60, fondo: 40, alto: 40, espesor: 5, cantidad: 1, base: "interior", holgura: 2, descuento_corte: 2, refuerzos: "ninguno", refuerzo_ancho: 5, tapa: "no", tapa_piezas: 1});
         generarPiezas();
@@ -582,19 +605,20 @@
             prepararImpresion();
             window.print();
         });
-        el("peceras_guardar_local").addEventListener("click", guardarBorrador);
+        el("peceras_guardar_local").addEventListener("click", guardarPerfil);
         el("peceras_nuevo").addEventListener("click", nuevo);
         el("peceras_borradores").addEventListener("change", function () { cargarBorrador(this.value); });
     }
     document.addEventListener("DOMContentLoaded", function () {
         registrarEventos();
-        cargarBorradores();
-        var perfilUrl = new URLSearchParams(window.location.search).get("perfil");
-        if (perfilUrl) {
-            el("peceras_borradores").value = perfilUrl;
-            cargarBorrador(perfilUrl);
-        } else {
-            generarPiezas();
-        }
+        cargarPerfiles().then(function () {
+            var perfilUrl = new URLSearchParams(window.location.search).get("perfil");
+            if (perfilUrl) {
+                el("peceras_borradores").value = perfilUrl;
+                cargarBorrador(perfilUrl);
+            } else {
+                generarPiezas();
+            }
+        });
     });
 })();

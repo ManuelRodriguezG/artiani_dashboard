@@ -180,6 +180,7 @@
 				'Garantias.reclamo_dryrun_erp',
 				'Ventas.pos_excepcion_comercial_registrar_erp',
 				'Ventas.pos_confirmar_erp',
+				'Ventas.ventas_historicas_correccion_aplicar_erp',
 				'Ventas.pos_configuracion_caja_guardar_erp',
 				'Ventas.pos_configuracion_terminal_guardar_erp',
 				'Ventas.pos_configuracion_asignacion_guardar_erp',

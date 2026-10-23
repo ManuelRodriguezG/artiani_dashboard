@@ -1,0 +1,3565 @@
+{
+  "fuente": "Pedidos Peceras.xlsx",
+  "fecha_analisis": "2026-10-22",
+  "solo_lectura": true,
+  "bloques_pedido": 66,
+  "pedidos": [
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 2,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 4,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.8,
+          "ancho_cm": 28.8,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 5,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 29.4,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 6,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 28.8,
+          "ancho_cm": 28.8,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 9,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 11,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 12,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 13,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 15,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 17,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 18,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 19,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 22,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 24,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 25,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 26,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 29,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 31,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 32,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 40.4,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 33,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Piso",
+          "largo_cm": 39.8,
+          "ancho_cm": 20.0,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 38,
+      "titulo": "1 Hoja 4 mm 1.8 x 2.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 40,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 29.2,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        },
+        {
+          "fila": 41,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 30.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 9
+        },
+        {
+          "fila": 42,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.9,
+          "ancho_cm": 29.2,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 47,
+          "codigo_crudo": "PEC-3050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 28.6,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        },
+        {
+          "fila": 48,
+          "codigo_crudo": "PEC-3050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.0,
+          "ancho_cm": 29.4,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        },
+        {
+          "fila": 49,
+          "codigo_crudo": "PEC-3050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 28.6,
+          "ancho_cm": 28.6,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 3
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        3.0,
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 53,
+      "titulo": "1 Hoja 4 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 55,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 56,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Respaldo",
+          "largo_cm": 52.5,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 58,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 51.7,
+          "ancho_cm": 38.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 4,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 63,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 65,
+          "codigo_crudo": "Pec-6050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 28.8,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 66,
+          "codigo_crudo": "Pec-6050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 67,
+          "codigo_crudo": "Pec-6050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.5,
+          "ancho_cm": 28.8,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 69,
+          "codigo_crudo": "Pec-6060",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 60.0,
+          "ancho_cm": 28.8,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 70,
+          "codigo_crudo": "Pec-6060",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 60.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 71,
+          "codigo_crudo": "Pec-6060",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.5,
+          "ancho_cm": 28.8,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 75,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 77,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 30.4,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 78,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 123.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 79,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Piso",
+          "largo_cm": 122.6,
+          "ancho_cm": 30.4,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        },
+        {
+          "fila": 81,
+          "codigo_crudo": "Pec-4060",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 60.0,
+          "ancho_cm": 38.1,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 82,
+          "codigo_crudo": "Pec-4060",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 60.0,
+          "ancho_cm": 39.3,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 83,
+          "codigo_crudo": "Pec-4060",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.1,
+          "ancho_cm": 38.1,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2",
+      "fila_inicio": 87,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 89,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 90,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 91,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 25.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        },
+        {
+          "fila": 93,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 94,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 95,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 25.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-3mm",
+      "fila_inicio": 2,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "Validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 4,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 5,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 6,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-3mm",
+      "fila_inicio": 8,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "Validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 10,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 11,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 12,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-3mm",
+      "fila_inicio": 14,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "Validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 16,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 17,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 18,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-3mm",
+      "fila_inicio": 21,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 23,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.8,
+          "ancho_cm": 28.8,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 24,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 29.4,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 25,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 28.8,
+          "ancho_cm": 28.8,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-3mm",
+      "fila_inicio": 28,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 30,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 22
+        },
+        {
+          "fila": 31,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 40.4,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 32,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Piso",
+          "largo_cm": 39.8,
+          "ancho_cm": 20.0,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 34,
+          "codigo_crudo": "Pec-2020",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 11.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 34
+        },
+        {
+          "fila": 35,
+          "codigo_crudo": "Pec-2020",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 22.9,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 34
+        },
+        {
+          "fila": 36,
+          "codigo_crudo": "Pec-2020",
+          "tipo_crudo": "Piso",
+          "largo_cm": 22.3,
+          "ancho_cm": 11.0,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 17
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-3mm",
+      "fila_inicio": 39,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 41,
+          "codigo_crudo": "PERA-B4020L",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 10.7,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 30
+        },
+        {
+          "fila": 46,
+          "codigo_crudo": "PERA-C2020L",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 22.0,
+          "ancho_cm": 21.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 48,
+          "codigo_crudo": "PERA-C2020P",
+          "tipo_crudo": "Piso",
+          "largo_cm": 21.1,
+          "ancho_cm": 21.1,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        },
+        {
+          "fila": 50,
+          "codigo_crudo": "PERA-C2040L",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 40.0,
+          "ancho_cm": 21.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 52,
+          "codigo_crudo": "PERA-C2040P",
+          "tipo_crudo": "Piso",
+          "largo_cm": 21.1,
+          "ancho_cm": 21.1,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 3
+        },
+        {
+          "fila": 56,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 15.0,
+          "ancho_cm": 10.4,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 98
+        },
+        {
+          "fila": 57,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 15.8,
+          "ancho_cm": 15.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 98
+        },
+        {
+          "fila": 58,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Piso",
+          "largo_cm": 15.2,
+          "ancho_cm": 10.4,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 49
+        }
+      ],
+      "piezas_total": 13,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2- 4mm",
+      "fila_inicio": 3,
+      "titulo": "1 Hoja 4 mm 1.8 x 2.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 5,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 29.2,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 6,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 30.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 7,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.9,
+          "ancho_cm": 29.2,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2- 4mm",
+      "fila_inicio": 9,
+      "titulo": "1 Hoja 4 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 11,
+          "codigo_crudo": "PEC-3050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 28.6,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 12,
+          "codigo_crudo": "PEC-3050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.0,
+          "ancho_cm": 29.4,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 13,
+          "codigo_crudo": "PEC-3050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 28.6,
+          "ancho_cm": 28.6,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 7
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-6mm",
+      "fila_inicio": 3,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 5,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 6,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 7,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 25.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 12,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 30.4,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 13,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 123.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        },
+        {
+          "fila": 14,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Piso",
+          "largo_cm": 122.6,
+          "ancho_cm": 30.4,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        },
+        {
+          "fila": 16,
+          "codigo_crudo": "Pec-5050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 5
+        },
+        {
+          "fila": 17,
+          "codigo_crudo": "Pec-5050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 18,
+          "codigo_crudo": "Pec-5050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 49.6,
+          "ancho_cm": 24.7,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        }
+      ],
+      "piezas_total": 15,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-6mm",
+      "fila_inicio": 27,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 29,
+          "codigo_crudo": "Pec-5050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 9
+        },
+        {
+          "fila": 30,
+          "codigo_crudo": "Pec-5050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 9
+        },
+        {
+          "fila": 31,
+          "codigo_crudo": "Pec-5050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 49.6,
+          "ancho_cm": 24.7,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 5
+        },
+        {
+          "fila": 33,
+          "codigo_crudo": "Pec-C4040",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 40.0,
+          "ancho_cm": 38.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 34,
+          "codigo_crudo": "Pec-C4040",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 40.0,
+          "ancho_cm": 39.3,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 35,
+          "codigo_crudo": "Pec-C4040",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.0,
+          "ancho_cm": 38.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        },
+        {
+          "fila": 37,
+          "codigo_crudo": "Pec-C4050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 38.1,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 38,
+          "codigo_crudo": "Pec-C4050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.0,
+          "ancho_cm": 39.3,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 39,
+          "codigo_crudo": "Pec-C4050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.1,
+          "ancho_cm": 38.1,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 2
+        }
+      ],
+      "piezas_total": 15,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-6mm",
+      "fila_inicio": 42,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 44,
+          "codigo_crudo": "Pec-12240",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 30.4,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 45,
+          "codigo_crudo": "Pec-12240",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 123.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 46,
+          "codigo_crudo": "Pec-12240",
+          "tipo_crudo": "Piso",
+          "largo_cm": 122.6,
+          "ancho_cm": 30.4,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        },
+        {
+          "fila": 48,
+          "codigo_crudo": "Pec-4060",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 60.0,
+          "ancho_cm": 38.1,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 49,
+          "codigo_crudo": "Pec-4060",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 60.0,
+          "ancho_cm": 39.3,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 50,
+          "codigo_crudo": "Pec-4060",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.1,
+          "ancho_cm": 38.1,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 2-6mm",
+      "fila_inicio": 53,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 55,
+          "codigo_crudo": "Pec-6050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 28.8,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 56,
+          "codigo_crudo": "Pec-6050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 57,
+          "codigo_crudo": "Pec-6050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.5,
+          "ancho_cm": 28.8,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 59,
+          "codigo_crudo": "Pec-6060",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 60.0,
+          "ancho_cm": 28.8,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 60,
+          "codigo_crudo": "Pec-6060",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 60.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 61,
+          "codigo_crudo": "Pec-6060",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.5,
+          "ancho_cm": 28.8,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 2,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 4,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.8,
+          "ancho_cm": 28.8,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 5,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 29.4,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 6,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 28.8,
+          "ancho_cm": 28.8,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 9,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 11,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 12,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 13,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 15,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 17,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 18,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 19,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 22,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 24,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 25,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 26,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 29,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 31,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 32,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 40.4,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 33,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Piso",
+          "largo_cm": 39.8,
+          "ancho_cm": 20.0,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 36,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 38,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 14.2,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 42
+        },
+        {
+          "fila": 39,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 29.9,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 43
+        },
+        {
+          "fila": 40,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Piso",
+          "largo_cm": 29.3,
+          "ancho_cm": 14.2,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 22
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 48,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 50,
+          "codigo_crudo": "Pec-2020",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 11.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 58
+        },
+        {
+          "fila": 51,
+          "codigo_crudo": "Pec-2020",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 22.9,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 58
+        },
+        {
+          "fila": 52,
+          "codigo_crudo": "Pec-2020",
+          "tipo_crudo": "Piso",
+          "largo_cm": 22.3,
+          "ancho_cm": 11.0,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 29
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 54,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 56,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 15.0,
+          "ancho_cm": 10.4,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 98
+        },
+        {
+          "fila": 57,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 15.8,
+          "ancho_cm": 15.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 99
+        },
+        {
+          "fila": 58,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Piso",
+          "largo_cm": 15.2,
+          "ancho_cm": 10.4,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 49
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 61,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 63,
+          "codigo_crudo": "PERA-B4020L",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 10.7,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 30
+        },
+        {
+          "fila": 68,
+          "codigo_crudo": "PERA-C2020L",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 22.0,
+          "ancho_cm": 21.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 70,
+          "codigo_crudo": "PERA-C2020P",
+          "tipo_crudo": "Piso",
+          "largo_cm": 21.1,
+          "ancho_cm": 21.1,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        },
+        {
+          "fila": 72,
+          "codigo_crudo": "PERA-C2040L",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 40.0,
+          "ancho_cm": 21.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 74,
+          "codigo_crudo": "PERA-C2040P",
+          "tipo_crudo": "Piso",
+          "largo_cm": 21.1,
+          "ancho_cm": 21.1,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 3
+        }
+      ],
+      "piezas_total": 8,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 89,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 91,
+          "codigo_crudo": "TORO-H4040",
+          "tipo_crudo": "Lateral bajo",
+          "largo_cm": 20.7,
+          "ancho_cm": 19.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        },
+        {
+          "fila": 92,
+          "codigo_crudo": "TORO-H4040",
+          "tipo_crudo": "Lateral alto",
+          "largo_cm": 36.0,
+          "ancho_cm": 20.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 9
+        },
+        {
+          "fila": 93,
+          "codigo_crudo": "TORO-H4040",
+          "tipo_crudo": "Piso",
+          "largo_cm": 41.0,
+          "ancho_cm": 35.7,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 95,
+          "codigo_crudo": "TORO-C4040",
+          "tipo_crudo": "Respaldo",
+          "largo_cm": 40.0,
+          "ancho_cm": 39.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 96,
+          "codigo_crudo": "TORO-C4040",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 39.1,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 97,
+          "codigo_crudo": "TORO-C4040",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.5,
+          "ancho_cm": 38.5,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        3.0,
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 100,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 102,
+          "codigo_crudo": "TORO-2040CL",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 38.5,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 103,
+          "codigo_crudo": "TORO-2040CFR",
+          "tipo_crudo": "Frontal/Respaldo",
+          "largo_cm": 20.0,
+          "ancho_cm": 39.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 104,
+          "codigo_crudo": "TORO-2040CP",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.5,
+          "ancho_cm": 38.5,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 106,
+          "codigo_crudo": "TORO-20HL",
+          "tipo_crudo": "Laterales",
+          "largo_cm": 20.7,
+          "ancho_cm": 18.0,
+          "cantidad": 6,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 31
+        },
+        {
+          "fila": 107,
+          "codigo_crudo": "TORO-20HP",
+          "tipo_crudo": "Piso",
+          "largo_cm": 41.0,
+          "ancho_cm": 35.7,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        }
+      ],
+      "piezas_total": 12,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 3",
+      "fila_inicio": 115,
+      "titulo": "1 Hoja 4 mm 1.8 x 2.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 117,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 29.2,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 118,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 30.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 119,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.9,
+          "ancho_cm": 29.2,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 4,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 6,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 28.8,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 21
+        },
+        {
+          "fila": 7,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 29.4,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 37
+        },
+        {
+          "fila": 8,
+          "codigo_crudo": "Pec-3050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 28.8,
+          "ancho_cm": 28.8,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 10
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 10,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 12,
+          "codigo_crudo": "Pec-4040",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 40.0,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 13,
+          "codigo_crudo": "Pec-4040",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 40.4,
+          "ancho_cm": 40.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 14,
+          "codigo_crudo": "Pec-4040",
+          "tipo_crudo": "Piso",
+          "largo_cm": 39.8,
+          "ancho_cm": 20.0,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 17,
+          "codigo_crudo": "PERA-C2040L",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 40.0,
+          "ancho_cm": 21.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 22
+        },
+        {
+          "fila": 19,
+          "codigo_crudo": "PERA-C2040P",
+          "tipo_crudo": "Piso",
+          "largo_cm": 21.1,
+          "ancho_cm": 21.1,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 11
+        }
+      ],
+      "piezas_total": 8,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 22,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 24,
+          "codigo_crudo": "TORO-H4040",
+          "tipo_crudo": "Lateral bajo",
+          "largo_cm": 20.7,
+          "ancho_cm": 19.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        },
+        {
+          "fila": 25,
+          "codigo_crudo": "TORO-H4040",
+          "tipo_crudo": "Lateral alto",
+          "largo_cm": 36.0,
+          "ancho_cm": 20.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 9
+        },
+        {
+          "fila": 26,
+          "codigo_crudo": "TORO-H4040",
+          "tipo_crudo": "Piso",
+          "largo_cm": 41.0,
+          "ancho_cm": 35.7,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 28,
+          "codigo_crudo": "TORO-C4040",
+          "tipo_crudo": "Respaldo",
+          "largo_cm": 40.0,
+          "ancho_cm": 39.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 30,
+          "codigo_crudo": "TORO-C4040",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 39.1,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 31,
+          "codigo_crudo": "TORO-C4040",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.5,
+          "ancho_cm": 38.5,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        3.0,
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 34,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 36,
+          "codigo_crudo": "TORO-2040CL",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 38.5,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 37,
+          "codigo_crudo": "TORO-2040CFR",
+          "tipo_crudo": "Frontal/Respaldo",
+          "largo_cm": 20.0,
+          "ancho_cm": 39.1,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 38,
+          "codigo_crudo": "TORO-2040CP",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.5,
+          "ancho_cm": 38.5,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 40,
+          "codigo_crudo": "TORO-20HL",
+          "tipo_crudo": "Laterales",
+          "largo_cm": 20.7,
+          "ancho_cm": 18.0,
+          "cantidad": 6,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 31
+        },
+        {
+          "fila": 41,
+          "codigo_crudo": "TORO-20HP",
+          "tipo_crudo": "Piso",
+          "largo_cm": 41.0,
+          "ancho_cm": 35.7,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 5
+        }
+      ],
+      "piezas_total": 12,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 48,
+      "titulo": "1 Hoja 4 mm 1.8 x 2.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 50,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 29.2,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 51,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 30.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 52,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.9,
+          "ancho_cm": 29.2,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 56,
+      "titulo": "1 Hoja 4 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 58,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 18
+        },
+        {
+          "fila": 59,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Respaldo",
+          "largo_cm": 52.5,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 60,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 51.7,
+          "ancho_cm": 38.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 9
+        }
+      ],
+      "piezas_total": 4,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 63,
+      "titulo": "1 Hoja 4 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 1.8,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 65,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 58.0,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 26
+        }
+      ],
+      "piezas_total": 1,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 71,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 73,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 74,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 75,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 25.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 77,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 78,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 20
+        },
+        {
+          "fila": 79,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 25.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 4",
+      "fila_inicio": 82,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 84,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 30.4,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 85,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 123.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 86,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Piso",
+          "largo_cm": 122.6,
+          "ancho_cm": 30.4,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        },
+        {
+          "fila": 88,
+          "codigo_crudo": "Pec-5060",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 60.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        },
+        {
+          "fila": 89,
+          "codigo_crudo": "Pec-5060",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 60.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        },
+        {
+          "fila": 90,
+          "codigo_crudo": "Pec-5060",
+          "tipo_crudo": "Piso",
+          "largo_cm": 49.6,
+          "ancho_cm": 24.7,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 5",
+      "fila_inicio": 3,
+      "titulo": "1 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 5,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 30.4,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 6,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 123.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 7,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Piso",
+          "largo_cm": 122.6,
+          "ancho_cm": 30.4,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 8,
+          "codigo_crudo": "Pec-4060",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.1,
+          "ancho_cm": 38.1,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 9,
+          "codigo_crudo": "Pec-5060",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 60.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 10,
+          "codigo_crudo": "Pec-5060",
+          "tipo_crudo": "Piso",
+          "largo_cm": 49.6,
+          "ancho_cm": 24.7,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 2
+        }
+      ],
+      "piezas_total": 9,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 5",
+      "fila_inicio": 12,
+      "titulo": "2 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 14,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 15,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 16,
+          "codigo_crudo": "Pec-10050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 25.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 18,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 18
+        },
+        {
+          "fila": 19,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 18
+        },
+        {
+          "fila": 20,
+          "codigo_crudo": "Pec-10030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 25.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 10
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 5",
+      "fila_inicio": 23,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 25,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 14.2,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 43
+        },
+        {
+          "fila": 26,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 29.9,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 44
+        },
+        {
+          "fila": 27,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Piso",
+          "largo_cm": 29.3,
+          "ancho_cm": 14.2,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 6",
+      "fila_inicio": 2,
+      "titulo": "2 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 4,
+          "codigo_crudo": "Pec-B10025",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 5,
+          "codigo_crudo": "Pec-B10025",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 118.0,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 6,
+          "codigo_crudo": "Pec-B10025",
+          "tipo_crudo": "Division",
+          "largo_cm": 116.6,
+          "ancho_cm": 24.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 7,
+          "codigo_crudo": "Pec-B10025",
+          "tipo_crudo": "Piso",
+          "largo_cm": 116.25,
+          "ancho_cm": 25.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 9,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 30.4,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 10,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 123.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 11,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Piso",
+          "largo_cm": 122.6,
+          "ancho_cm": 30.4,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 5
+        },
+        {
+          "fila": 13,
+          "codigo_crudo": "Pec-10040",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 38.6,
+          "ancho_cm": 40.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 14,
+          "codigo_crudo": "Pec-10040",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 40.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        },
+        {
+          "fila": 15,
+          "codigo_crudo": "Pec-10040",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 38.6,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 2
+        }
+      ],
+      "piezas_total": 16,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 6",
+      "fila_inicio": 19,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 21,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 22,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 23,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 6",
+      "fila_inicio": 24,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 26,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 27,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 28,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 6",
+      "fila_inicio": 29,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 31,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 32,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 33,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 6",
+      "fila_inicio": 36,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 38,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 39,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 40.4,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 40,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Piso",
+          "largo_cm": 39.8,
+          "ancho_cm": 20.0,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 6",
+      "fila_inicio": 41,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 43,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 25.0,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 44,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 40.4,
+          "ancho_cm": 25.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 45,
+          "codigo_crudo": "Pec-4025",
+          "tipo_crudo": "Piso",
+          "largo_cm": 39.8,
+          "ancho_cm": 20.0,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 12
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 10",
+      "fila_inicio": 1,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 3,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 15.0,
+          "ancho_cm": 10.4,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 98
+        },
+        {
+          "fila": 4,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 15.8,
+          "ancho_cm": 15.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 99
+        },
+        {
+          "fila": 5,
+          "codigo_crudo": "Pec-1515",
+          "tipo_crudo": "Piso",
+          "largo_cm": 15.2,
+          "ancho_cm": 10.4,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 49
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 10",
+      "fila_inicio": 13,
+      "titulo": "1 Hoja 6 mm 1.8 x 2.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 1.8,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 15,
+          "codigo_crudo": "Pec-8050",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 38.1,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 16,
+          "codigo_crudo": "Pec-8050",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.0,
+          "ancho_cm": 80.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 6
+        },
+        {
+          "fila": 17,
+          "codigo_crudo": "Pec-8050",
+          "tipo_crudo": "Piso",
+          "largo_cm": 38.1,
+          "ancho_cm": 78.8,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 3
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 11",
+      "fila_inicio": 1,
+      "titulo": "Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 1.8,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 3,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 58.0,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 26
+        }
+      ],
+      "piezas_total": 1,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 11",
+      "fila_inicio": 5,
+      "titulo": "Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 7,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 20
+        },
+        {
+          "fila": 8,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Respaldo",
+          "largo_cm": 52.5,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 20
+        }
+      ],
+      "piezas_total": 3,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 11",
+      "fila_inicio": 10,
+      "titulo": "2 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 12,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 36
+        },
+        {
+          "fila": 13,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Respaldo",
+          "largo_cm": 52.5,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 26
+        },
+        {
+          "fila": 15,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 58.0,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 10
+        }
+      ],
+      "piezas_total": 4,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 11",
+      "fila_inicio": 19,
+      "titulo": "1 Hoja 4 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 1.8,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 21,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 51.7,
+          "ancho_cm": 38.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 23
+        }
+      ],
+      "piezas_total": 1,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 11",
+      "fila_inicio": 26,
+      "titulo": "2 Hoja 6 mm 2.6 x 3.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 28,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 50.0,
+          "ancho_cm": 30.4,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 29,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 123.8,
+          "ancho_cm": 50.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 12
+        },
+        {
+          "fila": 30,
+          "codigo_crudo": "Pec-12250",
+          "tipo_crudo": "Piso",
+          "largo_cm": 122.6,
+          "ancho_cm": 30.4,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        },
+        {
+          "fila": 32,
+          "codigo_crudo": "Pec-10040",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 38.6,
+          "ancho_cm": 40.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 33,
+          "codigo_crudo": "Pec-10040",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 102.3,
+          "ancho_cm": 40.0,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 8
+        },
+        {
+          "fila": 34,
+          "codigo_crudo": "Pec-10040",
+          "tipo_crudo": "Piso",
+          "largo_cm": 101.1,
+          "ancho_cm": 38.6,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 4
+        }
+      ],
+      "piezas_total": 10,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 12",
+      "fila_inicio": 2,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 4,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 20.0,
+          "ancho_cm": 14.2,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 43
+        },
+        {
+          "fila": 5,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 29.9,
+          "ancho_cm": 20.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 44
+        },
+        {
+          "fila": 6,
+          "codigo_crudo": "Pec-3020",
+          "tipo_crudo": "Piso",
+          "largo_cm": 29.3,
+          "ancho_cm": 14.2,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 12",
+      "fila_inicio": 11,
+      "titulo": "2 Hoja 4 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 13,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 24.7,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 32
+        },
+        {
+          "fila": 14,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Respaldo",
+          "largo_cm": 52.5,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 24
+        },
+        {
+          "fila": 16,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 51.7,
+          "ancho_cm": 38.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 16
+        }
+      ],
+      "piezas_total": 4,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 12",
+      "fila_inicio": 18,
+      "titulo": "1 Hoja 4 mm 2.6 x 1.8 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 1.8,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 20,
+          "codigo_crudo": "Pec-p5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 58.0,
+          "ancho_cm": 30.0,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 26
+        }
+      ],
+      "piezas_total": 1,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 12",
+      "fila_inicio": 22,
+      "titulo": "1 Hoja 4 mm 1.8 x 2.6 m",
+      "estatus_origen": "",
+      "hoja_largo_m": 3.6,
+      "hoja_ancho_m": 2.6,
+      "piezas": [
+        {
+          "fila": 24,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 29.2,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 10
+        },
+        {
+          "fila": 25,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 30.0,
+          "ancho_cm": 60.5,
+          "cantidad": 2,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 14
+        },
+        {
+          "fila": 26,
+          "codigo_crudo": "PEC-T6030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 59.9,
+          "ancho_cm": 29.2,
+          "cantidad": 1,
+          "espesor_mm": 6.0,
+          "cantidad_por_hoja": 7
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        6.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 12",
+      "fila_inicio": 30,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 32,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 33,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 34,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 12",
+      "fila_inicio": 35,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 37,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 38,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 39,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    },
+    {
+      "hoja_origen": "Pedido 12",
+      "fila_inicio": 40,
+      "titulo": "1 Hoja 3 mm 2.6 x 1.8 m",
+      "estatus_origen": "validada",
+      "hoja_largo_m": 2.6,
+      "hoja_ancho_m": 1.8,
+      "piezas": [
+        {
+          "fila": 42,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Lateral",
+          "largo_cm": 30.0,
+          "ancho_cm": 25.3,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 16
+        },
+        {
+          "fila": 43,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Frontal",
+          "largo_cm": 50.8,
+          "ancho_cm": 30.0,
+          "cantidad": 2,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 15
+        },
+        {
+          "fila": 44,
+          "codigo_crudo": "Pec-5030",
+          "tipo_crudo": "Piso",
+          "largo_cm": 50.2,
+          "ancho_cm": 25.3,
+          "cantidad": 1,
+          "espesor_mm": 3.0,
+          "cantidad_por_hoja": 8
+        }
+      ],
+      "piezas_total": 5,
+      "espesores_mm": [
+        3.0
+      ]
+    }
+  ]
+}

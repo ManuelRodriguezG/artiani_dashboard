@@ -4779,6 +4779,7 @@ class CatalogoErpDatos extends CRUD {
     try {
       $db = $this->getConexion();
       $limite = max(1, min(300, intval(isset($filtros["limite"]) ? $filtros["limite"] : 120)));
+      $incluirCostos = !empty($filtros["incluir_costos"]);
       $q = trim((string) (isset($filtros["q"]) ? $filtros["q"] : ""));
       $params = array();
       $where = array("s.estatus='activo'", "p.estatus='activo'");
@@ -4890,6 +4891,149 @@ class CatalogoErpDatos extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array()));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-22
+   * Proposito: construir una bandeja read-only de SKUs activos con problemas de costo, proveedor o precio publico.
+   * Impacto: Catalogo ERP, Proveedores y Comercial; no crea incidencias, relaciones, costos ni precios.
+   * Contrato: devuelve items, conteos, fuentes y acciones sugeridas; `problema` acepta todos, sin_costo, sin_proveedor,
+   * proveedor_sin_costo, costo_pendiente_validar, derivado y sin_precio_publico.
+   */
+  public function listarPendientesCostoReadOnly($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExisteCatalogo($db, "erp_catalogo_skus") || !$this->tablaExisteCatalogo($db, "erp_catalogo_productos")) {
+        return $this->respuesta(false, "warning", "Catalogo ERP incompleto para revisar pendientes", array("items" => array(), "conteos" => array()));
+      }
+
+      $limite = max(1, min(300, intval(isset($filtros["limite"]) ? $filtros["limite"] : 120)));
+      $problema = trim((string) (isset($filtros["problema"]) ? $filtros["problema"] : "todos"));
+      $q = trim((string) (isset($filtros["q"]) ? $filtros["q"] : ""));
+      $problemasPermitidos = array("todos", "sin_costo", "sin_proveedor", "proveedor_sin_costo", "costo_pendiente_validar", "derivado", "sin_precio_publico");
+      if (!in_array($problema, $problemasPermitidos, true)) {
+        $problema = "todos";
+      }
+
+      $params = array();
+      $where = array("s.estatus='activo'", "p.estatus='activo'");
+      if ($q !== "") {
+        $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.codigo_producto LIKE :q OR p.nombre LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+
+      $joinMarca = $this->tablaExisteCatalogo($db, "erp_catalogo_marcas")
+        ? "LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp"
+        : "LEFT JOIN (SELECT NULL id_marca_erp, NULL nombre) m ON 1=0";
+      $categoriaSelect = $this->tablaExisteCatalogo($db, "erp_catalogo_producto_categorias") && $this->tablaExisteCatalogo($db, "erp_catalogo_categorias")
+        ? "(SELECT c.nombre FROM erp_catalogo_producto_categorias pc INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp WHERE pc.id_producto_erp=p.id_producto_erp ORDER BY pc.es_principal DESC, pc.id_producto_categoria ASC LIMIT 1)"
+        : "NULL";
+      $relaciones = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_proveedores") && $this->tablaExisteCatalogo($db, "erp_proveedores")
+        ? "(SELECT GROUP_CONCAT(DISTINCT pr.proveedor ORDER BY pr.proveedor SEPARATOR ', ') FROM erp_catalogo_sku_proveedores spn INNER JOIN erp_proveedores pr ON pr.id_proveedor=spn.id_proveedor WHERE spn.id_sku=s.id_sku AND spn.estatus='activo')"
+        : "NULL";
+      $relacionesCount = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_proveedores")
+        ? "(SELECT COUNT(*) FROM erp_catalogo_sku_proveedores spn WHERE spn.id_sku=s.id_sku AND spn.estatus='activo')"
+        : "0";
+      $relacionCostoUltimo = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_proveedores")
+        ? "(SELECT COUNT(*) FROM erp_catalogo_sku_proveedores spn WHERE spn.id_sku=s.id_sku AND spn.estatus='activo' AND spn.costo_ultimo>0)"
+        : "0";
+      $costosVigentes = $this->tablaExisteCatalogo($db, "erp_proveedores_sku_costos")
+        ? "(SELECT COUNT(*) FROM erp_proveedores_sku_costos cv WHERE cv.id_sku=s.id_sku AND cv.estatus='vigente' AND cv.costo>0 AND (cv.vigencia_hasta IS NULL OR cv.vigencia_hasta='' OR cv.vigencia_hasta>=CURRENT_DATE))"
+        : "0";
+      $costosPropuestos = $this->tablaExisteCatalogo($db, "erp_proveedores_sku_costos")
+        ? "(SELECT COUNT(*) FROM erp_proveedores_sku_costos cv WHERE cv.id_sku=s.id_sku AND cv.estatus IN ('propuesto','pendiente','en_revision') AND cv.costo>0)"
+        : "0";
+      $costoVigente = $this->tablaExisteCatalogo($db, "erp_proveedores_sku_costos")
+        ? "(SELECT SUBSTRING_INDEX(GROUP_CONCAT(ROUND((cv.costo * CASE WHEN COALESCE(cv.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(cv.tipo_cambio_referencia,0),1) ELSE 1 END) / CASE WHEN COALESCE(cv.factor_conversion,0)>0 THEN cv.factor_conversion ELSE 1 END, 6) ORDER BY cv.vigencia_desde DESC, cv.fecha_actualizacion DESC, cv.id_costo_proveedor_sku DESC), ',', 1) FROM erp_proveedores_sku_costos cv WHERE cv.id_sku=s.id_sku AND cv.estatus='vigente' AND cv.costo>0 AND (cv.vigencia_hasta IS NULL OR cv.vigencia_hasta='' OR cv.vigencia_hasta>=CURRENT_DATE))"
+        : "NULL";
+      $fuenteCosto = $this->tablaExisteCatalogo($db, "erp_proveedores_sku_costos")
+        ? "(SELECT SUBSTRING_INDEX(GROUP_CONCAT(COALESCE(cv.origen,'proveedor') ORDER BY cv.vigencia_desde DESC, cv.fecha_actualizacion DESC, cv.id_costo_proveedor_sku DESC), ',', 1) FROM erp_proveedores_sku_costos cv WHERE cv.id_sku=s.id_sku AND cv.estatus='vigente' AND cv.costo>0 AND (cv.vigencia_hasta IS NULL OR cv.vigencia_hasta='' OR cv.vigencia_hasta>=CURRENT_DATE))"
+        : "NULL";
+      $precioMenu = $this->tablaExisteCatalogo($db, "erp_listas_precios") && $this->tablaExisteCatalogo($db, "erp_listas_precios_detalle")
+        ? "(SELECT d.precio FROM erp_listas_precios_detalle d INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio WHERE d.id_sku=s.id_sku AND l.codigo='LP-MENUDEO-01' AND d.estatus='activo' AND d.precio>0 AND l.estatus='activa' AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW()) AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW()) AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW()) AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW()) ORDER BY d.id_lista_precio_detalle DESC LIMIT 1)"
+        : "NULL";
+
+      $ventana = min(1200, max($limite * 5, $limite));
+      $stmt = $db->prepare("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre AS nombre_sku, s.costo_referencia,
+          p.codigo_producto, p.nombre AS producto, COALESCE(m.nombre,'') AS marca,
+          $categoriaSelect AS categoria, $relaciones AS proveedores, $relacionesCount AS proveedores_activos,
+          $relacionCostoUltimo AS relaciones_con_costo_ultimo, $costosVigentes AS costos_vigentes,
+          $costosPropuestos AS costos_propuestos, $costoVigente AS costo_vigente_proveedor,
+          $fuenteCosto AS fuente_costo_proveedor, $precioMenu AS precio_menu,
+          COALESCE(p.maneja_variantes,0) AS maneja_variantes
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        $joinMarca
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY s.id_sku DESC
+        LIMIT " . intval($ventana));
+      $stmt->execute($params);
+
+      $items = array();
+      $conteos = array("sin_costo" => 0, "sin_proveedor" => 0, "proveedor_sin_costo" => 0, "costo_pendiente_validar" => 0, "derivado" => 0, "sin_precio_publico" => 0);
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $contexto = $this->resolverContextoSkuVendible(intval($fila["id_sku"]));
+        if ($contexto["error"] || !isset($contexto["depurar"]["contexto"])) {
+          continue;
+        }
+        $ctx = $contexto["depurar"]["contexto"];
+        if (intval($ctx["es_vendible"]) !== 1) {
+          continue;
+        }
+        $derivado = isset($ctx["tipo_derivacion"]) ? (string) $ctx["tipo_derivacion"] : "normal";
+        $tieneCosto = intval($ctx["costo_derivable"]) === 1 || floatval($fila["costo_vigente_proveedor"]) > 0 || floatval($fila["costo_referencia"]) > 0;
+        $sinProveedor = intval($fila["proveedores_activos"]) <= 0;
+        $proveedorSinCosto = !$sinProveedor && intval($fila["costos_vigentes"]) <= 0 && intval($fila["relaciones_con_costo_ultimo"]) <= 0;
+        $costoPendiente = intval($fila["costos_propuestos"]) > 0;
+        $sinPrecio = $fila["precio_menu"] === null || floatval($fila["precio_menu"]) <= 0;
+        $tipos = array();
+        if (!$tieneCosto) { $tipos[] = "sin_costo"; }
+        if ($sinProveedor) { $tipos[] = "sin_proveedor"; }
+        if ($proveedorSinCosto) { $tipos[] = "proveedor_sin_costo"; }
+        if ($costoPendiente) { $tipos[] = "costo_pendiente_validar"; }
+        if ($derivado !== "normal") { $tipos[] = "derivado"; }
+        if ($sinPrecio) { $tipos[] = "sin_precio_publico"; }
+        foreach ($tipos as $tipo) { $conteos[$tipo]++; }
+        if ($problema !== "todos" && !in_array($problema, $tipos, true)) { continue; }
+
+        $alertas = array();
+        if (!$tieneCosto) { $alertas[] = array("tipo" => "sin_costo", "texto" => "Sin costo vigente", "severidad" => "danger"); }
+        if ($sinProveedor) { $alertas[] = array("tipo" => "sin_proveedor", "texto" => "Sin proveedor relacionado", "severidad" => "danger"); }
+        if ($proveedorSinCosto) { $alertas[] = array("tipo" => "proveedor_sin_costo", "texto" => "Proveedor sin costo vigente", "severidad" => "warning"); }
+        if ($costoPendiente) { $alertas[] = array("tipo" => "costo_pendiente_validar", "texto" => "Costo pendiente de validar", "severidad" => "warning"); }
+        if ($derivado !== "normal") { $alertas[] = array("tipo" => "derivado", "texto" => "Producto " . $derivado, "severidad" => "info"); }
+        if ($sinPrecio) { $alertas[] = array("tipo" => "sin_precio_publico", "texto" => "Sin precio LP-MENUDEO-01", "severidad" => "warning"); }
+        $acciones = array();
+        if ($sinProveedor) { $acciones[] = "Relacionar proveedor existente o solicitar alta"; }
+        if ($proveedorSinCosto) { $acciones[] = "Agregar a lista de proveedor o solicitar costo"; }
+        if ($costoPendiente || $derivado) { $acciones[] = "Enviar a validacion de costo"; }
+        if ($sinPrecio && $tieneCosto) { $acciones[] = "Enviar a Listas de precios"; }
+        if (empty($acciones)) { $acciones[] = "Marcar revisado despues de validar"; }
+        $fuente = trim((string) $fila["fuente_costo_proveedor"]);
+        if ($fuente === "" && floatval($fila["costo_referencia"]) > 0) { $fuente = "catalogo_referencia"; }
+        $items[] = array(
+          "id_sku" => intval($fila["id_sku"]), "id_producto_erp" => intval($fila["id_producto_erp"]),
+          "sku" => $fila["sku"], "producto" => $fila["producto"], "nombre_sku" => $fila["nombre_sku"],
+          "codigo_producto" => $fila["codigo_producto"], "marca" => $fila["marca"], "categoria" => $fila["categoria"],
+          "proveedores" => $fila["proveedores"], "proveedores_activos" => intval($fila["proveedores_activos"]),
+          "costo_actual" => $incluirCostos && $tieneCosto ? (floatval($fila["costo_vigente_proveedor"]) > 0 ? floatval($fila["costo_vigente_proveedor"]) : floatval($fila["costo_referencia"])) : null,
+          "fuente_costo" => $incluirCostos ? $fuente : ($tieneCosto ? "restringido_por_permiso" : ""), "precio_publico" => $fila["precio_menu"] !== null ? floatval($fila["precio_menu"]) : null,
+          "tipo_derivacion" => $derivado, "relacion_operativa" => isset($ctx["relacion_operativa"]) ? $ctx["relacion_operativa"] : null,
+          "tipos_problema" => $tipos, "alertas" => $alertas, "siguientes_acciones" => $acciones,
+          "url_rentabilidad" => "/rentabilidad/skus?id_sku=" . intval($fila["id_sku"]),
+          "url_proveedores" => "/proveedor/mostrar_proveedores_erp?id_sku=" . intval($fila["id_sku"]),
+          "url_listas" => "/comercial/listas_precios?q=" . rawurlencode($fila["sku"])
+        );
+        if (count($items) >= $limite) { break; }
+      }
+
+      return $this->respuesta(false, "success", "Pendientes de costo consultados", array(
+        "items" => $items, "conteos" => $conteos, "limite" => $limite, "ventana" => $ventana,
+        "problema" => $problema, "read_only" => true, "requiere_autorizacion_para_aplicar" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array(), "conteos" => array()));
     }
   }
 

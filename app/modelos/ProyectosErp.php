@@ -31,7 +31,7 @@ class ProyectosErp extends CRUD {
       "estatus_tarea" => array("pendiente", "en_proceso", "en_revision", "bloqueada", "completada", "descartada"),
       "prioridades" => array("info", "normal", "alta", "critica"),
       "origenes" => array("manual", "whatsapp", "chat_ia", "uat", "operacion", "cliente", "auditoria"),
-      "modulos" => array("general", "catalogo", "compras", "proveedores", "almacen", "inventario", "ventas", "pos", "crm", "tms", "garantias", "rentabilidad", "sistema")
+      "modulos" => array("general", "catalogo", "compras", "proveedores", "produccion", "almacen", "inventario", "ventas", "pos", "crm", "tms", "garantias", "rentabilidad", "sistema")
     ));
   }
 

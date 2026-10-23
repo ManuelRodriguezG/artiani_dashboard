@@ -180,6 +180,263 @@ class VentasErp extends CRUD {
 
     /**
      * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: auditar y prevalidar correcciones de almacen por partida en ventas historicas.
+     * Impacto: permite detectar cabecera/detalle inconsistentes sin reutilizar reversas POS.
+     * Contrato: read-only; no actualiza ventas, caja, inventario, kardex ni notificaciones.
+     */
+    public function ventaHistoricaCorreccionDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $idVenta = intval($this->valor($datos, "id_venta", 0));
+            $folio = trim((string) $this->valor($datos, "folio", ""));
+            $bloqueos = array();
+            $avisos = array();
+            $venta = null;
+            $partidas = array();
+            $cambiosEntrada = $this->decodificarItems($this->valor($datos, "correcciones", array()));
+
+            if ($idVenta <= 0 && $folio === "") {
+                $bloqueos[] = "Indica el folio historico completo, por ejemplo VHIS-20261022-000011";
+            }
+            if (empty($bloqueos)) {
+                $where = $idVenta > 0 ? "id_venta=:referencia" : "folio=:referencia";
+                $stmt = $db->prepare("SELECT id_venta, folio, canal, origen_venta, modo_operacion, estatus,
+                        id_almacen, subtotal, descuento_total, total, pagado_total, saldo_total,
+                        fecha_venta, creado_por
+                    FROM erp_ventas
+                    WHERE {$where}
+                    LIMIT 1");
+                $stmt->execute(array(":referencia" => $idVenta > 0 ? $idVenta : $folio));
+                $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$venta) {
+                    $bloqueos[] = "Venta historica no encontrada; usa el folio completo";
+                }
+            }
+            if ($venta) {
+                if ($venta["canal"] !== "historico" || $venta["origen_venta"] !== "carga_historica") {
+                    $bloqueos[] = "El folio no es una venta historica de carga; no se puede corregir desde este flujo";
+                }
+                if ($venta["modo_operacion"] !== "historico_sin_afectacion") {
+                    $avisos[] = "El modo historico no coincide con el esperado; requiere revision antes de aplicar cualquier cambio";
+                }
+                $stmtDetalles = $db->prepare("SELECT id_venta_detalle, renglon, id_almacen, id_sku_erp, sku,
+                        descripcion, tipo_partida, origen_partida, cantidad_base, unidad_base,
+                        precio_unitario, subtotal, total, estatus
+                    FROM erp_ventas_detalle
+                    WHERE id_venta=:venta
+                    ORDER BY renglon ASC, id_venta_detalle ASC");
+                $stmtDetalles->execute(array(":venta" => intval($venta["id_venta"])));
+                $partidas = $stmtDetalles->fetchAll(PDO::FETCH_ASSOC);
+                if (empty($partidas)) {
+                    $bloqueos[] = "La venta historica no tiene partidas";
+                }
+            }
+
+            $almacenes = $this->listarAlmacenesOrigenPos($db);
+            $almacenesIndex = array();
+            foreach ($almacenes as $almacen) {
+                $idAlmacen = intval($this->valor($almacen, "id_almacen", 0));
+                if ($idAlmacen > 0) {
+                    $almacenesIndex[$idAlmacen] = $almacen;
+                }
+            }
+            $correccionesIndex = array();
+            foreach ($cambiosEntrada as $correccion) {
+                if (!is_array($correccion)) { continue; }
+                $idDetalle = intval($this->valor($correccion, "id_venta_detalle", 0));
+                $idAlmacenNuevo = intval($this->valor($correccion, "id_almacen_nuevo", $this->valor($correccion, "id_almacen", 0)));
+                if ($idDetalle <= 0) {
+                    $bloqueos[] = "Cada correccion debe indicar id_venta_detalle";
+                    continue;
+                }
+                if ($idAlmacenNuevo <= 0 || !isset($almacenesIndex[$idAlmacenNuevo])) {
+                    $bloqueos[] = "La correccion del detalle " . $idDetalle . " requiere un almacen activo valido";
+                    continue;
+                }
+                $correccionesIndex[$idDetalle] = $idAlmacenNuevo;
+            }
+
+            $detalleIds = array();
+            foreach ($partidas as $indice => &$partida) {
+                $idDetalle = intval($partida["id_venta_detalle"]);
+                $detalleIds[$idDetalle] = true;
+                $idAlmacenActual = intval($partida["id_almacen"]);
+                $idAlmacenNuevo = array_key_exists($idDetalle, $correccionesIndex)
+                    ? $correccionesIndex[$idDetalle]
+                    : $idAlmacenActual;
+                if (array_key_exists($idDetalle, $correccionesIndex) && $idAlmacenNuevo === $idAlmacenActual) {
+                    $avisos[] = "El detalle " . $idDetalle . " conserva el mismo almacen; no hay cambio";
+                }
+                $partida["id_almacen_actual"] = $idAlmacenActual;
+                $partida["almacen_actual"] = $this->nombreAlmacenDesdeCatalogo($almacenesIndex, $idAlmacenActual);
+                $partida["id_almacen_propuesto"] = $idAlmacenNuevo;
+                $partida["almacen_propuesto"] = $this->nombreAlmacenDesdeCatalogo($almacenesIndex, $idAlmacenNuevo);
+                $partida["requiere_cambio"] = $idAlmacenNuevo !== $idAlmacenActual;
+            }
+            unset($partida);
+
+            foreach ($correccionesIndex as $idDetalle => $idAlmacenNuevo) {
+                if (!isset($detalleIds[$idDetalle])) {
+                    $bloqueos[] = "El detalle " . $idDetalle . " no pertenece al folio historico consultado";
+                }
+            }
+            if ($venta && intval($venta["id_almacen"]) > 0) {
+                $idsDetalle = array();
+                foreach ($partidas as $partida) {
+                    $idsDetalle[] = intval($partida["id_almacen_actual"]);
+                }
+                if (!empty($idsDetalle) && count(array_unique($idsDetalle)) > 1) {
+                    $avisos[] = "La venta contiene partidas de varios almacenes; la correccion debe hacerse por partida y no sobreescribir la cabecera";
+                }
+            }
+
+            $cambios = array();
+            foreach ($partidas as $partida) {
+                if (!empty($partida["requiere_cambio"])) {
+                    $cambios[] = array(
+                        "id_venta_detalle" => intval($partida["id_venta_detalle"]),
+                        "renglon" => intval($partida["renglon"]),
+                        "sku" => $partida["sku"],
+                        "descripcion" => $partida["descripcion"],
+                        "almacen_actual" => $partida["almacen_actual"],
+                        "almacen_propuesto" => $partida["almacen_propuesto"]
+                    );
+                }
+            }
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Dry-run de correccion historica valido" : "Correccion historica con pendientes", array(
+                "dry_run" => true,
+                "venta" => $venta ?: array(),
+                "partidas" => $partidas,
+                "cambios" => $cambios,
+                "almacenes" => $almacenes,
+                "avisos" => array_values(array_unique($avisos)),
+                "bloqueos" => array_values(array_unique($bloqueos)),
+                "contrato" => array(
+                    "no_escribe_bd" => true,
+                    "no_mueve_caja" => true,
+                    "no_mueve_inventario" => true,
+                    "no_aplica_reversa_pos" => true,
+                    "aplicacion_real_pendiente_de_autorizacion" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-22
+     * Proposito: aplicar cambios administrativos de almacen por partida historica con trazabilidad atomica.
+     * Impacto: actualiza solo erp_ventas_detalle.id_almacen y registra evidencia; no toca cabecera, pagos, caja ni inventario.
+     * Contrato: exige esquema de auditoria, folio/motivo, referencia de respaldo, confirmacion exacta y cambios con almacen anterior esperado.
+     */
+    public function ventaHistoricaCorreccionAplicar($datos = array()) {
+        $db = $this->getConexion();
+        $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+        $folio = trim((string) $this->valor($datos, "folio", ""));
+        $folioCorreccion = trim((string) $this->valor($datos, "folio_correccion", ""));
+        $motivo = trim((string) $this->valor($datos, "motivo", ""));
+        $respaldo = trim((string) $this->valor($datos, "referencia_respaldo", ""));
+        $confirmacion = trim((string) $this->valor($datos, "confirmacion", ""));
+        $cambios = $this->decodificarItems($this->valor($datos, "correcciones", array()));
+        if ($idUsuario <= 0 || $folio === "" || $folioCorreccion === "" || $motivo === "" || $respaldo === "" || empty($cambios)) {
+            return $this->respuesta(true, "warning", "Faltan folio, folio de correccion, motivo, referencia del respaldo, usuario o partidas");
+        }
+        if ($confirmacion !== "APLICAR CORRECCION HISTORICA " . $folio) {
+            return $this->respuesta(true, "warning", "La confirmacion no coincide con el folio historico");
+        }
+        if (!$this->tablaCorreccionHistoricaDisponible($db)) {
+            return $this->respuesta(true, "warning", "La estructura de auditoria para correcciones historicas no esta instalada completamente; no se aplico ningun cambio");
+        }
+
+        $indice = array();
+        foreach ($cambios as $cambio) {
+            if (!is_array($cambio)) { continue; }
+            $idDetalle = intval($this->valor($cambio, "id_venta_detalle", 0));
+            $anterior = intval($this->valor($cambio, "id_almacen_anterior", 0));
+            $nuevo = intval($this->valor($cambio, "id_almacen_nuevo", 0));
+            if ($idDetalle <= 0 || $anterior <= 0 || $nuevo <= 0 || $nuevo === $anterior || isset($indice[$idDetalle])) {
+                return $this->respuesta(true, "warning", "Cada partida debe ser unica e indicar almacen anterior y nuevo distintos");
+            }
+            $indice[$idDetalle] = array("anterior" => $anterior, "nuevo" => $nuevo);
+        }
+        if (empty($indice)) {
+            return $this->respuesta(true, "warning", "No hay partidas validas para corregir");
+        }
+
+        try {
+            $db->beginTransaction();
+            $stmtVenta = $db->prepare("SELECT id_venta, folio, canal, origen_venta, modo_operacion FROM erp_ventas WHERE folio=:folio LIMIT 1 FOR UPDATE");
+            $stmtVenta->execute(array(":folio" => $folio));
+            $venta = $stmtVenta->fetch(PDO::FETCH_ASSOC);
+            if (!$venta || $venta["canal"] !== "historico" || $venta["origen_venta"] !== "carga_historica" || $venta["modo_operacion"] !== "historico_sin_afectacion") {
+                throw new Exception("El folio no corresponde a una venta historica elegible");
+            }
+            $stmtAlmacen = $db->prepare("SELECT id_almacen FROM erp_almacenes WHERE id_almacen=:id AND COALESCE(estatus,'activo')='activo' LIMIT 1");
+            $stmtDetalle = $db->prepare("SELECT id_venta_detalle, id_venta, renglon, id_almacen, id_sku_erp, sku, descripcion, cantidad_base, unidad_base, precio_unitario, subtotal, total FROM erp_ventas_detalle WHERE id_venta_detalle=:id FOR UPDATE");
+            $stmtUpdate = $db->prepare("UPDATE erp_ventas_detalle SET id_almacen=:nuevo WHERE id_venta_detalle=:detalle AND id_venta=:venta AND id_almacen=:anterior");
+            $stmtAudit = $db->prepare("INSERT INTO erp_ventas_historicas_correcciones_detalle (id_correccion, id_venta, id_venta_detalle, renglon, id_almacen_anterior, id_almacen_nuevo, snapshot_anterior, snapshot_nuevo) VALUES (:correccion, :venta, :detalle, :renglon, :anterior, :nuevo, :snapshot_anterior, :snapshot_nuevo)");
+            $stmtCabecera = $db->prepare("INSERT INTO erp_ventas_historicas_correcciones (folio_correccion, folio_venta, id_venta, motivo, referencia_respaldo, confirmacion, aplicado_por) VALUES (:folio_correccion, :folio_venta, :venta, :motivo, :respaldo, :confirmacion, :usuario)");
+            $stmtCabecera->execute(array(":folio_correccion" => $folioCorreccion, ":folio_venta" => $folio, ":venta" => intval($venta["id_venta"]), ":motivo" => $motivo, ":respaldo" => $respaldo, ":confirmacion" => $confirmacion, ":usuario" => $idUsuario));
+            $idCorreccion = intval($db->lastInsertId());
+            $aplicados = array();
+            foreach ($indice as $idDetalle => $cambio) {
+                $stmtDetalle->execute(array(":id" => $idDetalle));
+                $detalle = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
+                if (!$detalle || intval($detalle["id_venta"]) !== intval($venta["id_venta"])) {
+                    throw new Exception("La partida " . $idDetalle . " no pertenece al folio indicado");
+                }
+                if (intval($detalle["id_almacen"]) !== $cambio["anterior"]) {
+                    throw new Exception("El almacen actual de la partida " . $idDetalle . " cambio desde la prevalidacion");
+                }
+                foreach (array($cambio["anterior"], $cambio["nuevo"]) as $idAlmacen) {
+                    $stmtAlmacen->execute(array(":id" => $idAlmacen));
+                    if (!$stmtAlmacen->fetchColumn()) { throw new Exception("El almacen " . $idAlmacen . " no existe o no esta activo"); }
+                }
+                $snapshotAnterior = $detalle;
+                $snapshotNuevo = $detalle;
+                $snapshotNuevo["id_almacen"] = $cambio["nuevo"];
+                $stmtUpdate->execute(array(":nuevo" => $cambio["nuevo"], ":detalle" => $idDetalle, ":venta" => intval($venta["id_venta"]), ":anterior" => $cambio["anterior"]));
+                if ($stmtUpdate->rowCount() !== 1) { throw new Exception("No se pudo actualizar la partida " . $idDetalle . " de forma exclusiva"); }
+                $stmtAudit->execute(array(":correccion" => $idCorreccion, ":venta" => intval($venta["id_venta"]), ":detalle" => $idDetalle, ":renglon" => intval($detalle["renglon"]), ":anterior" => $cambio["anterior"], ":nuevo" => $cambio["nuevo"], ":snapshot_anterior" => json_encode($snapshotAnterior, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ":snapshot_nuevo" => json_encode($snapshotNuevo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
+                $aplicados[] = array("id_venta_detalle" => $idDetalle, "almacen_anterior" => $cambio["anterior"], "almacen_nuevo" => $cambio["nuevo"]);
+            }
+            $db->commit();
+            return $this->respuesta(false, "success", "Correccion historica aplicada y auditada", array("folio_correccion" => $folioCorreccion, "folio_venta" => $folio, "partidas" => $aplicados, "no_afecto_cabecera_pagos_caja_inventario_kardex" => true));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-22 | Comprueba solo la disponibilidad minima del esquema de auditoria; no escribe datos. */
+    private function tablaCorreccionHistoricaDisponible($db) {
+        try {
+            $requerido = array(
+                "erp_ventas_historicas_correcciones" => array("id_correccion", "folio_correccion", "folio_venta", "id_venta", "motivo", "referencia_respaldo", "confirmacion", "aplicado_por"),
+                "erp_ventas_historicas_correcciones_detalle" => array("id_correccion", "id_venta", "id_venta_detalle", "renglon", "id_almacen_anterior", "id_almacen_nuevo", "snapshot_anterior", "snapshot_nuevo")
+            );
+            foreach ($requerido as $tabla => $columnas) {
+                $stmt = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME IN (" . implode(",", array_fill(0, count($columnas), "?")) . ")");
+                $stmt->execute(array_merge(array($tabla), $columnas));
+                if (intval($stmt->fetchColumn()) !== count($columnas)) { return false; }
+            }
+            return true;
+        } catch (Exception $e) { return false; }
+    }
+
+    private function nombreAlmacenDesdeCatalogo($almacenes, $idAlmacen) {
+        $idAlmacen = intval($idAlmacen);
+        if ($idAlmacen <= 0 || !isset($almacenes[$idAlmacen])) {
+            return $idAlmacen > 0 ? "Almacen " . $idAlmacen : "Sin almacen";
+        }
+        $almacen = $almacenes[$idAlmacen];
+        return trim((string) $this->valor($almacen, "nombre_comercial", $this->valor($almacen, "almacen", "Almacen " . $idAlmacen)));
+    }
+
+    /**
+     * IA: Codex GPT-5
      * Fecha: 2026-10-14
      * Proposito: prevalidar una venta historica y sus acciones de regularizacion.
      * Impacto: permite revisar datos y areas responsables antes de escribir en productivo.
@@ -217,6 +474,10 @@ class VentasErp extends CRUD {
             $partidas = array();
             $subtotal = 0;
             $acciones = array();
+            $indicesPrecioConjunto = array_map("intval", $this->decodificarItems($this->valor($datos, "indices_precio_conjunto", array())));
+            $precioConjuntoTotal = $this->redondearPosReal($this->valor($datos, "precio_conjunto_total", 0));
+            $porcentajeConjunto = $this->redondearPosReal($this->valor($datos, "precio_conjunto_porcentaje", 0));
+            $descuentoConjunto = 0;
             $accionesCatalogo = $this->catalogoAccionesVentaHistorica();
             $renglon = 1;
             foreach ($items as $item) {
@@ -273,15 +534,109 @@ class VentasErp extends CRUD {
                     "cantidad" => $cantidad,
                     "unidad_venta" => trim((string) $this->valor($item, "unidad_venta", $sku ? $this->valor($sku, "unidad_venta_label", "pza") : "pza")),
                     "precio_unitario" => $precio,
+                    "precio_historico" => $precio,
+                    "precio_aplicado" => $precio,
+                    "importe_historico" => $importe,
+                    "total_normalizado" => $importe,
+                    "descuento_conjunto" => 0,
+                    "descuento_general_asignado" => 0,
                     "subtotal" => $importe,
                     "accion_regularizacion" => $accion
                 );
                 $renglon++;
             }
 
-            $descuento = $this->redondearPosReal($this->valor($datos, "descuento_total", 0));
-            if ($descuento < 0) { $bloqueos[] = "Descuento historico invalido"; }
+            $subtotalConjunto = 0;
+            foreach ($indicesPrecioConjunto as $indice) {
+                if (isset($partidas[$indice])) {
+                    $subtotalConjunto += $this->redondearPosReal($this->valor($partidas[$indice], "importe_historico", 0));
+                }
+            }
+            $conjuntoValido = true;
+            if ($precioConjuntoTotal < 0) {
+                $bloqueos[] = "El total del conjunto no puede ser negativo";
+                $conjuntoValido = false;
+            }
+            if ($porcentajeConjunto < 0 || $porcentajeConjunto > 100) {
+                $bloqueos[] = "El porcentaje del conjunto debe estar entre 0 y 100";
+                $conjuntoValido = false;
+            }
+            if ($precioConjuntoTotal > 0 && $porcentajeConjunto > 0) {
+                $avisos[] = "Se usara el total fijo del conjunto; el porcentaje capturado se ignorara.";
+            }
+            if (!empty($indicesPrecioConjunto)) {
+                if ($subtotalConjunto <= 0) {
+                    $bloqueos[] = "El precio conjunto requiere partidas seleccionadas con importe mayor a cero";
+                    $conjuntoValido = false;
+                }
+                if ($precioConjuntoTotal <= 0 && $porcentajeConjunto <= 0) {
+                    $bloqueos[] = "Captura total o porcentaje del precio conjunto";
+                    $conjuntoValido = false;
+                }
+                if ($precioConjuntoTotal > 0 && $precioConjuntoTotal > $subtotalConjunto + 0.0001) {
+                    $bloqueos[] = "El total conjunto no puede superar el subtotal seleccionado";
+                    $conjuntoValido = false;
+                }
+                $totalConjuntoCalculado = $precioConjuntoTotal > 0
+                    ? $precioConjuntoTotal
+                    : round($subtotalConjunto * (1 - ($porcentajeConjunto / 100)), 6);
+                if ($conjuntoValido) {
+                    $descuentoConjunto = $this->redondearPosReal(max(0, $subtotalConjunto - max(0, $totalConjuntoCalculado)));
+                }
+                $descuentoAsignado = 0;
+                $ultimoIndice = !empty($indicesPrecioConjunto) ? $indicesPrecioConjunto[count($indicesPrecioConjunto) - 1] : -1;
+                foreach ($indicesPrecioConjunto as $indice) {
+                    if (!$conjuntoValido) { break; }
+                    if (!isset($partidas[$indice])) { continue; }
+                    $importePartida = $this->redondearPosReal($this->valor($partidas[$indice], "importe_historico", 0));
+                    $descuentoPartida = $indice === $ultimoIndice
+                        ? $this->redondearPosReal($descuentoConjunto - $descuentoAsignado)
+                        : $this->redondearPosReal($descuentoConjunto * ($importePartida / max(0.000001, $subtotalConjunto)));
+                    $descuentoAsignado += $descuentoPartida;
+                    $totalPartida = $this->redondearPosReal(max(0, $importePartida - $descuentoPartida));
+                    $cantidadPartida = $this->redondearPosReal($this->valor($partidas[$indice], "cantidad", 0));
+                    $partidas[$indice]["descuento_conjunto"] = $descuentoPartida;
+                    $partidas[$indice]["total_normalizado"] = $totalPartida;
+                    $partidas[$indice]["precio_aplicado"] = $cantidadPartida > 0 ? $this->redondearPosReal($totalPartida / $cantidadPartida) : 0;
+                }
+            }
+            $descuentoGeneral = $this->redondearPosReal($this->valor($datos, "descuento_total", 0));
+            if ($descuentoGeneral < 0) {
+                $bloqueos[] = "Descuento historico invalido";
+                $descuentoGeneral = 0;
+            }
+            if ($descuentoGeneral > $subtotal + 0.0001) {
+                $bloqueos[] = "El descuento general no puede superar el subtotal";
+            }
+            $descuento = $this->redondearPosReal($descuentoGeneral + $descuentoConjunto);
+            if ($descuento > $subtotal + 0.0001) {
+                $bloqueos[] = "La suma de descuentos no puede superar el subtotal";
+            }
+            if ($descuentoGeneral > 0 && $subtotal > 0 && $descuento <= $subtotal + 0.0001) {
+                $descuentoAsignadoGeneral = 0;
+                $ultimoIndiceGeneral = count($partidas) - 1;
+                foreach ($partidas as $indice => &$partida) {
+                    $importePartida = $this->redondearPosReal($this->valor($partida, "importe_historico", 0));
+                    $descuentoPartida = $indice === $ultimoIndiceGeneral
+                        ? $this->redondearPosReal($descuentoGeneral - $descuentoAsignadoGeneral)
+                        : $this->redondearPosReal($descuentoGeneral * ($importePartida / max(0.000001, $subtotal)));
+                    $descuentoAsignadoGeneral += $descuentoPartida;
+                    $partida["descuento_general_asignado"] = $descuentoPartida;
+                    $totalPartida = $this->redondearPosReal(max(0, $this->valor($partida, "total_normalizado", $importePartida) - $descuentoPartida));
+                    $cantidadPartida = $this->redondearPosReal($this->valor($partida, "cantidad", 0));
+                    $partida["total_normalizado"] = $totalPartida;
+                    $partida["precio_aplicado"] = $cantidadPartida > 0 ? $this->redondearPosReal($totalPartida / $cantidadPartida) : 0;
+                }
+                unset($partida);
+            }
             $total = $this->redondearPosReal(max(0, $subtotal - $descuento));
+            $totalPartidas = 0;
+            foreach ($partidas as $partida) {
+                $totalPartidas += $this->redondearPosReal($this->valor($partida, "total_normalizado", 0));
+            }
+            if (abs($totalPartidas - $total) > 0.01) {
+                $bloqueos[] = "El desglose de partidas no coincide con el total de la venta";
+            }
             // IA: Codex GPT-5 | 2026-10-20 | La carga historica permite pagos documentales multiples.
             $pagosEntrada = $this->decodificarItems($this->valor($datos, "pagos", array()));
             if (empty($pagosEntrada)) {
@@ -335,6 +690,12 @@ class VentasErp extends CRUD {
                 "totales" => array(
                     "subtotal" => $this->redondearPosReal($subtotal),
                     "descuento_total" => $descuento,
+                    "descuento_general" => $descuentoGeneral,
+                    "descuento_conjunto" => $descuentoConjunto,
+                    "total_partidas" => $this->redondearPosReal($totalPartidas),
+                    "subtotal_conjunto" => $this->redondearPosReal($subtotalConjunto),
+                    "precio_conjunto_total" => !empty($indicesPrecioConjunto) && $conjuntoValido ? $this->redondearPosReal($subtotalConjunto - $descuentoConjunto) : 0,
+                    "indices_precio_conjunto" => $indicesPrecioConjunto,
                     "total" => $total,
                     "pagado_total" => min($pagado, $total),
                     "saldo_total" => max(0, $total - $pagado)
@@ -431,7 +792,7 @@ class VentasErp extends CRUD {
                     VALUES (:venta, :renglon, :almacen, NULL, :sku_id, :sku, :descripcion,
                      :tipo_partida, 0, 'historico_sin_inventario', :cantidad, :unidad,
                      :cantidad_base, :unidad_base, :precio, :precio,
-                     :precio_base, :precio_aplicado, 'carga_historica', 0, 0,
+                     :precio_base, :precio_aplicado, :regla_precio_origen, :descuento, 0,
                      :subtotal, :total, 'confirmada')");
                 $stmtDetalle->execute(array(
                     ":venta" => $idVenta,
@@ -445,11 +806,13 @@ class VentasErp extends CRUD {
                     ":unidad" => $this->valor($partida, "unidad_venta", "pza"),
                     ":cantidad_base" => $this->redondearPosReal($this->valor($partida, "cantidad", 0)),
                     ":unidad_base" => $this->valor($partida, "unidad_venta", "pza"),
-                    ":precio" => $this->redondearPosReal($this->valor($partida, "precio_unitario", 0)),
-                    ":precio_base" => $this->redondearPosReal($this->valor($partida, "precio_unitario", 0)),
-                    ":precio_aplicado" => $this->redondearPosReal($this->valor($partida, "precio_unitario", 0)),
-                    ":subtotal" => $this->redondearPosReal($this->valor($partida, "subtotal", 0)),
-                    ":total" => $this->redondearPosReal($this->valor($partida, "subtotal", 0))
+                    ":precio" => $this->redondearPosReal($this->valor($partida, "precio_aplicado", $this->valor($partida, "precio_unitario", 0))),
+                    ":precio_base" => $this->redondearPosReal($this->valor($partida, "precio_historico", $this->valor($partida, "precio_unitario", 0))),
+                    ":precio_aplicado" => $this->redondearPosReal($this->valor($partida, "precio_aplicado", $this->valor($partida, "precio_unitario", 0))),
+                    ":regla_precio_origen" => floatval($this->valor($partida, "descuento_conjunto", 0)) > 0 ? "precio_conjunto_historico" : "carga_historica",
+                    ":descuento" => $this->redondearPosReal(floatval($this->valor($partida, "descuento_conjunto", 0)) + floatval($this->valor($partida, "descuento_general_asignado", 0))),
+                    ":subtotal" => $this->redondearPosReal($this->valor($partida, "importe_historico", $this->valor($partida, "subtotal", 0))),
+                    ":total" => $this->redondearPosReal($this->valor($partida, "total_normalizado", $this->valor($partida, "subtotal", 0)))
                 ));
                 $idDetalle = intval($db->lastInsertId());
                 $accion = $this->normalizarAccionVentaHistorica($this->valor($partida, "accion_regularizacion", ""));
@@ -3650,6 +4013,15 @@ class VentasErp extends CRUD {
                 ORDER BY p.id_venta_pago ASC");
             $stmt->execute(array(":venta" => intval($venta["id_venta"])));
             $pagos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($pagos as &$pago) {
+                if (isset($pago["metodo_pago"])) {
+                    $pago["metodo_pago"] = $this->normalizarTextoOperativo($pago["metodo_pago"]);
+                }
+                if (isset($pago["tipo_pago"])) {
+                    $pago["tipo_pago"] = $this->normalizarTextoOperativo($pago["tipo_pago"]);
+                }
+            }
+            unset($pago);
 
             $stmt = $db->prepare("SELECT vi.*, im.codigo_existencia, im.referencia movimiento_referencia,
                     im.existencia_anterior, im.existencia_nueva
@@ -5230,6 +5602,308 @@ class VentasErp extends CRUD {
             unset($fila);
             return $this->respuesta(false, "success", "SKUs POS consultados", $filas);
         } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: preparar la comunicacion de facturas con una plantilla reutilizable.
+     * Impacto: centraliza branding y placeholders de XML/PDF sin enviar correo ni escribir registros.
+     * Contrato: read-only; devuelve una plantilla editable en una fase posterior.
+     */
+    public function plantillaCorreoFacturaReadOnly() {
+        try {
+            $db = $this->getConexion();
+            $valores = array();
+            if ($db && $this->tablaExiste($db, "sys_configuracion_parametros")) {
+                $claves = array(
+                    "branding.logo_principal",
+                    "empresa.nombre_comercial",
+                    "empresa.razon_social",
+                    "empresa.rfc",
+                    "empresa.telefono",
+                    "empresa.direccion",
+                    "empresa.sitio_web",
+                    "empresa.email_facturacion",
+                    "empresa.email_compras"
+                );
+                $marcadores = implode(",", array_fill(0, count($claves), "?"));
+                $stmt = $db->prepare("SELECT clave, valor FROM sys_configuracion_parametros WHERE clave IN (" . $marcadores . ") AND estatus=1");
+                $stmt->execute($claves);
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                    $valores[$fila["clave"]] = trim((string) $fila["valor"]);
+                }
+            }
+            $empresa = $this->valor($valores, "empresa.nombre_comercial", "");
+            if ($empresa === "") {
+                $empresa = $this->valor($valores, "empresa.razon_social", "");
+            }
+            $correo = $this->valor($valores, "empresa.email_facturacion", "");
+            if ($correo === "") {
+                $correo = $this->valor($valores, "empresa.email_compras", "");
+            }
+            $logoUrl = $this->valor($valores, "branding.logo_principal", "");
+            if ($logoUrl === "" || preg_match("/(default-dark|default-small|favicon)/i", $logoUrl)) {
+                $logoUrl = "assets/media/logos/artiani-logo.png";
+            }
+            return $this->respuesta(false, "success", "Plantilla de correo de factura consultada", array(
+                "read_only" => true,
+                "envio_habilitado" => false,
+                "empresa" => array(
+                    "nombre" => $empresa,
+                    "rfc" => $this->valor($valores, "empresa.rfc", ""),
+                    "telefono" => $this->valor($valores, "empresa.telefono", ""),
+                    "direccion" => $this->valor($valores, "empresa.direccion", ""),
+                    "sitio_web" => $this->valor($valores, "empresa.sitio_web", ""),
+                    "correo" => $correo,
+                    "logo_url" => $logoUrl
+                ),
+                "asunto" => "Factura {folio} - {empresa_nombre}",
+                "cuerpo" => "Hola {cliente_nombre},\n\nTe compartimos la factura correspondiente a tu compra {folio}.\n\nAdjuntos: XML y PDF de la factura.\nUUID: {uuid}\nTotal: {moneda} {total}\n\nSi necesitas alguna aclaracion, responde a este correo e indica el folio y UUID.\n\n{empresa_nombre}",
+                "placeholders" => array(
+                    "{cliente_nombre}", "{folio}", "{uuid}", "{moneda}", "{total}", "{empresa_nombre}", "{empresa_rfc}", "{correo_respuesta}"
+                ),
+                "pendientes" => array(
+                    "Definir proveedor o cuenta SMTP autorizada",
+                    "Guardar bitacora de envio y resultado",
+                    "Adjuntar XML/PDF desde un CFDI importado y validado"
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: listar CFDI de Ventas conservados por el ERP.
+     * Impacto: permite consulta fiscal documental sin emitir, cancelar ni modificar CFDI.
+     * Contrato: read-only; si falta el esquema responde pendiente y no intenta crear tablas.
+     */
+    public function facturacionCfdiListar($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->facturacionCfdiEsquemaDisponible($db)) {
+                return $this->respuesta(false, "info", "Esquema de CFDI de Ventas pendiente", array(
+                    "configurado" => false,
+                    "documentos" => array(),
+                    "bloqueos" => array("erp_ventas_documentos_fiscales_pendiente")
+                ));
+            }
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $estatus = trim((string) $this->valor($filtros, "estatus_conciliacion", ""));
+            $limite = max(20, min(100, intval($this->valor($filtros, "limite", 50))));
+            $where = array("1=1");
+            $params = array();
+            if ($q !== "") {
+                $where[] = "(d.uuid LIKE :q OR d.folio LIKE :q OR d.rfc_receptor LIKE :q OR d.nombre_receptor LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            if ($estatus !== "") {
+                $where[] = "d.estatus_conciliacion=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            $stmt = $db->prepare("SELECT d.id_documento_fiscal, d.id_venta, d.id_cliente_crm,
+                    d.uuid, d.tipo_comprobante, d.serie, d.folio, d.fecha_emision,
+                    d.rfc_receptor, d.nombre_receptor, d.moneda, d.subtotal,
+                    d.descuento, d.impuestos_total, d.total, d.estatus_sat,
+                    d.estatus_conciliacion, d.archivo_nombre, d.origen_documento,
+                    d.fecha_registro
+                FROM erp_ventas_documentos_fiscales d
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY d.fecha_emision DESC, d.id_documento_fiscal DESC
+                LIMIT " . intval($limite));
+            $stmt->execute($params);
+            return $this->respuesta(false, "success", "CFDI de Ventas consultados", array(
+                "configurado" => true,
+                "documentos" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                "filtros" => array("q" => $q, "estatus_conciliacion" => $estatus)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage(), array("documentos" => array()));
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: consultar un CFDI conservado junto con conceptos y eventos.
+     * Impacto: concentra la trazabilidad documental sin recalcular ni alterar el XML fiscal.
+     * Contrato: read-only; requiere id_documento_fiscal o UUID.
+     */
+    public function facturacionCfdiConsultar($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->facturacionCfdiEsquemaDisponible($db)) {
+                return $this->respuesta(false, "info", "Esquema de CFDI de Ventas pendiente", array("configurado" => false, "documento" => null));
+            }
+            $idDocumento = intval($this->valor($filtros, "id_documento_fiscal", 0));
+            $uuid = trim((string) $this->valor($filtros, "uuid", ""));
+            if ($idDocumento <= 0 && $uuid === "") {
+                return $this->respuesta(true, "warning", "Indica id_documento_fiscal o UUID");
+            }
+            $where = $idDocumento > 0 ? "id_documento_fiscal=:valor" : "uuid=:valor";
+            $stmt = $db->prepare("SELECT * FROM erp_ventas_documentos_fiscales WHERE " . $where . " LIMIT 1");
+            $stmt->execute(array(":valor" => $idDocumento > 0 ? $idDocumento : $uuid));
+            $documento = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$documento) {
+                return $this->respuesta(false, "info", "CFDI no encontrado", array("configurado" => true, "documento" => null));
+            }
+            $stmt = $db->prepare("SELECT * FROM erp_ventas_documentos_fiscales_conceptos WHERE id_documento_fiscal=:id ORDER BY renglon ASC, id_documento_concepto ASC");
+            $stmt->execute(array(":id" => intval($documento["id_documento_fiscal"])));
+            $conceptos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt = $db->prepare("SELECT * FROM erp_ventas_documentos_fiscales_eventos WHERE id_documento_fiscal=:id ORDER BY fecha_registro ASC, id_documento_evento ASC");
+            $stmt->execute(array(":id" => intval($documento["id_documento_fiscal"])));
+            $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $this->respuesta(false, "success", "CFDI consultado", array(
+                "configurado" => true,
+                "documento" => $documento,
+                "conceptos" => $conceptos,
+                "eventos" => $eventos,
+                "archivo_disponible" => !empty($documento["archivo_ruta"])
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: importar un XML CFDI externo con idempotencia por UUID y hash.
+     * Impacto: conserva archivo, resumen fiscal, conceptos y evento inicial; no emite CFDI ni afecta inventario/caja.
+     * Contrato: requiere esquema completo y permiso financiero; una falla elimina el archivo parcial y revierte la transaccion.
+     */
+    public function facturacionCfdiImportar($archivo, $idUsuario) {
+        $ruta = "";
+        try {
+            $db = $this->getConexion();
+            if (!$this->facturacionCfdiEsquemaDisponible($db)) {
+                return $this->respuesta(true, "warning", "Aplica primero el esquema de CFDI de Ventas con respaldo autorizado", array(
+                    "schema_pendiente" => true,
+                    "no_escribe_bd" => true
+                ));
+            }
+            if (empty($archivo["tmp_name"]) || !is_uploaded_file($archivo["tmp_name"])) {
+                return $this->respuesta(true, "warning", "Selecciona un XML CFDI");
+            }
+            $contenido = file_get_contents($archivo["tmp_name"]);
+            if ($contenido === false) {
+                return $this->respuesta(true, "danger", "No fue posible leer el XML");
+            }
+            require_once __DIR__ . "/ComprasXmlErp.php";
+            $parser = new ComprasXmlErp();
+            $parseo = $parser->parsear($archivo);
+            if (!is_array($parseo) || !empty($parseo["error"])) {
+                return is_array($parseo) ? $parseo : $this->respuesta(true, "danger", "El XML no pudo analizarse");
+            }
+            $cfdi = isset($parseo["depurar"]) && is_array($parseo["depurar"]) ? $parseo["depurar"] : array();
+            $hash = hash("sha256", $contenido);
+            $stmt = $db->prepare("SELECT id_documento_fiscal FROM erp_ventas_documentos_fiscales WHERE archivo_hash=:hash OR (uuid IS NOT NULL AND uuid<>'' AND uuid=:uuid) LIMIT 1");
+            $stmt->execute(array(":hash" => $hash, ":uuid" => trim((string) $this->valor($cfdi, "uuid", ""))));
+            $existente = $stmt->fetchColumn();
+            if ($existente) {
+                return $this->respuesta(false, "info", "El CFDI ya estaba importado", array("id_documento_fiscal" => intval($existente), "duplicado" => true));
+            }
+
+            $directorioRelativo = "storage/erp/ventas/fiscales/";
+            $directorio = dirname(__DIR__, 2) . "/" . $directorioRelativo;
+            if (!is_dir($directorio) && !mkdir($directorio, 0775, true)) {
+                throw new Exception("No se pudo preparar el directorio fiscal");
+            }
+            $uuid = trim((string) $this->valor($cfdi, "uuid", ""));
+            $nombreArchivo = basename((string) $this->valor($archivo, "name", "cfdi.xml"));
+            $nombreArchivo = preg_replace("/[^A-Za-z0-9._-]/", "_", $nombreArchivo);
+            $nombreGuardado = ($uuid !== "" ? $uuid : substr($hash, 0, 32)) . ".xml";
+            $ruta = $directorio . $nombreGuardado;
+            if (file_put_contents($ruta, $contenido) === false) {
+                throw new Exception("No se pudo conservar el XML");
+            }
+
+            $db->beginTransaction();
+            $stmt = $db->prepare("INSERT INTO erp_ventas_documentos_fiscales
+                (uuid, version_cfdi, tipo_comprobante, serie, folio, fecha_emision,
+                rfc_emisor, nombre_emisor, rfc_receptor, nombre_receptor, moneda,
+                tipo_cambio, subtotal, descuento, impuestos_total, total,
+                estatus_sat, estatus_conciliacion, archivo_nombre, archivo_ruta,
+                archivo_hash, origen_documento, creado_por)
+                VALUES (:uuid,:version,:tipo,:serie,:folio,:fecha,:rfc_emisor,:emisor,
+                :rfc_receptor,:receptor,:moneda,:tipo_cambio,:subtotal,:descuento,
+                :impuestos,:total,'pendiente_validacion','pendiente',:archivo,:ruta,
+                :hash,'sat_externo',:usuario)");
+            $stmt->execute(array(
+                ":uuid" => $uuid !== "" ? $uuid : null,
+                ":version" => $this->valor($cfdi, "version", ""),
+                ":tipo" => $this->valor($cfdi, "tipo_comprobante", ""),
+                ":serie" => $this->valor($cfdi, "serie", ""),
+                ":folio" => $this->valor($cfdi, "folio", ""),
+                ":fecha" => $this->valor($cfdi, "fecha", "") !== "" ? $cfdi["fecha"] : null,
+                ":rfc_emisor" => $this->valor($cfdi, "rfc_emisor", ""),
+                ":emisor" => $this->valor($cfdi, "nombre_emisor", ""),
+                ":rfc_receptor" => $this->valor($cfdi, "rfc_receptor", ""),
+                ":receptor" => $this->valor($cfdi, "nombre_receptor", ""),
+                ":moneda" => $this->valor($cfdi, "moneda", "MXN"),
+                ":tipo_cambio" => floatval($this->valor($cfdi, "tipo_cambio", 1)) ?: 1,
+                ":subtotal" => floatval($this->valor($cfdi, "subtotal", 0)),
+                ":descuento" => floatval($this->valor($cfdi, "descuento", 0)),
+                ":impuestos" => floatval($this->valor($cfdi, "impuestos_total", 0)),
+                ":total" => floatval($this->valor($cfdi, "total", 0)),
+                ":archivo" => $nombreArchivo,
+                ":ruta" => $directorioRelativo . $nombreGuardado,
+                ":hash" => $hash,
+                ":usuario" => intval($idUsuario) ?: null
+            ));
+            $idDocumento = intval($db->lastInsertId());
+            $stmtConcepto = $db->prepare("INSERT INTO erp_ventas_documentos_fiscales_conceptos
+                (id_documento_fiscal, renglon, no_identificacion, descripcion,
+                clave_producto_sat, clave_unidad_sat, unidad, objeto_impuesto,
+                cantidad, valor_unitario, importe, descuento, impuestos_total,
+                iva_porcentaje, ieps_porcentaje, resultado_conciliacion)
+                VALUES (:documento,:renglon,:identificacion,:descripcion,:clave_producto,
+                :clave_unidad,:unidad,:objeto,:cantidad,:unitario,:importe,:descuento,
+                :impuestos,:iva,:ieps,'sin_coincidencia')");
+            $renglon = 1;
+            foreach ($this->valor($cfdi, "conceptos", array()) as $concepto) {
+                $stmtConcepto->execute(array(
+                    ":documento" => $idDocumento,
+                    ":renglon" => $renglon++, ":identificacion" => $this->valor($concepto, "no_identificacion", ""),
+                    ":descripcion" => $this->valor($concepto, "descripcion", "Sin descripcion"),
+                    ":clave_producto" => $this->valor($concepto, "clave_producto_sat", ""),
+                    ":clave_unidad" => $this->valor($concepto, "clave_unidad_sat", ""),
+                    ":unidad" => $this->valor($concepto, "unidad", ""),
+                    ":objeto" => $this->valor($concepto, "objeto_impuesto", ""),
+                    ":cantidad" => floatval($this->valor($concepto, "cantidad", 0)),
+                    ":unitario" => floatval($this->valor($concepto, "valor_unitario", 0)),
+                    ":importe" => floatval($this->valor($concepto, "importe", 0)),
+                    ":descuento" => floatval($this->valor($concepto, "descuento", 0)),
+                    ":impuestos" => floatval($this->valor($concepto, "impuestos_total", 0)),
+                    ":iva" => floatval($this->valor($concepto, "iva_porcentaje", 0)),
+                    ":ieps" => floatval($this->valor($concepto, "ieps_porcentaje", 0))
+                ));
+            }
+            $stmtEvento = $db->prepare("INSERT INTO erp_ventas_documentos_fiscales_eventos
+                (id_documento_fiscal, tipo_evento, estatus_nuevo, detalle_json, creado_por)
+                VALUES (:documento,'importacion_xml','pendiente',:detalle,:usuario)");
+            $stmtEvento->execute(array(
+                ":documento" => $idDocumento,
+                ":detalle" => json_encode(array("uuid" => $uuid, "archivo_hash" => $hash, "origen" => "sat_externo"), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ":usuario" => intval($idUsuario) ?: null
+            ));
+            $db->commit();
+            return $this->respuesta(false, "success", "CFDI importado y conservado para validacion", array(
+                "id_documento_fiscal" => $idDocumento,
+                "uuid" => $uuid,
+                "estatus_conciliacion" => "pendiente",
+                "no_emite_cfdi" => true,
+                "no_mueve_inventario" => true,
+                "no_mueve_caja" => true
+            ));
+        } catch (Exception $e) {
+            if (isset($db) && $db->inTransaction()) { $db->rollBack(); }
+            if ($ruta !== "" && is_file($ruta)) { unlink($ruta); }
             return $this->respuesta(true, "danger", $e->getMessage());
         }
     }
@@ -12199,7 +12873,17 @@ class VentasErp extends CRUD {
         if (!$this->tablaExiste($db, "erp_metodos_pago")) {
             return array();
         }
-        return $db->query("SELECT * FROM erp_metodos_pago")->fetchAll(PDO::FETCH_ASSOC);
+        $metodos = $db->query("SELECT * FROM erp_metodos_pago")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($metodos as &$metodo) {
+            if (isset($metodo["metodo_pago"])) {
+                $metodo["metodo_pago"] = $this->normalizarTextoOperativo($metodo["metodo_pago"]);
+            }
+            if (isset($metodo["descripcion"])) {
+                $metodo["descripcion"] = $this->normalizarTextoOperativo($metodo["descripcion"]);
+            }
+        }
+        unset($metodo);
+        return $metodos;
     }
 
     private function schemaClientesCrmDisponible($db) {
@@ -13610,6 +14294,9 @@ class VentasErp extends CRUD {
         $lineas = array();
         $hallazgos = array();
         $configuracionTicket = $this->normalizarConfiguracionTicketPos($configuracionTicket);
+        $canalVenta = strtolower(trim((string) $this->valor($venta, "canal", "")));
+        $origenVenta = strtolower(trim((string) $this->valor($venta, "origen_venta", "")));
+        $esVentaHistorica = $canalVenta === "historico" || $origenVenta === "carga_historica";
         $ancho = intval($this->valor($configuracionTicket, "ticket_columnas", 42));
         $nombreComercial = $this->textoTicket($this->valor($configuracionTicket, "nombre_comercial", "ARTIANI ERP"), $ancho);
         $lineas[] = str_pad($nombreComercial, $ancho, " ", STR_PAD_BOTH);
@@ -13654,7 +14341,7 @@ class VentasErp extends CRUD {
             $garantia = trim((string) $this->valor($detalle, "resumen_ticket", ""));
             if ($this->garantiaVisibleEnTicketCliente($garantia)) {
                 $lineas[] = "  Garantia: " . $this->textoTicket($garantia, $ancho - 13);
-            } elseif ($garantia === "") {
+            } elseif ($garantia === "" && !$esVentaHistorica) {
                 $hallazgos[] = array(
                     "id" => "VENTAS-TICKET-001",
                     "severidad" => "media",
@@ -13926,18 +14613,39 @@ class VentasErp extends CRUD {
         if ($this->esPagoSaldoCrmPos($pago)) {
             return "Saldo cliente no caja";
         }
-        $metodo = trim((string) $this->valor($pago, "metodo_pago", ""));
+        $metodo = trim((string) $this->normalizarTextoOperativo($this->valor($pago, "metodo_pago", "")));
         $tipo = trim((string) $this->valor($pago, "tipo_pago", ""));
         $label = trim($metodo . " " . $tipo);
         return $label !== "" ? $label : "Pago";
     }
 
     private function textoTicket($texto, $maximo) {
+        $texto = $this->normalizarTextoOperativo($texto);
         $texto = trim(preg_replace('/\s+/', ' ', (string) $texto));
         if ($maximo <= 0 || strlen($texto) <= $maximo) {
             return $texto;
         }
         return substr($texto, 0, max(0, $maximo - 3)) . "...";
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-22.
+     * Proposito: corregir en la salida textos historicos almacenados con doble codificacion.
+     * Impacto: evita mojibake en tickets y detalle sin mutar datos productivos.
+     * Contrato: helper puro de presentacion; no altera importes ni persistencia.
+     */
+    private function normalizarTextoOperativo($texto) {
+        $texto = (string) $texto;
+        if ($texto === "") {
+            return "";
+        }
+        $reemplazos = array(
+            "├â┬®" => "é", "├â┬©" => "é", "├â┬¡" => "í", "├â┬│" => "ó", "├â┬║" => "ú",
+            "├â┬▒" => "ñ", "├â┬¼" => "ü", "├â┬ü" => "ü", "├â┬¿" => "¿", "├â┬í" => "¡",
+            "Ã¡" => "á", "Ã©" => "é", "Ã­" => "í", "Ã³" => "ó", "Ãº" => "ú",
+            "Ã±" => "ñ", "Ã¼" => "ü", "Â¿" => "¿", "Â¡" => "¡", "Â" => ""
+        );
+        return strtr($texto, $reemplazos);
     }
 
     /**
@@ -15750,6 +16458,22 @@ class VentasErp extends CRUD {
         }
         $idAlmacen = intval($this->valor($item, "id_almacen", $this->valor($item, "id_almacen_origen", $idAlmacenDefault)));
         return $idAlmacen > 0 ? $idAlmacen : intval($idAlmacenDefault);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: impedir operaciones fiscales parciales cuando falta una tabla del expediente CFDI.
+     * Impacto: protege la idempotencia y la trazabilidad de importaciones.
+     * Contrato: solo consulta INFORMATION_SCHEMA; no crea ni modifica estructura.
+     */
+    private function facturacionCfdiEsquemaDisponible($db) {
+        foreach (array("erp_ventas_documentos_fiscales", "erp_ventas_documentos_fiscales_conceptos", "erp_ventas_documentos_fiscales_eventos") as $tabla) {
+            if (!$this->tablaExiste($db, $tabla)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function tablaExiste($db, $tabla) {

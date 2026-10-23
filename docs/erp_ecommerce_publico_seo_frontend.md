@@ -259,4 +259,56 @@ Desde el ERP:
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_feed_meta_readonly.php --base=https://artiani.com.mx
 ```
+
+## Feed Meta Commerce Manager
+
+Fecha de incorporación: 2026-10-22. El endpoint público de solo lectura es:
+
+- `GET /ecommercePublico/feed_meta`
+- `HEAD /ecommercePublico/feed_meta`
+
+URL productiva recomendada para Commerce Manager:
+
+```text
+https://sys.artiani.com.mx/ecommercePublico/feed_meta
+```
+
+`panel.artiani.com.mx` no debe utilizarse para Meta porque es el panel autenticado. La URL `sys.artiani.com.mx` debe publicar únicamente este endpoint sin sesión; no se deben compartir credenciales del panel con Meta.
+
+Decisiones confirmadas por el dueño el 2026-10-23:
+
+- Todos los productos publicados para este canal se consideran nuevos (`condition=new`).
+- Los productos agotados permanecen en el feed como `out of stock`, siempre que conserven precio, descripción, imagen, marca y URL válidos.
+- Cuando se complete precio, proveedor y demás información operativa, el producto podrá actualizarse y volver a `in stock` sin duplicar el artículo en Meta.
+
+El contenido se entrega como TSV (`text/tab-separated-values`) con las columnas de la plantilla de Meta. Reutiliza `EcommerceCatalogoPublico` y no crea una fuente paralela ni modifica inventario, ventas, precios o publicaciones.
+
+Reglas actuales:
+
+- Solo toma publicaciones `publicado`, productos y SKU `activo`.
+- La condición se envía como `new`.
+- `disponible` y `pocas_piezas` se envían como `in stock`.
+- `agotado` se envía como `out of stock`.
+- `consultar_disponibilidad` no se envía.
+- Se excluyen fichas sin SKU, título, descripción pública, precio positivo, marca, URL o imagen.
+- `quantity_to_sell_on_facebook` queda vacío para no publicar existencias exactas.
+- `google_product_category` se asigna solo cuando una regla de producto/categoría ofrece una coincidencia razonable; los demás quedan vacíos para revisión.
+
+Carga en Meta:
+
+1. En Commerce Manager crear o seleccionar el catálogo.
+2. Seleccionar fuente de datos por URL y pegar la URL HTTPS pública del endpoint.
+3. Programar la actualización diaria.
+4. Revisar los errores de campos obligatorios, URLs, imágenes, precios y categorías.
+5. Corregir el catálogo ERP y esperar la siguiente sincronización; no editar manualmente el feed como fuente de verdad.
+
+La URL no debe requerir sesión, contraseña ni token de Meta. Antes de registrar la fuente en producción se debe validar que el dominio público y las imágenes respondan desde Internet; `panel.com.local` y `artiani.com.local` son únicamente entornos locales.
+
+Estado de publicación externa al 2026-10-23:
+
+- `https://artiani.com.mx/ecommercePublico/feed_meta` responde con la página pública de ruta inexistente.
+- `https://sys.artiani.com.mx/ecommercePublico/feed_meta` no es accesible desde la red de validación.
+- El endpoint ya existe en `panel_de_control`, pero requiere despliegue del backend o un proxy HTTPS desde el proyecto/frontend público antes de registrarlo en Meta.
+- No registrar todavía la URL en Commerce Manager; primero comprobar HTTP 200, `Content-Type: text/tab-separated-values` y al menos una fila válida desde Internet.

@@ -74,6 +74,7 @@ $gruposMenu = array(
             array('titulo' => 'Clasificacion rapida', 'ruta' => '/catalogoerp/clasificacion_rapida', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Organizacion catalogo', 'ruta' => '/catalogoerp/organizacion', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Paquetes', 'ruta' => '/catalogoerp/paquetes', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Calidad / Pendientes de costo', 'ruta' => '/catalogoerp/pendientes_costo', 'permiso' => array('catalogo.costos', 'proveedores.costos', 'ventas.listas.ver')),
             array('titulo' => 'Revision migracion', 'ruta' => '/catalogoerp/migracion_ecommerce', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Configuracion catalogo', 'ruta' => '/catalogoerp/configuracion', 'permiso' => 'catalogo.editar')
         )
@@ -86,6 +87,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Catalogos comerciales', 'ruta' => '/catalogoerp/catalogos_comerciales', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Listas de precios', 'ruta' => '/comercial/listas_precios', 'permiso' => 'ventas.listas.ver'),
+            array('titulo' => 'Pendientes de costo', 'ruta' => '/catalogoerp/pendientes_costo', 'permiso' => array('catalogo.costos', 'proveedores.costos', 'ventas.listas.ver')),
             array('titulo' => 'Manual listas de precios', 'ruta' => '/comercial/listas_precios_manual', 'permiso' => 'ventas.listas.ver')
         )
     ),
@@ -129,7 +131,9 @@ $gruposMenu = array(
             array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Pendientes venta rapida', 'ruta' => '/ventas/venta_rapida_pendientes', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Carga historica', 'ruta' => '/ventas/carga_historica', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Correcciones historicas', 'ruta' => '/ventas/correcciones_historicas', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Facturacion y cotizaciones', 'ruta' => '/ventas/facturacion_cotizaciones', 'permiso' => array('ventas.ver', 'finanzas.ver')),
             array('titulo' => 'Envios foraneos', 'ruta' => '/ventas/envios_foraneos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver'),
@@ -209,6 +213,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Maestro proveedores', 'ruta' => '/proveedor/mostrar_proveedores_erp', 'permiso' => 'proveedores.ver'),
             array('titulo' => 'Analisis abastecimiento', 'ruta' => '/proveedor/analisis_abastecimiento_erp', 'permiso' => 'proveedores.ver'),
+            array('titulo' => 'Costos / Pendientes de costo', 'ruta' => '/catalogoerp/pendientes_costo', 'permiso' => array('catalogo.costos', 'proveedores.costos', 'ventas.listas.ver')),
             array('titulo' => 'Manual de uso', 'ruta' => '/proveedor/manual_erp', 'permiso' => 'proveedores.ver'),
             array('titulo' => 'Auditoria proveedores', 'ruta' => '/proveedor/auditoria_erp', 'permiso' => 'proveedores.auditoria'),
             array('titulo' => 'Proveedores legacy', 'ruta' => '/proveedor/listas_mostrar', 'permiso' => 'compras.ver')

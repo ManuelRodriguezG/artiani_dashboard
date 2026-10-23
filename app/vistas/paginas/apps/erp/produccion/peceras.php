@@ -64,7 +64,7 @@
                             </div>
                             <div class="d-flex flex-wrap peceras-toolbar">
                                 <button class="btn btn-light" type="button" id="peceras_nuevo"><i class="bi bi-file-earmark-plus"></i> Nuevo</button>
-                                <button class="btn btn-light-primary" type="button" id="peceras_guardar_local"><i class="bi bi-save"></i> Guardar borrador</button>
+                                <button class="btn btn-light-primary" type="button" id="peceras_guardar_local"><i class="bi bi-save"></i> Guardar perfil</button>
                                 <a class="btn btn-light" href="/produccion/peceras_perfiles"><i class="bi bi-collection"></i> Perfiles</a>
                                 <a class="btn btn-light" href="/produccion/peceras_pedido_vidrio"><i class="bi bi-layers"></i> Pedido multiple</a>
                                 <button class="btn btn-light-info" type="button" id="peceras_importar_json"><i class="bi bi-upload"></i> Importar</button>
@@ -81,8 +81,8 @@
                             <div class="alert alert-info d-flex align-items-start gap-3 mb-6">
                                 <i class="bi bi-info-circle fs-2"></i>
                                 <div>
-                                    <div class="fw-bold">Primera fase sin escrituras</div>
-                                    <div class="text-muted">Esta pantalla calcula piezas y hoja de cortes. No crea compras, no recibe inventario y no registra fabricacion todavia.</div>
+                                <div class="fw-bold">Perfil tecnico persistente</div>
+                                <div class="text-muted">El perfil y sus piezas se guardan en Produccion. Esta pantalla no crea compras ni afecta inventario.</div>
                                 </div>
                             </div>
 
@@ -91,12 +91,16 @@
                                     <div class="card-title"><h2 class="fw-bold fs-4 mb-0">Datos de la pecera</h2></div>
                                     <div class="card-toolbar">
                                         <select class="form-select form-select-solid" id="peceras_borradores" style="min-width:260px">
-                                            <option value="">Borradores locales</option>
+                                            <option value="">Perfiles guardados</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="card-body pt-3">
                                     <div class="row g-4 align-items-end">
+                                        <div class="col-lg-3 col-md-6">
+                                            <label class="form-label fw-semibold">Código de pecera</label>
+                                            <input class="form-control" id="peceras_codigo" maxlength="80" placeholder="Código original de la pecera">
+                                        </div>
                                         <div class="col-lg-3 col-md-6">
                                             <label class="form-label fw-semibold">Nombre / referencia</label>
                                             <input class="form-control" id="peceras_nombre" maxlength="120" placeholder="Pecera 60x40x40">
@@ -245,6 +249,6 @@
 
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/produccion/peceras.js?v=20260804-2"></script>
+<script src="/assets/js/custom/apps/erp/produccion/peceras.js?v=20261022-2"></script>
 </body>
 </html>

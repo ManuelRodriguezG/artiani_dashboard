@@ -253,10 +253,19 @@ class RentabilidadErp extends CRUD {
                 $encontrados[] = intval($item["id_sku"]);
             }
             $faltantes = array_values(array_diff($ids, $encontrados));
+            $itemsDetalle = $items;
+            $agruparVariantes = isset($filtros["agrupar_variantes"]) && intval($filtros["agrupar_variantes"]) === 1;
+            if ($agruparVariantes) {
+                $itemsDetalle = $this->agruparVariantesEstudio($items);
+            }
             $resumen = $this->resumenListaPrecio($items);
             $resumen["seleccionados"] = count($ids);
             $resumen["faltantes_en_lista"] = count($faltantes);
             $resumen["ticket_promedio_utilidad"] = count($items) > 0 ? round($resumen["utilidad_estimada"] / count($items), 6) : 0;
+            $resumen["filas_detalle"] = count($itemsDetalle);
+            $resumen["grupos_variantes"] = count(array_filter($itemsDetalle, function ($item) {
+                return !empty($item["es_grupo_variantes"]);
+            }));
 
             return $this->respuesta(false, "success", "Estudio temporal de rentabilidad calculado", array(
                 "estudio" => array(
@@ -278,7 +287,8 @@ class RentabilidadErp extends CRUD {
                 ),
                 "resumen" => $resumen,
                 "propuestas" => $this->propuestasListaPrecio($items),
-                "items" => $items,
+                "items" => $itemsDetalle,
+                "items_sin_agrupar" => $agruparVariantes ? $items : array(),
                 "reglas" => array(
                     "Este estudio no se guarda en base de datos.",
                     "La lista base solo aporta precios; Rentabilidad calcula costo y utilidad en read-only.",
@@ -6782,7 +6792,7 @@ class RentabilidadErp extends CRUD {
         $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.id_lista_precio, d.precio precio_lista,
                 COALESCE(d.moneda,'MXN') moneda_precio, d.fecha_inicio detalle_fecha_inicio,
                 d.fecha_fin detalle_fecha_fin, s.id_sku, s.sku, COALESCE(s.nombre, p.nombre) producto,
-                s.id_producto_erp, s.costo_referencia, s.factor_unidad_base,
+                s.id_producto_erp, s.costo_referencia, s.factor_unidad_base, p.maneja_variantes,
                 cat.id_categoria_erp, COALESCE(cat.ruta, cat.nombre) categoria,
                 imp.iva_porcentaje, imp.ieps_porcentaje, imp.incluye_impuestos,
                 inv.cantidad_total, inv.disponible_total, inv.apartada_total, inv.valor_total, inv.costo_promedio_inventario,
@@ -6926,6 +6936,7 @@ class RentabilidadErp extends CRUD {
             "canal" => $lista["canal"],
             "id_sku" => intval($fila["id_sku"]),
             "id_producto_erp" => intval($fila["id_producto_erp"]),
+            "maneja_variantes" => intval(isset($fila["maneja_variantes"]) ? $fila["maneja_variantes"] : 0),
             "sku" => $fila["sku"],
             "producto" => $fila["producto"],
             "moneda" => $fila["moneda_precio"],
@@ -6968,6 +6979,75 @@ class RentabilidadErp extends CRUD {
             "accion_sugerida" => $accion["accion"],
             "siguiente_paso" => $accion["siguiente_paso"]
         );
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: consolidar variantes comerciales en estudios sin perder sus SKUs miembros.
+     * Impacto: evita repetir el mismo producto por color o variante cuando comparte costo.
+     * Contrato: read-only; solo agrupa la respuesta del estudio y no modifica Catalogo ni Listas.
+     */
+    private function agruparVariantesEstudio($items) {
+        $grupos = array();
+        foreach ($items as $item) {
+            $idProducto = intval(isset($item["id_producto_erp"]) ? $item["id_producto_erp"] : 0);
+            $manejaVariantes = intval(isset($item["maneja_variantes"]) ? $item["maneja_variantes"] : 0);
+            $clave = ($idProducto > 0 && $manejaVariantes > 0) ? "producto_" . $idProducto : "sku_" . intval($item["id_sku"]);
+            if (!isset($grupos[$clave])) {
+                $grupos[$clave] = array();
+            }
+            $grupos[$clave][] = $item;
+        }
+
+        $resultado = array();
+        foreach ($grupos as $grupo) {
+            if (count($grupo) < 2) {
+                $resultado[] = $grupo[0];
+                continue;
+            }
+            $costos = array_map(function ($item) {
+                return floatval(isset($item["costo_real_sin_impuesto"]) ? $item["costo_real_sin_impuesto"] : 0);
+            }, $grupo);
+            $costoMinimo = min($costos);
+            $costoMaximo = max($costos);
+            if ($costoMinimo <= 0 || ($costoMaximo - $costoMinimo) > 0.000001) {
+                foreach ($grupo as $item) {
+                    $resultado[] = $item;
+                }
+                continue;
+            }
+
+            usort($grupo, function ($a, $b) {
+                return strcasecmp(strval($a["sku"]), strval($b["sku"]));
+            });
+            $base = $grupo[0];
+            $preciosSin = array_map(function ($item) { return floatval($item["precio_lista_sin_impuesto"]); }, $grupo);
+            $preciosCon = array_map(function ($item) { return floatval($item["precio_lista_con_impuesto"]); }, $grupo);
+            $precioSinMin = min($preciosSin);
+            $precioSinMax = max($preciosSin);
+            $precioConMin = min($preciosCon);
+            $precioConMax = max($preciosCon);
+            $baseEsPrecioMinimo = array_search($precioSinMin, $preciosSin, true);
+            if ($baseEsPrecioMinimo !== false) {
+                $base = $grupo[$baseEsPrecioMinimo];
+            }
+            $base["es_grupo_variantes"] = true;
+            $base["variantes_total"] = count($grupo);
+            $base["ids_sku_variantes"] = array_values(array_map(function ($item) { return intval($item["id_sku"]); }, $grupo));
+            $base["skus_variantes"] = array_values(array_map(function ($item) { return strval($item["sku"]); }, $grupo));
+            $base["precio_lista_sin_impuesto_min"] = round($precioSinMin, 6);
+            $base["precio_lista_sin_impuesto_max"] = round($precioSinMax, 6);
+            $base["precio_lista_con_impuesto_min"] = round($precioConMin, 6);
+            $base["precio_lista_con_impuesto_max"] = round($precioConMax, 6);
+            if (abs($precioSinMax - $precioSinMin) > 0.000001) {
+                $base["hallazgos"][] = "COST-EST-201";
+                $base["hallazgos_detalle"][] = $this->hallazgo("COST-EST-201", "precio_variante_diferente", "info", "Las variantes comparten costo, pero tienen precios distintos; se muestra el precio menor como referencia conservadora.");
+            }
+            $base["producto"] = strval($base["producto"]) . " (" . count($grupo) . " variantes)";
+            $resultado[] = $base;
+        }
+        return $resultado;
     }
 
     /**

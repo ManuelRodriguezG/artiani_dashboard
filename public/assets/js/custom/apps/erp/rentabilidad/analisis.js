@@ -3,6 +3,7 @@
     var defaults = {};
     var rentabilidadFallbacks = {};
     var rentabilidadEstudioSeleccion = {};
+    var rentabilidadEstudioDetalleItems = [];
     var FRASE_RESOLVER_INCIDENCIA_COSTO = "AUTORIZO APLICAR RESOLUCION PERSISTENTE DE INCIDENCIAS DE COSTO DERIVADO";
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-04
@@ -883,18 +884,22 @@
             comision_pct: $("rentabilidad_estudio_comision").value,
             margen_objetivo_pct: $("rentabilidad_estudio_objetivo_margen").value,
             ajuste_pct: $("rentabilidad_estudio_ajuste").value,
+            agrupar_variantes: $("rentabilidad_estudio_agrupar_variantes").checked ? "1" : "0",
             limite: "120"
         }).toString();
     }
     function buscarSkusEstudioRentabilidad() {
         if (!$("rentabilidad_estudio_lista_precio").value) {
+            mostrarPanelDisponiblesEstudio(false);
             $("rentabilidad_estudio_disponibles").innerHTML = "<tr><td colspan=\"4\" class=\"text-center text-muted py-10\">Sin lista base disponible</td></tr>";
             return Promise.resolve();
         }
         return request("/rentabilidad/estudios_buscar_skus_erp?" + filtrosBusquedaEstudioRentabilidad()).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
+            mostrarPanelDisponiblesEstudio(true);
             renderSkusDisponiblesEstudio(response.depurar || {});
         }).catch(function (error) {
+            mostrarPanelDisponiblesEstudio(true);
             $("rentabilidad_estudio_disponibles").innerHTML = "<tr><td colspan=\"4\" class=\"text-center text-danger py-10\">" + escapeHtml(error.message) + "</td></tr>";
         });
     }
@@ -915,6 +920,17 @@
         });
         $("rentabilidad_estudios_bandeja_card").classList.toggle("d-none", mostrar);
     }
+    function mostrarPanelDisponiblesEstudio(mostrar) {
+        var panelDisponibles = $("rentabilidad_estudio_disponibles_panel");
+        var panelSeleccion = $("rentabilidad_estudio_seleccion_panel");
+        if (panelDisponibles) {
+            panelDisponibles.classList.toggle("d-none", !mostrar);
+        }
+        if (panelSeleccion) {
+            panelSeleccion.classList.toggle("col-xl-5", mostrar);
+            panelSeleccion.classList.toggle("col-xl-12", !mostrar);
+        }
+    }
     function abrirNuevoEstudioRentabilidad() {
         $("rentabilidad_estudio_id").value = "";
         $("rentabilidad_estudio_nombre").value = "";
@@ -925,12 +941,14 @@
         $("rentabilidad_estudio_ajuste").value = "0";
         $("rentabilidad_estudio_categoria").value = "";
         $("rentabilidad_estudio_buscar").value = "";
+        $("rentabilidad_estudio_agrupar_variantes").checked = true;
         rentabilidadEstudioSeleccion = {};
+        rentabilidadEstudioDetalleItems = [];
         $("rentabilidad_estudio_resultado").innerHTML = "";
         $("rentabilidad_estudio_detalle").innerHTML = "";
         mostrarEditorEstudioRentabilidad(true);
+        mostrarPanelDisponiblesEstudio(false);
         renderSeleccionEstudioRentabilidad();
-        buscarSkusEstudioRentabilidad();
     }
     function abrirEstudioGuardadoRentabilidad(idEstudio) {
         return request("/rentabilidad/estudio_consultar_erp?id_estudio=" + encodeURIComponent(idEstudio)).then(function (response) {
@@ -946,12 +964,13 @@
             $("rentabilidad_estudio_objetivo_margen").value = estudio.margen_objetivo_pct == null ? 20 : estudio.margen_objetivo_pct;
             $("rentabilidad_estudio_ajuste").value = estudio.ajuste_pct == null ? 0 : estudio.ajuste_pct;
             rentabilidadEstudioSeleccion = {};
+            rentabilidadEstudioDetalleItems = [];
             (data.items || []).forEach(function (item) {
                 rentabilidadEstudioSeleccion[String(Number(item.id_sku || 0))] = {id_sku: Number(item.id_sku || 0), sku: item.sku || "", producto: item.producto || ""};
             });
             mostrarEditorEstudioRentabilidad(true);
+            mostrarPanelDisponiblesEstudio(false);
             renderSeleccionEstudioRentabilidad();
-            buscarSkusEstudioRentabilidad();
             analizarEstudioRentabilidad();
         }).catch(function (error) {
             Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
@@ -985,6 +1004,7 @@
     }
     function limpiarEstudioRentabilidad() {
         rentabilidadEstudioSeleccion = {};
+        rentabilidadEstudioDetalleItems = [];
         $("rentabilidad_estudio_resultado").innerHTML = "";
         $("rentabilidad_estudio_detalle").innerHTML = "";
         renderSeleccionEstudioRentabilidad();
@@ -1057,6 +1077,8 @@
             "<span class=\"badge badge-light-primary\">" + escapeHtml(estudio.nombre || "Estudio temporal") + "</span>" +
             "<span class=\"badge badge-light-info\">Lista " + escapeHtml(lista.codigo || "") + "</span>" +
             "<span class=\"badge badge-light-secondary\">SKUs " + Number(resumen.skus || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Filas " + Number(resumen.filas_detalle || resumen.skus || 0) + "</span>" +
+            (Number(resumen.grupos_variantes || 0) > 0 ? "<span class=\"badge badge-light-primary\">Variantes consolidadas " + Number(resumen.grupos_variantes || 0) + "</span>" : "") +
             "<span class=\"badge badge-light-success\">Rentables " + Number(resumen.rentables || 0) + "</span>" +
             "<span class=\"badge badge-light-danger\">Perdida " + Number(resumen.perdida || 0) + "</span>" +
             "<span class=\"badge badge-light-warning\">Margen bajo " + Number(resumen.margen_bajo || 0) + "</span>" +
@@ -1066,7 +1088,42 @@
             "<span class=\"badge badge-light-secondary\">Faltantes lista " + Number(resumen.faltantes_en_lista || 0) + "</span>" +
             "</div>" +
             "<div class=\"text-muted fs-8\">El resultado es temporal y no escribe en Listas, Catalogo ni Ventas.</div>";
-        $("rentabilidad_estudio_detalle").innerHTML = (data.items || []).map(renderItemListaRentabilidad).join("") ||
+        rentabilidadEstudioDetalleItems = data.items || [];
+        renderDetalleEstudioRentabilidad();
+    }
+    function renderDetalleEstudioRentabilidad() {
+        var campo = $("rentabilidad_estudio_orden_campo").value || "sku";
+        var direccion = $("rentabilidad_estudio_orden_direccion").value || "asc";
+        var campos = {
+            sku: "sku",
+            producto: "producto",
+            precio: "precio_lista_sin_impuesto",
+            costo: "costo_real_sin_impuesto",
+            margen: "margen_bruto_pct",
+            ganancia: "ganancia_bruta_sin_impuesto",
+            utilidad: "utilidad_estimada",
+            gasto: "gastos_estimados",
+            minimo: "precio_minimo_rentable_sin_impuesto",
+            estado: "accion_sugerida"
+        };
+        var propiedad = campos[campo] || "sku";
+        var items = rentabilidadEstudioDetalleItems.slice().sort(function (a, b) {
+            var valorA = a[propiedad];
+            var valorB = b[propiedad];
+            var vacioA = valorA === null || valorA === undefined || valorA === "";
+            var vacioB = valorB === null || valorB === undefined || valorB === "";
+            if (vacioA && vacioB) { return 0; }
+            if (vacioA) { return 1; }
+            if (vacioB) { return -1; }
+            var comparacion;
+            if (campo === "sku" || campo === "producto" || campo === "estado") {
+                comparacion = String(valorA).localeCompare(String(valorB), "es", {numeric: true, sensitivity: "base"});
+            } else {
+                comparacion = Number(valorA || 0) - Number(valorB || 0);
+            }
+            return direccion === "desc" ? comparacion * -1 : comparacion;
+        });
+        $("rentabilidad_estudio_detalle").innerHTML = items.map(renderItemListaRentabilidad).join("") ||
             "<tr><td colspan=\"11\" class=\"text-center text-muted py-10\">Sin detalle para la seleccion actual</td></tr>";
     }
     function renderPropuestasListaRentabilidad(propuestas) {
@@ -1088,9 +1145,12 @@
         var hallazgos = (item.hallazgos_detalle || []).slice(0, 3).map(function (hallazgo) {
             return "<div class=\"text-muted fs-8\">" + escapeHtml(hallazgo.id || "") + " " + escapeHtml(hallazgo.clave || "") + "</div>";
         }).join("");
+        var variantes = item.es_grupo_variantes ? "<div class=\"text-muted fs-8\">Variantes: " + escapeHtml((item.skus_variantes || []).join(", ")) + "</div>" : "";
+        var rangoPrecio = item.es_grupo_variantes && Number(item.precio_lista_sin_impuesto_max || 0) > Number(item.precio_lista_sin_impuesto_min || 0)
+            ? "<div class=\"text-muted fs-8\">Rango sin imp. " + dinero(item.precio_lista_sin_impuesto_min) + " - " + dinero(item.precio_lista_sin_impuesto_max) + "</div>" : "";
         return "<tr>" +
-            "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.accion_sugerida || "") + "</div></td>" +
-            "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.precio_lista_con_impuesto) + "</div><div class=\"text-muted fs-8\">Sin imp. " + dinero(item.precio_lista_sin_impuesto) + "</div><div class=\"text-muted fs-8\">Analisis " + dinero(item.precio_analisis_sin_impuesto) + "</div></td>" +
+            "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + (item.es_grupo_variantes ? " <span class=\"badge badge-light-primary\">x" + Number(item.variantes_total || 0) + "</span>" : "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div>" + variantes + "<div class=\"text-muted fs-8\">" + escapeHtml(item.accion_sugerida || "") + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.precio_lista_con_impuesto) + "</div><div class=\"text-muted fs-8\">Sin imp. " + dinero(item.precio_lista_sin_impuesto) + "</div>" + rangoPrecio + "<div class=\"text-muted fs-8\">Analisis " + dinero(item.precio_analisis_sin_impuesto) + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.impuestos_estimados) + "</div><div class=\"text-muted fs-8\">IVA " + dinero(item.iva_estimado) + "</div><div class=\"text-muted fs-8\">IEPS " + dinero(item.ieps_estimado) + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.costo_real_sin_impuesto) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.origen_costo || "") + "</div></td>" +
             "<td class=\"text-end\"><div class=\"fw-bold\">" + pct(item.margen_bruto_pct) + "</div><div class=\"text-muted fs-8\">Bruta " + dinero(item.utilidad_bruta) + "</div></td>" +
@@ -2322,6 +2382,11 @@
             });
             $("rentabilidad_estudio_analizar").addEventListener("click", analizarEstudioRentabilidad);
             $("rentabilidad_estudio_limpiar").addEventListener("click", limpiarEstudioRentabilidad);
+            $("rentabilidad_estudio_orden_campo").addEventListener("change", renderDetalleEstudioRentabilidad);
+            $("rentabilidad_estudio_orden_direccion").addEventListener("change", renderDetalleEstudioRentabilidad);
+            $("rentabilidad_estudio_agrupar_variantes").addEventListener("change", function () {
+                if (Object.keys(rentabilidadEstudioSeleccion).length) { analizarEstudioRentabilidad(); }
+            });
             ["rentabilidad_estudio_gasto", "rentabilidad_estudio_comision", "rentabilidad_estudio_objetivo_margen", "rentabilidad_estudio_ajuste"].forEach(function (id) {
                 $(id).addEventListener("change", function () {
                     if (Object.keys(rentabilidadEstudioSeleccion).length) { analizarEstudioRentabilidad(); }

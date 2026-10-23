@@ -130,6 +130,30 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-22
+   * Proposito: entregar un feed TSV vivo para Meta Commerce Manager desde el catalogo publico vigente.
+   * Impacto: Ecommerce/Catalogo; solo lectura, no expone inventario exacto ni modifica precios, ventas o existencias.
+   * Contrato: GET/HEAD publico; requiere productos publicados con datos minimos completos y devuelve text/tab-separated-values.
+   */
+  public function feed_meta() {
+    if (!in_array(strtoupper((string) ($_SERVER["REQUEST_METHOD"] ?? "GET")), array("GET", "HEAD"), true)) {
+      http_response_code(405);
+      header("Allow: GET, HEAD");
+      return "";
+    }
+    $feed = $this->modelo("EcommerceCatalogoPublico")->feedMetaPublico();
+    if (!headers_sent()) {
+      header("Content-Type: text/tab-separated-values; charset=utf-8");
+      header("Content-Disposition: inline; filename=artiani-meta-catalog.tsv");
+      header("Cache-Control: public, max-age=300, must-revalidate");
+      header("X-ERP-Ecommerce-Feed: meta-catalog-readonly");
+      header("X-ERP-Ecommerce-Feed-Version: 2026-10-22");
+    }
+    http_response_code(intval($feed["status"]));
+    return strtoupper((string) ($_SERVER["REQUEST_METHOD"] ?? "GET")) === "HEAD" ? "" : $feed["body"];
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: exponer busqueda inteligente v1 para interpretar frases naturales simples.
    * Impacto: Ecommerce publico; mejora /buscar/{termino} con sinonimos, intencion y fallback sin cambiar catalogo base.

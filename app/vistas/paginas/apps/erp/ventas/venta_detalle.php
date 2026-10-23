@@ -81,6 +81,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/venta_detalle.js?v=20261013-almacen-partida1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/venta_detalle.js?v=20261022-historico-encoding1"></script>
 </body>
 </html>

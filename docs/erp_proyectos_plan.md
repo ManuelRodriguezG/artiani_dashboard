@@ -91,6 +91,31 @@ Un proyecto no debe ser solo una carpeta. Debe responder:
 - `incidencia`: problemas que requieren seguimiento hasta resolverse.
 - `implementacion_modulo`: proyecto formal para arrancar un modulo nuevo.
 
+## Integracion con Produccion / Fabricacion
+
+Produccion es responsable de la ficha tecnica, piezas, acomodo de hojas, desperdicio,
+pedido de materiales y etapas fisicas de fabricacion. Proyectos es responsable del
+seguimiento transversal: responsable, fechas, prioridad, bloqueos, comentarios,
+notificaciones y evidencia.
+
+Las tareas de Produccion deben usar `modulo_relacionado=produccion` y una `url_contexto`
+que lleve al punto de trabajo. No se debe crear una tarea por cada pieza de vidrio;
+las piezas viven en la orden o perfil de fabricacion. Las tareas representan hitos
+accionables del proceso, por ejemplo:
+
+- Validar medidas, espesor, holguras y descuento de corte.
+- Revisar acomodo por bandas, hojas requeridas y porcentaje de desperdicio.
+- Confirmar piezas extra aprovechables antes de enviar el pedido.
+- Preparar o revisar pedido de vidrio para Compras/proveedor.
+- Recibir y verificar piezas cortadas contra la hoja tecnica.
+- Ensamblar, aplicar silicon y dejar en curado.
+- Inspeccionar fugas, medidas, acabado y liberar pecera terminada.
+
+Regla de estados: el estatus tecnico de una orden de fabricacion debe vivir en
+Produccion; el estatus de la tarea de seguimiento vive en Proyectos. Si una etapa
+requiere notificacion o responsable, se crea una tarea enlazada, sin duplicar el
+calculo de piezas ni el avance tecnico.
+
 ## Estados recomendados de proyecto
 
 - `borrador`: capturado pero aun no listo para trabajar.

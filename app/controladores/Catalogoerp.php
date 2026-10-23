@@ -51,6 +51,19 @@ class Catalogoerp extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-22
+   * Proposito: abrir la bandeja read-only de productos activos con pendientes de costo, proveedor o precio publico.
+   * Impacto: Catalogo ERP, Proveedores y Comercial; no modifica productos, costos, relaciones ni listas.
+   * Contrato: vista protegida por `catalogo.costos`; las acciones de aplicacion quedan fuera de esta primera fase.
+   */
+  public function pendientes_costo() {
+    $this->requerirAlgunPermiso(array("catalogo.costos", "proveedores.costos", "ventas.listas.ver"));
+    $this->vista("apps/erp/catalogo/pendientes_costo", array(
+      "puede_ver_costos" => Sesionseguridad::tienePermiso("catalogo.costos") || Sesionseguridad::tienePermiso("proveedores.costos")
+    ));
+  }
+
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-07-23
    * Proposito: abrir el MVP interno de catalogos comerciales alimentado por Catalogo ERP.
    * Impacto: Catalogo ERP/Comercial; permite validar candidatos y tarjetas sin persistencia ni exportacion formal.
@@ -550,6 +563,19 @@ class Catalogoerp extends Controlador {
   public function clasificacion_rapida_datos() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("CatalogoErpDatos")->listarClasificacionRapida($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-22
+   * Proposito: entregar la bandeja read-only de pendientes de costo y relaciones para la UI operativa.
+   * Impacto: Catalogo ERP/Proveedores/Comercial; solo consulta fuentes existentes y no genera incidencias.
+   * Contrato: GET protegido por `catalogo.costos`; acepta q, problema y limite.
+   */
+  public function pendientes_costo_datos() {
+    $this->requerirAlgunPermiso(array("catalogo.costos", "proveedores.costos", "ventas.listas.ver"));
+    $filtros = $_GET;
+    $filtros["incluir_costos"] = Sesionseguridad::tienePermiso("catalogo.costos") || Sesionseguridad::tienePermiso("proveedores.costos");
+    return json_encode($this->modelo("CatalogoErpDatos")->listarPendientesCostoReadOnly($filtros));
   }
 
   /**

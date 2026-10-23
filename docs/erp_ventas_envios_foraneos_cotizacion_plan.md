@@ -324,6 +324,65 @@ Conexiones backend agregadas:
 
 La vista `/ventas/envios_foraneos` ya consulta la bandeja desde BD y guarda cotizaciones con `ventas.operar`. Las capturas no crean pedido, venta, TMS ni movimiento de inventario.
 
+## Aprendizaje comercial y logistico
+
+Las solicitudes que no se convierten en venta tambien son informacion operativa valiosa. Se deben conservar como cotizaciones con resultado, no eliminar ni mezclar con pedidos confirmados.
+
+Cada registro debe permitir analizar, cuando exista el dato:
+
+- origen de la oportunidad o campana;
+- destino, codigo postal, estado y ciudad;
+- productos, cantidades y precio estimado;
+- medidas y peso del paquete cotizado;
+- costo de envio de la plataforma o paqueteria;
+- importe cobrado al cliente por envio;
+- absorcion de envio: costo real menos importe cobrado;
+- margen de producto antes y despues del envio;
+- resultado: aceptada, convertida, descartada o pendiente;
+- motivo de no conversion y fecha de seguimiento.
+
+La regla comercial no debe interpretarse como absorber el costo "a como de lugar" sin limite. El sistema debe calcular escenarios y permitir una politica explicita, por ejemplo: no absorber, absorber hasta un monto fijo, absorber hasta un porcentaje del margen de producto o aplicar envio gratis solo bajo condiciones. Si el resultado queda por debajo del margen minimo definido, debe marcarse para autorizacion del responsable y conservarse quien autorizo la excepcion.
+
+## Medicion de productos sin embalaje
+
+Las medidas y el peso del producto sin embalaje deben tratarse como observaciones logisticas historicas, separadas de las medidas finales del paquete. Una observacion debe conservar:
+
+- SKU o producto identificado;
+- largo, ancho, alto y peso;
+- unidad de medida;
+- fecha y persona que midio;
+- fuente: medicion fisica, ficha del proveedor, estimacion o cotizacion;
+- observaciones y nivel de confianza.
+
+No se debe sobrescribir automaticamente el dato maestro del Catalogo con una sola medicion. Despues de varias observaciones consistentes, Catalogo puede recibir una propuesta de actualizacion con valores representativos y evidencia. A futuro, el sistema puede sugerir medidas y peso usando historicos, pero siempre debe distinguir estimado de medido y permitir corregirlo.
+
+## Relacion con Proyectos
+
+Proyectos es transversal y ya permite filtrar tareas por `modulo_relacionado`, responsable, area, prioridad, estado, vencimiento y `url_contexto`. Por eso sera el lugar para coordinar trabajo pendiente, no el repositorio de cotizaciones.
+
+Proyecto sugerido: `Envios Foraneos - Preparacion y aprendizaje`.
+
+Tareas que corresponden a este proyecto:
+
+- medir producto sin embalaje y registrar evidencia;
+- validar o corregir peso y dimensiones de un SKU;
+- medir paquete real de una combinacion de productos;
+- definir empaques reutilizables y factores de embalaje;
+- comparar paqueterias, servicios y zonas;
+- definir politica de absorcion y margen minimo;
+- revisar cotizaciones descartadas y registrar motivo;
+- validar un producto no identificado en Catalogo;
+- aprobar una propuesta de datos logisticos para Catalogo;
+- revisar resultados de prediccion contra mediciones reales.
+
+Cada tarea puede apuntar a `/ventas/envios_foraneos` o a la pantalla del Catalogo mediante `url_contexto`. Las tareas creadas desde esta conversacion deben llevar `origen=chat_ia` y el modulo `envios_foraneos` o `catalogo`, segun corresponda. La creacion de un proyecto o tareas en BD queda separada de esta documentacion y requiere indicacion expresa para no precargar trabajo productivo sin revision.
+
+## Como capturar solicitudes en la operacion
+
+El personal puede entregar una solicitud en texto libre y el sistema debe normalizarla. La captura ideal incluye: fecha, campana u origen, contacto, destino, productos y cantidades, dimensiones, peso, cotizacion externa, precio cobrado, resultado y motivo. Cuando falten datos, se registra la cotizacion con estatus `datos_incompletos` y se genera el pendiente correspondiente; no se inventan medidas, costos ni margenes.
+
+Con suficientes registros se podran obtener indicadores por campana, producto, destino y paqueteria: tasa de conversion, costo promedio, absorcion promedio, margen posterior al envio, motivos de perdida y productos que mas requieren medicion.
+
 ## Fase 2 recomendada
 
 Objetivo: conectar el flujo a Pedido/Venta y CRM.

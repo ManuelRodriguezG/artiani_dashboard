@@ -115,6 +115,7 @@
                                             <table class="table align-middle table-row-dashed vh-table">
                                                 <thead>
                                                     <tr class="text-muted fw-bold fs-8 text-uppercase">
+                                                        <th class="w-60px">Conjunto</th>
                                                         <th>Producto</th>
                                                         <th class="w-125px">Almacen</th>
                                                         <th class="w-100px text-end">Cantidad</th>
@@ -125,7 +126,7 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody id="vh_partidas">
-                                                    <tr><td colspan="7" class="text-center text-muted py-10">Agrega productos para capturar la venta historica.</td></tr>
+                                                    <tr><td colspan="8" class="text-center text-muted py-10">Agrega productos para capturar la venta historica.</td></tr>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -140,6 +141,17 @@
                                                         <span class="text-muted">Descuento</span>
                                                         <input class="form-control form-control-sm text-end w-125px" id="vh_descuento" type="number" min="0" step="0.01" value="0">
                                                     </div>
+                                                    <div class="separator my-3"></div>
+                                                    <div class="fw-bold mb-2">Precio conjunto historico</div>
+                                                    <div class="text-muted fs-8 mb-2">Marca las partidas del conjunto y captura total o porcentaje. Las no seleccionadas no cambian.</div>
+                                                    <div class="row g-2 mb-2">
+                                                        <div class="col-6"><input class="form-control form-control-sm text-end" id="vh_paquete_total" type="number" min="0" step="0.01" placeholder="Total conjunto"></div>
+                                                        <div class="col-6"><input class="form-control form-control-sm text-end" id="vh_paquete_porcentaje" type="number" min="0" max="100" step="0.01" placeholder="Descuento %"></div>
+                                                    </div>
+                                                    <div class="form-text mb-2" id="vh_paquete_regla">Captura total fijo o porcentaje. Si capturas ambos, se usara el total fijo.</div>
+                                                    <button class="btn btn-sm btn-light-warning w-100 mb-2" type="button" id="vh_paquete_aplicar"><i class="bi bi-box-seam"></i> Prevalidar conjunto</button>
+                                                    <div class="d-flex justify-content-between mb-2"><span class="text-muted">Subtotal conjunto</span><span class="fw-bold" id="vh_paquete_subtotal">$0.00</span></div>
+                                                    <div class="d-flex justify-content-between mb-2"><span class="text-muted">Descuento conjunto</span><span class="fw-bold" id="vh_paquete_descuento">$0.00</span></div>
                                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                                         <span class="text-muted">Total pagado</span>
                                                         <span class="fw-bold" id="vh_pagado">$0.00</span>
@@ -191,6 +203,6 @@
 <script>window.ERP_CSRF_TOKEN = <?= json_encode(Sesionseguridad::csrfToken(), JSON_UNESCAPED_UNICODE) ?>;</script>
 <script src="/assets/plugins/global/plugins.bundle.js"></script>
 <script src="/assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/carga_historica.js?v=20261020-pagos2"></script>
+<script src="/assets/js/custom/apps/erp/ventas/carga_historica.js?v=20261022-precio-conjunto3"></script>
 </body>
 </html>

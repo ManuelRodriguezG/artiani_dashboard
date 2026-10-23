@@ -2746,4 +2746,204 @@ class VentasErpEsquema extends DBSchema {
             )
         );
     }
+
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-22
+     * Proposito: definir el registro inmutable de cabecera y partidas para correcciones administrativas historicas.
+     * Impacto: conserva folio, motivo, respaldo, usuario y snapshots antes/despues sin tocar caja o inventario.
+     * Contrato: $ejecutar=false solo prepara el plan; ejecutar requiere autorizacion y respaldo productivo independientes.
+     */
+    public function planActualizarCorreccionesVentasHistoricas($ejecutar = false) {
+        $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+        $plan = array();
+        $plan[] = $this->crearTablaSiNoExiste("erp_ventas_historicas_correcciones", array(
+            "`id_correccion` BIGINT NOT NULL AUTO_INCREMENT",
+            "`folio_correccion` VARCHAR(60) NOT NULL",
+            "`folio_venta` VARCHAR(80) NOT NULL",
+            "`id_venta` BIGINT NOT NULL",
+            "`motivo` TEXT NOT NULL",
+            "`referencia_respaldo` VARCHAR(255) NOT NULL",
+            "`confirmacion` VARCHAR(180) NOT NULL",
+            "`aplicado_por` INT NOT NULL",
+            "`fecha_aplicacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_correccion`)",
+            "UNIQUE KEY `idx_ventas_hist_corr_folio` (`folio_correccion`)",
+            "KEY `idx_ventas_hist_corr_venta` (`id_venta`, `fecha_aplicacion`)"
+        ), $opciones, $ejecutar);
+        $plan[] = $this->crearTablaSiNoExiste("erp_ventas_historicas_correcciones_detalle", array(
+            "`id_correccion_detalle` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_correccion` BIGINT NOT NULL",
+            "`id_venta` BIGINT NOT NULL",
+            "`id_venta_detalle` BIGINT NOT NULL",
+            "`renglon` INT NOT NULL",
+            "`id_almacen_anterior` INT NOT NULL",
+            "`id_almacen_nuevo` INT NOT NULL",
+            "`snapshot_anterior` LONGTEXT NOT NULL",
+            "`snapshot_nuevo` LONGTEXT NOT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_correccion_detalle`)",
+            "UNIQUE KEY `idx_ventas_hist_corr_detalle_unico` (`id_correccion`, `id_venta_detalle`)",
+            "KEY `idx_ventas_hist_corr_detalle_venta` (`id_venta`, `id_venta_detalle`)",
+            "KEY `idx_ventas_hist_corr_detalle_almacen` (`id_almacen_anterior`, `id_almacen_nuevo`)"
+        ), $opciones, $ejecutar);
+        return $plan;
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-22 | Auditoria read-only del esquema exigido antes de habilitar la aplicacion. */
+    public function auditarCorreccionesVentasHistoricas() {
+        $esperado = array(
+            "erp_ventas_historicas_correcciones" => array("id_correccion", "folio_correccion", "folio_venta", "id_venta", "motivo", "referencia_respaldo", "confirmacion", "aplicado_por", "fecha_aplicacion"),
+            "erp_ventas_historicas_correcciones_detalle" => array("id_correccion_detalle", "id_correccion", "id_venta", "id_venta_detalle", "renglon", "id_almacen_anterior", "id_almacen_nuevo", "snapshot_anterior", "snapshot_nuevo", "fecha_registro")
+        );
+        $resultado = array();
+        foreach ($esperado as $tabla => $columnas) {
+            $existe = $this->tablaExiste($tabla);
+            $faltan = array();
+            if ($existe) {
+                foreach ($columnas as $columna) { if (!$this->columnaExiste($tabla, $columna)) { $faltan[] = $columna; } }
+            }
+            $resultado[] = array("tabla" => $tabla, "existe" => $existe, "faltan_columnas" => $faltan);
+        }
+        return array("error" => false, "tipo" => "success", "mensaje" => "Auditoria de correcciones historicas generada", "depurar" => $resultado, "contrato" => array("solo_lectura" => true, "no_aplica_correcciones" => true));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: preparar persistencia de CFDI emitidos fuera del ERP y su trazabilidad comercial.
+     * Impacto: conserva XML, resumen fiscal, conceptos y eventos sin convertir el panel en emisor fiscal.
+     * Contrato: con $ejecutar=false solo genera SQL; cualquier aplicacion requiere respaldo y autorizacion explicita.
+     */
+    public function planActualizarFacturacionVentas($ejecutar = false) {
+        $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+        $plan = array();
+        $plan[] = $this->crearTablaSiNoExiste("erp_ventas_documentos_fiscales", array(
+            "`id_documento_fiscal` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_venta` BIGINT NULL",
+            "`id_cliente_crm` BIGINT NULL",
+            "`uuid` VARCHAR(50) NULL",
+            "`version_cfdi` VARCHAR(10) NULL",
+            "`tipo_comprobante` VARCHAR(10) NULL",
+            "`serie` VARCHAR(50) NULL",
+            "`folio` VARCHAR(80) NULL",
+            "`fecha_emision` DATETIME NULL",
+            "`rfc_emisor` VARCHAR(20) NULL",
+            "`nombre_emisor` VARCHAR(255) NULL",
+            "`rfc_receptor` VARCHAR(20) NULL",
+            "`nombre_receptor` VARCHAR(255) NULL",
+            "`moneda` VARCHAR(10) NULL",
+            "`tipo_cambio` DECIMAL(18,6) NOT NULL DEFAULT 1",
+            "`subtotal` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`descuento` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`impuestos_total` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`total` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`estatus_sat` VARCHAR(30) NULL",
+            "`estatus_conciliacion` VARCHAR(30) NOT NULL DEFAULT 'pendiente'",
+            "`archivo_nombre` VARCHAR(255) NOT NULL",
+            "`archivo_ruta` VARCHAR(255) NOT NULL",
+            "`archivo_hash` CHAR(64) NOT NULL",
+            "`origen_documento` VARCHAR(40) NOT NULL DEFAULT 'sat_externo'",
+            "`observaciones` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_documento_fiscal`)",
+            "UNIQUE KEY `idx_ventas_fiscal_uuid` (`uuid`)",
+            "UNIQUE KEY `idx_ventas_fiscal_hash` (`archivo_hash`)",
+            "KEY `idx_ventas_fiscal_venta` (`id_venta`)",
+            "KEY `idx_ventas_fiscal_cliente` (`id_cliente_crm`)",
+            "KEY `idx_ventas_fiscal_fecha` (`fecha_emision`, `estatus_conciliacion`)",
+            "KEY `idx_ventas_fiscal_receptor` (`rfc_receptor`, `folio`)",
+            "KEY `idx_ventas_fiscal_estatus` (`estatus_sat`, `estatus_conciliacion`)"
+        ), $opciones, $ejecutar);
+        $plan[] = $this->crearTablaSiNoExiste("erp_ventas_documentos_fiscales_conceptos", array(
+            "`id_documento_concepto` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_documento_fiscal` BIGINT NOT NULL",
+            "`id_venta_detalle` BIGINT NULL",
+            "`id_sku_erp` BIGINT NULL",
+            "`renglon` INT NOT NULL DEFAULT 1",
+            "`no_identificacion` VARCHAR(150) NULL",
+            "`descripcion` VARCHAR(500) NOT NULL",
+            "`clave_producto_sat` VARCHAR(20) NULL",
+            "`clave_unidad_sat` VARCHAR(20) NULL",
+            "`unidad` VARCHAR(80) NULL",
+            "`objeto_impuesto` VARCHAR(10) NULL",
+            "`cantidad` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`valor_unitario` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`importe` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`descuento` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`impuestos_total` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`iva_porcentaje` DECIMAL(8,4) NOT NULL DEFAULT 0",
+            "`ieps_porcentaje` DECIMAL(8,4) NOT NULL DEFAULT 0",
+            "`resultado_conciliacion` VARCHAR(30) NOT NULL DEFAULT 'sin_coincidencia'",
+            "`observaciones_conciliacion` TEXT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_documento_concepto`)",
+            "KEY `idx_ventas_fiscal_concepto_documento` (`id_documento_fiscal`, `renglon`)",
+            "KEY `idx_ventas_fiscal_concepto_venta` (`id_venta_detalle`)",
+            "KEY `idx_ventas_fiscal_concepto_sku` (`id_sku_erp`)",
+            "KEY `idx_ventas_fiscal_concepto_resultado` (`resultado_conciliacion`)"
+        ), $opciones, $ejecutar);
+        $plan[] = $this->crearTablaSiNoExiste("erp_ventas_documentos_fiscales_eventos", array(
+            "`id_documento_evento` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_documento_fiscal` BIGINT NOT NULL",
+            "`tipo_evento` VARCHAR(80) NOT NULL",
+            "`estatus_anterior` VARCHAR(40) NULL",
+            "`estatus_nuevo` VARCHAR(40) NULL",
+            "`detalle_json` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_documento_evento`)",
+            "KEY `idx_ventas_fiscal_evento_documento` (`id_documento_fiscal`, `fecha_registro`)",
+            "KEY `idx_ventas_fiscal_evento_tipo` (`tipo_evento`, `fecha_registro`)"
+        ), $opciones, $ejecutar);
+        return $plan;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: auditar la estructura propuesta para importacion documental de CFDI.
+     * Impacto: permite conocer el pendiente de persistencia sin ejecutar DDL.
+     * Contrato: solo lectura; no crea archivos, documentos ni registros fiscales.
+     */
+    public function auditarFacturacionVentas() {
+        $tablas = array(
+            "erp_ventas_documentos_fiscales",
+            "erp_ventas_documentos_fiscales_conceptos",
+            "erp_ventas_documentos_fiscales_eventos"
+        );
+        $columnas = array(
+            "erp_ventas_documentos_fiscales" => array("id_documento_fiscal", "id_venta", "id_cliente_crm", "uuid", "version_cfdi", "tipo_comprobante", "serie", "folio", "fecha_emision", "rfc_emisor", "nombre_emisor", "rfc_receptor", "nombre_receptor", "moneda", "tipo_cambio", "subtotal", "descuento", "impuestos_total", "total", "estatus_sat", "estatus_conciliacion", "archivo_nombre", "archivo_ruta", "archivo_hash", "origen_documento", "creado_por", "fecha_registro"),
+            "erp_ventas_documentos_fiscales_conceptos" => array("id_documento_concepto", "id_documento_fiscal", "id_venta_detalle", "id_sku_erp", "renglon", "no_identificacion", "descripcion", "clave_producto_sat", "clave_unidad_sat", "cantidad", "valor_unitario", "importe", "descuento", "impuestos_total", "resultado_conciliacion"),
+            "erp_ventas_documentos_fiscales_eventos" => array("id_documento_evento", "id_documento_fiscal", "tipo_evento", "estatus_anterior", "estatus_nuevo", "detalle_json", "creado_por", "fecha_registro")
+        );
+        $indices = array(
+            "erp_ventas_documentos_fiscales" => array("idx_ventas_fiscal_uuid", "idx_ventas_fiscal_hash", "idx_ventas_fiscal_venta", "idx_ventas_fiscal_cliente", "idx_ventas_fiscal_fecha", "idx_ventas_fiscal_receptor", "idx_ventas_fiscal_estatus"),
+            "erp_ventas_documentos_fiscales_conceptos" => array("idx_ventas_fiscal_concepto_documento", "idx_ventas_fiscal_concepto_venta", "idx_ventas_fiscal_concepto_sku", "idx_ventas_fiscal_concepto_resultado"),
+            "erp_ventas_documentos_fiscales_eventos" => array("idx_ventas_fiscal_evento_documento", "idx_ventas_fiscal_evento_tipo")
+        );
+        $resultado = array();
+        foreach ($tablas as $tabla) {
+            $faltanColumnas = array();
+            $faltanIndices = array();
+            $existe = $this->tablaExiste($tabla);
+            if ($existe) {
+                foreach ($columnas[$tabla] as $columna) {
+                    if (!$this->columnaExiste($tabla, $columna)) { $faltanColumnas[] = $columna; }
+                }
+                foreach ($indices[$tabla] as $indice) {
+                    if (!$this->indiceExiste($tabla, $indice)) { $faltanIndices[] = $indice; }
+                }
+            }
+            $resultado[] = array("tabla" => $tabla, "existe" => $existe, "faltan_columnas" => $faltanColumnas, "faltan_indices" => $faltanIndices);
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria de facturacion documental Ventas generada",
+            "depurar" => $resultado,
+            "contrato" => array("no_escribe_bd" => true, "no_emite_cfdi" => true, "no_envia_correo" => true, "no_mueve_inventario" => true)
+        );
+    }
 }

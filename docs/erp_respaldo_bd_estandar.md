@@ -852,3 +852,36 @@ Alcance:
 - Los cambios simples de contacto pueden aplicarse directo con auditoria.
 - Los cambios sensibles quedan pendientes de revision ERP.
 - No modifica lista de precios, permisos, tipo de cliente ni estatus desde frontend.
+
+## Ventas - esquema fiscal documental
+
+Fecha: 2026-10-22
+
+Respaldo previo focalizado:
+
+```text
+C:\xampp\panel_db_backups\artianicom_sys_panel_20261023_011907_antes_ventas_facturacion_cfdi_rollback.sql
+```
+
+Validación:
+
+```text
+archivo_existe=true
+tamano_bytes=487
+sha256=1403754198c5386fbc95b3ab684242f0fdd406fdfe409f95453a522303d37d41
+base=artianicom_sys
+alcance=rollback_focalizado_de_tres_tablas_nuevas
+resultado=ddl_aplicado_y_tablas_verificadas_vacias
+```
+
+Respaldo de esquema completo por PDO:
+
+```text
+archivo=C:\xampp\panel_db_backups\artianicom_sys_panel_20261022_171826_antes_ventas_facturacion_cfdi_pdo_schema_detached.sql
+tamano_bytes=343247
+sha256=8f9c5a70cd1ddf6b93565cef76ceb1d5f07300119eb85b2e37f028ad282c9aad
+tablas=311
+resultado=validado_con_marca_FIN_RESPALDO_ESQUEMA
+```
+
+Nota: el respaldo completo por `mysqldump` no terminó por volumen de la conexión remota; el exportador PDO de esquema completo terminó correctamente y el cambio fue exclusivamente aditivo.

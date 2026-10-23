@@ -20,7 +20,7 @@
                     <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
                         <div>
                             <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Perfiles de peceras</h1>
-                            <span class="text-muted">Borradores guardados localmente para editar o usar en pedidos de vidrio</span>
+                            <span class="text-muted">Perfiles guardados en el sistema para editar o usar en pedidos de vidrio</span>
                         </div>
                         <div class="d-flex gap-2">
                             <a class="btn btn-light" href="/produccion/peceras"><i class="bi bi-plus-circle"></i> Nuevo perfil</a>
@@ -38,11 +38,11 @@
                                         <input class="form-control form-control-solid" id="peceras_perfiles_buscar" placeholder="Nombre, proveedor o medida">
                                     </div>
                                     <div class="col-lg-4 text-lg-end">
-                                        <button class="btn btn-light-danger" type="button" id="peceras_perfiles_limpiar"><i class="bi bi-trash"></i> Limpiar archivados locales</button>
+                                        <button class="btn btn-light" type="button" id="peceras_perfiles_limpiar"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
                                     </div>
                                 </div>
                                 <div class="row g-4" id="peceras_perfiles_lista"></div>
-                                <div class="alert alert-info d-none" id="peceras_perfiles_vacio">No hay perfiles guardados en este navegador.</div>
+                                <div class="alert alert-info d-none" id="peceras_perfiles_vacio">No hay perfiles guardados en el sistema.</div>
                             </div>
                         </div>
                     </div>
@@ -53,6 +53,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/produccion/peceras_perfiles.js?v=20260804-1"></script>
+<script src="/assets/js/custom/apps/erp/produccion/peceras_perfiles.js?v=20261022-3"></script>
 </body>
 </html>

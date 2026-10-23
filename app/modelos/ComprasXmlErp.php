@@ -112,6 +112,13 @@ class ComprasXmlErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: exponer el resumen fiscal completo de un CFDI durante un analisis temporal.
+     * Impacto: Compras y Ventas pueden mostrar importes, pagos, lugar de expedicion, regímenes y datos del receptor.
+     * Contrato: no conserva archivo ni escribe BD; mantiene validaciones de seguridad del parser existente.
+     */
     public function parsear($archivo, $idProveedor = 0) {
         if (empty($archivo["tmp_name"]) || !is_uploaded_file($archivo["tmp_name"])) {
             return $this->respuesta(true, "warning", "Selecciona un archivo XML");
@@ -131,13 +138,39 @@ class ComprasXmlErp extends CRUD {
             }
             return $this->respuesta(false, "success", "XML analizado correctamente", array(
                 "uuid" => $cfdi["uuid"],
+                "no_certificado" => $cfdi["no_certificado"],
+                "certificado" => $cfdi["certificado"],
+                "sello_cfdi" => $cfdi["sello_cfdi"],
+                "fecha_timbrado" => $cfdi["fecha_timbrado"],
+                "no_certificado_sat" => $cfdi["no_certificado_sat"],
+                "sello_sat" => $cfdi["sello_sat"],
+                "lugar_expedicion" => $cfdi["lugar_expedicion"],
+                "forma_pago" => $cfdi["forma_pago"],
+                "metodo_pago" => $cfdi["metodo_pago"],
+                "exportacion" => $cfdi["exportacion"],
+                "condiciones_pago" => $cfdi["condiciones_pago"],
+                "version" => $cfdi["version"],
+                "tipo_comprobante" => $cfdi["tipo_comprobante"],
+                "serie" => $cfdi["serie"],
+                "folio" => $cfdi["folio"],
+                "fecha" => $cfdi["fecha"],
                 "conceptos" => $cfdi["conceptos"],
                 "subtotal" => $cfdi["subtotal"],
                 "descuento" => $cfdi["descuento"],
+                "impuestos_trasladados" => $cfdi["impuestos_trasladados"],
+                "impuestos_retenidos" => $cfdi["impuestos_retenidos"],
+                "impuestos_total" => $cfdi["impuestos_total"],
                 "total" => $cfdi["total"],
                 "moneda" => $cfdi["moneda"],
+                "tipo_cambio" => $cfdi["tipo_cambio"],
                 "nombre_emisor" => $cfdi["nombre_emisor"],
-                "rfc_emisor" => $cfdi["rfc_emisor"]
+                "rfc_emisor" => $cfdi["rfc_emisor"],
+                "nombre_receptor" => $cfdi["nombre_receptor"],
+                "rfc_receptor" => $cfdi["rfc_receptor"],
+                "regimen_fiscal_emisor" => $cfdi["regimen_fiscal_emisor"],
+                "regimen_fiscal_receptor" => $cfdi["regimen_fiscal_receptor"],
+                "domicilio_fiscal_receptor" => $cfdi["domicilio_fiscal_receptor"],
+                "uso_cfdi" => $cfdi["uso_cfdi"]
             ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
@@ -706,6 +739,13 @@ class ComprasXmlErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-10-22
+     * Proposito: conservar en el analisis temporal los datos de certificacion necesarios para una representacion fiscal presentable.
+     * Impacto: Ventas y Compras pueden mostrar UUID, certificados, sellos y fecha de timbrado sin modificar el CFDI.
+     * Contrato: solo lectura del XML; no genera cadena original ni cambia datos fiscales.
+     */
     private function leerCfdi($contenido) {
         libxml_use_internal_errors(true);
         $dom = new DOMDocument();
@@ -720,14 +760,24 @@ class ComprasXmlErp extends CRUD {
         $emisor = $xp->query("/*[local-name()='Comprobante']/*[local-name()='Emisor']")->item(0);
         $receptor = $xp->query("/*[local-name()='Comprobante']/*[local-name()='Receptor']")->item(0);
         $timbre = $xp->query("//*[local-name()='TimbreFiscalDigital']")->item(0);
+        $impuestos = $xp->query("/*[local-name()='Comprobante']/*[local-name()='Impuestos']")->item(0);
+        $impuestosTrasladados = $impuestos ? floatval($this->attr($impuestos, "TotalImpuestosTrasladados")) : 0;
+        $impuestosRetenidos = $impuestos ? floatval($this->attr($impuestos, "TotalImpuestosRetenidos")) : 0;
         $conceptos = array();
         foreach ($xp->query("/*[local-name()='Comprobante']/*[local-name()='Conceptos']/*[local-name()='Concepto']") as $nodo) {
             $iva = 0;
             $ieps = 0;
+            $impuestosTrasladadosConcepto = 0;
+            $impuestosRetenidosConcepto = 0;
             foreach ($xp->query(".//*[local-name()='Traslado']", $nodo) as $traslado) {
                 $tasa = floatval($this->attr($traslado, "TasaOCuota")) * 100;
+                $importeImpuesto = floatval($this->attr($traslado, "Importe"));
                 if ($this->attr($traslado, "Impuesto") === "002") { $iva = $tasa; }
                 if ($this->attr($traslado, "Impuesto") === "003") { $ieps = $tasa; }
+                $impuestosTrasladadosConcepto += $importeImpuesto;
+            }
+            foreach ($xp->query(".//*[local-name()='Retencion']", $nodo) as $retencion) {
+                $impuestosRetenidosConcepto += floatval($this->attr($retencion, "Importe"));
             }
             $conceptos[] = array(
                 "no_identificacion" => $this->attr($nodo, "NoIdentificacion"),
@@ -740,6 +790,9 @@ class ComprasXmlErp extends CRUD {
                 "valor_unitario" => floatval($this->attr($nodo, "ValorUnitario")),
                 "importe" => floatval($this->attr($nodo, "Importe")),
                 "descuento" => floatval($this->attr($nodo, "Descuento")),
+                "impuestos_trasladados" => $impuestosTrasladadosConcepto,
+                "impuestos_retenidos" => $impuestosRetenidosConcepto,
+                "impuestos_total" => $impuestosTrasladadosConcepto - $impuestosRetenidosConcepto,
                 "iva_porcentaje" => $iva, "ieps_porcentaje" => $ieps
             );
         }
@@ -748,18 +801,38 @@ class ComprasXmlErp extends CRUD {
         }
         return array(
             "uuid" => $timbre ? strtoupper($this->attr($timbre, "UUID")) : "",
+            "no_certificado" => $this->attr($comprobante, "NoCertificado"),
+            "certificado" => $this->attr($comprobante, "Certificado"),
+            "sello_cfdi" => $this->attr($comprobante, "Sello"),
+            "fecha_timbrado" => $timbre ? str_replace("T", " ", $this->attr($timbre, "FechaTimbrado")) : "",
+            "rfc_prov_certif" => $timbre ? $this->attr($timbre, "RfcProvCertif") : "",
+            "no_certificado_sat" => $timbre ? $this->attr($timbre, "NoCertificadoSAT") : "",
+            "sello_sat" => $timbre ? $this->attr($timbre, "SelloSAT") : "",
             "version" => $this->attr($comprobante, "Version"),
+            "tipo_comprobante" => $this->attr($comprobante, "TipoDeComprobante"),
             "serie" => $this->attr($comprobante, "Serie"), "folio" => $this->attr($comprobante, "Folio"),
             "fecha" => str_replace("T", " ", $this->attr($comprobante, "Fecha")),
+            "lugar_expedicion" => $this->attr($comprobante, "LugarExpedicion"),
+            "forma_pago" => $this->attr($comprobante, "FormaPago"),
+            "metodo_pago" => $this->attr($comprobante, "MetodoPago"),
+            "exportacion" => $this->attr($comprobante, "Exportacion"),
+            "condiciones_pago" => $this->attr($comprobante, "CondicionesDePago"),
             "moneda" => $this->attr($comprobante, "Moneda"),
             "tipo_cambio" => floatval($this->attr($comprobante, "TipoCambio")) ?: 1,
             "subtotal" => floatval($this->attr($comprobante, "SubTotal")),
             "descuento" => floatval($this->attr($comprobante, "Descuento")),
+            "impuestos_trasladados" => $impuestosTrasladados,
+            "impuestos_retenidos" => $impuestosRetenidos,
+            "impuestos_total" => $impuestosTrasladados - $impuestosRetenidos,
             "total" => floatval($this->attr($comprobante, "Total")),
             "rfc_emisor" => $emisor ? $this->attr($emisor, "Rfc") : "",
             "nombre_emisor" => $emisor ? $this->attr($emisor, "Nombre") : "",
+            "regimen_fiscal_emisor" => $emisor ? $this->attr($emisor, "RegimenFiscal") : "",
             "rfc_receptor" => $receptor ? $this->attr($receptor, "Rfc") : "",
             "nombre_receptor" => $receptor ? $this->attr($receptor, "Nombre") : "",
+            "regimen_fiscal_receptor" => $receptor ? $this->attr($receptor, "RegimenFiscalReceptor") : "",
+            "domicilio_fiscal_receptor" => $receptor ? $this->attr($receptor, "DomicilioFiscalReceptor") : "",
+            "uso_cfdi" => $receptor ? $this->attr($receptor, "UsoCFDI") : "",
             "conceptos" => $conceptos
         );
     }

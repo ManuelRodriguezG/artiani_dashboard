@@ -239,6 +239,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/produccion/peceras_pedido_vidrio.js?v=20260806-3"></script>
+<script src="/assets/js/custom/apps/erp/produccion/peceras_pedido_vidrio.js?v=20261022-2"></script>
 </body>
 </html>

@@ -1,7 +1,6 @@
 "use strict";
 (function () {
-    var storageKey = "erp_produccion_peceras_borradores_v1";
-    var pedidosStorageKey = "erp_produccion_peceras_pedidos_vidrio_v1";
+    var endpoints = {perfiles: "/produccion/peceras_perfiles_listar_erp", pedidos: "/produccion/pedidos_vidrio_listar_erp", guardarPedido: "/produccion/pedido_vidrio_guardar_erp"};
     var perfiles = [];
     var items = [];
     var configsHoja = {};
@@ -39,24 +38,21 @@
         URL.revokeObjectURL(url);
     }
     function cargarPerfiles() {
-        try {
-            perfiles = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        } catch (e) {
-            perfiles = [];
-        }
-        el("peceras_pedido_perfil").innerHTML = perfiles.length
-            ? perfiles.map(function (perfil) { return "<option value=\"" + escapeHtml(perfil.id) + "\">" + escapeHtml(perfil.nombre || "Pecera sin nombre") + "</option>"; }).join("")
-            : "<option value=\"\">Sin perfiles guardados</option>";
+        return fetch(endpoints.perfiles, {credentials: "same-origin", headers: {"Accept": "application/json"}}).then(jsonResponse).then(function (respuesta) {
+            perfiles = respuesta && respuesta.depurar && Array.isArray(respuesta.depurar.perfiles) ? respuesta.depurar.perfiles : [];
+            el("peceras_pedido_perfil").innerHTML = perfiles.length
+                ? perfiles.map(function (perfil) { return "<option value=\"" + escapeHtml(perfil.id) + "\">" + escapeHtml([perfil.codigo, perfil.nombre || "Pecera sin nombre"].filter(Boolean).join(" - ")) + "</option>"; }).join("")
+                : "<option value=\"\">Sin perfiles guardados</option>";
+        });
     }
     function cargarPedidosGuardados() {
-        try {
-            pedidosGuardados = JSON.parse(localStorage.getItem(pedidosStorageKey) || "[]");
-        } catch (e) {
-            pedidosGuardados = [];
-        }
+        return fetch(endpoints.pedidos, {credentials: "same-origin", headers: {"Accept": "application/json"}}).then(jsonResponse).then(function (respuesta) {
+            pedidosGuardados = respuesta && respuesta.depurar && Array.isArray(respuesta.depurar.pedidos) ? respuesta.depurar.pedidos : [];
+        });
     }
-    function persistirPedidosGuardados() {
-        localStorage.setItem(pedidosStorageKey, JSON.stringify(pedidosGuardados.slice(0, 40)));
+    function jsonResponse(response) {
+        if (!response.ok) { throw new Error("No fue posible consultar Produccion."); }
+        return response.json();
     }
     function perfilPorId(id) {
         return perfiles.find(function (perfil) { return String(perfil.id) === String(id); });
@@ -102,10 +98,12 @@
         });
         return salida;
     }
-    function configDefaultHoja() {
+    function configDefaultHoja(espesor) {
+        var espesorMm = numero(espesor);
+        var hojaHistorica = espesorMm >= 5.5 ? {largo: 360, ancho: 260} : {largo: 260, ancho: 180};
         return {
-            largo: numero(el("peceras_pedido_hoja_largo").value),
-            ancho: numero(el("peceras_pedido_hoja_ancho").value),
+            largo: hojaHistorica.largo,
+            ancho: hojaHistorica.ancho,
             merma: Math.max(0, numero(el("peceras_pedido_merma").value)),
             separacion: Math.max(0, numero(el("peceras_pedido_separacion").value))
         };
@@ -117,14 +115,13 @@
      * Contrato: la deteccion usa el espesor de cada pieza; las medidas se capturan localmente en la vista.
      */
     function sincronizarTiposHoja(piezas) {
-        var defaults = configDefaultHoja();
         var espesores = {};
         piezas.forEach(function (pieza) {
             espesores[formato(pieza.espesor, 2)] = true;
         });
         Object.keys(espesores).forEach(function (key) {
             if (!configsHoja[key]) {
-                configsHoja[key] = Object.assign({}, defaults);
+                configsHoja[key] = configDefaultHoja(Number(key));
             }
         });
         Object.keys(configsHoja).forEach(function (key) {
@@ -161,7 +158,7 @@
         });
         return Object.keys(grupos).sort().map(function (key) {
             var g = grupos[key];
-            var config = configsHoja[key] || configDefaultHoja();
+            var config = configsHoja[key] || configDefaultHoja(g.espesor);
             var hojaLargo = numero(config.largo);
             var hojaAncho = numero(config.ancho);
             var merma = Math.max(0, numero(config.merma)) / 100;
@@ -201,6 +198,9 @@
                 g.acomodo = null;
                 g.descripcionAcomodo = formato(g.areaConMerma, 4) + " m2 con merma";
             }
+            if (g.espesor >= 5.5 && tipoAcomodo !== "area") {
+                aplicarMejorHojaSeisMm(g, tipoAcomodo, separacionCm, config);
+            }
             return g;
         });
     }
@@ -222,6 +222,47 @@
             hoja.desperdicio = desperdicio;
             hoja.aprovechamiento = Math.max(0, 100 - desperdicio);
         });
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-22
+     * Proposito: comparar las dos medidas de hoja historicas disponibles para vidrio de 6 mm.
+     * Impacto: Produccion/Pedido multiple vidrio; prioriza desperdicio real del acomodo sobre area teorica.
+     * Contrato: prueba 260x180 y 360x260 con la misma lista de piezas, bandas y separacion.
+     */
+    function aplicarMejorHojaSeisMm(grupo, tipoAcomodo, separacionCm, configActual) {
+        var candidatos = [
+            {largo: 260, ancho: 180},
+            {largo: 360, ancho: 260}
+        ];
+        var resultados = candidatos.map(function (candidato) {
+            var acomodo = tipoAcomodo === "columnas_ancho"
+                ? acomodarColumnasAncho(grupo.piezasDetalle, candidato.largo, candidato.ancho, separacionCm)
+                : acomodarFilas(grupo.piezasDetalle, candidato.largo, candidato.ancho, separacionCm);
+            var evaluacion = {hojaLargo: candidato.largo, hojaAncho: candidato.ancho, acomodo: acomodo};
+            calcularMetricasAcomodo(evaluacion);
+            var areaHojaTotal = evaluacion.acomodo.hojas.reduce(function (total, hoja) { return total + hoja.areaHoja; }, 0);
+            var areaUsadaTotal = evaluacion.acomodo.hojas.reduce(function (total, hoja) { return total + hoja.areaUsada; }, 0);
+            evaluacion.desperdicioGlobal = areaHojaTotal > 0 ? Math.max(0, ((areaHojaTotal - areaUsadaTotal) / areaHojaTotal) * 100) : 100;
+            evaluacion.hojas = evaluacion.acomodo.hojas.length;
+            evaluacion.alertas = evaluacion.acomodo.alertas || [];
+            return evaluacion;
+        });
+        resultados.sort(function (a, b) {
+            var diferencia = a.desperdicioGlobal - b.desperdicioGlobal;
+            return Math.abs(diferencia) > 0.0001 ? diferencia : a.hojas - b.hojas;
+        });
+        var mejor = resultados[0];
+        grupo.hojaLargo = mejor.hojaLargo;
+        grupo.hojaAncho = mejor.hojaAncho;
+        grupo.acomodo = mejor.acomodo;
+        grupo.hojas = mejor.hojas;
+        grupo.alertas = (grupo.alertas || []).filter(function (alerta) { return alerta.indexOf("excede hoja") < 0; }).concat(mejor.alertas);
+        grupo.alternativasHoja = resultados.map(function (resultado) {
+            return {largo: resultado.hojaLargo, ancho: resultado.hojaAncho, hojas: resultado.hojas, desperdicio: resultado.desperdicioGlobal};
+        });
+        grupo.descripcionAcomodo = (tipoAcomodo === "columnas_ancho" ? "Bandas ancho" : "Filas") + " recomendado " + formato(mejor.hojaLargo, 0) + "x" + formato(mejor.hojaAncho, 0) + " cm: " + mejor.acomodo.hojas.map(function (hoja, index) {
+            return "H" + (index + 1) + " " + hoja.piezas.length + " pza";
+        }).join(", ");
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-04
@@ -468,7 +509,8 @@
             if (!grupo.acomodo || !grupo.acomodo.hojas.length) {
                 return;
             }
-            detalles.push("<div class=\"border rounded p-3 mb-3\"><div class=\"fw-bold mb-2\">Acomodo " + escapeHtml(formato(grupo.espesor, 2)) + " mm</div>" +
+            var alternativas = Array.isArray(grupo.alternativasHoja) ? "<div class=\"text-muted small mb-2\">Alternativas 6 mm: " + grupo.alternativasHoja.map(function (opcion) { return escapeHtml(formato(opcion.largo, 0) + "x" + formato(opcion.ancho, 0) + " cm, " + opcion.hojas + " hoja(s), " + formato(opcion.desperdicio, 1) + "% desperdicio"); }).join(" | ") + "</div>" : "";
+            detalles.push("<div class=\"border rounded p-3 mb-3\"><div class=\"fw-bold mb-2\">Acomodo " + escapeHtml(formato(grupo.espesor, 2)) + " mm</div>" + alternativas +
                 grupo.acomodo.hojas.map(function (hoja, index) {
                     var cortes = hoja.columnas ? hoja.columnas.length + " banda(s) con corte al ancho" : hoja.filas.length + " fila(s)";
                     return "<div class=\"text-muted small mb-1\">Hoja " + (index + 1) + ": " + cortes + ", " + hoja.piezas.length + " pieza(s), desperdicio " + formato(hoja.desperdicio, 1) + "%</div>";
@@ -517,14 +559,18 @@
     function snapshotPedido() {
         var hojas = resumenHojas();
         return {
-            id: "pedido_" + uuid(),
+            id_pedido_vidrio: 0,
             nombre: el("peceras_pedido_nombre").value.trim() || "Pedido vidrio " + new Date().toLocaleDateString("es-MX"),
             fecha: new Date().toISOString(),
             tipo_acomodo: el("peceras_pedido_acomodo").value,
             desperdicio_promedio: desperdicioPromedioHojas(hojas),
             hojas_total: hojas.reduce(function (total, grupo) { return total + grupo.hojas; }, 0),
             piezas_total: piezasPedido().reduce(function (total, pieza) { return total + pieza.cantidad; }, 0),
+            area_total_m2: piezasPedido().reduce(function (total, pieza) { return total + pieza.area; }, 0),
             configs_hoja: configsHoja,
+            recomendaciones_hoja: hojas.map(function (grupo) {
+                return {espesor: grupo.espesor, largo: grupo.hojaLargo, ancho: grupo.hojaAncho, hojas: grupo.hojas, alternativas: grupo.alternativasHoja || []};
+            }),
             extras: extras,
             items: items.map(function (item) {
                 return {cantidad: item.cantidad, perfil: item.perfil};
@@ -533,13 +579,15 @@
     }
     function guardarPedidoActual() {
         var pedido = snapshotPedido();
-        pedidosGuardados = pedidosGuardados.filter(function (item) { return item.id !== pedido.id; });
-        pedidosGuardados.unshift(pedido);
-        persistirPedidosGuardados();
-        renderPedidosGuardados();
+        var body = new URLSearchParams();
+        body.append("pedido", JSON.stringify(pedido));
+        fetch(endpoints.guardarPedido, {method: "POST", credentials: "same-origin", headers: {"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}, body: body.toString()}).then(jsonResponse).then(function (respuesta) {
+            if (respuesta.error) { throw new Error(respuesta.mensaje || "No fue posible guardar el pedido."); }
+            return cargarPedidosGuardados();
+        }).then(renderPedidosGuardados).catch(function (error) { alert(error.message); });
     }
     function cargarPedidoGuardado(id) {
-        var pedido = pedidosGuardados.find(function (item) { return item.id === id; });
+        var pedido = pedidosGuardados.find(function (item) { return String(item.id_pedido_vidrio) === String(id); });
         if (!pedido) {
             return;
         }
@@ -558,7 +606,7 @@
             return;
         }
         if (!pedidosGuardados.length) {
-            contenedor.innerHTML = "<div class=\"text-muted\">Sin pedidos guardados en este navegador.</div>";
+            contenedor.innerHTML = "<div class=\"text-muted\">Sin pedidos guardados en el sistema.</div>";
             return;
         }
         var ordenados = pedidosGuardados.slice().sort(function (a, b) {
@@ -566,7 +614,7 @@
         });
         contenedor.innerHTML = "<div class=\"table-responsive\"><table class=\"table table-row-dashed align-middle gy-3\"><thead><tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>Pedido</th><th>Desperdicio</th><th>Hojas</th><th>Piezas</th><th>Fecha</th><th class=\"text-end\"></th></tr></thead><tbody>" +
             ordenados.map(function (pedido, index) {
-                return "<tr><td>" + (index === 0 ? "<span class=\"badge badge-light-success me-2\">Mejor</span>" : "") + escapeHtml(pedido.nombre) + "</td><td>" + escapeHtml(formato(pedido.desperdicio_promedio, 1)) + "%</td><td>" + escapeHtml(pedido.hojas_total) + "</td><td>" + escapeHtml(pedido.piezas_total) + "</td><td>" + escapeHtml(new Date(pedido.fecha).toLocaleString("es-MX")) + "</td><td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pedido-cargar=\"" + escapeHtml(pedido.id) + "\">Cargar</button><button class=\"btn btn-sm btn-light-danger ms-2\" type=\"button\" data-pedido-eliminar=\"" + escapeHtml(pedido.id) + "\"><i class=\"bi bi-trash\"></i></button></td></tr>";
+                return "<tr><td>" + (index === 0 ? "<span class=\"badge badge-light-success me-2\">Mejor</span>" : "") + escapeHtml(pedido.nombre) + "</td><td>" + escapeHtml(formato(pedido.desperdicio_promedio, 1)) + "%</td><td>" + escapeHtml(pedido.hojas_total) + "</td><td>" + escapeHtml(pedido.piezas_total) + "</td><td>" + escapeHtml(new Date(pedido.fecha).toLocaleString("es-MX")) + "</td><td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pedido-cargar=\"" + escapeHtml(pedido.id_pedido_vidrio) + "\">Cargar</button></td></tr>";
             }).join("") + "</tbody></table></div>";
     }
     function agregarPerfil(id, cantidad) {
@@ -603,13 +651,13 @@
         descargarArchivo("pedido-multiple-vidrio.csv", filas.map(function (fila) { return fila.map(csvValue).join(","); }).join("\r\n"));
     }
     function init() {
-        cargarPerfiles();
-        cargarPedidosGuardados();
-        var params = new URLSearchParams(window.location.search);
-        if (params.get("perfil")) {
-            agregarPerfil(params.get("perfil"), 1);
-        }
-        render();
+        Promise.all([cargarPerfiles(), cargarPedidosGuardados()]).then(function () {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get("perfil")) {
+                agregarPerfil(params.get("perfil"), 1);
+            }
+            render();
+        }).catch(function (error) { alert(error.message); render(); });
         el("peceras_pedido_agregar").addEventListener("click", function () {
             agregarPerfil(el("peceras_pedido_perfil").value, el("peceras_pedido_cantidad").value);
         });
@@ -635,7 +683,7 @@
                 return;
             }
             var key = fila.getAttribute("data-espesor");
-            configsHoja[key] = configsHoja[key] || configDefaultHoja();
+            configsHoja[key] = configsHoja[key] || configDefaultHoja(Number(key));
             configsHoja[key][input.getAttribute("data-hoja-campo")] = numero(input.value);
             render(true);
         });
@@ -656,13 +704,6 @@
                 var pedidoCargar = event.target.closest("[data-pedido-cargar]");
                 if (pedidoCargar) {
                     cargarPedidoGuardado(pedidoCargar.getAttribute("data-pedido-cargar"));
-                    return;
-                }
-                var pedidoEliminar = event.target.closest("[data-pedido-eliminar]");
-                if (pedidoEliminar) {
-                    pedidosGuardados = pedidosGuardados.filter(function (pedido) { return pedido.id !== pedidoEliminar.getAttribute("data-pedido-eliminar"); });
-                    persistirPedidosGuardados();
-                    renderPedidosGuardados();
                     return;
                 }
                 return;

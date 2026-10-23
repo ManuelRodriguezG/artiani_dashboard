@@ -104,6 +104,12 @@ class EcommerceCatalogoPublico extends CRUD {
           "respuesta_depurar" => array("configurado", "items", "paginacion", "frontend", "fase_2", "guardrails")
         ),
         array(
+          "metodo" => "GET/HEAD",
+          "ruta" => "/ecommercePublico/feed_meta",
+          "descripcion" => "Feed TSV publico de solo lectura para Meta Commerce Manager; incluye fichas publicadas con datos minimos completos y no envia inventario exacto.",
+          "respuesta" => "text/tab-separated-values; charset=utf-8"
+        ),
+        array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/busqueda",
           "descripcion" => "Busqueda inteligente v1 para frases naturales simples; interpreta sinonimos, atributos y categorias sugeridas sin reemplazar catalogo.",
@@ -2914,6 +2920,113 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array()));
     }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-22
+   * Proposito: generar el archivo TSV que Meta consulta para sincronizar el catalogo sin duplicar la fuente de verdad.
+   * Impacto: Ecommerce/Catalogo; reutiliza publicaciones, precios, imagenes y disponibilidad publicas, sin escrituras ni stock exacto.
+   * Contrato: GET interno del controlador publico; excluye productos sin titulo, descripcion, precio, URL, imagen o marca validos.
+   */
+  public function feedMetaPublico() {
+    $headers = array(
+      "id", "title", "description", "availability", "condition", "price", "link", "image_link", "brand",
+      "google_product_category", "fb_product_category", "quantity_to_sell_on_facebook", "sale_price",
+      "sale_price_effective_date", "item_group_id", "gender", "color", "size", "age_group", "material",
+      "pattern", "shipping", "shipping_weight", "offer_disclaimer", "offer_disclaimer_url", "video[0].url",
+      "video[0].tag[0]", "gtin", "product_tags[0]", "product_tags[1]", "style[0]"
+    );
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+      return array("status" => 503, "body" => "# Feed temporalmente no disponible\n");
+    }
+
+    try {
+      $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
+      $sql = $this->sqlPublicacionesBase($where) . " ORDER BY pub.orden ASC, pub.id_publicacion ASC";
+      $stmt = $db->prepare($sql);
+      $stmt->execute();
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
+      $rows = array(implode("\t", $headers));
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $item = $this->formatearPublicacion($fila, false);
+        $title = trim((string) $this->valor($item, "nombre", ""));
+        $description = trim(html_entity_decode(strip_tags((string) $this->valor($item, "descripcion_publica", "")), ENT_QUOTES | ENT_HTML5, "UTF-8"));
+        $brand = trim((string) $this->valor($item, "marca", ""));
+        $price = floatval($this->valor($item, "precio", 0));
+        $availability = $this->metaAvailability($this->valor($item, "disponibilidad", ""));
+        $link = $this->metaAbsoluteUrl($this->valor($item, "canonical_url", $this->valor($item, "url", "")), $baseUrl);
+        $image = $this->metaAbsoluteUrl($this->valor($item, "imagen", ""), $baseUrl);
+        if ($title === "" || $description === "" || $brand === "" || $price <= 0 || $availability === "" || $link === "" || $image === "") {
+          continue;
+        }
+        $values = array(
+          $this->valor($item, "sku", ""), $title, $description, $availability, "new", number_format($price, 2, ".", "") . " MXN",
+          $link, $image, $brand, $this->metaGoogleProductCategory($item)
+        );
+        while (count($values) < count($headers)) {
+          $values[] = "";
+        }
+        $rows[] = implode("\t", array_map(array($this, "metaFeedValue"), $values));
+      }
+      return array("status" => 200, "body" => implode("\n", $rows) . "\n");
+    } catch (Exception $e) {
+      return array("status" => 503, "body" => "# Feed temporalmente no disponible\n");
+    }
+  }
+
+  private function metaFeedValue($value) {
+    return trim(str_replace(array("\t", "\r", "\n"), " ", (string) $value));
+  }
+
+  private function metaAvailability($availability) {
+    $availability = trim((string) $availability);
+    if (in_array($availability, array("disponible", "pocas_piezas"), true)) {
+      return "in stock";
+    }
+    if ($availability === "agotado") {
+      return "out of stock";
+    }
+    return "";
+  }
+
+  private function metaAbsoluteUrl($url, $baseUrl) {
+    $url = trim((string) $url);
+    if ($url === "") {
+      return "";
+    }
+    if (preg_match('/^https?:\/\//i', $url)) {
+      return $url;
+    }
+    return rtrim((string) $baseUrl, "/") . "/" . ltrim($url, "/");
+  }
+
+  private function metaGoogleProductCategory($item) {
+    $texto = strtolower($this->normalizarTextoPlano(trim((string) $this->valor($item, "nombre", "") . " " . $this->valor($item, "categoria", ""))));
+    $reglas = array(
+      array("/alimento.*(pez|acuario)|comida.*(pez|acuario)/", "Animals & Pet Supplies > Pet Supplies > Fish Supplies > Fish Food"),
+      array("/filtro.*acuario|acuario.*filtro/", "Animals & Pet Supplies > Pet Supplies > Fish Supplies > Aquarium Filters"),
+      array("/grava|sustrato.*acuario|arena.*acuario/", "Animals & Pet Supplies > Pet Supplies > Fish Supplies > Aquarium Gravel & Substrates"),
+      array("/adorno.*acuario|decoracion.*acuario|castillo.*acuario/", "Animals & Pet Supplies > Pet Supplies > Fish Supplies > Aquarium Decor"),
+      array("/limpiador.*acuario|limpieza.*acuario|sifon/", "Animals & Pet Supplies > Pet Supplies > Fish Supplies > Aquarium Cleaning Supplies"),
+      array("/calentador|termostato.*acuario/", "Animals & Pet Supplies > Pet Supplies > Fish Supplies > Aquarium Temperature Controllers"),
+      array("/alimento.*perro|croqueta.*perro|perro.*alimento/", "Animals & Pet Supplies > Pet Supplies > Dog Supplies > Dog Food"),
+      array("/juguete.*perro|perro.*juguete/", "Animals & Pet Supplies > Pet Supplies > Dog Supplies > Dog Toys"),
+      array("/alimento.*gato|croqueta.*gato|gato.*alimento/", "Animals & Pet Supplies > Pet Supplies > Cat Supplies > Cat Food"),
+      array("/juguete.*gato|gato.*juguete/", "Animals & Pet Supplies > Pet Supplies > Cat Supplies > Cat Toys"),
+      array("/arena.*gato|arenero|gato.*arena/", "Animals & Pet Supplies > Pet Supplies > Cat Supplies > Cat Litter"),
+      array("/alimento.*ave|semilla.*ave|pajaro.*alimento/", "Animals & Pet Supplies > Pet Supplies > Bird Supplies > Bird Food"),
+      array("/juguete.*ave|ave.*juguete/", "Animals & Pet Supplies > Pet Supplies > Bird Supplies > Bird Toys"),
+      array("/sustrato.*reptil|reptil|terrario/", "Animals & Pet Supplies > Pet Supplies > Reptile & Amphibian Supplies"),
+      array("/transportadora|transportador|carrier|kennel/", "Animals & Pet Supplies > Pet Supplies > Pet Carriers & Crates"),
+      array("/cepillo|peine|rasuradora|grooming|estetica/", "Animals & Pet Supplies > Pet Supplies > Pet Grooming Supplies")
+    );
+    foreach ($reglas as $regla) {
+      if (preg_match($regla[0], $texto)) {
+        return $regla[1];
+      }
+    }
+    return "";
   }
 
   /**

@@ -13,7 +13,9 @@ class ProduccionEsquema extends DBSchema {
         return array(
             "erp_produccion_peceras",
             "erp_produccion_peceras_piezas",
-            "erp_produccion_peceras_eventos"
+            "erp_produccion_peceras_eventos",
+            "erp_produccion_pedidos_vidrio",
+            "erp_produccion_pedidos_vidrio_items"
         );
     }
 
@@ -29,6 +31,7 @@ class ProduccionEsquema extends DBSchema {
             "erp_produccion_peceras" => array(
                 "id_pecera",
                 "folio",
+                "codigo",
                 "nombre",
                 "id_proveedor",
                 "proveedor_snapshot",
@@ -82,6 +85,30 @@ class ProduccionEsquema extends DBSchema {
                 "comentario",
                 "datos_json",
                 "creado_por",
+                "fecha_registro"
+            ),
+            "erp_produccion_pedidos_vidrio" => array(
+                "id_pedido_vidrio",
+                "folio",
+                "nombre",
+                "tipo_acomodo",
+                "desperdicio_promedio",
+                "hojas_total",
+                "piezas_total",
+                "area_total_m2",
+                "estatus",
+                "payload_json",
+                "creado_por",
+                "actualizado_por",
+                "fecha_registro",
+                "fecha_actualizacion"
+            ),
+            "erp_produccion_pedidos_vidrio_items" => array(
+                "id_pedido_vidrio_item",
+                "id_pedido_vidrio",
+                "id_pecera",
+                "cantidad",
+                "perfil_snapshot",
                 "fecha_registro"
             )
         );
@@ -148,6 +175,7 @@ class ProduccionEsquema extends DBSchema {
         $plan[] = $this->crearTablaSiNoExiste("erp_produccion_peceras", array(
             "`id_pecera` BIGINT NOT NULL AUTO_INCREMENT",
             "`folio` VARCHAR(40) NULL",
+            "`codigo` VARCHAR(80) NULL",
             "`nombre` VARCHAR(160) NOT NULL",
             "`id_proveedor` BIGINT NULL",
             "`proveedor_snapshot` VARCHAR(180) NULL",
@@ -176,6 +204,7 @@ class ProduccionEsquema extends DBSchema {
             "`fecha_actualizacion` DATETIME NULL",
             "PRIMARY KEY (`id_pecera`)",
             "UNIQUE KEY `idx_produccion_pecera_folio` (`folio`)",
+            "KEY `idx_produccion_pecera_codigo` (`codigo`)",
             "KEY `idx_produccion_pecera_estatus` (`estatus`, `fecha_registro`)",
             "KEY `idx_produccion_pecera_proveedor` (`id_proveedor`, `estatus`)",
             "KEY `idx_produccion_pecera_solicitud` (`id_solicitud_compra`)"
@@ -215,6 +244,39 @@ class ProduccionEsquema extends DBSchema {
             "PRIMARY KEY (`id_pecera_evento`)",
             "KEY `idx_produccion_pecera_evento_pecera` (`id_pecera`, `fecha_registro`)",
             "KEY `idx_produccion_pecera_evento_tipo` (`tipo_evento`, `fecha_registro`)"
+        ), $opciones, $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_produccion_pedidos_vidrio", array(
+            "`id_pedido_vidrio` BIGINT NOT NULL AUTO_INCREMENT",
+            "`folio` VARCHAR(40) NULL",
+            "`nombre` VARCHAR(160) NOT NULL",
+            "`tipo_acomodo` VARCHAR(40) NOT NULL DEFAULT 'columnas_ancho'",
+            "`desperdicio_promedio` DECIMAL(8,4) NOT NULL DEFAULT 0",
+            "`hojas_total` INT NOT NULL DEFAULT 0",
+            "`piezas_total` INT NOT NULL DEFAULT 0",
+            "`area_total_m2` DECIMAL(14,6) NOT NULL DEFAULT 0",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+            "`payload_json` LONGTEXT NULL",
+            "`creado_por` INT NULL",
+            "`actualizado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_pedido_vidrio`)",
+            "UNIQUE KEY `idx_produccion_pedido_vidrio_folio` (`folio`)",
+            "KEY `idx_produccion_pedido_vidrio_desperdicio` (`desperdicio_promedio`, `fecha_registro`)",
+            "KEY `idx_produccion_pedido_vidrio_estatus` (`estatus`, `fecha_registro`)"
+        ), $opciones, $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_produccion_pedidos_vidrio_items", array(
+            "`id_pedido_vidrio_item` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_pedido_vidrio` BIGINT NOT NULL",
+            "`id_pecera` BIGINT NULL",
+            "`cantidad` INT NOT NULL DEFAULT 1",
+            "`perfil_snapshot` LONGTEXT NOT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_pedido_vidrio_item`)",
+            "KEY `idx_produccion_pedido_vidrio_item_pedido` (`id_pedido_vidrio`)",
+            "KEY `idx_produccion_pedido_vidrio_item_pecera` (`id_pecera`)"
         ), $opciones, $ejecutar);
 
         return array(

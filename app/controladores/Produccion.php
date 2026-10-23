@@ -32,13 +32,68 @@ class Produccion extends Controlador {
     /**
      * IA: Codex GPT-5
      * Fecha: 2026-08-04
-     * Proposito: listar perfiles/borradores locales de peceras en una vista separada.
+     * Proposito: listar perfiles persistentes de peceras en una vista separada.
      * Impacto: Produccion/Peceras; facilita consultar y editar perfiles guardados sin entrar al calculador a ciegas.
-     * Contrato: MVP basado en localStorage hasta implementar persistencia en BD.
+     * Contrato: consulta tablas de Produccion y devuelve el perfil con sus piezas.
      */
     public function peceras_perfiles() {
         $this->requerirAlgunPermiso(array("compras.ver", "catalogo.ver", "inventario.ver"));
         $this->vista("apps/erp/produccion/peceras_perfiles");
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-22
+     * Proposito: consultar perfiles persistentes de peceras.
+     * Impacto: Produccion/Peceras; reemplaza perfiles locales del navegador.
+     * Contrato: read-only y requiere permiso operativo transicional.
+     */
+    public function peceras_perfiles_listar_erp() {
+        $this->requerirAlgunPermiso(array("compras.ver", "catalogo.ver", "inventario.ver"));
+        return json_encode($this->modelo("produccionpeceraserp")->listarPeceras($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-22
+     * Proposito: guardar un perfil persistente de pecera y sus piezas.
+     * Impacto: Produccion/Peceras; no afecta inventario ni Compras.
+     * Contrato: POST con `datos` y `piezas` JSON; requiere permiso operativo.
+     */
+    public function pecera_guardar_erp() {
+        $this->requerirAlgunPermiso(array("compras.crear", "catalogo.editar", "inventario.editar"));
+        return json_encode($this->modelo("produccionpeceraserp")->guardarPecera($_POST["datos"] ?? array(), $_POST["piezas"] ?? array(), $this->usuarioActualId()));
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-22
+     * Proposito: archivar un perfil de pecera sin eliminarlo fisicamente.
+     * Impacto: Produccion/Peceras; conserva historial y evita borrado destructivo.
+     * Contrato: POST con `id_pecera`; requiere permiso operativo.
+     */
+    public function pecera_archivar_erp() {
+        $this->requerirAlgunPermiso(array("compras.editar", "catalogo.editar", "inventario.editar"));
+        return json_encode($this->modelo("produccionpeceraserp")->cancelarPecera($_POST["id_pecera"] ?? 0));
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-22
+     * Proposito: consultar pedidos multiples de vidrio ordenados por desperdicio.
+     * Impacto: Produccion/Pedido de vidrio; read-only.
+     * Contrato: requiere permiso operativo transicional.
+     */
+    public function pedidos_vidrio_listar_erp() {
+        $this->requerirAlgunPermiso(array("compras.ver", "catalogo.ver", "inventario.ver"));
+        return json_encode($this->modelo("produccionpeceraserp")->listarPedidosVidrio());
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-22
+     * Proposito: guardar un pedido multiple de vidrio con snapshot tecnico.
+     * Impacto: Produccion/Pedido de vidrio; no crea una orden de Compra automaticamente.
+     * Contrato: POST con `pedido` JSON; requiere permiso operativo.
+     */
+    public function pedido_vidrio_guardar_erp() {
+        $this->requerirAlgunPermiso(array("compras.crear", "catalogo.editar", "inventario.editar"));
+        return json_encode($this->modelo("produccionpeceraserp")->guardarPedidoVidrio($_POST["pedido"] ?? array(), $this->usuarioActualId()));
     }
 
     /**

@@ -80,6 +80,18 @@ class Ventas extends Controlador {
     $this->vista("apps/erp/ventas/carga_historica");
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: abrir auditoria de correcciones de ventas historicas por partida.
+   * Impacto: separa correcciones administrativas de reversas POS y no escribe BD.
+   * Contrato: vista read-only; la aplicacion real queda pendiente de autorizacion especifica.
+   */
+  public function correcciones_historicas() {
+    $this->requerirPermiso("ventas.ver");
+    $this->vista("apps/erp/ventas/correcciones_historicas");
+  }
+
   public function editar() {
     $this->requerirPermiso("ventas.ver");
     $this->vista("apps/erp/ventas/listado");
@@ -198,6 +210,154 @@ class Ventas extends Controlador {
   public function envios_foraneos_guardar_erp() {
     $this->requerirPermiso("ventas.operar");
     return json_encode($this->modelo("VentasErp")->enviosForaneosGuardar($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: abrir la consola inicial de facturacion documental y cotizaciones.
+   * Impacto: concentra consulta comercial, previsualizacion CFDI y plantilla de correo sin emitir CFDI ni enviar mensajes.
+   * Contrato: vista protegida; no escribe BD ni modifica inventario, caja o estatus comercial.
+   */
+  public function facturacion_cotizaciones() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "finanzas.ver"));
+    $this->vista("apps/erp/ventas/facturacion_cotizaciones");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: exponer cotizaciones comerciales existentes para seguimiento desde Ventas.
+   * Impacto: reutiliza snapshots ecommerce sin crear pedidos, ventas ni movimientos.
+   * Contrato: GET read-only; requiere ventas.ver o catalogo.ver.
+   */
+  public function cotizaciones_comerciales_listar_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->cotizacionesBandejaInterna($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: consultar una cotizacion comercial y su trazabilidad.
+   * Impacto: permite revisar partidas, vigencia y eventos sin convertir automaticamente.
+   * Contrato: GET read-only; la conversion futura requiere revision humana.
+   */
+  public function cotizacion_comercial_consultar_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->cotizacionDetalleInterna($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: previsualizar el plan de seguimiento o conversion de una cotizacion.
+   * Impacto: documenta la accion futura sin cambiar estatus ni generar documentos operativos.
+   * Contrato: POST read-only con CSRF; no escribe BD.
+   */
+  public function cotizacion_comercial_accion_plan_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    $datos = !empty($_POST) ? $_POST : $_GET;
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->cotizacionAccionPlanInterna($datos));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: analizar un XML CFDI generado fuera del ERP para previsualizar sus datos.
+   * Impacto: permite validar estructura, UUID, importes y conceptos antes de definir persistencia fiscal.
+   * Contrato: POST autenticado con CSRF; no conserva archivo, no emite CFDI y no escribe BD.
+   */
+  public function facturacion_cfdi_parsear_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "finanzas.ver"));
+    if (empty($_FILES["archivo_xml"])) {
+      return json_encode(array("error" => true, "tipo" => "warning", "mensaje" => "Selecciona un XML CFDI", "depurar" => array()));
+    }
+    return json_encode($this->modelo("ComprasXmlErp")->parsear($_FILES["archivo_xml"]));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: listar CFDI de Ventas ya conservados en el expediente fiscal.
+   * Impacto: consulta documental sin emitir, cancelar ni modificar comprobantes.
+   * Contrato: GET protegido por ventas.ver o finanzas.ver.
+   */
+  public function facturacion_cfdi_listar_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "finanzas.ver"));
+    return json_encode($this->modelo("VentasErp")->facturacionCfdiListar($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: consultar el expediente completo de un CFDI conservado.
+   * Impacto: muestra encabezado, conceptos y eventos de trazabilidad sin cambiar datos.
+   * Contrato: GET protegido por ventas.ver o finanzas.ver.
+   */
+  public function facturacion_cfdi_consultar_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "finanzas.ver"));
+    return json_encode($this->modelo("VentasErp")->facturacionCfdiConsultar($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: conservar un XML CFDI externo dentro del expediente fiscal de Ventas.
+   * Impacto: escribe documento, conceptos y evento de importacion; no emite CFDI ni afecta caja/inventario.
+   * Contrato: POST con CSRF, esquema completo y permiso finanzas.operar; UUID/hash evitan duplicados.
+   */
+  public function facturacion_cfdi_importar_erp() {
+    $this->requerirPermiso("finanzas.operar");
+    if (empty($_FILES["archivo_xml"])) {
+      return json_encode(array("error" => true, "tipo" => "warning", "mensaje" => "Selecciona un XML CFDI", "depurar" => array()));
+    }
+    $respuesta = $this->modelo("VentasErp")->facturacionCfdiImportar($_FILES["archivo_xml"], $this->usuarioActualId());
+    if (is_array($respuesta) && empty($respuesta["error"])) {
+      Sesionseguridad::registrarAuditoria("ventas_facturacion", "cfdi_importar", array(
+        "entidad" => "erp_ventas_documentos_fiscales",
+        "entidad_id" => isset($respuesta["depurar"]["id_documento_fiscal"]) ? $respuesta["depurar"]["id_documento_fiscal"] : null,
+        "resultado" => "ok",
+        "datos_despues" => array("uuid" => isset($respuesta["depurar"]["uuid"]) ? $respuesta["depurar"]["uuid"] : null)
+      ));
+    }
+    return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: entregar la plantilla de correo de factura y branding disponible.
+   * Impacto: prepara comunicacion al cliente sin enviar correo ni crear registro de envio.
+   * Contrato: GET read-only; devuelve placeholders para XML/PDF y trazabilidad futura.
+   */
+  public function facturacion_correo_plantilla_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "finanzas.ver"));
+    return json_encode($this->modelo("VentasErp")->plantillaCorreoFacturaReadOnly());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: auditar las tablas propuestas para documentos fiscales de Ventas.
+   * Impacto: permite preparar la trazabilidad del XML sin ejecutar DDL.
+   * Contrato: GET exclusivo de soporte; solo consulta INFORMATION_SCHEMA.
+   */
+  public function esquema_auditar_facturacion_ventas() {
+    $this->requerirPermiso("sistema.soporte");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarFacturacionVentas());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: generar el plan DDL de documentos fiscales de Ventas.
+   * Impacto: deja visible el cambio requerido para importar y conservar CFDI sin aplicarlo.
+   * Contrato: GET exclusivo de soporte; nunca ejecuta DDL desde este endpoint.
+   */
+  public function esquema_plan_facturacion_ventas() {
+    $this->requerirPermiso("sistema.soporte");
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarFacturacionVentas(false));
   }
 
   /**
@@ -1096,6 +1256,50 @@ class Ventas extends Controlador {
   public function ventas_historicas_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
     return json_encode($this->modelo("VentasErp")->ventaHistoricaDryRun($_POST));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-22
+   * Proposito: prevalidar una propuesta de correccion de almacen por partida historica.
+   * Impacto: no usa reversa POS y no modifica ventas, caja, inventario ni kardex.
+   * Contrato: POST protegido por ventas.ver y CSRF; siempre read-only.
+   */
+  public function ventas_historicas_correccion_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->ventaHistoricaCorreccionDryRun($_POST));
+  }
+
+  /**
+   * IA: Codex GPT-6 | Fecha: 2026-10-22
+   * Proposito: aplicar correcciones administrativas de almacen en partidas historicas con permiso dedicado.
+   * Impacto: no reutiliza reversas POS; el modelo solo actualiza almacen de detalle y escribe snapshots de auditoria.
+   * Contrato: POST autenticado con CSRF; requiere esquema y permiso ventas.historicas.correccion.aplicar.
+   */
+  public function ventas_historicas_correccion_aplicar_erp() {
+    $this->requerirPermiso("ventas.historicas.correccion.aplicar");
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->ventaHistoricaCorreccionAplicar($_POST);
+    if (is_array($respuesta) && empty($respuesta["error"])) {
+      Sesionseguridad::registrarAuditoria("ventas", "historicas_correccion_aplicar", array(
+        "entidad" => "erp_ventas_historicas_correcciones",
+        "resultado" => "ok",
+        "datos_despues" => array("folio_correccion" => $respuesta["depurar"]["folio_correccion"] ?? null, "folio_venta" => $respuesta["depurar"]["folio_venta"] ?? null, "partidas" => $respuesta["depurar"]["partidas"] ?? array())
+      ));
+    }
+    return json_encode($respuesta);
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-10-22 | Consulta read-only del esquema de auditoria de correcciones historicas. */
+  public function esquema_auditar_correcciones_ventas_historicas() {
+    $this->requerirPermiso("sistema.soporte");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarCorreccionesVentasHistoricas());
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-10-22 | Genera un plan DDL sin ejecutarlo para la bitacora de correcciones historicas. */
+  public function esquema_plan_correcciones_ventas_historicas() {
+    $this->requerirPermiso("sistema.soporte");
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarCorreccionesVentasHistoricas(false));
   }
 
   /**

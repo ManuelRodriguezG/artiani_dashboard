@@ -25,6 +25,20 @@
         return new Intl.NumberFormat("es-MX", {maximumFractionDigits: 3}).format(Number(value || 0));
     }
 
+    function normalizarTextoOperativo(value) {
+        var texto = value == null ? "" : String(value);
+        var reemplazos = {
+            "├â┬®": "é", "├â┬©": "é", "├â┬¡": "í", "├â┬│": "ó", "├â┬║": "ú",
+            "├â┬▒": "ñ", "├â┬¼": "ü", "├â┬ü": "ü", "├â┬¿": "¿", "├â┬í": "¡",
+            "Ã¡": "á", "Ã©": "é", "Ã­": "í", "Ã³": "ó", "Ãº": "ú", "Ã±": "ñ",
+            "Ã¼": "ü", "Â¿": "¿", "Â¡": "¡", "Â": ""
+        };
+        Object.keys(reemplazos).forEach(function (origen) {
+            texto = texto.split(origen).join(reemplazos[origen]);
+        });
+        return texto;
+    }
+
     function consultar() {
         var ref = document.getElementById("venta_detalle_ref").value.trim();
         if (!ref) {
@@ -125,12 +139,12 @@
 
     function etiquetaMetodoPago(item) {
         if (esPagoSaldoCrm(item)) { return "Saldo cliente"; }
-        return item.metodo_pago || item.id_metodo_pago || "-";
+        return normalizarTextoOperativo(item.metodo_pago || item.id_metodo_pago || "-");
     }
 
     function etiquetaTipoPago(item) {
         if (esPagoSaldoCrm(item)) { return "No entra a caja"; }
-        return item.tipo_pago || "-";
+        return normalizarTextoOperativo(item.tipo_pago || "-");
     }
 
     function tablaTrazabilidad(items) {

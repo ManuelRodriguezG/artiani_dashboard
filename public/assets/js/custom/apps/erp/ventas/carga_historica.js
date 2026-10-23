@@ -187,12 +187,13 @@
         var body = document.getElementById("vh_partidas");
         if (!body) { return; }
         if (!estado.partidas.length) {
-            body.innerHTML = "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\">Agrega productos para capturar la venta historica.</td></tr>";
+            body.innerHTML = "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\">Agrega productos para capturar la venta historica.</td></tr>";
             recalcular();
             return;
         }
         body.innerHTML = estado.partidas.map(function (item, index) {
             return "<tr data-index=\"" + index + "\">" +
+                "<td><input class=\"form-check-input vh-item-conjunto\" type=\"checkbox\" title=\"Incluir en precio conjunto\"" + (item.aplica_conjunto ? " checked" : "") + "></td>" +
                 "<td><div class=\"fw-bold vh-product-title\">" + escapeHtml(item.descripcion) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku || "VENTA-RAPIDA") + "</div></td>" +
                 "<td><select class=\"form-select form-select-sm vh-item-almacen\">" + opcionesAlmacen(item.id_almacen) + "</select></td>" +
                 "<td><input class=\"form-control form-control-sm text-end vh-item-cantidad\" type=\"number\" min=\"0\" step=\"0.001\" value=\"" + escapeHtml(item.cantidad) + "\"></td>" +
@@ -228,6 +229,7 @@
         estado.partidas[index].id_almacen = Number(row.querySelector(".vh-item-almacen").value || 0);
         estado.partidas[index].cantidad = numero(row.querySelector(".vh-item-cantidad").value || 0);
         estado.partidas[index].precio_unitario = numero(row.querySelector(".vh-item-precio").value || 0);
+        estado.partidas[index].aplica_conjunto = row.querySelector(".vh-item-conjunto").checked ? 1 : 0;
         estado.partidas[index].accion_regularizacion = row.querySelector(".vh-item-accion").value || "";
         row.querySelector(".vh-item-importe").textContent = money(estado.partidas[index].cantidad * estado.partidas[index].precio_unitario);
         recalcular();
@@ -238,7 +240,30 @@
             return sum + numero(item.cantidad) * numero(item.precio_unitario);
         }, 0);
         var descuento = numero(document.getElementById("vh_descuento").value || 0);
-        var total = Math.max(0, subtotal - descuento);
+        var conjuntoSubtotal = estado.partidas.reduce(function (sum, item) {
+            return sum + (item.aplica_conjunto ? numero(item.cantidad) * numero(item.precio_unitario) : 0);
+        }, 0);
+        var conjuntoTotal = numero(document.getElementById("vh_paquete_total").value || 0);
+        var conjuntoPorcentaje = numero(document.getElementById("vh_paquete_porcentaje").value || 0);
+        var conjuntoDescuento = conjuntoTotal > 0 ? Math.max(0, conjuntoSubtotal - conjuntoTotal) : conjuntoSubtotal * (conjuntoPorcentaje / 100);
+        var total = Math.max(0, subtotal - descuento - conjuntoDescuento);
+        var paqueteSubtotalNodo = document.getElementById("vh_paquete_subtotal");
+        var paqueteDescuentoNodo = document.getElementById("vh_paquete_descuento");
+        var paqueteReglaNodo = document.getElementById("vh_paquete_regla");
+        if (paqueteSubtotalNodo) { paqueteSubtotalNodo.textContent = money(conjuntoSubtotal); }
+        if (paqueteDescuentoNodo) { paqueteDescuentoNodo.textContent = money(conjuntoDescuento); }
+        if (paqueteReglaNodo) {
+            var errores = [];
+            if (descuento < 0) { errores.push("el descuento general no puede ser negativo"); }
+            if (conjuntoTotal < 0) { errores.push("el total conjunto no puede ser negativo"); }
+            if (conjuntoPorcentaje < 0 || conjuntoPorcentaje > 100) { errores.push("el porcentaje debe estar entre 0 y 100"); }
+            if (conjuntoTotal > conjuntoSubtotal && conjuntoTotal > 0) { errores.push("el total conjunto supera el subtotal seleccionado"); }
+            paqueteReglaNodo.textContent = errores.length
+                ? "Revisa: " + errores.join("; ") + "."
+                : conjuntoTotal > 0 && conjuntoPorcentaje > 0
+                ? "Se usara el total fijo; el porcentaje capturado se ignorara."
+                : "Captura total fijo o porcentaje. El descuento del conjunto se resta una sola vez.";
+        }
         document.getElementById("vh_subtotal").textContent = money(subtotal);
         document.getElementById("vh_total").textContent = money(total);
         actualizarTotalPagado();
@@ -253,6 +278,12 @@
             pagos: JSON.stringify(estado.pagos),
             observaciones: document.getElementById("vh_observaciones").value || "Carga historica de ventas",
             descuento_total: document.getElementById("vh_descuento").value || "0",
+            indices_precio_conjunto: JSON.stringify(estado.partidas.reduce(function (indices, item, index) {
+                if (item.aplica_conjunto) { indices.push(index); }
+                return indices;
+            }, [])),
+            precio_conjunto_total: document.getElementById("vh_paquete_total").value || "0",
+            precio_conjunto_porcentaje: document.getElementById("vh_paquete_porcentaje").value || "0",
             pagado_total: estado.pagos.reduce(function (sum, pago) { return sum + numero(pago.monto); }, 0).toFixed(2),
             token: document.getElementById("vh_token").value || "",
             items: JSON.stringify(estado.partidas)
@@ -285,6 +316,32 @@
         var html = "<div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Respuesta") + "</div>";
         if (data.folio) {
             html += "<div class=\"fs-7\">Folio: <span class=\"fw-bold\">" + escapeHtml(data.folio) + "</span></div>";
+        }
+        var totales = data.totales || {};
+        if (Object.keys(totales).length) {
+            html += "<div class=\"row g-2 mt-2 fs-7\">" +
+                "<div class=\"col-6\">Subtotal: <strong>" + money(totales.subtotal || 0) + "</strong></div>" +
+                "<div class=\"col-6\">Descuento general: <strong>" + money(totales.descuento_general || 0) + "</strong></div>" +
+                "<div class=\"col-6\">Descuento conjunto: <strong>" + money(totales.descuento_conjunto || 0) + "</strong></div>" +
+                "<div class=\"col-6\">Total: <strong>" + money(totales.total || 0) + "</strong></div>" +
+                "<div class=\"col-6\">Pagado: <strong>" + money(totales.pagado_total || 0) + "</strong></div>" +
+                "<div class=\"col-6\">Saldo: <strong>" + money(totales.saldo_total || 0) + "</strong></div>" +
+                "</div>";
+        }
+        var partidasCalculadas = data.partidas || [];
+        if (partidasCalculadas.length) {
+            html += "<div class=\"table-responsive mt-2\"><table class=\"table table-sm align-middle mb-0 fs-8\"><thead><tr><th>Partida</th><th class=\"text-end\">Original</th><th class=\"text-end\">Desc. conjunto</th><th class=\"text-end\">Desc. general</th><th class=\"text-end\">Final</th></tr></thead><tbody>" +
+                partidasCalculadas.map(function (partida) {
+                    return "<tr><td>" + escapeHtml(partida.sku || partida.descripcion || ("Renglon " + (partida.renglon || "-"))) + "</td>" +
+                        "<td class=\"text-end\">" + money(partida.importe_historico || 0) + "</td>" +
+                        "<td class=\"text-end\">" + money(partida.descuento_conjunto || 0) + "</td>" +
+                        "<td class=\"text-end\">" + money(partida.descuento_general_asignado || 0) + "</td>" +
+                        "<td class=\"text-end fw-bold\">" + money(partida.total_normalizado || 0) + "</td></tr>";
+                }).join("") + "</tbody></table></div>";
+        }
+        var avisos = data.avisos || [];
+        if (avisos.length) {
+            html += "<div class=\"mt-2\"><strong>Avisos</strong><ul class=\"mb-0\">" + avisos.map(function (aviso) { return "<li>" + escapeHtml(aviso) + "</li>"; }).join("") + "</ul></div>";
         }
         var bloqueos = data.bloqueos || [];
         if (bloqueos.length) {
@@ -338,6 +395,7 @@
         var pagoRow = event.target.closest("#vh_pagos tr");
         if (pagoRow) { sincronizarPago(pagoRow); }
         if (event.target.id === "vh_descuento") { recalcular(); }
+        if (event.target.id === "vh_paquete_total" || event.target.id === "vh_paquete_porcentaje") { recalcular(); }
     });
     document.addEventListener("change", function (event) {
         var row = event.target.closest("#vh_partidas tr");
@@ -357,5 +415,8 @@
         document.getElementById("vh_btn_prevalidar").addEventListener("click", prevalidar);
         document.getElementById("vh_btn_guardar").addEventListener("click", guardar);
         document.getElementById("vh_descuento").addEventListener("input", recalcular);
+        document.getElementById("vh_paquete_total").addEventListener("input", recalcular);
+        document.getElementById("vh_paquete_porcentaje").addEventListener("input", recalcular);
+        document.getElementById("vh_paquete_aplicar").addEventListener("click", prevalidar);
     });
 })();

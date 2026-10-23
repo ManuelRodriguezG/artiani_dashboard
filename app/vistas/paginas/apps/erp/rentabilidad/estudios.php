@@ -133,6 +133,12 @@
                                                 <option value="">Todas las categorias</option>
                                             </select>
                                         </div>
+                                        <div class="col-xl-4 d-flex align-items-end">
+                                            <label class="form-check form-switch form-check-custom form-check-solid mb-2">
+                                                <input class="form-check-input" type="checkbox" id="rentabilidad_estudio_agrupar_variantes" checked>
+                                                <span class="form-check-label">Consolidar variantes con el mismo costo</span>
+                                            </label>
+                                        </div>
                                         <div class="col-xl-4">
                                             <label class="form-label">Buscar productos para agregar</label>
                                             <div class="d-flex gap-2">
@@ -152,7 +158,7 @@
                             </div>
 
                             <div class="row g-6 mb-6 d-none" id="rentabilidad_estudio_trabajo">
-                                <div class="col-xl-6">
+                                <div class="col-xl-7 d-none" id="rentabilidad_estudio_disponibles_panel">
                                     <div class="card h-100">
                                         <div class="card-header border-0 pt-5">
                                             <div class="card-title">
@@ -176,7 +182,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-xl-6">
+                                <div class="col-xl-5" id="rentabilidad_estudio_seleccion_panel">
                                     <div class="card h-100">
                                         <div class="card-header border-0 pt-5">
                                             <div class="card-title">
@@ -212,8 +218,26 @@
 
                             <div class="card d-none" id="rentabilidad_estudio_detalle_card">
                                 <div class="card-header border-0 pt-5">
-                                    <div class="card-title">
+                                    <div class="card-title mb-3 mb-xl-0">
                                         <h3 class="fw-bold fs-5 mb-0">Detalle de rentabilidad</h3>
+                                    </div>
+                                    <div class="card-toolbar d-flex flex-wrap gap-2">
+                                        <select class="form-select form-select-sm form-select-solid w-175px" id="rentabilidad_estudio_orden_campo" aria-label="Ordenar detalle por">
+                                            <option value="sku">SKU</option>
+                                            <option value="producto">Producto</option>
+                                            <option value="precio">Precio</option>
+                                            <option value="costo">Costo</option>
+                                            <option value="margen">Margen</option>
+                                            <option value="ganancia">Ganancia</option>
+                                            <option value="utilidad">Utilidad</option>
+                                            <option value="gasto">Gasto</option>
+                                            <option value="minimo">Precio minimo</option>
+                                            <option value="estado">Estado</option>
+                                        </select>
+                                        <select class="form-select form-select-sm form-select-solid w-150px" id="rentabilidad_estudio_orden_direccion" aria-label="Direccion del orden">
+                                            <option value="asc">Menor a mayor</option>
+                                            <option value="desc">Mayor a menor</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="card-body pt-0">
@@ -254,6 +278,6 @@ window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
     "snapshot" => Sesionseguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260930-ivas-ganancia-1"></script>
+<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20261022-estudios-orden-1"></script>
 </body>
 </html>

@@ -6946,3 +6946,82 @@ Pendiente con autorizacion/operacion:
 - La lista ahora solicita estados abiertos (`pendiente_revision`, `en_revision`, `bloqueada`) y reconoce ambos nombres para mostrar correctamente el estado.
 - Las futuras cancelaciones completas ponen `erp_ventas.inventario_pendiente_total` en cero y `inventario_validacion_estado='cancelada'` cuando esas columnas existen.
 - El registro historico existente no se corrigio directamente durante el diagnostico; cualquier regularizacion de datos debe autorizarse de forma expresa.
+
+## Hallazgo 2026-10-22 - Detalle de venta historica y codificacion de metodos de pago
+
+- Folio revisado: `VHIS-20261022-000004`.
+- El endpoint `ticket_venta_readonly_erp` responde correctamente y la venta conserva sus partidas, pago historico y totales.
+- Las ventas historicas no tienen que generar snapshot de garantia: el formateador ya no crea el hallazgo `VENTAS-TICKET-001` para `canal='historico'` u `origen_venta='carga_historica'`.
+- El metodo almacenado para el pago llegaba como `Tarjeta de d├â┬®bito`, evidencia de doble codificacion en un dato historico. Se agrego normalizacion defensiva en el modelo, ticket y detalle visual para presentar `Tarjeta de débito` sin reescribir la base.
+- La configuracion del ticket del folio cae en `fallback_sin_configuracion` porque la venta historica no tiene caja/turno y las configuraciones vigentes consultadas estan ligadas a caja. Esto no rompe el ticket, pero explica por que ese folio usa valores predeterminados.
+- La correccion aplicada es de salida/presentacion y no modifica ventas, pagos, caja, inventario ni configuracion productiva.
+
+Verificacion:
+
+- `VentasErp.php`: sintaxis PHP valida.
+- `venta_detalle.js`: sintaxis JavaScript valida.
+- El folio devuelve `hallazgos=[]` y el ticket presenta `Tarjeta de débito`.
+
+## Hallazgo 2026-10-22 - Reversa POS intentada sobre ventas históricas 000011 y 000014
+
+Diagnóstico de solo lectura en la base productiva configurada para `panel.com.local`:
+
+- La búsqueda por sufijo encontró:
+  - `VHIS-20261022-000011`, `id_venta=63`, `canal=historico`, `origen_venta=carga_historica`, `modo_operacion=historico_sin_afectacion`, cabecera `id_almacen=5`.
+  - `VHIS-20261022-000014`, `id_venta=66`, `canal=historico`, `origen_venta=carga_historica`, `modo_operacion=historico_sin_afectacion`, cabecera `id_almacen=5`.
+- `VHIS-20261022-000011` tiene una partida `Conejina` (`id_venta_detalle=103`) asignada a `id_almacen=4` (Acuario), mientras la cabecera está en `id_almacen=5` (Mascotas).
+- `VHIS-20261022-000014` tiene:
+  - `FOHRS-PAFAKG` (`id_venta_detalle=108`) en `id_almacen=5` (Mascotas).
+  - `VENTA-RAPIDA`, descripción `Polvo de baño 100 g (granel)` (`id_venta_detalle=109`) en `id_almacen=4` (Acuario).
+- No se ejecutó cancelación, reversa, edición, venta duplicada ni otra escritura durante este diagnóstico.
+
+Interpretación del bloqueo:
+
+- El mensaje `Solo se permite reversa POS en este flujo` es una salvaguarda correcta del endpoint de reversas: `VentasErp::devolucionDryRun()` solo acepta ventas con `canal=pos`.
+- No se debe quitar esa regla para aceptar `canal=historico`, porque una reversa POS puede mover caja, generar reembolso, afectar inventario/kardex y cerrar incidencias operativas; una venta histórica está diseñada para no afectar ninguno de esos elementos.
+
+Corrección requerida:
+
+- Crear un flujo separado de `Corrección de venta histórica`, con dry-run y aplicación autorizada, que permita seleccionar una o varias partidas y corregir su `id_almacen` con motivo, usuario y auditoría.
+- La corrección debe conservar el valor original, registrar el nuevo valor y no crear reversa POS, movimiento de caja, kardex ni ajuste de existencias.
+- Si la corrección cambia el producto o la partida rápida, debe conservar también la relación histórica y permitir regenerar únicamente las acciones de regularización que correspondan, evitando duplicados.
+- La cabecera de la venta no debe sobrescribir automáticamente la asignación de cada partida; el almacén operativo debe resolverse por detalle.
+- La cancelación de una venta histórica, si se necesita como corrección administrativa, debe ser una acción independiente y explícita, sin reutilizar `devolucionDryRun()`.
+
+Siguiente paso autorizado pendiente:
+
+- Preparar primero el endpoint/vista de auditoría y dry-run para correcciones históricas, sin escribir datos.
+- Después solicitar autorización específica para aplicar una corrección sobre `VHIS-20261022-000011` y/o `VHIS-20261022-000014`.
+
+## Avance 2026-10-22 - Auditoria read-only de correcciones historicas
+
+Ajuste preparado sin escritura productiva:
+
+- Nueva vista: `/ventas/correcciones_historicas`.
+- Nueva búsqueda/prevalidación: `POST /ventas/ventas_historicas_correccion_dryrun_erp`.
+- El flujo requiere el folio histórico completo, muestra cabecera y almacén de cada partida, y permite proponer un almacén distinto por detalle.
+- La prevalidación valida que el folio sea `canal=historico` y `origen_venta=carga_historica`, confirma que cada detalle pertenezca a la venta y que el almacén propuesto esté activo.
+- El resultado distingue cambios propuestos, avisos y bloqueos, e informa expresamente que no aplica reversa POS ni modifica caja, inventario, kardex o notificaciones.
+- Se agregó acceso al sidebar y al buscador global bajo `Ventas y POS > Correcciones historicas`.
+
+No implementado todavía:
+
+- No existe botón ni endpoint de aplicación real.
+- No se actualizó ninguna venta, detalle, almacén, caja, inventario o incidencia.
+- La aplicación futura deberá conservar el almacén original, registrar el nuevo almacén por partida, usuario, motivo y auditoría; después requerirá autorización explícita y respaldo productivo.
+
+## Preparacion 2026-10-22 - Aplicacion transaccional de correcciones historicas
+
+- Se preparo `POST /ventas/ventas_historicas_correccion_aplicar_erp`, separado de toda reversa POS y protegido por el permiso dedicado `ventas.historicas.correccion.aplicar`.
+- El modelo solo permite ventas `canal=historico`, `origen_venta=carga_historica` y `modo_operacion=historico_sin_afectacion`; bloquea y revierte toda la transaccion si la partida ya cambio, no pertenece a la venta o los almacenes no estan activos.
+- Cada partida se actualiza de forma condicional dentro de transaccion y con `FOR UPDATE`; cabecera, pagos, caja, inventario y kardex no se actualizan.
+- La bitacora propuesta conserva folio de correccion, folio de venta, motivo, usuario, fecha, referencia del respaldo y snapshots anterior/nuevo por partida. La ausencia de las dos tablas de auditoria bloquea la escritura.
+- Se agregaron un plan DDL no ejecutable por defecto y una auditoria read-only del esquema. No se ejecuto DDL, no se creo permiso en la base de datos y no se agrego boton de aplicacion a la interfaz.
+- La referencia del respaldo es un dato requerido y queda auditada; el endpoint no puede verificar por si mismo que el respaldo externo sea integro. La revision del respaldo y la autorizacion especifica para aplicar en productivo siguen siendo condiciones previas independientes.
+- Esta preparacion no constituye autorizacion para aplicar cambios a `VHIS-20261022-000011` ni `VHIS-20261022-000014`.
+
+Verificaciones:
+
+- `C:\xampp\php\php.exe -l app/modelos/VentasErp.php`: correcto.
+- `C:\xampp\php\php.exe -l app/controladores/Ventas.php`: correcto.
+- `node --check public/assets/js/custom/apps/erp/ventas/correcciones_historicas.js`: correcto.

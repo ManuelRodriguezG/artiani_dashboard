@@ -21,10 +21,12 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Organizacion catalogo', 'ruta' => '/catalogoerp/organizacion', 'permiso' => 'catalogo.ver', 'detalle' => 'Categorias taxonomia familias'),
             array('titulo' => 'Revision migracion', 'ruta' => '/catalogoerp/migracion_ecommerce', 'permiso' => 'catalogo.ver', 'detalle' => 'Migracion ecommerce productos incidencias'),
             array('titulo' => 'Configuracion catalogo', 'ruta' => '/catalogoerp/configuracion', 'permiso' => 'catalogo.editar', 'detalle' => 'Parametros catalogo ERP')
+            ,array('titulo' => 'Calidad / Pendientes de costo', 'ruta' => '/catalogoerp/pendientes_costo', 'permiso' => array('catalogo.costos', 'proveedores.costos', 'ventas.listas.ver'), 'detalle' => 'Productos activos sin costo, proveedor o precio publico')
         )),
         array('seccion' => 'ERP', 'titulo' => 'Comercial', 'icono' => 'bi-tags', 'items' => array(
             array('titulo' => 'Catalogos comerciales', 'ruta' => '/catalogoerp/catalogos_comerciales', 'permiso' => 'catalogo.ver', 'detalle' => 'Marcas categorias comerciales'),
             array('titulo' => 'Listas de precios', 'ruta' => '/comercial/listas_precios', 'permiso' => 'ventas.listas.ver', 'detalle' => 'Precios clientes listas comerciales'),
+            array('titulo' => 'Pendientes de costo', 'ruta' => '/catalogoerp/pendientes_costo', 'permiso' => array('catalogo.costos', 'proveedores.costos', 'ventas.listas.ver'), 'detalle' => 'Calidad de costos y relaciones proveedor SKU'),
             array('titulo' => 'Manual listas de precios', 'ruta' => '/comercial/listas_precios_manual', 'permiso' => 'ventas.listas.ver', 'detalle' => 'Ayuda listas precios')
         )),
         array('seccion' => 'ERP', 'titulo' => 'Rentabilidad', 'icono' => 'bi-graph-up-arrow', 'items' => array(
@@ -43,6 +45,7 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver', 'detalle' => 'Consultar precio SKU producto'),
             array('titulo' => 'Pendientes venta rapida', 'ruta' => '/ventas/venta_rapida_pendientes', 'permiso' => 'ventas.ver', 'detalle' => 'Ventas rapidas pendientes'),
             array('titulo' => 'Carga historica', 'ruta' => '/ventas/carga_historica', 'permiso' => 'ventas.ver', 'detalle' => 'Captura ventas pasadas sin afectar caja inventario'),
+            array('titulo' => 'Correcciones historicas', 'ruta' => '/ventas/correcciones_historicas', 'permiso' => 'ventas.ver', 'detalle' => 'Auditar almacenes por partida sin reversa POS'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver', 'detalle' => 'Pedidos ventas clientes'),
             array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver', 'detalle' => 'Devoluciones ventas'),
             array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver', 'detalle' => 'Turnos caja apertura cierre'),
