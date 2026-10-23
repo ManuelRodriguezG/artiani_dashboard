@@ -10,10 +10,10 @@ Estas equivalencias fueron confirmadas por el dueno del negocio. Se conserva el 
 | `TORO-2040CL` | `PERA-C2040` | Pieza lateral del tortuguero; no es un perfil independiente. |
 | `TORO-2040CFR` | `PERA-C2040` | Pieza frontal/respaldo del tortuguero; no es un perfil independiente. |
 | `TORO-2040CP` | `PERA-C2040` | Pieza de piso del tortuguero; no es un perfil independiente. |
-| `TORO-20HL` | Componente historico `TORO-20...` | Nomenclatura usada para identificar piezas; aparece junto a `TORO-2040`, pero sus medidas no deben fusionarse automaticamente con `PERA-C2040`. |
-| `TORO-20HP` | Componente historico `TORO-20...` | Nomenclatura usada para identificar piezas; aparece junto a `TORO-2040`, pero sus medidas no deben fusionarse automaticamente con `PERA-C2040`. |
+| `TORO-20HL` | `PERA-H3820` | Laterales del perfil, 6 piezas de 20.7 x 20 cm. |
+| `TORO-20HP` | `PERA-H3820` | Piso del perfil, 1 pieza de 41 x 35.7 cm. |
 
 ## Pendiente real
 
-- Identificar a que perfil pertenecen exactamente las piezas `TORO-20HL` y `TORO-20HP`.
+No quedan piezas pendientes dentro de estas ocho relaciones históricas.
 - Mantener separadas las variantes de 3 mm y 6 mm cuando el historial las muestre distintas.

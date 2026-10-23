@@ -116,11 +116,7 @@ foreach ($rows as $row) {
     $auditRows[] = array($id, (string) $row["sku"], "excluido", $motivo, (string) ($imagenAuditada["source_url"] ?? ""), $urlImagen, $urlProducto);
     continue;
   }
-  $availability = ((int) $row["controla_inventario"] !== 1) ? "" : ((float) $row["existencia_disponible"] > 0 ? "in stock" : "out of stock");
-  if ($availability === "") {
-    $auditRows[] = array($id, (string) $row["sku"], "excluido", "disponibilidad_no_publicable", (string) ($imagenAuditada["source_url"] ?? ""), $urlImagen, $urlProducto);
-    continue;
-  }
+  $availability = "in stock";
   $feedRows[] = array(
     metaValue($row["sku"]), metaValue($nombre), metaValue($descripcion), $availability, "new",
     number_format($precio, 2, ".", "") . " MXN", $urlProducto, $urlImagen, metaValue($marca), metaCategory($nombre, $row["categoria"]), "", ""

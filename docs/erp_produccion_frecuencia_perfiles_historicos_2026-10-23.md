@@ -3,8 +3,8 @@
 Analisis de solo lectura. Cuenta en que bloques aparece cada perfil relacionado por codigo o alias, cuantas piezas contiene el bloque y que hojas/espesores se observaron.
 
 - Bloques analizados: **66**
-- Perfiles relacionados: **28**
-- Codigos sin relacion automatica: **2**
+- Perfiles relacionados: **29**
+- Codigos sin relacion automatica: **0**
 
 | Perfil | Relacion | Bloques | Piezas en bloques | Validados | Hojas observadas | Espesores observados |
 |---|---|---:|---:|---:|---|---|
@@ -30,6 +30,7 @@ Analisis de solo lectura. Cuenta en que bloques aparece cada perfil relacionado 
 | PERA-B4020 | Alias automatizado | 2 | 4 | 2 | 2.6x1.8 m (2) | 3 mm (4) |
 | PERA-C2040 | Manual confirmada | 2 | 10 | 2 | 2.6x1.8 m (2) | 3 mm (10) |
 | PERA-C2222 | Alias automatizado | 2 | 6 | 2 | 2.6x1.8 m (2) | 3 mm (6) |
+| PERA-H3820 | Manual confirmada | 2 | 14 | 2 | 2.6x1.8 m (2) | 3 mm (14) |
 | PERA-H4040 | Manual confirmada | 2 | 10 | 2 | 3.6x2.6 m (2) | 6 mm (10) |
 | PERA-12040 | Alias automatizado | 1 | 5 | 0 | 3.6x2.6 m (1) | 6 mm (5) |
 | PERA-4040 | Alias automatizado | 1 | 5 | 1 | 2.6x1.8 m (1) | 3 mm (5) |
@@ -39,8 +40,7 @@ Analisis de solo lectura. Cuenta en que bloques aparece cada perfil relacionado 
 
 ## Codigos sin relacion automatica
 
-- TORO-20HL: 12 piezas historicas
-- TORO-20HP: 2 piezas historicas
+No hay codigos pendientes en este corte del analisis.
 
 ## Uso en el planeador
 

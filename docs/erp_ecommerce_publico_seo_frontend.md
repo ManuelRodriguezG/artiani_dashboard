@@ -280,8 +280,8 @@ https://sys.artiani.com.mx/ecommercePublico/feed_meta
 Decisiones confirmadas por el dueño el 2026-10-23:
 
 - Todos los productos publicados para este canal se consideran nuevos (`condition=new`).
-- Los productos agotados permanecen en el feed como `out of stock`, siempre que conserven precio, descripción, imagen, marca y URL válidos.
-- Cuando se complete precio, proveedor y demás información operativa, el producto podrá actualizarse y volver a `in stock` sin duplicar el artículo en Meta.
+- Los productos completos se envían como `in stock` porque este catálogo funciona como vitrina y carrito de consulta; no permite pago ni confirma existencia exacta.
+- `quantity_to_sell_on_facebook` permanece vacío y la disponibilidad real se confirma por consulta antes de vender.
 
 El contenido se entrega como TSV (`text/tab-separated-values`) con las columnas de la plantilla de Meta. Reutiliza `EcommerceCatalogoPublico` y no crea una fuente paralela ni modifica inventario, ventas, precios o publicaciones.
 
@@ -289,9 +289,7 @@ Reglas actuales:
 
 - Solo toma publicaciones `publicado`, productos y SKU `activo`.
 - La condición se envía como `new`.
-- `disponible` y `pocas_piezas` se envían como `in stock`.
-- `agotado` se envía como `out of stock`.
-- `consultar_disponibilidad` no se envía.
+- `disponible`, `pocas_piezas`, `agotado` y `consultar_disponibilidad` se envían como `in stock` para mantener visibles los productos consultables.
 - Se excluyen fichas sin SKU, título, descripción pública, precio positivo, marca, URL o imagen.
 - Las rutas relativas de `erp_catalogo_imagenes` se convierten al host público de archivos `https://sys.artiani.com.mx`; no se antepone `https://artiani.com.mx` a imágenes ERP.
 - La auditoría productiva del 2026-10-23 encontró 1,572 URLs con imagen: 1,564 accesibles como imagen y 8 redirigidas al login; las 8 quedan excluidas del archivo validado.

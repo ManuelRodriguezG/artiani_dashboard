@@ -26,6 +26,8 @@ manual_relations = {
     norm("TORO-2040CL"): "PERA-C2040",
     norm("TORO-2040CFR"): "PERA-C2040",
     norm("TORO-2040CP"): "PERA-C2040",
+    norm("TORO-20HL"): "PERA-H3820",
+    norm("TORO-20HP"): "PERA-H3820",
 }
 
 stats = defaultdict(lambda: {"bloques": 0, "piezas": 0, "hojas": Counter(), "espesores": Counter(), "validos": 0})

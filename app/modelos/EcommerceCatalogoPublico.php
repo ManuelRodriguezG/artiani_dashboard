@@ -2981,11 +2981,8 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function metaAvailability($availability) {
     $availability = trim((string) $availability);
-    if (in_array($availability, array("disponible", "pocas_piezas"), true)) {
+    if (in_array($availability, array("disponible", "pocas_piezas", "agotado", "consultar_disponibilidad"), true)) {
       return "in stock";
-    }
-    if ($availability === "agotado") {
-      return "out of stock";
     }
     return "";
   }
