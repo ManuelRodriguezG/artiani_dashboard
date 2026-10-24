@@ -136,13 +136,9 @@
                                         <div id="fc_cot_lista" class="fc-list"></div>
                                     </div>
                                     <div class="fc-card p-4">
-                                        <div class="fw-bold fs-5 mb-1">Plantilla para Gmail</div>
-                                        <div class="text-muted fs-7 mb-3">Copia el asunto y el cuerpo para enviarlos desde tu cuenta de Gmail</div>
-                                        <div id="fc_correo_estado" class="text-muted fs-7">Cargando plantilla...</div>
-                                        <div class="mt-3"><label class="form-label text-muted fs-8 text-uppercase">Asunto</label><input class="form-control form-control-solid" id="fc_correo_asunto"></div>
-                                        <div class="mt-3"><label class="form-label text-muted fs-8 text-uppercase">Cuerpo</label><textarea class="form-control form-control-solid fc-pre" id="fc_correo_cuerpo"></textarea></div>
-                                        <div class="d-flex gap-2 mt-3"><button type="button" class="btn btn-light-primary flex-grow-1" id="fc_correo_copiar_asunto"><i class="bi bi-copy"></i> Copiar asunto</button><button type="button" class="btn btn-light-primary flex-grow-1" id="fc_correo_copiar_cuerpo"><i class="bi bi-copy"></i> Copiar cuerpo</button></div>
-                                        <div class="text-muted fs-8 mt-3">Al enviar desde Gmail, adjunta manualmente el XML original y el PDF de la factura.</div>
+                                        <div class="fw-bold fs-5 mb-1">Comunicaciones</div>
+                                        <div class="text-muted fs-7 mb-3">Las plantillas de correo están disponibles en su módulo independiente.</div>
+                                        <a class="btn btn-light-primary w-100" href="/ventas/plantillas_correo"><i class="bi bi-envelope"></i> Abrir plantillas de correo</a>
                                     </div>
                                 </div>
 

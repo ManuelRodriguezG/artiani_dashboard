@@ -1,7 +1,7 @@
 # ERP Catalogo - Avance, cierre y evidencia
 
 Documentacion viva: Codex GPT-5  
-Ultima consolidacion: 2026-06-11  
+Ultima consolidacion: 2026-10-23  
 Estado: Base tecnica lista para avanzar a Proveedores/listas; saneamiento operativo continua por incidencias.
 
 ## Lectura obligatoria antes de tocar Catalogo
@@ -13,6 +13,7 @@ Estado: Base tecnica lista para avanzar a Proveedores/listas; saneamiento operat
 - `docs/erp_catalogo_auditoria_responsabilidades.md`.
 - `docs/erp_catalogo_guia_operativa.md`.
 - `docs/erp_catalogo_handoff_proveedores_listas.md`.
+- `docs/erp_catalogo_metodologia_variantes_presentaciones.md`.
 - Este archivo.
 
 Si una regla de negocio no esta escrita aqui o en codigo, preguntar al dueno antes de implementarla.
@@ -27,6 +28,42 @@ Sirve para:
 - Ubicar pendientes reales.
 - Saber cuando una incidencia encontrada desde Proveedores, Compras, XML, Almacen o Inventario debe regresar a Catalogo.
 - Evitar rehacer auditorias ya realizadas.
+
+## Avance 2026-10-23 - Metodologia de variantes y derivados
+
+Se creo `docs/erp_catalogo_metodologia_variantes_presentaciones.md` como documento
+de trabajo reusable para decidir entre variante real, atributo, presentacion, SKU
+derivado, apertura de empaque, paquete y producto separado.
+
+Decisiones consolidadas:
+
+- Una variante real es una opcion elegible del mismo producto maestro; necesita
+  atributo estructurado, SKU propio y puede tener precio, costo, inventario,
+  proveedor, imagen o fiscal propios.
+- Peso, contenido, unidad y presentacion no se convierten en variantes genericas;
+  usan SKU de presentacion/derivado y relacion de consumo cuando aplique.
+- Especie recomendada, compatibilidad y necesidades son atributos/filtros salvo
+  evidencia de que representan una opcion comercial real.
+- Apertura cerrado -> granel y paquete/receta conservan relaciones propias; no se
+  modelan como color, talla o modelo.
+- Ecommerce agrupa solo SKUs del mismo `id_producto_erp` validado y obtiene
+  selectores de atributos activos con `es_variante=1`; cada SKU conserva URL,
+  precio, permisos, imagen y disponibilidad propios.
+
+Auditoria de esta sesion:
+
+- La auditoria de esquema, codigo y contratos fue read-only.
+- La auditoria live no pudo ejecutarse porque `mysqld` local estaba detenido; no
+  se inicio el servicio por la regla de tratar la base operativa como productiva.
+- Se conservaron como evidencia historica los candidatos ya documentados: 55
+  productos con variantes sin atributos, 7 SKUs con valores incompletos, 34
+  firmas duplicadas, 13 SKUs fraccionarios y los casos ECOM-1560, ECOM-5 y
+  ECOM-1443.
+- No se aplicaron cambios de datos, DDL, fusiones, desactivaciones ni publicaciones.
+
+Siguiente paso: correr una auditoria read-only con MySQL disponible, devolver
+clasificacion, evidencia y confianza por producto/SKU, y presentar una propuesta
+por lotes pequenos antes de cualquier autorizacion de cambios.
 
 ## Decision de cierre
 
@@ -4549,6 +4586,17 @@ Pendiente recomendado:
 - Correccion: el modal de producto agrega el boton `Quitar` junto a `Categoria principal`; limpia el select y el cambio queda aplicado al presionar `Guardar datos maestros`.
 - Riesgo operativo controlado: el producto sin categoria principal puede seguir apareciendo como pendiente de calidad/clasificacion hasta que se le asigne una categoria operativa definitiva.
 - UAT recomendado: abrir un producto con categoria principal, presionar `Quitar`, guardar datos maestros, cerrar y reabrir el modal; confirmar que queda `Sin categoria` y que las categorias secundarias no se eliminan.
+
+## Auditoria 2026-10-23 - Arbol transversal y riesgo Ecommerce
+
+- Se creo `docs/erp_catalogo_auditoria_arbol_transversal_ecommerce_2026-10-23.md` como entregable de auditoria read-only para categorias multi-especie y mascotas no contempladas.
+- La ultima evidencia documentada reporta 438 categorias totales, 192 activas del arbol `CAT16-*`, 246 historicas inactivas y auditoria estructural sin textos dañados, padres inexistentes, codigos duplicados, nombres duplicados bajo el mismo padre ni rutas inconsistentes.
+- La categoria `Pequenos mamiferos / Habitat y jaulas generales` se recomienda conservar con alcance acotado; no debe ampliarse silenciosamente a monos, changuitos u otras mascotas no contempladas.
+- `Salud e higiene general` queda como candidata transversal controlada, no como alta inmediata. Solo debe recibir productos realmente multi-especie y no sustituir categorias especificas.
+- Se propone evaluar una rama `General multi-especie` para habitat, salud y transporte solo despues de obtener muestras read-only y autorizacion explicita.
+- El contrato Ecommerce deriva `path_slug` desde la ruta jerarquica y publica `/categoria/{path_slug}`; renombrar, mover o inactivar categorias puede cambiar URLs, breadcrumbs, sitemap y canonical.
+- El preflight read-only ejecutado el 2026-10-23 no pudo abrir MySQL porque `CRUD::getConexion()` devolvio `null`; no se hicieron escrituras ni consultas alternativas. Las cifras deben reconfirmarse antes de preparar apply.
+- Orden recomendado: preflight actual, propuesta con mapa de equivalencias, autorizacion separada, respaldo externo, altas sin relaciones, reclasificacion por lotes y validacion SEO.
 
 ## Avance 2026-09-02 - Limpieza de descripciones para ecommerce
 

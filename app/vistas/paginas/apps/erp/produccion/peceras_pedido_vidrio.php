@@ -188,6 +188,35 @@
                             </div>
                         </div>
 
+                        <div class="card mb-6">
+                            <div class="card-header border-0 pt-5">
+                                <h2 class="fw-bold fs-4 mb-0">Faltantes por pieza</h2>
+                            </div>
+                            <div class="card-body pt-3">
+                                <div class="text-muted mb-4">Agrega solo las piezas que faltan de un perfil. Se integran al mismo pedido y acomodo visual.</div>
+                                <div class="row g-4 align-items-end">
+                                    <div class="col-lg-3">
+                                        <label class="form-label fw-semibold">Perfil</label>
+                                        <select class="form-select" id="peceras_faltante_perfil"></select>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label class="form-label fw-semibold">Pieza</label>
+                                        <select class="form-select" id="peceras_faltante_pieza"></select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label fw-semibold">Cantidad faltante</label>
+                                        <input class="form-control text-center" id="peceras_faltante_cantidad" inputmode="numeric" value="1">
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <div class="form-text" id="peceras_faltante_medida">Selecciona una pieza</div>
+                                    </div>
+                                    <div class="col-lg-2 d-grid">
+                                        <button class="btn btn-primary" type="button" id="peceras_faltante_agregar"><i class="bi bi-plus-lg"></i> Agregar faltante</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row g-4 mb-6">
                             <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Perfiles</div><div class="fs-2 fw-bold" id="peceras_pedido_kpi_perfiles">0</div></div></div></div>
                             <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Piezas</div><div class="fs-2 fw-bold" id="peceras_pedido_kpi_piezas">0</div></div></div></div>
@@ -239,6 +268,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/produccion/peceras_pedido_vidrio.js?v=20261022-2"></script>
+<script src="/assets/js/custom/apps/erp/produccion/peceras_pedido_vidrio.js?v=20261024-1"></script>
 </body>
 </html>

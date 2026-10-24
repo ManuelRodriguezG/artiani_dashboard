@@ -43,6 +43,7 @@
             el("peceras_pedido_perfil").innerHTML = perfiles.length
                 ? perfiles.map(function (perfil) { return "<option value=\"" + escapeHtml(perfil.id) + "\">" + escapeHtml([perfil.codigo, perfil.nombre || "Pecera sin nombre"].filter(Boolean).join(" - ")) + "</option>"; }).join("")
                 : "<option value=\"\">Sin perfiles guardados</option>";
+            cargarCatalogoFaltantes();
         });
     }
     function cargarPedidosGuardados() {
@@ -56,6 +57,44 @@
     }
     function perfilPorId(id) {
         return perfiles.find(function (perfil) { return String(perfil.id) === String(id); });
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-24
+     * Proposito: permitir faltantes por pieza vinculados al perfil maestro.
+     * Impacto: Produccion/Pedido multiple; evita pedir juegos completos cuando solo faltan piezas.
+     * Contrato: solo prepara lineas del pedido; no modifica existencias ni crea compras.
+     */
+    function cargarCatalogoFaltantes(codigoPreferido) {
+        var selectorPerfil = el("peceras_faltante_perfil");
+        if (!selectorPerfil) {
+            return;
+        }
+        selectorPerfil.innerHTML = perfiles.length
+            ? perfiles.map(function (perfil) { return "<option value=\"" + escapeHtml(perfil.id) + "\">" + escapeHtml(perfil.codigo || perfil.nombre || "Perfil") + "</option>"; }).join("")
+            : "<option value=\"\">Sin perfiles guardados</option>";
+        if (codigoPreferido) {
+            var perfilPreferido = perfiles.find(function (perfil) { return String(perfil.codigo || "").toUpperCase() === String(codigoPreferido).toUpperCase(); });
+            if (perfilPreferido) {
+                selectorPerfil.value = perfilPreferido.id;
+            }
+        }
+        cargarPiezasFaltantes();
+    }
+    function cargarPiezasFaltantes() {
+        var perfil = perfilPorId(el("peceras_faltante_perfil").value);
+        var piezas = perfil && Array.isArray(perfil.piezas) ? perfil.piezas : [];
+        el("peceras_faltante_pieza").innerHTML = piezas.length
+            ? piezas.map(function (pieza, index) { return "<option value=\"" + escapeHtml(index) + "\">" + escapeHtml(pieza.nombre || "Pieza") + "</option>"; }).join("")
+            : "<option value=\"\">Sin piezas configuradas</option>";
+        mostrarMedidaFaltante();
+    }
+    function mostrarMedidaFaltante() {
+        var perfil = perfilPorId(el("peceras_faltante_perfil").value);
+        var piezas = perfil && Array.isArray(perfil.piezas) ? perfil.piezas : [];
+        var pieza = piezas[Number(el("peceras_faltante_pieza").value)] || null;
+        el("peceras_faltante_medida").textContent = pieza
+            ? formato(pieza.largo || pieza.largo_cm, 2) + " x " + formato(pieza.ancho || pieza.ancho_cm, 2) + " cm | " + formato(pieza.espesor || pieza.espesor_mm, 2) + " mm"
+            : "Selecciona una pieza";
     }
     function uuid() {
         return "pedido_item_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
@@ -85,8 +124,8 @@
         });
         extras.forEach(function (pieza) {
             salida.push({
-                perfil_id: "extra",
-                perfil_nombre: "Extra",
+                perfil_id: pieza.perfil_id || "extra",
+                perfil_nombre: pieza.perfil_codigo ? pieza.perfil_codigo + " (faltante)" : "Extra",
                 pieza: pieza.nombre || "Pieza extra",
                 largo: numero(pieza.largo),
                 ancho: numero(pieza.ancho),
@@ -476,8 +515,9 @@
     }
     function renderExtras() {
         el("peceras_extra_lista").innerHTML = extras.length ? extras.map(function (pieza) {
+            var origen = pieza.tipo === "faltante" ? "Faltante " + (pieza.perfil_codigo || "perfil") + " / " : "";
             return "<div class=\"d-flex align-items-center justify-content-between border rounded p-3 mb-2\">" +
-                "<div><span class=\"fw-bold\">" + escapeHtml(pieza.nombre) + "</span><span class=\"text-muted ms-2\">" + escapeHtml(formato(pieza.largo, 2)) + " x " + escapeHtml(formato(pieza.ancho, 2)) + " cm, " + escapeHtml(formato(pieza.espesor, 2)) + " mm, " + escapeHtml(pieza.cantidad) + " pza</span></div>" +
+                "<div><span class=\"fw-bold\">" + escapeHtml(origen + pieza.nombre) + "</span><span class=\"text-muted ms-2\">" + escapeHtml(formato(pieza.largo, 2)) + " x " + escapeHtml(formato(pieza.ancho, 2)) + " cm, " + escapeHtml(formato(pieza.espesor, 2)) + " mm, " + escapeHtml(pieza.cantidad) + " pza</span></div>" +
                 "<button class=\"btn btn-sm btn-light-danger\" type=\"button\" data-extra-quitar=\"" + escapeHtml(pieza.id) + "\"><i class=\"bi bi-x-lg\"></i></button>" +
                 "</div>";
         }).join("") : "<div class=\"text-muted\">Sin piezas extra agregadas.</div>";
@@ -499,6 +539,26 @@
             ancho: numero(datos.ancho),
             espesor: numero(datos.espesor),
             cantidad: entero(datos.cantidad)
+        });
+        render();
+    }
+    function agregarFaltante() {
+        var perfil = perfilPorId(el("peceras_faltante_perfil").value);
+        var piezas = perfil && Array.isArray(perfil.piezas) ? perfil.piezas : [];
+        var pieza = piezas[Number(el("peceras_faltante_pieza").value)] || null;
+        if (!perfil || !pieza) {
+            return;
+        }
+        extras.push({
+            id: "faltante_" + uuid(),
+            tipo: "faltante",
+            perfil_id: perfil.id,
+            perfil_codigo: perfil.codigo || perfil.nombre,
+            nombre: pieza.nombre || "Pieza faltante",
+            largo: numero(pieza.largo || pieza.largo_cm),
+            ancho: numero(pieza.ancho || pieza.ancho_cm),
+            espesor: numero(pieza.espesor || pieza.espesor_mm || (perfil.datos || {}).espesor),
+            cantidad: entero(el("peceras_faltante_cantidad").value)
         });
         render();
     }
@@ -652,6 +712,11 @@
     }
     function init() {
         Promise.all([cargarPerfiles(), cargarPedidosGuardados()]).then(function () {
+            cargarCatalogoFaltantes("PERA-4040");
+            var perfilInicial = perfilPorId(el("peceras_faltante_perfil").value) || {};
+            if (el("peceras_faltante_perfil").value && String(perfilInicial.codigo || "").toUpperCase() === "PERA-4040") {
+                el("peceras_faltante_cantidad").value = 23;
+            }
             var params = new URLSearchParams(window.location.search);
             if (params.get("perfil")) {
                 agregarPerfil(params.get("perfil"), 1);
@@ -670,6 +735,12 @@
                 cantidad: el("peceras_extra_cantidad").value
             });
         });
+        el("peceras_faltante_perfil").addEventListener("change", function () {
+            el("peceras_faltante_cantidad").value = 1;
+            cargarPiezasFaltantes();
+        });
+        el("peceras_faltante_pieza").addEventListener("change", mostrarMedidaFaltante);
+        el("peceras_faltante_agregar").addEventListener("click", agregarFaltante);
         el("peceras_pedido_guardar").addEventListener("click", guardarPedidoActual);
         ["peceras_pedido_hoja_largo", "peceras_pedido_hoja_ancho", "peceras_pedido_merma", "peceras_pedido_separacion"].forEach(function (id) {
             el(id).addEventListener("input", function () { render(); });

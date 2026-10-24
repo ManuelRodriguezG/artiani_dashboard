@@ -2947,9 +2947,13 @@ class EcommerceCatalogoPublico extends CRUD {
       $stmt = $db->prepare($sql);
       $stmt->execute();
       $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
+      $skusExcluidos = $this->metaFeedSkusExcluidos($db);
       $rows = array(implode("\t", $headers));
       foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
         $item = $this->formatearPublicacion($fila, false);
+        if (isset($skusExcluidos[strtoupper(trim((string) $this->valor($item, "sku", "")))])) {
+          continue;
+        }
         $title = trim((string) $this->valor($item, "nombre", ""));
         $description = trim(html_entity_decode(strip_tags((string) $this->valor($item, "descripcion_publica", "")), ENT_QUOTES | ENT_HTML5, "UTF-8"));
         $brand = trim((string) $this->valor($item, "marca", ""));
@@ -2973,6 +2977,156 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return array("status" => 503, "body" => "# Feed temporalmente no disponible\n");
     }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-23
+   * Proposito: consultar la configuracion de exclusion manual del canal Meta sin crear una tabla nueva.
+   * Impacto: feed Meta; excluye SKUs marcados por politica o revision sin tocar publicaciones, inventario o precios.
+   * Contrato: GET interno protegido por `catalogo.ver`; devuelve resumen y SKUs excluidos.
+   */
+  public function metaFeedConfiguracionInterna() {
+    try {
+      $db = $this->getConexion();
+      $exclusiones = $this->metaFeedExclusionesConfig($db);
+      $skus = array_keys($exclusiones["skus"]);
+      sort($skus, SORT_NATURAL | SORT_FLAG_CASE);
+      return $this->respuesta(false, "success", "Configuracion Meta consultada", array(
+        "feed_url" => "/ecommercePublico/feed_meta",
+        "modo" => "url_dinamica",
+        "actualizacion_meta" => "Meta consulta la URL programada; el feed no genera archivos recurrentes",
+        "skus_excluidos" => $skus,
+        "total_skus_excluidos" => count($skus),
+        "motivo" => $exclusiones["motivo"],
+        "fecha_actualizacion" => $exclusiones["fecha_actualizacion"]
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo consultar la configuracion Meta", array("detalle_tecnico" => $e->getMessage()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-23
+   * Proposito: previsualizar exactamente los registros que entrega el feed Meta sin generar un archivo.
+   * Impacto: tablero interno read-only; distingue publicaciones Ecommerce de productos enviados al canal Meta.
+   * Contrato: GET interno protegido por `catalogo.ver`; no escribe BD ni altera disponibilidad real.
+   */
+  public function metaFeedPreviewInterna($opciones = array()) {
+    $feed = $this->feedMetaPublico();
+    $lineas = preg_split('/\r\n|\r|\n/', trim((string) $this->valor($feed, "body", "")));
+    $filas = array();
+    $headers = array();
+    if (!empty($lineas[0])) {
+      $headers = str_getcsv($lineas[0], "\t");
+      foreach (array_slice($lineas, 1) as $linea) {
+        if (trim($linea) === "" || strpos($linea, "# Feed") === 0) { continue; }
+        $valores = str_getcsv($linea, "\t");
+        $fila = array();
+        foreach ($headers as $indice => $header) { $fila[$header] = $valores[$indice] ?? ""; }
+        $filas[] = $fila;
+      }
+    }
+    $db = $this->getConexion();
+    $publicados = 0;
+    if ($db && $this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+      $publicados = intval($db->query("SELECT COUNT(*) FROM erp_ecommerce_publicaciones pub INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku AND s.estatus='activo' INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp AND p.estatus='activo' WHERE pub.canal='catalogo_publico' AND pub.estatus_publicacion='publicado'")->fetchColumn());
+    }
+    $q = strtolower(trim((string) $this->valor($opciones, "q", "")));
+    if ($q !== "") {
+      $filas = array_values(array_filter($filas, function ($fila) use ($q) {
+        return strpos(strtolower(implode(" ", array($fila["id"] ?? "", $fila["title"] ?? "", $fila["brand"] ?? ""))), $q) !== false;
+      }));
+    }
+    $limite = max(1, min(200, intval($this->valor($opciones, "limite", 100))));
+    return $this->respuesta(false, "success", "Previsualizacion Meta generada", array(
+      "feed_status" => intval($this->valor($feed, "status", 503)),
+      "publicados_ecommerce" => $publicados,
+      "enviados_meta" => count($filas),
+      "excluidos_por_completitud_o_configuracion" => max(0, $publicados - count($filas)),
+      "headers" => $headers,
+      "items" => array_slice($filas, 0, $limite),
+      "url_feed" => "/ecommercePublico/feed_meta"
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-23
+   * Proposito: persistir una lista controlada de SKUs excluidos del feed Meta.
+   * Impacto: solo cambia `erp_ecommerce_configuracion`; no cambia la visibilidad del ecommerce ni el inventario.
+   * Contrato: POST interno protegido por `catalogo.editar` y CSRF; valida SKUs existentes antes de guardar.
+   */
+  public function guardarMetaFeedExclusionesInterna($datos = array(), $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_configuracion")) {
+        return $this->respuesta(true, "warning", "Falta la tabla de configuracion Ecommerce", array("no_escribe_bd" => true));
+      }
+      $entrada = $this->valor($datos, "skus", $this->valor($datos, "sku", ""));
+      if (is_string($entrada)) {
+        $entrada = preg_split('/[\s,;]+/', trim($entrada), -1, PREG_SPLIT_NO_EMPTY);
+      }
+      if (!is_array($entrada)) { $entrada = array(); }
+      $candidatos = array();
+      foreach ($entrada as $sku) {
+        $sku = strtoupper(trim((string) $sku));
+        if ($sku !== "") { $candidatos[$sku] = true; }
+      }
+      $validos = array();
+      $noEncontrados = array();
+      foreach (array_keys($candidatos) as $sku) {
+        $stmt = $db->prepare("SELECT sku FROM erp_catalogo_skus WHERE UPPER(TRIM(sku))=:sku LIMIT 1");
+        $stmt->execute(array(":sku" => $sku));
+        $real = $stmt->fetchColumn();
+        if ($real === false) { $noEncontrados[] = $sku; continue; }
+        $validos[strtoupper(trim((string) $real))] = true;
+      }
+      $motivo = trim(substr((string) $this->valor($datos, "motivo", "Revision de politicas de Meta"), 0, 250));
+      if ($motivo === "") { $motivo = "Revision de politicas de Meta"; }
+      $valor = json_encode(array(
+        "skus" => array_keys($validos),
+        "motivo" => $motivo,
+        "fecha_actualizacion" => date("c")
+      ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+      $tieneUsuario = $this->columnaExiste($db, "erp_ecommerce_configuracion", "actualizado_por");
+      if ($tieneUsuario) {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_configuracion (clave, valor, descripcion, estatus, fecha_registro, fecha_actualizacion, actualizado_por) VALUES ('meta_feed_skus_excluidos', :valor, :descripcion, 'activo', NOW(), NOW(), :usuario) ON DUPLICATE KEY UPDATE valor=VALUES(valor), descripcion=VALUES(descripcion), estatus='activo', fecha_actualizacion=NOW(), actualizado_por=VALUES(actualizado_por)");
+        $stmt->execute(array(":valor" => $valor, ":descripcion" => "SKUs excluidos manualmente del feed Meta", ":usuario" => intval($idUsuario) ?: null));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_configuracion (clave, valor, descripcion, estatus, fecha_registro, fecha_actualizacion) VALUES ('meta_feed_skus_excluidos', :valor, :descripcion, 'activo', NOW(), NOW()) ON DUPLICATE KEY UPDATE valor=VALUES(valor), descripcion=VALUES(descripcion), estatus='activo', fecha_actualizacion=NOW()");
+        $stmt->execute(array(":valor" => $valor, ":descripcion" => "SKUs excluidos manualmente del feed Meta"));
+      }
+      return $this->respuesta(false, "success", "Exclusiones Meta guardadas", array(
+        "escribe_bd" => true,
+        "skus_excluidos" => array_keys($validos),
+        "no_encontrados" => $noEncontrados,
+        "total_skus_excluidos" => count($validos),
+        "no_afecta_inventario" => true,
+        "no_afecta_publicacion_web" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se guardaron las exclusiones Meta", array("escribe_bd" => false, "detalle_tecnico" => $e->getMessage()));
+    }
+  }
+
+  private function metaFeedSkusExcluidos($db) {
+    $config = $this->metaFeedExclusionesConfig($db);
+    return $config["skus"];
+  }
+
+  private function metaFeedExclusionesConfig($db) {
+    $salida = array("skus" => array(), "motivo" => "", "fecha_actualizacion" => "");
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_configuracion")) { return $salida; }
+    $stmt = $db->prepare("SELECT valor FROM erp_ecommerce_configuracion WHERE clave='meta_feed_skus_excluidos' AND estatus='activo' LIMIT 1");
+    $stmt->execute();
+    $valor = json_decode((string) $stmt->fetchColumn(), true);
+    if (!is_array($valor)) { return $salida; }
+    foreach ((array) $this->valor($valor, "skus", array()) as $sku) {
+      $sku = strtoupper(trim((string) $sku));
+      if ($sku !== "") { $salida["skus"][$sku] = true; }
+    }
+    $salida["motivo"] = trim((string) $this->valor($valor, "motivo", ""));
+    $salida["fecha_actualizacion"] = trim((string) $this->valor($valor, "fecha_actualizacion", ""));
+    return $salida;
   }
 
   private function metaFeedValue($value) {

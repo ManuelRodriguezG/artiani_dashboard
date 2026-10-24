@@ -188,6 +188,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260825-agotados-lote1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20261023-meta-feed"></script>
 </body>
 </html>

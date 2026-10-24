@@ -9,8 +9,8 @@ Fuente: `TORO-H4040`, bloques de `Pedido 3` y `Pedido 4`, fila 89/22.
 | Pieza | Largo cm | Ancho cm | Cantidad | Espesor |
 |---|---:|---:|---:|---:|
 | Lateral bajo | 20.7 | 19.0 | 2 | 6 mm |
-| Lateral alto | 36.0 | 20.7 | 2 | 6 mm |
-| Piso | 41.0 | 35.7 | 1 | 6 mm |
+| Lateral alto | 40.0 | 20.7 | 6 | 3 mm |
+| Piso | 41.0 | 35.7 | 1 | 3 mm |
 
 ## PERA-1004040
 
@@ -37,10 +37,10 @@ Fuente: `TORO-2040CL`, `TORO-2040CFR` y `TORO-2040CP`, bloques de `Pedido 3` y `
 
 | Pieza | Largo cm | Ancho cm | Cantidad | Espesor |
 |---|---:|---:|---:|---:|
-| Lateral | 20.0 | 38.5 | 2 | 3 mm |
-| Frontal/Respaldo | 20.0 | 39.1 | 2 | 3 mm |
-| Piso | 38.5 | 38.5 | 1 | 3 mm |
+| Lateral | 40.0 | 21.1 | 2 | 3 mm |
+| Frontal | 40.0 | 21.7 | 2 | 3 mm |
+| Piso | 21.1 | 21.1 | 1 | 3 mm |
 
 ## Conclusion
 
-El histórico contiene las medidas de los cuatro perfiles y ya fueron verificadas en el sistema. `TORO-20HL/HP` quedó relacionado con `PERA-H3820` según la confirmación del dueño.
+El histórico contiene las medidas de los cuatro perfiles y ya fueron verificadas en el sistema. `PERA-C2040` fue corregida con las medidas proporcionadas directamente por el dueño. Para `PERA-H4040`, el histórico mostraba 6 mm, pero el espesor oficial confirmado por el dueño es 3 mm. `TORO-20HL/HP` quedó relacionado con `PERA-H3820` según la confirmación del dueño.

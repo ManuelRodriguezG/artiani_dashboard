@@ -227,6 +227,18 @@ class Ventas extends Controlador {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-10-23
+   * Proposito: mostrar las plantillas de correo fuera de facturacion y cotizaciones.
+   * Impacto: separa la comunicacion manual en Gmail sin enviar correos ni modificar datos.
+   * Contrato: vista protegida; usa el endpoint read-only de plantillas.
+   */
+  public function plantillas_correo() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "finanzas.ver"));
+    $this->vista("apps/erp/ventas/plantillas_correo");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-10-23
    * Proposito: abrir la consola independiente de cotizaciones comerciales.
    * Impacto: separa captura, configuracion visual y representacion de cotizaciones de la facturacion documental.
    * Contrato: vista protegida; la persistencia usa el endpoint de cotizacion y no crea ventas ni CFDI.

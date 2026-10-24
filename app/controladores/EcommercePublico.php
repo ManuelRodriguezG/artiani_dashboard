@@ -154,6 +154,57 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-23
+   * Proposito: consultar la configuracion interna del feed vivo de Meta.
+   * Impacto: Ecommerce/Catalogo; solo lectura, no genera archivos ni modifica productos.
+   * Contrato: GET protegido por `catalogo.ver`.
+   */
+  public function meta_feed_config_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->metaFeedConfiguracionInterna());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-23
+   * Proposito: abrir la consola independiente del feed Meta.
+   * Impacto: solo lectura y configuracion del canal Meta; no mezcla gobierno del Ecommerce publico.
+   * Contrato: vista protegida por `catalogo.ver`.
+   */
+  public function meta_feed() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/meta_feed");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-23
+   * Proposito: devolver la previsualizacion real del feed Meta para el panel independiente.
+   * Impacto: solo lectura; no genera archivo ni cambia productos.
+   * Contrato: GET protegido por `catalogo.ver`.
+   */
+  public function meta_feed_preview_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->metaFeedPreviewInterna($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-10-23
+   * Proposito: guardar exclusiones manuales de SKUs para el feed Meta.
+   * Impacto: solo configuracion del canal; no cambia inventario, precios, ventas ni publicacion web.
+   * Contrato: POST protegido por `catalogo.editar` y CSRF; registra auditoria de la accion.
+   */
+  public function meta_feed_exclusiones_guardar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->guardarMetaFeedExclusionesInterna($_POST, Sesionseguridad::usuarioId());
+    if (empty($respuesta["error"])) {
+      Sesionseguridad::registrarAuditoria("ecommerce_meta_feed", "exclusiones_sku_guardadas", array(
+        "total_skus_excluidos" => intval($respuesta["depurar"]["total_skus_excluidos"] ?? 0),
+        "no_encontrados" => $respuesta["depurar"]["no_encontrados"] ?? array()
+      ));
+    }
+    return json_encode($respuesta);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: exponer busqueda inteligente v1 para interpretar frases naturales simples.
    * Impacto: Ecommerce publico; mejora /buscar/{termino} con sinonimos, intencion y fallback sin cambiar catalogo base.

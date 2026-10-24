@@ -140,6 +140,9 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'SEO y URLs', 'ruta' => '/ecommercePublico/seo_migracion', 'permiso' => 'catalogo.ver', 'detalle' => 'SEO sitemap robots redirecciones URLs canonicas'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver', 'detalle' => 'Productos ecommerce catalogo anterior')
         )),
+        array('seccion' => 'Meta Commerce', 'titulo' => 'Meta Commerce', 'icono' => 'bi-facebook', 'items' => array(
+            array('titulo' => 'Feed de productos', 'ruta' => '/ecommercePublico/meta_feed', 'permiso' => 'catalogo.ver', 'detalle' => 'Previsualizacion y exclusiones del feed Meta')
+        )),
         array('seccion' => 'Distribucion', 'titulo' => 'Distribucion', 'icono' => 'bi-box-arrow-up-right', 'items' => array(
             array('titulo' => 'Resumen Distribucion', 'ruta' => '/distribucionadmin/panel_resumen', 'permiso' => 'distribucion.ver', 'detalle' => 'Resumen dashboard distribucion'),
             array('titulo' => 'Solicitudes Distribucion', 'ruta' => '/distribucionadmin/panel_solicitudes', 'permiso' => 'distribucion.ver', 'detalle' => 'Solicitudes acceso clientes distribucion'),

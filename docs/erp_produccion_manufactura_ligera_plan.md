@@ -240,6 +240,8 @@ Fecha: 2026-08-03
 - Frecuencia historica por perfil generada en `docs/erp_produccion_frecuencia_perfiles_historicos_2026-10-23.md`: 28 perfiles o familias quedan relacionados, incluyendo 8 relaciones manuales confirmadas; el conteo separa el espesor de cada pieza para no atribuir el espesor de otro perfil dentro de un bloque mixto.
 - Relaciones historicas confirmadas en `docs/erp_produccion_relaciones_historicas_confirmadas_2026-10-23.md`: los 8 codigos antes pendientes ya tienen tratamiento, incluyendo `TORO-20HL/HP` -> `PERA-H3820`.
 - Recetas historicas registradas en `docs/erp_produccion_recetas_historicas_pendientes_2026-10-23.md`: `PERA-H4040`, `PERA-H3820`, `PERA-1004040` y `PERA-C2040` fueron creadas/verificadas con piezas repetidas del Excel.
+- Correccion confirmada por el dueno: `PERA-H4040` queda en 3 mm, con seis laterales altos de 40 x 20.7 cm y un piso de 41 x 35.7 cm; el espesor historico de 6 mm no prevalece.
+- Correccion confirmada por el dueno: `PERA-C2040` queda en 3 mm con 2 laterales de 40 x 21.1 cm, 2 frontales de 40 x 21.7 cm y 1 piso de 21.1 x 21.1 cm.
 - Correccion confirmada por el dueno aplicada el 2026-10-23: `PERA-4025=3 mm`, `PERA-6030=4 mm`, `PERA-8050=6 mm`, `PERA-C3050=3 mm` y `PERA-P5030=4 mm`, en el perfil y en todas sus piezas. Respaldo puntual: `C:\xampp\panel_db_backups\produccion_espesores_perfiles_20261023.json`.
 - Siguiente paso recomendado: revisar el preview del historial de pedidos, confirmar que hojas se consideran pedidos validos y autorizar por separado la persistencia/importacion historica.
 
@@ -1057,3 +1059,16 @@ Criterio para retomar Produccion formal:
 - Cuando Catalogo, Inventario, Recepciones, Ventas/POS y ecommerce base esten operando.
 - Cuando el volumen de producto propio haga necesario costear materia prima, merma, empaque y mano de obra.
 - Cuando el negocio quiera saber utilidad real por producto fabricado.
+
+Correccion confirmada por el dueno - 2026-10-24:
+
+- `PERA-C2212` corresponde al tortuguerito de 20 x 20 cm chaparro y lleva 2 laterales, 2 frontales y 1 piso.
+- La receta persistente queda en 3 mm: laterales y frontales de 12 x 21.1 cm; piso de 21.1 x 21.1 cm.
+- Respaldo de la correccion: `C:\\xampp\\panel_db_backups\\produccion_correccion_c2212_frontales_20261024.json`.
+
+Flujo de faltantes por pieza - 2026-10-24:
+
+- El pedido multiple ahora permite elegir un perfil guardado, seleccionar una pieza concreta y capturar solo la cantidad faltante.
+- La pieza faltante conserva el perfil de origen, medidas y espesor, y entra al mismo acomodo visual por tipo de hoja.
+- El flujo no modifica existencias ni crea automaticamente una orden de Compra; se conserva dentro del pedido de vidrio guardado.
+- El formulario inicia en `PERA-4040` con 23 unidades para facilitar el registro confirmado por el dueno; la cantidad puede corregirse antes de agregarla.

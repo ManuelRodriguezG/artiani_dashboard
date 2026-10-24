@@ -268,6 +268,8 @@ Fecha de incorporación: 2026-10-22. El endpoint público de solo lectura es:
 
 - `GET /ecommercePublico/feed_meta`
 - `HEAD /ecommercePublico/feed_meta`
+- `GET /ecommercePublico/meta_feed_config_erp` (panel interno, permiso `catalogo.ver`)
+- `POST /ecommercePublico/meta_feed_exclusiones_guardar_erp` (panel interno, permiso `catalogo.editar` y CSRF)
 
 URL productiva recomendada para Commerce Manager:
 
@@ -283,7 +285,7 @@ Decisiones confirmadas por el dueño el 2026-10-23:
 - Los productos completos se envían como `in stock` porque este catálogo funciona como vitrina y carrito de consulta; no permite pago ni confirma existencia exacta.
 - `quantity_to_sell_on_facebook` permanece vacío y la disponibilidad real se confirma por consulta antes de vender.
 
-El contenido se entrega como TSV (`text/tab-separated-values`) con las columnas de la plantilla de Meta. Reutiliza `EcommerceCatalogoPublico` y no crea una fuente paralela ni modifica inventario, ventas, precios o publicaciones.
+El contenido se entrega como TSV (`text/tab-separated-values`) con las columnas de la plantilla de Meta. La URL es dinámica: no se generan archivos TSV recurrentes; Meta vuelve a consultar el mismo endpoint según su programación. Reutiliza `EcommerceCatalogoPublico` y no modifica inventario, ventas, precios o publicaciones.
 
 Reglas actuales:
 
@@ -295,6 +297,8 @@ Reglas actuales:
 - La auditoría productiva del 2026-10-23 encontró 1,572 URLs con imagen: 1,564 accesibles como imagen y 8 redirigidas al login; las 8 quedan excluidas del archivo validado.
 - `quantity_to_sell_on_facebook` queda vacío para no publicar existencias exactas.
 - `google_product_category` se asigna solo cuando una regla de producto/categoría ofrece una coincidencia razonable; los demás quedan vacíos para revisión.
+- Los SKUs con restricción de políticas pueden excluirse desde `Ecommerce > Control ecommerce > Meta Commerce Manager`; la exclusión afecta únicamente el feed Meta y conserva el producto en el ecommerce.
+- La configuración de exclusiones se guarda en `erp_ecommerce_configuracion` como `meta_feed_skus_excluidos`, sin DDL nuevo.
 
 Carga en Meta:
 

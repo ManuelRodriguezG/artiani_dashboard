@@ -5663,8 +5663,20 @@ class VentasErp extends CRUD {
                 ),
                 "asunto" => "Factura {folio} - {empresa_nombre}",
                 "cuerpo" => "Hola {cliente_nombre},\n\nTe compartimos la factura correspondiente a tu compra {folio}.\n\nAdjuntos: XML y PDF de la factura.\nUUID: {uuid}\nTotal: {moneda} {total}\n\nSi necesitas alguna aclaracion, responde a este correo e indica el folio y UUID.\n\n{empresa_nombre}",
+                "plantillas" => array(
+                    "factura" => array(
+                        "nombre" => "Enviar factura al cliente",
+                        "asunto" => "Factura {folio} - {empresa_nombre}",
+                        "cuerpo" => "Hola {cliente_nombre},\n\nTe compartimos la factura correspondiente a tu compra {folio}.\n\nAdjuntos: XML y PDF de la factura.\nUUID: {uuid}\nTotal: {moneda} {total}\n\nSi necesitas alguna aclaracion, responde a este correo e indica el folio y UUID.\n\nSaludos,\n{empresa_nombre}\nRFC: {empresa_rfc}\n{correo_respuesta}"
+                    ),
+                    "cotizacion" => array(
+                        "nombre" => "Enviar cotización al cliente",
+                        "asunto" => "Cotización {folio} - {empresa_nombre}",
+                        "cuerpo" => "Hola {cliente_nombre},\n\nTe compartimos la cotización {folio} con la propuesta solicitada.\n\nAdjunto encontrarás el PDF de la cotización para tu revisión.\nVigencia: {vigencia}\nTotal estimado: {moneda} {total}\n\nQuedamos atentos a tus comentarios y a cualquier ajuste que necesites.\n\nSaludos,\n{empresa_nombre}\nRFC: {empresa_rfc}\n{correo_respuesta}"
+                    )
+                ),
                 "placeholders" => array(
-                    "{cliente_nombre}", "{folio}", "{uuid}", "{moneda}", "{total}", "{empresa_nombre}", "{empresa_rfc}", "{correo_respuesta}"
+                    "{cliente_nombre}", "{folio}", "{uuid}", "{vigencia}", "{moneda}", "{total}", "{empresa_nombre}", "{empresa_rfc}", "{correo_respuesta}"
                 ),
                 "pendientes" => array(
                     "Copiar la plantilla en Gmail",
