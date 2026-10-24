@@ -230,6 +230,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Peceras y vidrio', 'ruta' => '/produccion/peceras', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver')),
             array('titulo' => 'Perfiles de peceras', 'ruta' => '/produccion/peceras_perfiles', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver')),
+            array('titulo' => 'Existencias fabricacion', 'ruta' => '/produccion/fabricacion_existencias', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver')),
             array('titulo' => 'Pedido multiple vidrio', 'ruta' => '/produccion/peceras_pedido_vidrio', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver'))
         )
     ),

@@ -42,6 +42,26 @@ class Produccion extends Controlador {
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-24
+     * Proposito: mostrar existencias de piezas y sugerencias de compra de fabricacion.
+     * Impacto: Produccion/Fabricacion; no afecta Almacen ni Compras.
+     */
+    public function fabricacion_existencias() {
+        $this->requerirAlgunPermiso(array("compras.ver", "catalogo.ver", "inventario.ver"));
+        $this->vista("apps/erp/produccion/fabricacion_existencias");
+    }
+
+    public function fabricacion_existencias_listar_erp() {
+        $this->requerirAlgunPermiso(array("compras.ver", "catalogo.ver", "inventario.ver"));
+        return json_encode($this->modelo("produccionpeceraserp")->listarExistenciasFabricacion());
+    }
+
+    public function fabricacion_existencia_guardar_erp() {
+        $this->requerirAlgunPermiso(array("compras.crear", "catalogo.editar", "inventario.editar"));
+        return json_encode($this->modelo("produccionpeceraserp")->guardarExistenciaFabricacion($_POST, $this->usuarioActualId()));
+    }
+
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-10-22
      * Proposito: consultar perfiles persistentes de peceras.
      * Impacto: Produccion/Peceras; reemplaza perfiles locales del navegador.

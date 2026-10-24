@@ -148,6 +148,20 @@
         };
     }
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-24
+     * Proposito: separar la medida fisica capturada de la direccion operativa de corte.
+     * Impacto: Produccion/Pedido multiple; las bandas avanzan por el lado largo y el corte recto cruza el lado corto.
+     * Contrato: devuelve siempre largoAvance >= anchoCorte, sin cambiar el area fisica de la hoja.
+     */
+    function normalizarDireccionHoja(largo, ancho) {
+        var ladoA = numero(largo);
+        var ladoB = numero(ancho);
+        return {
+            largoAvance: Math.max(ladoA, ladoB),
+            anchoCorte: Math.min(ladoA, ladoB)
+        };
+    }
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-08-04
      * Proposito: detectar tipos de hoja por espesor y permitir medidas distintas por cada grupo.
      * Impacto: Produccion/Pedido multiple vidrio; evita asumir una sola hoja cuando el pedido mezcla espesores.
@@ -198,8 +212,9 @@
         return Object.keys(grupos).sort().map(function (key) {
             var g = grupos[key];
             var config = configsHoja[key] || configDefaultHoja(g.espesor);
-            var hojaLargo = numero(config.largo);
-            var hojaAncho = numero(config.ancho);
+            var direccionHoja = normalizarDireccionHoja(config.largo, config.ancho);
+            var hojaLargo = direccionHoja.largoAvance;
+            var hojaAncho = direccionHoja.anchoCorte;
             var merma = Math.max(0, numero(config.merma)) / 100;
             var separacionCm = Math.max(0, numero(config.separacion)) / 10;
             var areaHoja = (hojaLargo / 100) * (hojaAncho / 100);
@@ -712,11 +727,7 @@
     }
     function init() {
         Promise.all([cargarPerfiles(), cargarPedidosGuardados()]).then(function () {
-            cargarCatalogoFaltantes("PERA-4040");
-            var perfilInicial = perfilPorId(el("peceras_faltante_perfil").value) || {};
-            if (el("peceras_faltante_perfil").value && String(perfilInicial.codigo || "").toUpperCase() === "PERA-4040") {
-                el("peceras_faltante_cantidad").value = 23;
-            }
+            cargarCatalogoFaltantes();
             var params = new URLSearchParams(window.location.search);
             if (params.get("perfil")) {
                 agregarPerfil(params.get("perfil"), 1);

@@ -14,6 +14,7 @@ class ProduccionEsquema extends DBSchema {
             "erp_produccion_peceras",
             "erp_produccion_peceras_piezas",
             "erp_produccion_peceras_eventos",
+            "erp_produccion_existencias_piezas",
             "erp_produccion_pedidos_vidrio",
             "erp_produccion_pedidos_vidrio_items"
         );
@@ -86,6 +87,17 @@ class ProduccionEsquema extends DBSchema {
                 "datos_json",
                 "creado_por",
                 "fecha_registro"
+            ),
+            "erp_produccion_existencias_piezas" => array(
+                "id_existencia_pieza",
+                "id_pecera",
+                "id_pecera_pieza",
+                "cantidad_disponible",
+                "meta_juegos",
+                "observaciones",
+                "actualizado_por",
+                "fecha_registro",
+                "fecha_actualizacion"
             ),
             "erp_produccion_pedidos_vidrio" => array(
                 "id_pedido_vidrio",
@@ -244,6 +256,22 @@ class ProduccionEsquema extends DBSchema {
             "PRIMARY KEY (`id_pecera_evento`)",
             "KEY `idx_produccion_pecera_evento_pecera` (`id_pecera`, `fecha_registro`)",
             "KEY `idx_produccion_pecera_evento_tipo` (`tipo_evento`, `fecha_registro`)"
+        ), $opciones, $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_produccion_existencias_piezas", array(
+            "`id_existencia_pieza` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_pecera` BIGINT NOT NULL",
+            "`id_pecera_pieza` BIGINT NOT NULL",
+            "`cantidad_disponible` INT NOT NULL DEFAULT 0",
+            "`meta_juegos` INT NOT NULL DEFAULT 0",
+            "`observaciones` TEXT NULL",
+            "`actualizado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_existencia_pieza`)",
+            "UNIQUE KEY `idx_produccion_existencia_pieza_unica` (`id_pecera_pieza`)",
+            "KEY `idx_produccion_existencia_pecera` (`id_pecera`)",
+            "KEY `idx_produccion_existencia_actualizacion` (`fecha_actualizacion`)"
         ), $opciones, $ejecutar);
 
         $plan[] = $this->crearTablaSiNoExiste("erp_produccion_pedidos_vidrio", array(

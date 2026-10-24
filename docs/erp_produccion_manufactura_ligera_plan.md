@@ -1071,4 +1071,13 @@ Flujo de faltantes por pieza - 2026-10-24:
 - El pedido multiple ahora permite elegir un perfil guardado, seleccionar una pieza concreta y capturar solo la cantidad faltante.
 - La pieza faltante conserva el perfil de origen, medidas y espesor, y entra al mismo acomodo visual por tipo de hoja.
 - El flujo no modifica existencias ni crea automaticamente una orden de Compra; se conserva dentro del pedido de vidrio guardado.
-- El formulario inicia en `PERA-4040` con 23 unidades para facilitar el registro confirmado por el dueno; la cantidad puede corregirse antes de agregarla.
+- El formulario no fija perfiles ni cantidades; el usuario selecciona la pieza y captura la cantidad que corresponda al faltante real.
+
+Inventario de fabricacion y direccion de corte - 2026-10-24:
+
+- Se propone una vista de Produccion/Fabricacion para capturar existencia por pieza, juegos completos disponibles y meta de juegos por perfil.
+- Los juegos posibles se calcularan como el minimo de `entero(existencia de pieza / piezas requeridas por juego)` entre todas las piezas del perfil.
+- La sugerencia de compra se calculara primero por faltante de pieza, no por juego completo, para permitir pedidos como divisores adicionales o pisos sueltos.
+- El planificador debe separar por espesor y comparar dos estrategias: mezcla de perfiles en una misma hoja contra una variante por hoja; se elegira la de menor desperdicio y, en empate, menor numero de hojas.
+- La direccion operativa de la hoja se normaliza como `lado largo de avance x lado corto de corte`. Las bandas avanzan sobre el lado largo y cada linea recta cruza el lado corto; cada vidrio conserva libertad de rotacion dentro de esa regla.
+- La hoja capturada como `180 x 260` y la capturada como `260 x 180` representan la misma direccion normalizada para el calculo visual.

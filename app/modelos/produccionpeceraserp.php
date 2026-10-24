@@ -4,6 +4,7 @@ class ProduccionPecerasErp extends CRUD {
 
     private $tablaPeceras = "erp_produccion_peceras";
     private $tablaPiezas = "erp_produccion_peceras_piezas";
+    private $tablaExistencias = "erp_produccion_existencias_piezas";
     private $tablaPedidos = "erp_produccion_pedidos_vidrio";
     private $tablaPedidoItems = "erp_produccion_pedidos_vidrio_items";
 
@@ -33,6 +34,87 @@ class ProduccionPecerasErp extends CRUD {
                 $perfiles[] = $this->formatearPerfil($db, $perfil);
             }
             return $this->respuesta(false, "success", "Perfiles consultados", array("schema_pendiente" => false, "perfiles" => $perfiles));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-24
+     * Proposito: consultar existencias de vidrio por pieza y juegos posibles por perfil.
+     * Impacto: Produccion/Fabricacion; prepara sugerencias sin afectar Almacen ni Compras.
+     * Contrato: read-only; devuelve stock, meta, juegos completos y faltante sugerido.
+     */
+    public function listarExistenciasFabricacion() {
+        try {
+            $db = $this->getConexion();
+            if (!$this->esquemaPerfilesCompleto($db) || !$this->tablaExiste($db, $this->tablaExistencias)) {
+                return $this->respuesta(false, "info", "Esquema de existencias de fabricacion pendiente", array("schema_pendiente" => true, "perfiles" => array()));
+            }
+            $sql = "SELECT p.id_pecera,p.codigo,p.nombre,p.espesor_mm espesor_perfil,pp.id_pecera_pieza,pp.nombre pieza,pp.largo_cm largo,pp.ancho_cm ancho,pp.espesor_mm espesor,pp.cantidad_por_pecera cantidad_por_juego,COALESCE(ep.cantidad_disponible,0) cantidad_disponible,COALESCE(ep.meta_juegos,0) meta_juegos,COALESCE(ep.observaciones,'') observaciones FROM {$this->tablaPeceras} p JOIN {$this->tablaPiezas} pp ON pp.id_pecera=p.id_pecera AND pp.estatus <> 'cancelada' LEFT JOIN {$this->tablaExistencias} ep ON ep.id_pecera_pieza=pp.id_pecera_pieza WHERE p.estatus <> 'cancelada' ORDER BY p.codigo,pp.orden,pp.id_pecera_pieza";
+            $rows = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+            $perfiles = array();
+            foreach ($rows as $row) {
+                $id = intval($row["id_pecera"]);
+                if (!isset($perfiles[$id])) {
+                    $perfiles[$id] = array("id" => $id, "codigo" => $row["codigo"], "nombre" => $row["nombre"], "espesor" => (float) $row["espesor_perfil"], "meta_juegos" => intval($row["meta_juegos"]), "juegos_posibles" => null, "piezas" => array());
+                }
+                $cantidadPorJuego = max(1, intval($row["cantidad_por_juego"]));
+                $disponible = max(0, intval($row["cantidad_disponible"]));
+                $meta = max(0, intval($row["meta_juegos"]));
+                $juegosPieza = intdiv($disponible, $cantidadPorJuego);
+                $perfiles[$id]["juegos_posibles"] = $perfiles[$id]["juegos_posibles"] === null ? $juegosPieza : min($perfiles[$id]["juegos_posibles"], $juegosPieza);
+                $perfiles[$id]["meta_juegos"] = max($perfiles[$id]["meta_juegos"], $meta);
+                $perfiles[$id]["piezas"][] = array(
+                    "id_pecera_pieza" => intval($row["id_pecera_pieza"]),
+                    "nombre" => $row["pieza"],
+                    "largo" => (float) $row["largo"],
+                    "ancho" => (float) $row["ancho"],
+                    "espesor" => (float) $row["espesor"],
+                    "cantidad_por_juego" => $cantidadPorJuego,
+                    "cantidad_disponible" => $disponible,
+                    "meta_juegos" => $meta,
+                    "faltante_sugerido" => max(0, ($meta * $cantidadPorJuego) - $disponible),
+                    "observaciones" => $row["observaciones"]
+                );
+            }
+            foreach ($perfiles as &$perfil) {
+                $perfil["juegos_posibles"] = $perfil["juegos_posibles"] === null ? 0 : intval($perfil["juegos_posibles"]);
+            }
+            unset($perfil);
+            return $this->respuesta(false, "success", "Existencias de fabricacion consultadas", array("schema_pendiente" => false, "perfiles" => array_values($perfiles)));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-24
+     * Proposito: guardar existencia real y meta de juegos para una pieza de perfil.
+     * Impacto: Produccion/Fabricacion; no mueve inventario ni crea orden de compra.
+     * Contrato: recibe id_pecera_pieza, cantidad_disponible, meta_juegos y observaciones.
+     */
+    public function guardarExistenciaFabricacion($datos, $idUsuario = 0) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->esquemaPerfilesCompleto($db) || !$this->tablaExiste($db, $this->tablaExistencias)) {
+                return $this->respuesta(true, "warning", "Esquema de existencias de fabricacion pendiente");
+            }
+            $idPieza = intval($datos["id_pecera_pieza"] ?? 0);
+            $cantidad = max(0, intval($datos["cantidad_disponible"] ?? 0));
+            $meta = max(0, intval($datos["meta_juegos"] ?? 0));
+            if ($idPieza <= 0) {
+                return $this->respuesta(true, "warning", "Pieza de perfil no valida");
+            }
+            $stmt = $db->prepare("SELECT id_pecera FROM {$this->tablaPiezas} WHERE id_pecera_pieza=:pieza AND estatus <> 'cancelada' LIMIT 1");
+            $stmt->execute(array(":pieza" => $idPieza));
+            $idPecera = intval($stmt->fetchColumn());
+            if ($idPecera <= 0) {
+                return $this->respuesta(true, "warning", "La pieza no pertenece a un perfil activo");
+            }
+            $stmt = $db->prepare("INSERT INTO {$this->tablaExistencias} (id_pecera,id_pecera_pieza,cantidad_disponible,meta_juegos,observaciones,actualizado_por,fecha_actualizacion) VALUES (:pecera,:pieza,:cantidad,:meta,:observaciones,:usuario,NOW()) ON DUPLICATE KEY UPDATE cantidad_disponible=VALUES(cantidad_disponible),meta_juegos=VALUES(meta_juegos),observaciones=VALUES(observaciones),actualizado_por=VALUES(actualizado_por),fecha_actualizacion=NOW()");
+            $stmt->execute(array(":pecera" => $idPecera, ":pieza" => $idPieza, ":cantidad" => $cantidad, ":meta" => $meta, ":observaciones" => trim((string) ($datos["observaciones"] ?? "")) ?: null, ":usuario" => intval($idUsuario) > 0 ? intval($idUsuario) : null));
+            return $this->respuesta(false, "success", "Existencia de pieza guardada");
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
@@ -240,6 +322,7 @@ class ProduccionPecerasErp extends CRUD {
     }
 
     private function esquemaPerfilesCompleto($db) { return $this->tablasCompletas($db, array($this->tablaPeceras, $this->tablaPiezas)); }
+    private function tablaExiste($db, $tabla) { $stmt = $db->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla LIMIT 1"); $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla)); return (bool) $stmt->fetchColumn(); }
     private function esquemaPedidosCompleto($db) { return $this->tablasCompletas($db, array($this->tablaPeceras, $this->tablaPiezas, $this->tablaPedidos, $this->tablaPedidoItems)); }
     private function tablasCompletas($db, $tablas) {
         if (!$db) { return false; }

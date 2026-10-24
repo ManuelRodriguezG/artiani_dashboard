@@ -87,6 +87,7 @@ function erpHeaderCatalogoBusqueda()
         array('seccion' => 'ERP', 'titulo' => 'Produccion', 'icono' => 'bi-tools', 'items' => array(
             array('titulo' => 'Peceras y vidrio', 'ruta' => '/produccion/peceras', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver'), 'detalle' => 'Produccion peceras vidrio'),
             array('titulo' => 'Perfiles de peceras', 'ruta' => '/produccion/peceras_perfiles', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver'), 'detalle' => 'Perfiles produccion peceras'),
+            array('titulo' => 'Existencias fabricacion', 'ruta' => '/produccion/fabricacion_existencias', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver'), 'detalle' => 'Piezas disponibles juegos armables sugerencias compra'),
             array('titulo' => 'Pedido multiple vidrio', 'ruta' => '/produccion/peceras_pedido_vidrio', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver'), 'detalle' => 'Pedidos vidrio produccion')
         )),
         array('seccion' => 'ERP', 'titulo' => 'Almacen', 'icono' => 'bi-building', 'items' => array(

@@ -66,6 +66,7 @@
                                 <button class="btn btn-light" type="button" id="peceras_nuevo"><i class="bi bi-file-earmark-plus"></i> Nuevo</button>
                                 <button class="btn btn-light-primary" type="button" id="peceras_guardar_local"><i class="bi bi-save"></i> Guardar perfil</button>
                                 <a class="btn btn-light" href="/produccion/peceras_perfiles"><i class="bi bi-collection"></i> Perfiles</a>
+                                <a class="btn btn-light" href="/produccion/fabricacion_existencias"><i class="bi bi-box-seam"></i> Existencias</a>
                                 <a class="btn btn-light" href="/produccion/peceras_pedido_vidrio"><i class="bi bi-layers"></i> Pedido multiple</a>
                                 <button class="btn btn-light-info" type="button" id="peceras_importar_json"><i class="bi bi-upload"></i> Importar</button>
                                 <button class="btn btn-light-info" type="button" id="peceras_exportar_csv"><i class="bi bi-filetype-csv"></i> CSV</button>

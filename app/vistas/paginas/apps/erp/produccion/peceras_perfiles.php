@@ -24,6 +24,7 @@
                         </div>
                         <div class="d-flex gap-2">
                             <a class="btn btn-light" href="/produccion/peceras"><i class="bi bi-plus-circle"></i> Nuevo perfil</a>
+                            <a class="btn btn-light" href="/produccion/fabricacion_existencias"><i class="bi bi-box-seam"></i> Existencias</a>
                             <a class="btn btn-primary" href="/produccion/peceras_pedido_vidrio"><i class="bi bi-layers"></i> Pedido multiple</a>
                         </div>
                     </div>
