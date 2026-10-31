@@ -29,7 +29,7 @@ Sirve para:
 - Saber cuando una incidencia encontrada desde Proveedores, Compras, XML, Almacen o Inventario debe regresar a Catalogo.
 - Evitar rehacer auditorias ya realizadas.
 
-## Avance 2026-10-23 - Metodologia de variantes y derivados
+## Avance 2026-10-24 - Metodologia de variantes y auditoria productiva
 
 Se creo `docs/erp_catalogo_metodologia_variantes_presentaciones.md` como documento
 de trabajo reusable para decidir entre variante real, atributo, presentacion, SKU
@@ -53,17 +53,30 @@ Decisiones consolidadas:
 Auditoria de esta sesion:
 
 - La auditoria de esquema, codigo y contratos fue read-only.
-- La auditoria live no pudo ejecutarse porque `mysqld` local estaba detenido; no
-  se inicio el servicio por la regla de tratar la base operativa como productiva.
-- Se conservaron como evidencia historica los candidatos ya documentados: 55
-  productos con variantes sin atributos, 7 SKUs con valores incompletos, 34
-  firmas duplicadas, 13 SKUs fraccionarios y los casos ECOM-1560, ECOM-5 y
-  ECOM-1443.
+- Se ejecuto `storage/uat/uat_catalogo_variantes_productivo_readonly.php` contra
+  la conexion productiva con transaccion `READ ONLY` y `ROLLBACK`.
+- La fotografia productiva reporto 1,691 productos no fusionados, 2,025 SKUs no
+  fusionados, 1,966 SKUs activos, 144 productos con multiples SKUs, 92 productos
+  con variantes sin atributo, 26 SKUs fraccionarios, 0 presentaciones activas,
+  28 aperturas activas y 1 paquete activo.
+- Hallazgos prioritarios: `ATR-PRESENTACION` esta marcado como variante; las
+  dimensiones tienen uso amplio y deben decidirse por familia; `GRAVA`, `ECOM-5`,
+  `ECOM-1443` y `ECOM-1444` mezclan presentaciones/granel con posibles variantes.
 - No se aplicaron cambios de datos, DDL, fusiones, desactivaciones ni publicaciones.
 
-Siguiente paso: correr una auditoria read-only con MySQL disponible, devolver
-clasificacion, evidencia y confianza por producto/SKU, y presentar una propuesta
-por lotes pequenos antes de cualquier autorizacion de cambios.
+Siguiente paso: construir una propuesta por lotes pequenos, empezando por
+presentaciones y grupos de color/medida con evidencia suficiente, antes de
+autorizar cualquier cambio de atributos o relaciones.
+
+Dependencia agregada al piloto de variantes:
+
+- Antes de convertir `ECOM-VAR-29` en producto maestro con variante `Color`, se
+  debe conciliar la relacion SKU interno -> SKU proveedor con `PERRUCHES`.
+- La auditoria read-only encontro 6 relaciones activas, sin listas historicas
+  disponibles, y valores `factor_conversion=1.000001`, `cantidad_minima=1.000001`
+  y `costo_ultimo=0` en los seis SKUs.
+- No se modificaron esas relaciones; se requiere evidencia del proveedor y una
+  propuesta antes de corregirlas porque impactan Compras y Recepcion.
 
 ## Decision de cierre
 
@@ -4597,6 +4610,39 @@ Pendiente recomendado:
 - El contrato Ecommerce deriva `path_slug` desde la ruta jerarquica y publica `/categoria/{path_slug}`; renombrar, mover o inactivar categorias puede cambiar URLs, breadcrumbs, sitemap y canonical.
 - El preflight read-only ejecutado el 2026-10-23 no pudo abrir MySQL porque `CRUD::getConexion()` devolvio `null`; no se hicieron escrituras ni consultas alternativas. Las cifras deben reconfirmarse antes de preparar apply.
 - Orden recomendado: preflight actual, propuesta con mapa de equivalencias, autorizacion separada, respaldo externo, altas sin relaciones, reclasificacion por lotes y validacion SEO.
+
+## Auditoria productiva 2026-10-24 - Categorias faltantes y productos por aclarar
+
+- Se repitio la auditoria en la conexion productiva en modo read-only.
+- Conteos actuales: 447 categorias totales, 372 maestras, 75 legadas/canal, 197 activas y 250 inactivas.
+- Integridad: 0 textos dañados, 0 padres inexistentes, 0 codigos duplicados y 0 rutas inconsistentes. Queda 1 nombre duplicado bajo el mismo padre (`Aves` historica inactiva y `CAT16-AVES` activa).
+- Relaciones actuales: 2200 relaciones producto-categoria, 1504 productos con categoria principal y ningun producto con multiples principales.
+- El universo activo/no fusionado auditado contiene 1504 productos; 56 no tienen categoria principal. La auditoria general de relaciones reporta 227 productos no fusionados sin principal porque incluye productos inactivos.
+- El arbol activo tiene una raiz adicional fuera de las seis familias: `Accesorios y productos generales`, con 109 relaciones en `Llaveros de mascotas` y 1 relacion directa en la raiz. Debe revisarse como rama comercial/promocional separada.
+- `Pequenos mamiferos / Habitat y jaulas generales` tiene 45 relaciones y se confirma como categoria util; no debe ampliarse a monos, changuitos u otras especies no contempladas sin crear una rama transversal distinta.
+- `Salud e higiene general` queda como candidata transversal por productos como `MS JABON ANTISEPTICO 125 ML para perros, gatos y pequeños mamíferos`; no se crea automaticamente.
+- Se documentaron productos que requieren aclaracion humana: salvado natural, rocaliente para reptiles, larva de mosca soldado para peces, piedra de resina nucleo, maternidad flotante, acriflavina, esponjas/material filtrante, posters por rollo y otros.
+- El sugeridor agrupa 444 productos en `Revision manual`; no deben interpretarse como 444 categorias faltantes. Es una bandeja de confianza baja/media que requiere revisar muestras.
+- Documento ampliado: `docs/erp_catalogo_auditoria_arbol_transversal_ecommerce_2026-10-23.md`.
+- No se aplicaron altas, movimientos, inactivaciones, relaciones ni cambios SEO.
+
+## Actualizacion 2026-10-24 - Aclaraciones de productos ambiguos
+
+- El dueno confirmo el significado operativo de los productos pendientes: salvado natural es insumo/sustrato para alimento vivo; `Rocaliente` es calefaccion de reptiles; larva de mosca soldado es alimento para peces; piedra de resina, bonsai, posters y maternidad flotante son productos de acuario; esponjas y material verde son medios filtrantes; arena de baño es higiene/sustrato para pequenos mamiferos; y `Maletin mochila Liu` es transporte para gatos o pequenos mamiferos.
+- Se ajustaron las categorias candidatas sin aplicar cambios: `Acuario / Salud y acondicionamiento del agua`, `Acuario / Medios filtrantes`, `Acuario / Fondos y posters`, `Pequenos mamiferos / Sustratos y arenas`, `Insumos para alimento vivo` y `General multi-especie / Transporte`.
+- `Acriflavina` requiere definir primero si el negocio la maneja como acondicionador, tratamiento o medicamento; no se debe clasificar definitivamente solo por nombre.
+- `Salvado natural` no debe entrar como alimento de mascota hasta confirmar la presentacion comercial y el uso indicado; se separa conceptualmente como insumo de crianza/alimento vivo.
+- Documento actualizado con la matriz de interpretacion y destino conceptual: `docs/erp_catalogo_auditoria_arbol_transversal_ecommerce_2026-10-23.md`.
+- No se modificaron relaciones, categorias, productos, publicaciones ni URLs.
+
+## Ajuste 2026-10-24 - Reutilizacion de categorias existentes
+
+- Se reviso el encaje de los productos aclarados antes de proponer altas nuevas.
+- `Rocaliente`, larva de mosca soldado, piedra de resina, maternidad flotante, esponjas/material filtrante, bonsai y posters caben en categorias activas existentes de Reptiles o Acuario.
+- La arena de baño puede usar los sustratos existentes cuando la especie este confirmada; el maletin mochila debe usar Transporte de Gatos o Pequenos mamiferos segun especie dominante.
+- `Acriflavina` puede quedar provisionalmente en `Acuario / Aditamentos`, pero conviene revisar su funcion comercial antes de crear salud/acondicionamiento.
+- `Salvado natural` es el unico caso sin encaje semantico claro si se vende como insumo para criar alimento vivo; se mantiene como candidato, no como alta inmediata.
+- Conclusion: no se recomienda ampliar el arbol por estos productos hasta agotar las categorias existentes.
 
 ## Avance 2026-09-02 - Limpieza de descripciones para ecommerce
 

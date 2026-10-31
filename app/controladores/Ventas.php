@@ -318,7 +318,11 @@ class Ventas extends Controlador {
     if (empty($_FILES["archivo_xml"])) {
       return json_encode(array("error" => true, "tipo" => "warning", "mensaje" => "Selecciona un XML CFDI", "depurar" => array()));
     }
-    return json_encode($this->modelo("ComprasXmlErp")->parsear($_FILES["archivo_xml"]));
+    $respuesta = $this->modelo("ComprasXmlErp")->parsear($_FILES["archivo_xml"]);
+    if (is_array($respuesta) && empty($respuesta["error"]) && isset($respuesta["depurar"]) && is_array($respuesta["depurar"])) {
+      $respuesta["depurar"] = array_merge($respuesta["depurar"], $this->modelo("VentasErp")->facturacionCfdiQrVista($respuesta["depurar"]));
+    }
+    return json_encode($respuesta);
   }
 
   /**

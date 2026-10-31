@@ -181,6 +181,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/facturacion_cotizaciones.js?v=20261023-fase3"></script>
+<script src="/assets/js/custom/apps/erp/ventas/facturacion_cotizaciones.js?v=20261024-margenes4"></script>
 </body>
 </html>

@@ -1469,6 +1469,11 @@ class CatalogoErpDatos extends CRUD {
         $where[] = "i.id_sku=:sku";
         $params[":sku"] = $idSku;
       }
+      $idIncidencia = intval(isset($filtros["id_incidencia_calidad"]) ? $filtros["id_incidencia_calidad"] : 0);
+      if ($idIncidencia > 0) {
+        $where[] = "i.id_incidencia_calidad=:incidencia";
+        $params[":incidencia"] = $idIncidencia;
+      }
 
       $condicion = empty($where) ? "1=1" : implode(" AND ", $where);
       $limite = max(1, min(200, intval(isset($filtros["limite"]) ? $filtros["limite"] : 100)));

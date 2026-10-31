@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 from xml.etree import ElementTree as ET
 
 from reportlab.lib import colors
@@ -11,9 +12,9 @@ from reportlab.platypus import Flowable, Image, KeepTogether, Paragraph, SimpleD
 
 
 ROOT = Path(r"C:\xampp\htdocs\panel_de_control")
-XML_PATH = Path(r"C:\Users\aleja\AppData\Local\Temp\c3ab397b-0feb-4f19-8b46-76d9a169a960.xml")
+XML_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(r"C:\Users\aleja\AppData\Local\Temp\c3ab397b-0feb-4f19-8b46-76d9a169a960.xml")
 LOGO_PATH = ROOT / "public" / "assets" / "media" / "logos" / "artiani-logo-pdf.jpg"
-OUTPUT_PATH = ROOT / "output" / "pdf" / "factura_artiani_fiscal_actual.pdf"
+OUTPUT_PATH = Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / "output" / "pdf" / "factura_artiani_fiscal_actual.pdf"
 
 CORAL = colors.HexColor("#e9485b")
 TEAL = colors.HexColor("#0b7376")

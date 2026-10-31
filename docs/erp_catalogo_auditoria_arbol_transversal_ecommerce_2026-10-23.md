@@ -42,6 +42,134 @@ La evidencia documentada mas reciente reporta:
 
 Lectura operativa: el problema principal ya no es la integridad tecnica del arbol, sino decidir el alcance correcto de productos multi-especie y terminar la clasificacion con evidencia. La cifra de relaciones y productos sin categoria es historica; el siguiente paso obligatorio es volver a ejecutar los scripts read-only cuando la conexion este disponible.
 
+## Actualizacion productiva 2026-10-24
+
+La auditoria se repitio contra la conexion productiva usando solo consultas read-only.
+
+### Conteos actuales
+
+- 447 categorias totales: 372 maestras y 75 legadas/canal.
+- 197 activas y 250 inactivas.
+- 103 raices; 370 categorias permiten productos y 77 son estructurales.
+- 0 textos dañados, 0 padres inexistentes, 0 codigos duplicados y 0 rutas inconsistentes.
+- 1 nombre duplicado bajo el mismo padre: `Aves`; uno es historico inactivo (`CLAS-HIST-5`) y otro es el activo `CAT16-AVES`.
+- 2200 relaciones producto-categoria y 1504 productos con categoria principal.
+- 227 productos no fusionados sin categoria principal en la auditoria de relaciones; el auditor de productos activos excluye inactivos y reporta 1504 productos, de los cuales 56 no tienen categoria principal.
+- No hay productos con multiples categorias principales.
+
+### Raices activas
+
+El arbol activo contiene las seis familias previstas, pero tambien una raiz adicional:
+
+- `Acuario y peces`.
+- `Aves`.
+- `Gatos`.
+- `Pequenos mamiferos`.
+- `Perros`.
+- `Reptiles, anfibios e invertebrados`.
+- `Accesorios y productos generales`.
+
+La raiz `Accesorios y productos generales` permite asignacion directa y tiene una categoria hija `Llaveros de mascotas` con 109 relaciones. Debe revisarse como rama comercial general/promocional, no mezclarse automaticamente con el arbol de cuidado de mascotas. No se recomienda inactivarla sin revisar sus relaciones.
+
+### Hojas asignables activas sin relaciones
+
+Se detectaron ocho hojas que pueden recibir productos pero hoy no tienen relaciones: plantas acuaticas, peceras para betta, sustratos y fondos de aves, contenedores de gatos, casas de gatos y premios de Chinchilla, Conejo y Cuyo. No son categorias faltantes por si mismas; son categorias validas que deben conservarse hasta confirmar si el inventario actual realmente las necesita.
+
+### Oportunidades derivadas de productos actuales
+
+| Oportunidad | Evidencia productiva | Decision |
+| --- | --- | --- |
+| Salud e higiene general multi-especie | `MS JABON ANTISEPTICO 125 ML para perros, gatos y pequeños mamíferos`; el sugeridor agrupa 24 productos en higiene/salud compartida | Crear como candidata transversal, sin aplicar; excluir medicamentos o tratamientos con especie/dosis especifica |
+| Habitat y jaulas generales de pequeños mamíferos | `CAT16-MAMIFEROS-HAB-GENERAL` tiene 45 relaciones | Conservar; ya esta validada por uso real |
+| Habitat y jaulas generales multi-especie | Transportadoras/jaulas con nombre generico y mascotas no especificadas | Evaluar despues; no ampliar la categoria de pequeños mamíferos silenciosamente |
+| Transporte multi-especie | 3 productos activos sin principal en el grupo `Transportadoras`, incluyendo `Maletin mochila liu` | Candidata secundaria; primero confirmar especie, tipo de transporte y si es para perro/gato/varias especies |
+| Alimentos vivos o deshidratados por uso | `Tenebrio`, `Zophoba`, larvas y alimento para grillos aparecen mezclados entre Aves, Reptiles, Acuario y pequeños mamíferos | No crear aun; separar alimento para la mascota de alimento para el insecto/alimento vivo y decidir si la transversalidad es comercial o solo atributo |
+| Promocionales y regalos | 109 llaveros de mascotas fuera del arbol `CAT16-*` | Mantener una rama comercial separada; no crear mas categorias de mascota para estos productos |
+
+## Productos que requieren aclaracion humana
+
+Estos nombres no permiten decidir con seguridad la categoria principal solo con el texto. No se cambiaron.
+
+- `FOHRS-SAAL` - `Salvado natural`: confirmar si es alimento para aves, roedores, reptiles, insectos o insumo.
+- `ECOM-1454` y `ECOM-1453` - `Jaula hamster indi/solaz`: parecen Hamster / Habitat y jaulas, pero confirmar que son jaulas y no modelos historicos.
+- `ECOM-1441` - `Rocaliente para reptiles`: confirmar si es piedra calefactora, decoracion o accesorio electrico.
+- `ECOM-1376` - `Comedero de aves exterior con tapa roja`: confirmar si es comedero general para aves o alimentador para fauna silvestre.
+- `ECOM-1306` y `ECOM-1305` - `Shampoo para erizo` y `Antiacaros eri-clean`: confirmar si siguen vigentes y si requieren una subcategoria especifica de salud para Erizo.
+- `ECOM-1166` - `Alimento mini palitos para tortuga`: confirmar especie de tortuga y si corresponde a alimento de tortugas acuaticas o terrestres.
+- `ECOM-1139` - `Larva de mosca soldado para peces`: confirmar si es alimento directo para peces o alimento para criar/engordar otro animal.
+- `ECOM-1092` - `Piedra de resina nucleo`: confirmar si es decoracion de acuario, refugio de reptil o producto ornamental general.
+- `ECOM-1062` - `Arena de baño one para mamíferos`: confirmar si es para Chinchilla, Hamster u otra especie.
+- `ECOM-1050` - `Casa igloo grande para cuyo`: confirmar que sea habitat de Cuyo y no casa multi-especie.
+- `TMP-PROV-14485` - `Bonsai frondoso 22X5X13`: confirmar si es decoracion de acuario, planta artificial o decoracion general.
+- `TMP-PROV-14268` - `Esponja Biogarden amarilla` y `TMP-PROV-14255` - `Material filtrante verde`: confirmar si son medios filtrantes para acuario y su funcion tecnica.
+- `TMP-PROV-14237` - `Maternidad flotante`: confirmar si es maternidad para peces y si debe ir en accesorios de acuario.
+- `TMP-COMP-OC29-INC228` - `Acriflavina 30 ml`: confirmar uso, especie objetivo y si se trata como tratamiento/insumo de acuario.
+- `TMP-COMP-OC29-INC230` - `Alimento para tortuga bebe y anfibios`: confirmar si debe separarse entre tortugas y anfibios.
+- `ECOM-200` y familia de productos `Poster ... por rollo`: confirmar si son fondos/posters para acuarios; el nombre comercial no describe suficientemente el uso.
+
+El auditor tambien reporta 444 productos como `Revision manual`; esa cifra no significa que todos sean desconocidos. Incluye productos ya categorizados cuya regla automatica tiene confianza baja o media. Ejemplos: `Balon futbol americano`, `Jabon antiseptico multi-especie`, `Acriflavina`, `Esponja Biogarden`, `Material filtrante` y `Maternidad flotante`.
+
+## Decision actualizada
+
+1. No crear una categoria general por cada grupo de nombres ambiguos.
+2. Crear primero, solo despues de confirmar muestras, una candidata `General multi-especie / Salud e higiene general`.
+3. Conservar `Pequenos mamiferos / Habitat y jaulas generales` y evaluar una categoria general distinta para especies no contempladas.
+4. Revisar la raiz `Accesorios y productos generales` y los 109 llaveros como rama comercial/promocional separada.
+5. Resolver los 56 productos activos sin categoria principal por lotes humanos, comenzando por transportadoras, alimentos sin especie, habitat y productos tecnicos.
+6. No cambiar slugs, rutas, relaciones ni estados de categorias hasta presentar el mapa producto-categoria y el impacto Ecommerce.
+
+## Aclaraciones recibidas del dueno 2026-10-24
+
+Las siguientes interpretaciones quedan confirmadas para la proxima propuesta de clasificacion. No implican cambios automaticos en BD:
+
+| Producto o grupo | Interpretacion confirmada | Destino conceptual recomendado |
+| --- | --- | --- |
+| `Salvado natural` | Sustrato o alimento para criar/alimentar tenebrios y otro alimento vivo | Nueva categoria de insumos para alimento vivo; no clasificar como alimento de mascota sin confirmar el uso de venta |
+| `Rocaliente para reptiles` | Calefaccion para reptiles | `Reptiles, anfibios e invertebrados / Reptiles generales / Calefaccion` |
+| `Larva de mosca soldado para peces` | Alimento para peces | `Acuario y peces / Alimentacion / Alimentos para peces` |
+| `Piedra de resina nucleo` | Decoracion para peceras | `Acuario y peces / Decoracion y ambientacion / Decoracion para peces` |
+| `Maternidad flotante` | Aditamento para peceras | `Acuario y peces / Repuestos, aditamentos y accesorios / Aditamentos` |
+| `Acriflavina` | Producto de acuario; puede ser acondicionador, tratamiento o medicamento | Requiere separar por funcion: acondicionamiento/tratamiento de agua; no dejarlo indefinidamente en `Aditamentos` |
+| `Esponja Biogarden` | Material filtrante para peceras | `Acuario y peces / Equipamiento tecnico / Filtracion y oxigenacion` o una hoja especifica de medios filtrantes si el volumen lo justifica |
+| `Material filtrante verde` | Material filtrante para peceras | `Acuario y peces / Equipamiento tecnico / Filtracion y oxigenacion` |
+| `Bonsai frondoso` | Decoracion para peceras | `Acuario y peces / Decoracion y ambientacion / Decoracion para peces` |
+| `Poster ... por rollo` | Decoracion/fondo para peceras | `Acuario y peces / Decoracion y ambientacion / Decoracion para peces`; evaluar hoja `Fondos y posters` si hay suficiente volumen |
+| `Arena de baño para mamiferos` | Salud e higiene para pequenos mamiferos/roedores | Nueva hoja general de `Pequenos mamiferos / Salud e higiene / Sustratos y arenas` si aplica a varias especies |
+| `Maletin mochila Liu` | Mochila transportadora para gatos o pequenos mamiferos/roedores | Categoria transversal de transporte solo si la ficha confirma ambas especies; de lo contrario asignar por especie |
+
+## Categorias faltantes ajustadas
+
+Las aclaraciones cambian la prioridad de las propuestas:
+
+1. `Acuario y peces / Salud y acondicionamiento del agua`: candidata prioritaria para separar acriflavina, acondicionadores y tratamientos de los aditamentos mecanicos. La ficha de producto debe definir si se permite publicar como medicamento o solo como insumo/acondicionador.
+2. `Acuario y peces / Equipamiento tecnico / Medios filtrantes`: candidata de baja urgencia; por ahora es suficiente usar `Filtracion y oxigenacion`, pero conviene separarla si las esponjas, canutillos y materiales filtrantes crecen.
+3. `Acuario y peces / Decoracion y ambientacion / Fondos y posters`: candidata de baja urgencia; los posters confirmados pueden vivir temporalmente en `Decoracion para peces`.
+4. `Pequenos mamiferos / Salud e higiene / Sustratos y arenas`: candidata real para arena de baño multi-roedor. No debe duplicarse por Hamster, Conejo, Cuyo, Chinchilla y Erizo si el producto no es exclusivo de una especie.
+5. `Insumos para alimento vivo / Sustratos y alimento de crianza`: candidata transversal para salvado, alimento para grillos y materiales destinados a criar tenebrios/larvas. Debe mantenerse separada de alimentos para perros, peces o reptiles.
+6. `General multi-especie / Transporte`: candidata para mochilas y transportadoras realmente compartidas por gatos y pequenos mamiferos. No crearla si cada modelo tiene una especie dominante clara.
+
+Estas son propuestas de arquitectura, no altas autorizadas. Antes de crearlas se deben medir productos, SKUs, publicaciones Ecommerce y URLs afectadas.
+
+## Revision de encaje en categorias existentes 2026-10-24
+
+La aclaracion del dueno confirma que la mayoria de los productos no necesita una categoria nueva:
+
+| Producto | Categoria existente suficiente | Decision |
+| --- | --- | --- |
+| `Rocaliente para reptiles` | `Reptiles, anfibios e invertebrados / Reptiles generales / Calefaccion` | Reasignar; no crear categoria |
+| `Larva de mosca soldado para peces` | `Acuario y peces / Alimentacion / Alimentos para peces` | Reasignar; no crear categoria |
+| `Piedra de resina nucleo` | `Acuario y peces / Decoracion y ambientacion / Decoracion para peces` | Reasignar; no crear categoria |
+| `Maternidad flotante` | `Acuario y peces / Repuestos, aditamentos y accesorios / Aditamentos` | Reasignar; no crear categoria |
+| `Esponja Biogarden` y `Material filtrante verde` | `Acuario y peces / Equipamiento tecnico / Filtracion y oxigenacion` | Reasignar; no crear categoria por ahora |
+| `Bonsai frondoso` | `Acuario y peces / Decoracion y ambientacion / Decoracion para peces` | Reasignar; no crear categoria |
+| `Poster ... por rollo` | `Acuario y peces / Decoracion y ambientacion / Decoracion para peces` | Reasignar; crear `Fondos y posters` solo si el volumen lo justifica |
+| `Arena de baño para mamiferos` | Sustratos existentes de la especie, si la especie es exclusiva | Usar categoria existente cuando la ficha indique Hamster, Chinchilla, Cuyo, Erizo, etc. |
+| `Maletin mochila Liu` | `Gatos / Transporte... / Mochilas transportadoras` o `Pequenos mamiferos / ... / Transporte`, segun especie dominante | No crear categoria mientras no se confirme que es realmente multi-especie |
+| `Acriflavina` | `Acuario y peces / Repuestos, aditamentos y accesorios / Aditamentos` solo como ubicacion provisional | Revisar; una categoria de salud/acondicionamiento solo se justifica por volumen y politica de venta |
+| `Salvado natural` | Ninguna categoria actual lo representa bien si es insumo para criar tenebrios | Mantener pendiente; crear `Insumos para alimento vivo` solo si hay mas productos de esa funcion |
+
+Conclusion: de las once oportunidades revisadas, siete encajan directamente en categorias existentes, dos dependen de la especie o volumen, una puede permanecer provisionalmente en `Aditamentos` y solo una (`Salvado natural`) no tiene un encaje semantico correcto en el arbol actual.
+
 ## Modelo recomendado
 
 La categoria principal debe responder donde buscaria normalmente el operador o el cliente. La arquitectura usa tres niveles de decision:

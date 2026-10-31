@@ -1,0 +1,2075 @@
+{
+    "ok": true,
+    "read_only": true,
+    "conexion": "productiva_según_SERVER_NAME",
+    "fecha": "2026-10-24T08:18:38-06:00",
+    "resumen": {
+        "productos_no_fusionados": 1691,
+        "productos_manejan_variantes": 150,
+        "skus_no_fusionados": 2025,
+        "skus_activos": 1966,
+        "productos_multiples_skus": 144,
+        "productos_variantes_sin_atributo": 92,
+        "skus_fraccionarios": 26,
+        "presentaciones_activas": 0,
+        "aperturas_activas": 28,
+        "paquetes_activos": 1
+    },
+    "atributos": [
+        {
+            "id_atributo_erp": "32",
+            "codigo": "ATR-ALTO",
+            "nombre": "Alto",
+            "tipo_dato": "numero",
+            "unidad": "cm",
+            "es_variante": "1",
+            "estatus": "activo",
+            "uso_skus": "614"
+        },
+        {
+            "id_atributo_erp": "31",
+            "codigo": "ATR-ANCHO",
+            "nombre": "Ancho",
+            "tipo_dato": "numero",
+            "unidad": "cm",
+            "es_variante": "1",
+            "estatus": "activo",
+            "uso_skus": "577"
+        },
+        {
+            "id_atributo_erp": "25",
+            "codigo": "ATR-COLOR",
+            "nombre": "Color",
+            "tipo_dato": "color",
+            "unidad": null,
+            "es_variante": "1",
+            "estatus": "activo",
+            "uso_skus": "26"
+        },
+        {
+            "id_atributo_erp": "33",
+            "codigo": "ATR-DIAMETRO",
+            "nombre": "Diámetro",
+            "tipo_dato": "numero",
+            "unidad": "cm",
+            "es_variante": "1",
+            "estatus": "activo",
+            "uso_skus": "133"
+        },
+        {
+            "id_atributo_erp": "34",
+            "codigo": "VAR-6BC4688D611B",
+            "nombre": "Diseño",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "1",
+            "estatus": "activo",
+            "uso_skus": "2"
+        },
+        {
+            "id_atributo_erp": "30",
+            "codigo": "ATR-LARGO",
+            "nombre": "Largo",
+            "tipo_dato": "numero",
+            "unidad": "cm",
+            "es_variante": "1",
+            "estatus": "activo",
+            "uso_skus": "689"
+        },
+        {
+            "id_atributo_erp": "27",
+            "codigo": "ATR-PRESENTACION",
+            "nombre": "Presentacion",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "1",
+            "estatus": "activo",
+            "uso_skus": "3"
+        },
+        {
+            "id_atributo_erp": "26",
+            "codigo": "ATR-TALLA",
+            "nombre": "Talla",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "1",
+            "estatus": "activo",
+            "uso_skus": "0"
+        },
+        {
+            "id_atributo_erp": "10",
+            "codigo": "ECOM-ATR-61e013836eeb3dc9",
+            "nombre": "Absorción",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "2"
+        },
+        {
+            "id_atributo_erp": "141",
+            "codigo": "ATR-ALTURA-MAXIMA",
+            "nombre": "altura_maxima",
+            "tipo_dato": "numero",
+            "unidad": "m",
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "10"
+        },
+        {
+            "id_atributo_erp": "13",
+            "codigo": "ECOM-ATR-d0191b33d58b824e",
+            "nombre": "Atributo ecommerce",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "8"
+        },
+        {
+            "id_atributo_erp": "17",
+            "codigo": "ECOM-ATR-fccc8f9fde7b6108",
+            "nombre": "Calibre",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "44"
+        },
+        {
+            "id_atributo_erp": "23",
+            "codigo": "ECOM-ATR-96a081d6dc0c8796",
+            "nombre": "Cantidad",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "1"
+        },
+        {
+            "id_atributo_erp": "4",
+            "codigo": "ECOM-ATR-f6a4bdd3a66fc668",
+            "nombre": "Capacidad",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "62"
+        },
+        {
+            "id_atributo_erp": "143",
+            "codigo": "ATR-CAP-ACUARIO-MAX",
+            "nombre": "capacidad_acuario_max",
+            "tipo_dato": "numero",
+            "unidad": "l",
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "0"
+        },
+        {
+            "id_atributo_erp": "142",
+            "codigo": "ATR-CAP-ACUARIO-MIN",
+            "nombre": "capacidad_acuario_min",
+            "tipo_dato": "numero",
+            "unidad": "l",
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "0"
+        },
+        {
+            "id_atributo_erp": "140",
+            "codigo": "ATR-CAUDAL",
+            "nombre": "caudal",
+            "tipo_dato": "numero",
+            "unidad": "l\/h",
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "3"
+        },
+        {
+            "id_atributo_erp": "139",
+            "codigo": "ATR-CONSUMO-ELECTRICO",
+            "nombre": "consumo_electrico",
+            "tipo_dato": "numero",
+            "unidad": "w",
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "61"
+        },
+        {
+            "id_atributo_erp": "21",
+            "codigo": "ECOM-ATR-fb0823244eddc6ba",
+            "nombre": "Contendio",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "1"
+        },
+        {
+            "id_atributo_erp": "5",
+            "codigo": "ECOM-ATR-57bb4b485f52628a",
+            "nombre": "Contenido",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "341"
+        },
+        {
+            "id_atributo_erp": "7",
+            "codigo": "ECOM-ATR-72a9d2fa76902965",
+            "nombre": "Contenido pza",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "2"
+        },
+        {
+            "id_atributo_erp": "22",
+            "codigo": "ECOM-ATR-3a81b76dde593274",
+            "nombre": "Contennido",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "1"
+        },
+        {
+            "id_atributo_erp": "16",
+            "codigo": "ECOM-ATR-048c86a447015f7c",
+            "nombre": "Cotenido",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "1"
+        },
+        {
+            "id_atributo_erp": "18",
+            "codigo": "ECOM-ATR-9edc00027bb5ed87",
+            "nombre": "Grosor",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "1"
+        },
+        {
+            "id_atributo_erp": "20",
+            "codigo": "ECOM-ATR-9f1f7bbebbb81e85",
+            "nombre": "Longuitd",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "1"
+        },
+        {
+            "id_atributo_erp": "19",
+            "codigo": "ECOM-ATR-6af5d42c0653fd26",
+            "nombre": "Longuitud",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "2"
+        },
+        {
+            "id_atributo_erp": "8",
+            "codigo": "ECOM-ATR-151dc69112bfcb7d",
+            "nombre": "Medida",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "57"
+        },
+        {
+            "id_atributo_erp": "3",
+            "codigo": "ECOM-ATR-794544c88ec2aa0f",
+            "nombre": "Medidas",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "890"
+        },
+        {
+            "id_atributo_erp": "15",
+            "codigo": "ECOM-ATR-804ca80c84d9c994",
+            "nombre": "Medidas con mueble",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "1"
+        },
+        {
+            "id_atributo_erp": "9",
+            "codigo": "ECOM-ATR-e69136146f965d5b",
+            "nombre": "Peso",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "19"
+        },
+        {
+            "id_atributo_erp": "11",
+            "codigo": "ECOM-ATR-2d3ff7930c8e016f",
+            "nombre": "Peso máximo",
+            "tipo_dato": "texto",
+            "unidad": null,
+            "es_variante": "0",
+            "estatus": "activo",
+            "uso_skus": "19"
+        }
+    ],
+    "candidatos": [
+        {
+            "id_producto_erp": "1515",
+            "codigo_producto": "GRAVA",
+            "producto": "Grava neon 3 mm para acuario fluorescente",
+            "maneja_variantes": "1",
+            "skus_activos": "10",
+            "skus": "1710:GRAVA-5 [Grava para acuario espesor de 3 mm color saturno neon] || 1711:GRAVA-2 [Grava para acuario espesor de 3 mm color fiusha neon] || 1712:GRAVA-6 [Grava para acuario espesor de 3 mm color verde neon] || 1715:GRAVA-1 [Grava para acuario espesor de 3 mm color confetti neon] || 1716:GRAVA-4 [Grava para acuario espesor de 3 mm color naranja neon] || 2011:GRAVA-5-GRANEL [Grava para acuario espesor de 3 mm color saturno neon 1 kg GRANEL] || 2012:GRAVA-2-GRANEL [Grava para acuario espesor de 3 mm color fiusha neon 1 kg GRANEL] || 2013:GRAVA-6-GRANEL [Grava para acuario espesor de 3 mm color verde neon 1 kg GRANEL] || 2014:GRAVA-1-GRANEL [Grava para acuario espesor de 3 mm color confetti neon 1 kg GRANEL] || 2015:GRAVA-4-GRANEL [Grava para acuario espesor de 3 mm color naranja neon 1 kg GRANEL]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=25 kg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "21",
+            "codigo_producto": "ECOM-VAR-26",
+            "producto": "Cama antiestrés chica para mascotas",
+            "maneja_variantes": "1",
+            "skus_activos": "8",
+            "skus": "53:PI0203-0132 [Cama antiestrés chica para mascotas] || 54:PI0101-0015 [Cama antiestrés chica para mascotas] || 55:PI0101-0016 [Cama antiestrés chica para mascotas] || 56:PI0101-0331 [Cama antiestrés chica para mascotas] || 57:PI0101-0019 [Cama antiestrés chica para mascotas] || 58:PI0101-0021 [Cama antiestrés chica para mascotas] || 59:PI0101-0022 [Cama antiestrés chica para mascotas] || 60:PI0101-0023 [Cama antiestrés chica para mascotas]",
+            "firma_atributos": "ATR-ALTO=12 || ATR-DIAMETRO=45 || ECOM-ATR-794544c88ec2aa0f=12 cm | 45 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "25",
+            "codigo_producto": "ECOM-VAR-31",
+            "producto": "Cama antiestrés mediana para perros y gatos",
+            "maneja_variantes": "1",
+            "skus_activos": "8",
+            "skus": "73:PI0101-0035 [Cama antiestrés mediana para perros y gatos] || 74:PI0101-0036 [Cama antiestrés mediana para perros y gatos] || 75:PI0101-0030 [Cama antiestrés mediana para perros y gatos] || 76:PI0101-0032 [Cama antiestrés mediana para perros y gatos] || 77:PI0101-0034 [Cama antiestrés mediana para perros y gatos] || 78:PI0101-0029 [Cama antiestrés mediana para perros y gatos] || 79:PI0101-0332 [Cama antiestrés mediana para perros y gatos] || 80:PI0101-0028 [Cama antiestrés mediana para mascotas]",
+            "firma_atributos": "ATR-ALTO=15 || ATR-DIAMETRO=60 || ECOM-ATR-794544c88ec2aa0f=60 cm | 15 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "44",
+            "codigo_producto": "ECOM-VAR-95",
+            "producto": "Rascadero mich sencillo cobre",
+            "maneja_variantes": "1",
+            "skus_activos": "8",
+            "skus": "131:RAS-07BE [Rascadero mich sencillo cobre] || 132:PI0709-0305 [Rascadero mich sencillo] || 133:PI0710-0264 [Rascadero mich sencillo gris] || 134:RAS-07M [Rascadero mich sencillo rosa] || 135:RAS-07MO [Rascadero mich sencillo morado] || 136:PI0710-0260 [Rascadero mich sencillo arcoiris] || 137:PI0710-0268 [Rascadero mich sencillo lila] || 138:PI0710-0280 [Rascadero mich sencillo gris]",
+            "firma_atributos": "ATR-ALTO=56 || ATR-ANCHO=35 || ATR-LARGO=50 || ECOM-ATR-794544c88ec2aa0f=35 cm | 50 cm | 56 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "1455",
+            "codigo_producto": "ECOM-REV-60",
+            "producto": "Cama antiestrés fluffy grande 75 cm (diametro) x 20 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "8",
+            "skus": "1578:PI0101-0054 [Cama antiestrés grande para mascotas] || 1579:PI0101-0009 [Cama antiestrés grande para mascotas] || 1580:PI0101-0333 [Cama antiestrés grande para mascotas] || 1581:PI0101-0024 [Cama antiestrés grande para mascotas] || 1582:PI0101-0049 [Cama antiestrés grande para mascotas] || 1583:PI0101-0045 [Cama antiestrés grande para mascotas] || 1584:PI0101-0044 [Cama antiestrés grande morada] || 1585:PI0101-0043 [Cama antiestrés grande gris]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=20 cm | 75 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "19",
+            "codigo_producto": "ECOM-VAR-24",
+            "producto": "Cama antiestrés mini para mascotas",
+            "maneja_variantes": "1",
+            "skus_activos": "7",
+            "skus": "43:PI0101-0330 [Cama antiestrés mini para mascotas] || 44:PI0101-0004 [Cama antiestrés mini para mascotas] || 45:PI0101-0006 [Cama antiestrés mini para mascotas] || 46:PI0101-0008 [Cama antiestrés mini para mascotas] || 47:PI0101-0003 [Cama antiestres mini para mascotas] || 48:PI0101-0002 [Cama antiestres mini para mascotas] || 49:PI00000 [Cama mini antiestrés rosa]",
+            "firma_atributos": "ATR-ALTO=10 || ATR-DIAMETRO=35 || ECOM-ATR-794544c88ec2aa0f=35 cm | 10 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "1533",
+            "codigo_producto": "PEZMN-04",
+            "producto": "Pez monja",
+            "maneja_variantes": "1",
+            "skus_activos": "7",
+            "skus": "561:PEZMN-01 [Pez monja neón roja] || 569:PEZMN-05 [Pez monja blanca] || 581:PEZMN-06 [Pez monja negra] || 709:PEZMN-02 [Pez monja neón verde] || 725:PEZMN-03 [Pez monja neón rosa] || 1738:PEZMN-04-AO [Pez monja neón amarilla] || 1739:PEZMN-04-AL [Pez monja azul]",
+            "firma_atributos": "ATR-LARGO=2.5 || ECOM-ATR-794544c88ec2aa0f=2.5 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "24",
+            "codigo_producto": "ECOM-VAR-29",
+            "producto": "Cama day chica morada",
+            "maneja_variantes": "1",
+            "skus_activos": "6",
+            "skus": "67:PI0102-0068 [Cama day chica morada] || 68:PI0102-0066 [Cama day chica azul] || 69:PI0102-0071 [Cama day chica rosa] || 70:PI0102-0070 [Cama day chica roja] || 71:PI0102-0069 [Cama day chica mostaza] || 72:PI0102-0067 [Cama day chica gris]",
+            "firma_atributos": "ATR-ANCHO=47 || ATR-LARGO=60 || ECOM-ATR-794544c88ec2aa0f=60 cm | 47 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "50",
+            "codigo_producto": "ECOM-5",
+            "producto": "Alimento churro blanco para peces agranel",
+            "maneja_variantes": "1",
+            "skus_activos": "6",
+            "skus": "146:TP-40372 [Alimento tropical koi & goldfish basic sticks 4 kg] || 1756:TP-40372-500GR [Alimento churro blanco para peces 500 gr] || 1757:TP-40372-25GR [Alimento churro blanco para peces 25 gr] || 1758:TP-40372-50GR [Alimento churro blanco para peces 50 gr] || 1759:TP-40372-100GR [Alimento churro blanco para peces 100 gr] || 1924:TP-40372-GRANEL [Alimento tropical koi & goldfish basic sticks 1 kg]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=4 kg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "604",
+            "codigo_producto": "ECOM-833",
+            "producto": "Alimento vivo larva tenebrio (gusano de harina) 1 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "6",
+            "skus": "700:ALI-TEBRIO1K [Alimento vivo larva tenebrio (gusano de harina) 1 kg] || 1798:ALI-TEBRIO1K-25P [Alimento vivo larva tenebrio (gusano de harina) 25 pzs] || 1799:ALI-TEBRIO1K-50P [Alimento vivo larva tenebrio (gusano de harina) 50 pzs] || 1800:ALI-TEBRIO1K-100P [Alimento vivo larva tenebrio (gusano de harina) 100 pzs] || 1801:ALI-TEBRIO1K-1000P [Alimento vivo larva tenebrio (gusano de harina) 1000 pzs] || 1884:ALI-TEBRIO1K-PZA [Alimento vivo larva tenebrio (gusano de harina) pieza]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=1000 pzas",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1016",
+            "codigo_producto": "ECOM-1443",
+            "producto": "Alimento churro rojo para peces agranel",
+            "maneja_variantes": "1",
+            "skus_activos": "6",
+            "skus": "1112:TP-40352 [Alimento tropical koi & goldfish colour sticks 4 kg] || 1760:TP-40352-500GR [Alimento churro rojo para peces 500 gr] || 1925:TP-40352-GRANEL [Alimento tropical koi & goldfish colour sticks 1 kg GRANEL] || 1998:TP-40352-25G [Alimento tropical koi & goldfish colour sticks 25 gr] || 1999:TP-40352-50G [Alimento tropical koi & goldfish colour sticks 50 gr] || 2000:TP-40352-100G [Alimento tropical koi & goldfish colour sticks 100 gr]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1017",
+            "codigo_producto": "ECOM-1444",
+            "producto": "Alimento churro mix de colores para peces agranel",
+            "maneja_variantes": "1",
+            "skus_activos": "6",
+            "skus": "1113:TP-40311 [Alimento tropical pond sticks mixed 4 kg] || 2001:TP-40311-GRANEL [Alimento tropical pond sticks mixed 1 kg GRANEL] || 2002:TP-40311-25GR [Alimento tropical pond sticks mixed 25 gr] || 2003:TP-40311-50GR [Alimento tropical pond sticks mixed 50 gr] || 2004:TP-40311-100GR [Alimento tropical pond sticks mixed 100 gr] || 2005:TP-40311-500GR [Alimento tropical pond sticks mixed 500 gr]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1451",
+            "codigo_producto": "ECOM-REV-44",
+            "producto": "Cama daisy mediana  80 x 60 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "6",
+            "skus": "1566:PI0103-0085 [Cama day mediana gris] || 1567:PI0103-0097 [Cama day mediana rosa] || 1568:PI0103-0091 [Cama day mediana mostaza] || 1569:PI0103-0082 [Cama day mediana azul] || 1570:PI0103-0094 [Cama day mediana roja] || 1571:PI0103-0088 [Cama day mediana morada]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=80 cm | 60 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1516",
+            "codigo_producto": "GRAVA-EST",
+            "producto": "Grava estandar 3 mm para acuario",
+            "maneja_variantes": "1",
+            "skus_activos": "6",
+            "skus": "1713:GRAVA-14 [Grava para acuario espesor de 3 mm estandar color azul cielo] || 1714:GRAVA-32 [Grava para acuario espesor de 3 mm estandar color negro] || 1717:GRAVA-25 [Grava para acuario espesor 3mm estandar color rojo] || 2016:GRAVA-14-GRANEL [Grava para acuario espesor de 3 mm estandar color azul cielo 1 kg GRANEL] || 2017:GRAVA-25-GRANEL [Grava para acuario espesor 3mm estandar color rojo 1 kg GRANEL] || 2018:GRAVA-32-GRANEL [Grava para acuario espesor de 3 mm estandar color negro 1 kg GRANEL]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=25 kg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1622",
+            "codigo_producto": "TP-76700",
+            "producto": "ALIMENTO HOJUELA TROPICAL FLAKES MIX 5KG.",
+            "maneja_variantes": "1",
+            "skus_activos": "6",
+            "skus": "1906:TP-76700 [ALIMENTO TROPICAL FLAKES MIX 5KG.] || 2006:TP-76700-GRANEL [ALIMENTO TROPICAL FLAKES MIX 1KG GRANEL] || 2007:TP-76700-25GR [ALIMENTO TROPICAL FLAKES MIX 25 gr] || 2008:TP-76700-50GR [ALIMENTO TROPICAL FLAKES MIX 50 gr] || 2009:TP-76700-100GR [ALIMENTO TROPICAL FLAKES MIX 100 gr] || 2010:TP-76700-500GR [ALIMENTO TROPICAL FLAKES MIX 500 gr]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "34",
+            "codigo_producto": "ECOM-VAR-45",
+            "producto": "Arenero print chico cafe",
+            "maneja_variantes": "1",
+            "skus_activos": "5",
+            "skus": "104:7672 [Arenero café con pala 37 x 28 x 16 cm] || 105:7675 [Arenero verde con pala 37 x 28 x 16 cm] || 106:7666 [Arenero basic 37 x 28 x 16 cm] || 107:7678 [Arenero naranja con pala 37 x 28 x 16 cm] || 108:7669 [Arenero rosa con pala 37 x 28 x 16 cm]",
+            "firma_atributos": "ATR-ALTO=16 || ATR-ANCHO=28 || ATR-LARGO=37 || ECOM-ATR-794544c88ec2aa0f=16 cm | 28 cm | 37 cm || ECOM-ATR-794544c88ec2aa0f=16 cm | 37 cm | 28 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "39",
+            "codigo_producto": "ECOM-VAR-71",
+            "producto": "Premios snack carnaza hueso naranja",
+            "maneja_variantes": "1",
+            "skus_activos": "5",
+            "skus": "119:CAFI-06N [Premios snack carnaza hueso naranja] || 120:CAFI-06Z [Premios snack carnaza hueso azul] || 121:CAFI-06V [Premios snack carnaza hueso verde] || 122:CAFI-06RS [Premios snack carnaza hueso rosa] || 123:CAFI-06F [Premios snack carnaza hueso cafe]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1141",
+            "codigo_producto": "ECOM-1599",
+            "producto": "Churu premios para gato",
+            "maneja_variantes": "1",
+            "skus_activos": "5",
+            "skus": "1237:USA654 [Bote churu 4 sabores 50 pzs x 14 gr 700 gr] || 1778:USA654-TUNA [Churu premios para gato receta de atún] || 1780:USA654-TUNASCALLOP [Churu premios para gato receta de atún con vieras] || 1781:USA654-TUNACLAM [Churu premios para gato receta de atún con sabor a almeja] || 1782:USA654-TUNACRAB [Churu premios para gato receta de atún con sabor a cangrejo]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1445",
+            "codigo_producto": "SP-3722",
+            "producto": "Jaula para mamífero decan",
+            "maneja_variantes": "1",
+            "skus_activos": "5",
+            "skus": "1545:SP-3722-BO [Jaula para mamífero decan] || 1546:SP-3722-VE [Jaula para mamífero decan verde] || 1547:SP-3722 [Jaula plastica para conejo rosa 62.0 x 34.5 x 40.0 cm] || 1548:SP-3722-AL [Jaula para mamífero decan azul] || 1549:SP-3722-MO [Jaula para mamífero decan morada]",
+            "firma_atributos": "ATR-COLOR=#4E2F6F || ATR-COLOR=#9AD2E6 || ATR-COLOR=#C7DB80 || ATR-COLOR=#E0849F || ATR-COLOR=#FFFFFF || ECOM-ATR-794544c88ec2aa0f=35 cm | 40 cm | 62 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1446",
+            "codigo_producto": "SP-3674",
+            "producto": "Jaula para mamífero despar",
+            "maneja_variantes": "1",
+            "skus_activos": "5",
+            "skus": "1550:SP-3674 [Jaula plastica para conejo rosa 45.0 x 30.0 x 25.0 cm] || 1551:SP-3674-AL [Jaula para mamífero despar azul] || 1552:SP-3674-MO [Jaula para mamífero despar morada] || 1553:SP-3674-BO [Jaula para mamífero despar blanca] || 1554:SP-3674-VE [Jaula para mamífero despar verde]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=25 cm | 45 cm | 29 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1465",
+            "codigo_producto": "B19",
+            "producto": "Jaula para aves (baral) 30 x 23 x 29 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "5",
+            "skus": "1612:B19-RO [Jaula para pajaro cuadrada chica] || 1613:B19-AL [Jaula baral azul para pajaro] || 1614:B19-MO [Jaula baral morada para pajaro] || 1615:B19-VE [Jaula baral verde para pajaro] || 1616:B19 [Jaula baral amarilla  para pajaro]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=30 cm | 23 cm | 29 cm || ECOM-ATR-794544c88ec2aa0f=39 cm | 25 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1468",
+            "codigo_producto": "CAFI-01",
+            "producto": "Premio snack carnaza de corazón",
+            "maneja_variantes": "1",
+            "skus_activos": "5",
+            "skus": "1624:CAFI-01-VE [Premio snack carnaza de corazón verde] || 1625:CAFI-01-RO [Premio snack carnaza de corazón rojo] || 1626:CAFI-01-CE [Premio snack carnaza de corazón cafe] || 1627:CAFI-01-NA [Premio snack carnaza de corazón naranja] || 1628:CAFI-01-MN [Premio snack carnaza de corazón marron]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=6 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1472",
+            "codigo_producto": "ECOM-REV-129",
+            "producto": "Mochila transportadora transparente",
+            "maneja_variantes": "1",
+            "skus_activos": "5",
+            "skus": "1639:FL4140 [Mochila transportadora transparente para mascotas amarilla] || 1640:FL4141 [Mochila transportadora transparente para mascotas negra] || 1641:FL4143 [Mochila transportadora transparente para mascotas rosa] || 1642:FL4145 [Mochila transportadora transparente para mascotas azul] || 1643:FL4144 [Mochila transportadora transparente para mascotas gris]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=41 cm | 25 cm | 33 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "12",
+            "codigo_producto": "ECOM-VAR-15",
+            "producto": "Jaula hámster lux 29 x 22 x 30 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "22:SP-3640 [Jaula hamster cafe 29 x 22 x 30 cm] || 23:SP-3638 [Jaula hamster azul-verde 29 x 22.2 x 30 cm] || 24:SP-3639 [Jaula hamster rosa 29 x 22.2 x 30 cm] || 25:SP-3641 [Jaula plastica para hamster azul 28.9 x 22.2 x 30.1 cm]",
+            "firma_atributos": "ATR-ALTO=30.1 || ATR-ANCHO=22.2 || ATR-LARGO=28.9 || ECOM-ATR-794544c88ec2aa0f=28.9 cm | 22.2 cm | 30.1 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "23",
+            "codigo_producto": "ECOM-VAR-28",
+            "producto": "Cama colchoneta Tom chica azul",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "63:PI0203-0131 [Cama colchoneta Tom chica azul] || 64:PI0203-0135 [Cama colchoneta Tom chica tinta] || 65:PIO0203-0132 [Cama colchoneta tom chica gris] || 66:PI0203-0136 [Cama colchoneta tom chica rosa]",
+            "firma_atributos": "ATR-ALTO=5 || ATR-ANCHO=40 || ATR-LARGO=55 || ECOM-ATR-794544c88ec2aa0f=55 cm | 40 cm | 5 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "27",
+            "codigo_producto": "ECOM-VAR-35",
+            "producto": "Cama colchoneta tom mediana tinto",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "83:PI0203-0141 [Cama colchoneta tom mediana tinto] || 84:PI0203-0142 [Cama colchoneta tom mediana rosa] || 85:PI0203-0137 [Cama colchoneta tom mediana azul] || 86:PI0203-0138 [Cama colchoneta tom mediana gris]",
+            "firma_atributos": "ATR-ALTO=5 || ATR-ANCHO=50 || ATR-LARGO=72 || ECOM-ATR-794544c88ec2aa0f=50 cm | 5 cm | 72 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "28",
+            "codigo_producto": "ECOM-VAR-36",
+            "producto": "Cama colchoneta tom grande gris",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "87:PI0203-0144 [Cama colchoneta tom grande gris] || 88:PI0203-0148 [Cama colchoneta tom grande rosa] || 89:PI0203-0147 [Cama colchoneta tom grande tinto] || 90:PI0203-01 [Cama colchoneta tom grande azul]",
+            "firma_atributos": "ATR-ALTO=5 || ATR-ANCHO=60 || ATR-LARGO=83 || ECOM-ATR-794544c88ec2aa0f=5 cm | 60 cm | 83 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "32",
+            "codigo_producto": "ECOM-VAR-43",
+            "producto": "Comedero de acero inoxidable mini",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "98:SFB-081 [Comedero acero inoxidable con antiderrapante 8 oz azul marino] || 99:SFB-082 [Comedero acero inoxidable con antiderrapante 8 oz azul aqua] || 100:SFB-085 [Comedero acero inoxidable con antiderrapante 8 oz oro] || 101:SFB-08 [Comedero acero inoxidable con antiderrapante 8 oz]",
+            "firma_atributos": "ATR-ALTO=3.5 || ATR-DIAMETRO=15.5 || ATR-LARGO=15.5 || ECOM-ATR-794544c88ec2aa0f=15.5 cm | 3.5 cm || ECOM-ATR-794544c88ec2aa0f=3.5 cm | 15.5 cm || ECOM-ATR-f6a4bdd3a66fc668=236.5 ml",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "38",
+            "codigo_producto": "ECOM-VAR-70",
+            "producto": "Premio snack carnaza precel rojo",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "115:CAFI-05RJ [Premio snack carnaza precel rojo] || 116:CAFI-05 [Premio snack carnaza precel verde] || 117:CAFI-05A [Premio snack carnaza precel amarilla] || 118:CAFI-05RS [Premio snack carnaza precel rosa]",
+            "firma_atributos": "ATR-ANCHO=4.5 || ATR-LARGO=6.5 || ECOM-ATR-794544c88ec2aa0f=4.5 cm | 6.5 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "77",
+            "codigo_producto": "ECOM-43",
+            "producto": "Alimento vivo grillo mediano por millar",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "173:ALI-GLOMDM [Alimento vivo grillo mediano por millar] || 1783:ALI-GLOMDM-25P [Alimento vivo grillo mediano 25 piezas] || 1796:ALI-GLOMDM-50P [Alimento vivo grillo mediano 50 piezas] || 1797:ALI-GLOMDM-100P [Alimento vivo grillo mediano 100 piezas]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=1000 pzas",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "483",
+            "codigo_producto": "ECOM-678",
+            "producto": "Pez molly balón blanco",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "552:PEZMY-03 [Pez molly balón naranja] || 562:PEZMY-04 [Pez molly balón negro] || 579:PEZMY-01 [Pez molly balón blanco] || 580:PEZMY-02 [Pez molly balón pinteado]",
+            "firma_atributos": "ATR-LARGO=2.5 || ECOM-ATR-794544c88ec2aa0f=2.5 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "879",
+            "codigo_producto": "ECOM-1284",
+            "producto": "Tapete refrescante chico sandia",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "933:FL9867 [Tapete refrescante circular grande sandia cool] || 974:FL9866 [Tapete refrescante circular med sandia cool] || 975:FL9865 [Tapete refrescante circular ch sandia cool] || 1502:FL9871 [Tapete refrescante circular extra grande sandia cool]",
+            "firma_atributos": "ATR-DIAMETRO=100 || ATR-DIAMETRO=50 || ATR-DIAMETRO=60 || ATR-DIAMETRO=80 || ECOM-ATR-794544c88ec2aa0f=50 cm || ECOM-ATR-794544c88ec2aa0f=60 cm || ECOM-ATR-794544c88ec2aa0f=80 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "1452",
+            "codigo_producto": "ECOM-REV-47",
+            "producto": "Cama antiestrés fluffy mediana 60 cm (diametro) x 15 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1572:PI0102-0073 [Cama antiestrés mediana para mascotas] || 1573:PI0101-0039 [Cama antiestrés mediana para mascotas] || 1695:PI0102-0068-LU [Cama antiestrés mediana para mascotas] || 1696:PI0102-0073-MUL [Cama antiestrés mediana para mascotas]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=60 cm | 15 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1461",
+            "codigo_producto": "B10",
+            "producto": "Jaula para aves colonial 29 x 23 x 30 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1597:B10 [Jaula aves colonial 30 x 23 x 29 cm] || 1598:B10-AL [Jaula colonial  azul para pajaro] || 1599:B10-AO [Jaula colonial amarilla para pajaro] || 1600:B10-RO [Jaula colonial roja para pajaro]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=30 cm | 23 cm | 29 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1462",
+            "codigo_producto": "T181",
+            "producto": "Jaula para aves curva (estik) 23 x 17 x 28 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1601:T181 [Jaula aves curva 23 x 17 x 28 cm] || 1602:T181-VE [Jaula estik verde para pajaros] || 1603:T181-RO [Jaula estik roja para pajaros] || 1604:T181-AO [Jaula estik amarilla para pajaros]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=28 cm | 16 cm | 22 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1463",
+            "codigo_producto": "ECOM-REV-83",
+            "producto": "Jaula para aves cubo 23 x 23 x 28 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1605:T189 [Jaula aves cubo 23 x 23 x 28 cm] || 1606:T189-VE [Jaula mini casa verde para pajaro] || 1607:T189-AL [Jaula mini casa azul para pajaro] || 1608:T189-AO [Jaula mini casa naranja para pajaro]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=16 cm | 22 cm | 28 cm || ECOM-ATR-794544c88ec2aa0f=28 cm | 16 cm | 22 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1467",
+            "codigo_producto": "CAFI-03",
+            "producto": "Premio snack carnaza de paleta mordi",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1620:CAFI-AO [Premio snack carnaza de paleta mordi amarilo] || 1621:CAFI-CE [Premio snack carnaza de paleta mordi cafe] || 1622:CAFI-NA [Premio snack carnaza de paleta mordi naranja] || 1623:CAFI-VE [Premio snack carnaza de paleta mordi verde]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=5 cm | 12.5 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1469",
+            "codigo_producto": "CAFI-02",
+            "producto": "Premio snack carnaza de helado",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1629:CAFI-02-RA [Premio snack carnaza de helado rosa] || 1630:CAFI-02-VE [Premio snack carnaza helado verde] || 1631:CAFI-02-NA [Premio snack carnaza helado naranja] || 1632:CAFI-02-AO [Premio snack carnaza de helado amarillo]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=6.5 cm | 9 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1471",
+            "codigo_producto": "RJ125",
+            "producto": "Baño para conejo esquinero rectangular 28 x 22 x 16 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1635:RJ125 [Baño para conejo 28 x 22 x 16 cm] || 1636:RJ125-AL [Esquinero baño rectagular azul] || 1637:RJ125-VE [Esquinero baño rectangular verde] || 1638:RJ125-BE [Esquinero baño rectangular beige]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=16 cm | 22 cm | 28 cm || ECOM-ATR-794544c88ec2aa0f=16 cm | 28 cm | 22 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1484",
+            "codigo_producto": "ECOM-REV-174",
+            "producto": "Rascador mich doble",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1668:PI0710-0281 [Rascador mich doble] || 1669:PI0710-0265 [Rascadero mich doble rosa] || 1670:PI0710-0272 [Rascadero mich doble cobre] || 1671:PI0710-0249 [Rascadero mich doble azul cielo]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=35 cm | 50 cm | 56 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1490",
+            "codigo_producto": "WA001",
+            "producto": "Alimento hojuela básicas chico para peces10 gr",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "155:WA004 [Hojuelas basicas 100 gr] || 1678:WA003 [Hojuelas basicas 30 gr] || 1679:WA001 [Hojuelas basicas 10 gr] || 1680:WA002 [Hojuelas basicas 20 gr]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=10 gr || ECOM-ATR-57bb4b485f52628a=120 gr || ECOM-ATR-57bb4b485f52628a=20 gr || ECOM-ATR-57bb4b485f52628a=30 gr",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1535",
+            "codigo_producto": "ECOM-REV-409",
+            "producto": "Bravecto tabletas masticables 2-4.5 kg, 4.5-10 kg, 10-20 kg y 20-40 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1231:8713184301246 [Bravecto Tableta masticable 10 - 20 kg verde 37 días 200 mg] || 1232:8713184301253 [Bravecto Tableta masticable 20 - 40 kg azul 37 días 400 mg] || 1742:8713184301239 [Bravecto Tableta masticable 4.5 - 10 kg naranja 37 días 100 mg] || 1743:8713184301222 [Bravecto Tableta masticable 2 - 4.5 kg amarillo 37 días 45 mg]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=100 mg || ECOM-ATR-57bb4b485f52628a=200 mg || ECOM-ATR-57bb4b485f52628a=400 mg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1536",
+            "codigo_producto": "ECOM-REV-382",
+            "producto": "Tapetes refrescantes",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "857:FL9862 [Tapete refrescante 40 � 50 cm aqua cool] || 976:FL9854 [Tapete refrescante grande cool] || 1744:FL9863 [Tapete refrescante mediano aqua cool] || 1745:FL9861 [Tapete refrescante extra chico aqua cool]",
+            "firma_atributos": "ATR-ALTO=50 || ATR-ANCHO=3 || ATR-ANCHO=61 || ATR-LARGO=40 || ATR-LARGO=76 || ECOM-ATR-794544c88ec2aa0f=30 cm | 40 cm | 3 cm || ECOM-ATR-794544c88ec2aa0f=40 cm | 50 cm | 3 cm || ECOM-ATR-794544c88ec2aa0f=50 cm | 65 cm | 3 cm || ECOM-ATR-794544c88ec2aa0f=76 cm | 61 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1568",
+            "codigo_producto": "PROD0965",
+            "producto": "Sustrato chip de coco Premium 200 l",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1814:PROD0965 [Chip de coco Premium 200 l] || 1882:PROD0965-500G [Chip de coco Premium 500 gr] || 1883:PROD0965-1500G [Chip de coco Premium 1.5 kg] || 1887:PROD0965-KG [Chip de coco Premium kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1569",
+            "codigo_producto": "PROD1023",
+            "producto": "Sustrato polvillo de coco 90\/10",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1815:PROD1023 [Polvillo de coco 90\/10 200 litros] || 1897:PROD1023-400G [Sustrato polvillo de coco 90\/10 400 gr] || 1898:PROD1023-800G [Sustrato polvillo de coco 90\/10 800 gr] || 1899:PROD1023-KG [Sustrato polvillo de coco 90\/10 kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1570",
+            "codigo_producto": "PROD1004",
+            "producto": "Sustrato fibra de coco mezcla medio 70\/30",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1816:PROD1004 [Fibra de coco mezcla medio 70\/30 210 litros] || 1880:PROD1004-400G [Sustrato fibra de coco mezcla medio 70\/30 400 gr] || 1881:PROD1004-800G [Sustrato fibra de coco mezcla medio 70\/30 800 gr] || 1888:PROD1004-KG [Sustrato fibra de coco mezcla medio 70\/30 kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1571",
+            "codigo_producto": "PROD1038",
+            "producto": "Sustrato corteza mediana (saco 80 lts)",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1817:PROD1038 [Corteza decorativa mediana 80 litros] || 1886:PROD1038-KG [Sustrato corteza mediana kg] || 1894:PROD1038-500GR [Sustrato corteza mediana 500 gr] || 1896:PROD1038-1000GR [Sustrato corteza mediana 1 kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1575",
+            "codigo_producto": "INOS-PESS",
+            "producto": "Sustrato peat moss",
+            "maneja_variantes": "1",
+            "skus_activos": "4",
+            "skus": "1827:INOS-PESS [Sustrato peat moss 250 litros] || 1878:INOS-PESS-500GR [Sustrato peat moss 500 gr] || 1879:INOS-PESS-1500GR [Sustrato peat moss 1.5 kg] || 1885:INOS-PESS-KG [Sustrato peat moss kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "7",
+            "codigo_producto": "ECOM-VAR-10",
+            "producto": "Jaula hámster residencial  35 x 27 x 50 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "7:10198 [Jaula para hamster cage 3 pisos rosa 35 x 27 x 50 cm] || 8:10196 [Jaula para hamster cage 3 pisos azul 35 x 27 x 50 cm] || 9:10197 [Jaula para hamster cage 3 pisos amarillo 35 x 27 x 50 cm]",
+            "firma_atributos": "ATR-ALTO=50 || ATR-ANCHO=27 || ATR-LARGO=35 || ECOM-ATR-794544c88ec2aa0f=35 cm | 27 cm | 50 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "8",
+            "codigo_producto": "ECOM-VAR-11",
+            "producto": "Jaula hámster 2 pisos azul 27.7 x 20.5 x 25 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "10:SP-3624 [Jaula hamster azul 1 nivel 28 x 21 x 25 cm] || 11:SP-3623 [Jaula hamster rosa 1 nivel 28 x 21 x 25 cm] || 12:SP-3625 [Jaula hamster amarillo 1 nivel 28 x 21 x 25 cm]",
+            "firma_atributos": "ATR-ALTO=25 || ATR-ANCHO=20.5 || ATR-LARGO=27.7 || ECOM-ATR-794544c88ec2aa0f=25 cm | 27.7 cm | 20.5 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "9",
+            "codigo_producto": "ECOM-VAR-12",
+            "producto": "Jaula hámster 3 pisos café 31 x 24 x  43 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "13:11340 [Jaula extravaganza III cafe 31 x 24 x 43 cm] || 14:11338 [Jaula extravaganza III azul 31 x 24 x 43 cm] || 15:11339 [Jaula extravaganza III rosa 31 x 24 x 43 cm]",
+            "firma_atributos": "ATR-ALTO=43 || ATR-ANCHO=24 || ATR-LARGO=31 || ECOM-ATR-794544c88ec2aa0f=43 cm | 24 cm | 31 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "10",
+            "codigo_producto": "ECOM-VAR-13",
+            "producto": "Jaula hámster 36 x 27 x 25 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "16:SP-3629 [Jaula plastica para hamster rosa 1 piso 36.0 x 27.0 x 25.0 cm] || 17:SP-3630 [Jaula plastica para hamster azul 1 piso 36.0 x 27.0 x 25.0 cm] || 18:SP-3631 [Jaula plastica para hamster amarillo 1 piso 36.0 x 27.0 x 25.0 cm]",
+            "firma_atributos": "ATR-ALTO=25 || ATR-ANCHO=27 || ATR-LARGO=36 || ECOM-ATR-794544c88ec2aa0f=25 cm | 36 cm | 27 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "11",
+            "codigo_producto": "ECOM-VAR-14",
+            "producto": "Jaula hámster amplia 36.0 x 27.0 x 42.5 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "19:SP-3634 [Jaula plastica para hamster amarillo 2 pisos 36.0 x 27.0 x 42.5 cm] || 20:SP-3633 [Jaula plastica para hamster azul 2 pisos 36.0 x 27.0 x 42.5 cm] || 21:SP-3632 [Jaula plastica para hamster rosa 2 pisos 36.0 x 27.0 x 42.5 cm]",
+            "firma_atributos": "ATR-ALTO=42.5 || ATR-ANCHO=27 || ATR-LARGO=36 || ECOM-ATR-794544c88ec2aa0f=36 cm | 27 cm | 42.5 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "15",
+            "codigo_producto": "ECOM-VAR-20",
+            "producto": "Jaula hámster 31 x 24 x 30 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "32:11336 [Jaula extravaganza II rosa 31 x 24 x 30 cm] || 33:11335 [Jaula extravaganza II azul 31 x 24 x 30 cm] || 34:11337 [Jaula extravaganza II cafe 31 x 24 x 30 cm]",
+            "firma_atributos": "ATR-ALTO=30 || ATR-ANCHO=24 || ATR-LARGO=31 || ECOM-ATR-794544c88ec2aa0f=30 cm | 24 cm | 31 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "16",
+            "codigo_producto": "ECOM-VAR-21",
+            "producto": "jaula hámster invisible  27 x 20.5 x 47 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "35:10187 [Jaula para hámster cafe 27 x 20.5 x 47 cm] || 36:10186 [Jaula para hámster azul 27 x 20.5 x 47 cm] || 37:10188 [Jaula para hámster sevenpet rosa 27 x 20.5 x 47 cm]",
+            "firma_atributos": "ATR-ALTO=47 || ATR-ANCHO=20.5 || ATR-COLOR=#6B4F00 || ATR-COLOR=#A8CAFF || ATR-COLOR=#EF9EFF || ATR-LARGO=27 || ECOM-ATR-794544c88ec2aa0f=27 cm | 20.5 cm | 47 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "17",
+            "codigo_producto": "ECOM-VAR-22",
+            "producto": "Jaula hámster ripar 28 x 21 x 42 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "38:SP-3626 [Jaula hamster rosa 2 niveles 28 x 21 x 42 cm] || 39:SP-3628 [Jaula hamster amarillo 2 niveles 28 x 20.1 x 42 cm] || 40:SP-3627 [Jaula hamster azul 2 niveles 28 x 21 x 42 cm]",
+            "firma_atributos": "ATR-ALTO=42.5 || ATR-ANCHO=20.5 || ATR-LARGO=27.7 || ECOM-ATR-794544c88ec2aa0f=42.5 cm | 27.7 cm | 20.5 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "20",
+            "codigo_producto": "ECOM-VAR-25",
+            "producto": "Cama antiestres mini para mascotas",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "50:PI0101-0013 [Cama antiestres mini para mascotas] || 51:PI0101-0012 [Cama antiestrés mini para mascotas] || 52:PI0101-0335 [Cama mini antiestres para mascotas]",
+            "firma_atributos": "ATR-ALTO=10 || ATR-DIAMETRO=35 || ECOM-ATR-794544c88ec2aa0f=35 cm | 10 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "29",
+            "codigo_producto": "ECOM-VAR-37",
+            "producto": "Cama day grande Rosa",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "91:PI0102-0083 [Cama day grande Rosa] || 92:PI0102-0078 [Cama day grande azul] || 93:PI0102-0079 [Cama day grande gris]",
+            "firma_atributos": "ATR-ANCHO=70 || ATR-LARGO=90 || ECOM-ATR-794544c88ec2aa0f=90 cm | 70 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "37",
+            "codigo_producto": "ECOM-VAR-49",
+            "producto": "jaula hámster crifin town house I 23 x 17 x 33 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "113:11346 [Jaula town house I verde 23 x 17 x 33 cm] || 114:11347 [Jaula town house I amarillo 23 x 17 x 33 cm] || 456:11343 [Jaula town house I azul 23 x 17 x 33 cm]",
+            "firma_atributos": "ATR-ALTO=33 || ATR-ANCHO=17 || ATR-LARGO=23 || ECOM-ATR-794544c88ec2aa0f=23 cm | 33 cm | 17 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "45",
+            "codigo_producto": "ECOM-VAR-98",
+            "producto": "Rascadero mei grande gris",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "139:RAS-12GR [Rascadero mei grande gris] || 140:RAS-12 [Rascadero mei grande negro] || 141:RAS-12CA [Rascadero mei grande cafe]",
+            "firma_atributos": "ATR-ALTO=100 || ATR-ANCHO=50 || ATR-LARGO=50 || ECOM-ATR-794544c88ec2aa0f=50 cm | 100 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "351",
+            "codigo_producto": "ECOM-462",
+            "producto": "Esfera para hámster grande 18 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "447:SP-3675 [Esfera grande de plastico para ejercicio 17.5cm 6,7\" varios colores] || 1425:SP-3675-MA [Esfera para hámster grande 18 cm] || 1762:SP-3675-VE [Esfera para hámster grande 18 cm]",
+            "firma_atributos": "ATR-COLOR=#00A30B || ATR-COLOR=#7A00B3 || ATR-COLOR=#C70000 || ATR-DIAMETRO=18 || ECOM-ATR-151dc69112bfcb7d=18 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "495",
+            "codigo_producto": "ECOM-693",
+            "producto": "Pez molly bicolor",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "563:PEZMY-05 [Pez molly naranja chico] || 576:PEZMY-06 [Pez molly pinteado] || 591:PEZMY-07 [Pez molly bicolor]",
+            "firma_atributos": "ATR-LARGO=2.5 || ECOM-ATR-794544c88ec2aa0f=2.5 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "532",
+            "codigo_producto": "ECOM-750",
+            "producto": "Sustrato Organico para roedores agranel",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "628:KMITA10 [Sustrato Organico para roedores agranel 10 KG] || 1824:KMITA10-KG [Sustrato Organico para roedores 1 KG] || 1926:KMITA10-GRANEL [Sustrato Organico para roedores agranel 1 kg]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=10 kg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "586",
+            "codigo_producto": "ECOM-811",
+            "producto": "Conejina alimento agranel",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "682:SUET-COESS25KG [Alimento pellet para mascotas] || 1808:SUET-COESSKG [Alimento pellet para mascotas 1 kg] || 1809:SUET-COESS3KG [Alimento pellet para mascotas 3 kg]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=40 kg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1282",
+            "codigo_producto": "ECOM-1754",
+            "producto": "Sustrato de papel uber rosa con blanco 36 L para roedor",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1378:416361 [Sustrato de papel �ber pink\/white paper bedding paper 36l] || 1505:SUSP-07 [Sustrato de papel rosa con blanco para roedores de 300 gr] || 1912:416569 [Sustrato papel pink\/white paper bedding 56 litros]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1283",
+            "codigo_producto": "ECOM-1755",
+            "producto": "Sustrato de papel uber azul con blanco 36 L para roedor",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1379:417368 [Sustrado de papel �ber blue\/white paper bedding paper 36l] || 1504:SUSP-06 [Sustrato de papel azul con blanco para roedores de 300 gr] || 1913:417566 [Sustrato papel blue\/white paper bedding 56 litros]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1286",
+            "codigo_producto": "ECOM-1758",
+            "producto": "Sustrato de viruta natural 141 L para roedor",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1382:222009 [Sustrato de viruta natural �ber pine bedding 141l] || 1821:222009-KG [Sustrato de viruta natural libre de polvo 1 kg] || 1822:222009-250GR [Sustrato de viruta natural 250 gr]",
+            "firma_atributos": "ATR-ALTO=61 || ATR-ANCHO=23 || ATR-LARGO=41 || ECOM-ATR-794544c88ec2aa0f=23 cm | 61 cm | 41 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1329",
+            "codigo_producto": "ECOM-REV-18",
+            "producto": "Jaula para roedor esplim 47 x 30 x 33 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1426:11309 [Jaula cosset X 47 x 30 x 33 cm] || 1427:11309-AL [Jaula para roedor esplim azul] || 1428:11309-RA [Jaula para roedor esplim rosa]",
+            "firma_atributos": "ATR-ALTO=33 || ATR-ANCHO=30 || ATR-COLOR=#85CAFF || ATR-COLOR=#F77DF3 || ATR-COLOR=#FFFFFF || ATR-LARGO=47 || ECOM-ATR-794544c88ec2aa0f=47 cm | 30 cm | 33 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1408",
+            "codigo_producto": "ECOM-1889",
+            "producto": "Sustrato de viruta natural",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1507:VITA-BOSA [Sustrato de viruta natural] || 1819:VITA-BOSA-1KG [Sustrato de viruta natural 1 kg] || 1820:VITA-BOSA-250G [Sustrato de viruta natural 250 gr]",
+            "firma_atributos": "ATR-PRESENTACION=1 kg || ATR-PRESENTACION=11 kg || ATR-PRESENTACION=250 gr",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1447",
+            "codigo_producto": "11310",
+            "producto": "Jaula para mamífero extrema 60 x 35 x 33 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1555:11310 [Jaula cosset xl 60 x 35 x 33 cm] || 1556:11310-BO [Jaula para mamíferos extrema blanca] || 1557:11310-AL [Jaula para mamíferos extrema azul]",
+            "firma_atributos": "ATR-COLOR=#7CE0FF || ATR-COLOR=#FE7CE3 || ATR-COLOR=#FFFFFF || ECOM-ATR-794544c88ec2aa0f=35 cm | 33 cm | 62 cm || ECOM-ATR-794544c88ec2aa0f=35 cm | 60 cm | 33 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1448",
+            "codigo_producto": "ECOM-REV-34",
+            "producto": "Jaula hámster extravaganza 27 x 21 x 27 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1558:11334 [Jaula extravaganza cafe 27 x 21 x 27 cm] || 1559:11333 [Jaula extravaganza rosa 27 x 21 x 27 cm] || 1560:11332 [Jaula extravaganza azul 27 x 21 x 27 cm]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=27 cm | 29 cm | 21 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1449",
+            "codigo_producto": "ECOM-REV-37",
+            "producto": "Jaula de hámster town house III 27 x 21 x 45 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1561:11355 [Jaula town house III cafe 27 x 21 x 45 cm] || 1562:11353 [Jaula town house III azul 27 x 21 x 45 cm] || 1563:11354 [Jaula town house III rosa 27 x 21 x 45 cm]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=27 cm | 45 cm | 21 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1456",
+            "codigo_producto": "MP070801",
+            "producto": "Arenero tapado",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1586:MP070801 [Arenero chico con tapa] || 1587:MP070801-RO [Arenero tapado roja] || 1588:MP070801-AL [Arenero tapado azul]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=35 cm | 55 cm | 38 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1458",
+            "codigo_producto": "11302",
+            "producto": "Jaula hámster (minito) 23 x 17 x 28 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1591:11302 [Jaula cosset III 23 x 17 x 28 cm azul] || 1592:11302-RA [Jaula hámster minito rosa] || 1593:11302-CE [Jaula hámster minito cafe]",
+            "firma_atributos": "ATR-ALTO=28 || ATR-ANCHO=17 || ATR-LARGO=23 || ECOM-ATR-794544c88ec2aa0f=23 cm | 17 cm | 28 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1464",
+            "codigo_producto": "315A",
+            "producto": "jaula redonda para aves 33 x 38 cm diametro",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1609:315A-BO [jaula esfera blanca para pajaro] || 1610:315A-AO [Jaula esfera amarilla para pajaro] || 1611:315A-AL [Jaula esfera azul para pajaro]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=39 cm | 45 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1466",
+            "codigo_producto": "FL8182",
+            "producto": "Tazon comedero para mascotas 16 Oz (454 gr)",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1617:FL8182 [Plato tazón comedero 16 oz 454 gr] || 1618:FL8182-RA [Tazon comedero para mascotas 16Oz rosa] || 1619:FL8182-VE [Tazon comedero para mascotas 16Oz verde]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=450 gr || ECOM-ATR-f6a4bdd3a66fc668=450 gr",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1477",
+            "codigo_producto": "ECOM-REV-145",
+            "producto": "Arenero royal 52 x 40 x 39 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1652:SH-230902 [Royal arenero funcional] || 1653:SH-230903 [Bambu arenero con tunel] || 1687:SH-230902-AL [Arénero royal azul]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=39 cm | 40 cm | 52 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1480",
+            "codigo_producto": "SH-230718",
+            "producto": "Arenero frida azul 48.5 x 34 x 34 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1658:SH-230718-BO [Arenero frida azul blanco] || 1659:SH-230718-VE [Arenero frida amarilloverde] || 1686:SH-230718-GS [Arenero frida grisrosa]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=34 cm | 48.5 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1481",
+            "codigo_producto": "FL9077",
+            "producto": "Arenero eston 50 x 35 x 33 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1660:FL9077 [Arenero eston rosa] || 1661:FL9077-AL [Arenero eston azul] || 1662:FL9077-VE [Arenero eston verde]",
+            "firma_atributos": "ATR-COLOR=#2E3B92 || ATR-COLOR=#8EB8A1 || ATR-COLOR=#E67F8D || ECOM-ATR-794544c88ec2aa0f=35 cm | 33 cm | 50 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1483",
+            "codigo_producto": "ECOM-REV-165",
+            "producto": "Rascadero mei mediano 48 x 48 x 75 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1665:PI0710-0270 [Rascadero mei mediano cafe] || 1666:PI0710-0275 [Rascadero mei mediano negro] || 1667:PI0710-0262 [Rascadero mei mediano gris]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=75 cm | 48 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1563",
+            "codigo_producto": "ALI-ZOBA1KG",
+            "producto": "Zophoba 1 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1802:ALI-ZOBA1KG [Alimento vivo larva de zophoba (gusano rey) 1 kg] || 1803:ALI-ZOBAPZ [Alimento vivo larva de zophoba (gusano rey) pieza] || 1804:ALI-ZOBA1000PZ [Alimento vivo larva de zophoba (gusano rey) millar]",
+            "firma_atributos": "ECOM-ATR-72a9d2fa76902965=1000 || ECOM-ATR-e69136146f965d5b=1 kg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1566",
+            "codigo_producto": "SUET-GATOS25KG",
+            "producto": "Alimento revoltura de granos",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1810:SUET-GATOS25KG [Alimento revoltura de granos 25 kg] || 1811:SUET-GATOSKG [Alimento revoltura de granos 1 kg] || 1902:SUET-GATOS25KG-KG [Alimento revoltura de granos kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1567",
+            "codigo_producto": "A02877",
+            "producto": "Nutricubos CB 20 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1812:A02877 [Nutricubos CB 20 kg] || 1813:A02877-500G [Alimento nutricubo para roedores 500 gr] || 1901:A02877-KG [Alimento nutricubo para roedores kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1599",
+            "codigo_producto": "11396",
+            "producto": "11396 SEVENPET MANSION AZUL 60X36X42 CM (4)",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1850:11398 [11398 SEVENPET MANSION BLANCA 60X36X42 CM (4)] || 1851:11397 [11397 SEVENPET MANSION ROSA 60X36X42 CM (4)] || 1852:11396 [11396 SEVENPET MANSION AZUL 60X36X42 CM (4)]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1600",
+            "codigo_producto": "11392",
+            "producto": "11392 SEVENPET MANSION BLANCA 47.5X29.5X31.5 CM (12)",
+            "maneja_variantes": "1",
+            "skus_activos": "3",
+            "skus": "1853:11392 [11392 SEVENPET MANSION BLANCA 47.5X29.5X31.5 CM (12)] || 1854:11391 [11391 SEVENPET MANSION ROSA 47.5X29.5X31.5 CM (12)] || 1855:11390 [11390 SEVENPET MANSION AZUL 47.5X29.5X31.5 CM (12)]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "13",
+            "codigo_producto": "ECOM-VAR-17",
+            "producto": "Jaula hámster toky café",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "26:SP-3644 [Jaula hamster cafe 35 x26 x 33 cm] || 27:SP-3645 [Jaula hamster rosa 36 x 26 x 33 cm]",
+            "firma_atributos": "ATR-ALTO=33 || ATR-ANCHO=25.5 || ATR-ANCHO=25.6 || ATR-LARGO=35.5 || ECOM-ATR-794544c88ec2aa0f=33 cm | 35.5 cm | 25.5 cm || ECOM-ATR-794544c88ec2aa0f=33 cm | 35.5 cm | 25.6 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "14",
+            "codigo_producto": "ECOM-VAR-19",
+            "producto": "Jaula hámster naranja 27x 21 x 33cm",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "29:10348 [Jaula hámster azul 27 x 21 x 33cm] || 31:10349 [Jaula hámster rosa 27 x 21 x 33cm]",
+            "firma_atributos": "ATR-ALTO=33 || ATR-ANCHO=21 || ATR-LARGO=27 || ECOM-ATR-794544c88ec2aa0f=27 cm | 33 cm | 21 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "18",
+            "codigo_producto": "ECOM-VAR-23",
+            "producto": "Jaula hámster infinity 24 x 18 x 30 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "41:SP-3637 [Jaula hamster verde 24 x 18 x 30 cm] || 42:SP-3636 [Jaula plastica para hamster hamster land naranja 24.1 x 18.3 x 30.1 cm]",
+            "firma_atributos": "ATR-ALTO=30.1 || ATR-ANCHO=18.3 || ATR-LARGO=24.1 || ECOM-ATR-794544c88ec2aa0f=30.1 cm | 18.3 cm | 24.1 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "22",
+            "codigo_producto": "ECOM-VAR-27",
+            "producto": "Cama antiestrés chica para mascotas",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "61:PI0101-0025 [Cama antiestrés chica para mascotas] || 62:PI0101-0026 [Cama antiestrés chica para mascotas]",
+            "firma_atributos": "ATR-ALTO=12 || ATR-DIAMETRO=45 || ECOM-ATR-794544c88ec2aa0f=12 cm | 45 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "26",
+            "codigo_producto": "ECOM-VAR-32",
+            "producto": "Cama ruy mediana multicolor",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "81:PI0107-0107 [Cama ruy mediana multicolor] || 82:PI0107-0106 [Cama ruy mediana galaxia]",
+            "firma_atributos": "ATR-ANCHO=50 || ATR-LARGO=75 || ECOM-ATR-794544c88ec2aa0f=50 cm | 75 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "30",
+            "codigo_producto": "ECOM-VAR-41",
+            "producto": "Cama antiestrés extra grande para mascotas",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "94:PI0101-0060 [Cama antiestrés extra grande para mascotas] || 95:PI0101-0058 [Cama antiestrés extra grande para mascotas]",
+            "firma_atributos": "ATR-ALTO=20 || ATR-DIAMETRO=100 || ECOM-ATR-794544c88ec2aa0f=20 cm | 100 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "31",
+            "codigo_producto": "ECOM-VAR-42",
+            "producto": "Casa cama panal gris para mascotas",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "96:PI0320-0360 [Casa cama panal gris para mascotas] || 97:PI0320-0359 [Casa cama panal cafe para mascotas]",
+            "firma_atributos": "ATR-ALTO=33 || ATR-DIAMETRO=42 || ECOM-ATR-794544c88ec2aa0f=33 cm | 42 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "33",
+            "codigo_producto": "ECOM-VAR-44",
+            "producto": "Arenero grande contorno blanco rosa",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "102:7681 [Arenero deluxe II rosa con pala 47 x 39 x 18.5 cm] || 103:7684 [Arenero deluxe II azul con pala 47 x 39 x 18.5 cm]",
+            "firma_atributos": "ATR-ALTO=18.5 || ATR-ANCHO=39 || ATR-LARGO=47 || ECOM-ATR-794544c88ec2aa0f=39 cm | 47 cm | 18.5 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "35",
+            "codigo_producto": "ECOM-VAR-46",
+            "producto": "Arenero italiano cafe",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "109:19120 [Arenero italiano cafe] || 110:19121 [Arenero italiano gris]",
+            "firma_atributos": "ATR-ALTO=39.6 || ATR-ANCHO=50.5 || ATR-LARGO=41.8 || ECOM-ATR-794544c88ec2aa0f=41.8 cm | 50.5 cm | 39.6 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "36",
+            "codigo_producto": "ECOM-VAR-48",
+            "producto": "Arenero caty ros",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "111:98681 [Arenero cathy] || 112:98675 [Arenero cathy linea ecológica gris]",
+            "firma_atributos": "ATR-ALTO=40 || ATR-ANCHO=40 || ATR-LARGO=56 || ECOM-ATR-794544c88ec2aa0f=56 cm | 40 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "41",
+            "codigo_producto": "ECOM-VAR-75",
+            "producto": "Esquinero baño tringular",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "125:CON-04 [Esquinero baño tringular] || 126:RJ121 [Baño para conejos esquina 24 x 18 x 11 cm]",
+            "firma_atributos": "ATR-ALTO=10 || ATR-ANCHO=18 || ATR-LARGO=25 || ECOM-ATR-794544c88ec2aa0f=25 cm | 18 cm | 10 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "42",
+            "codigo_producto": "ECOM-VAR-79",
+            "producto": "Transportadora eco rosa",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "127:TRA-27 [Transportadora eco rosa] || 128:TRA-27NE [Transportadora eco negra]",
+            "firma_atributos": "ATR-ALTO=29 || ATR-ANCHO=31 || ATR-LARGO=46 || ECOM-ATR-794544c88ec2aa0f=29 cm | 31 cm | 46 cm",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "43",
+            "codigo_producto": "ECOM-VAR-93",
+            "producto": "Arenero blak azul",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "129:ARO-43 [Arenero blak azul] || 130:ARO-43MO [Arenero blak morado]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "102",
+            "codigo_producto": "ECOM-72",
+            "producto": "Heno de avena alimento por paca",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "198:FOALBA-PANA [Heno de avena alimento por paca] || 1807:FOALBA-PANA-KG [Heno de avena alimento 1 kg]",
+            "firma_atributos": "ECOM-ATR-e69136146f965d5b=14 kg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "120",
+            "codigo_producto": "ECOM-105",
+            "producto": "Sustrato de papel natural grande para roedor",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "216:413568 [Sustrato papel natural paper bedding 56 litros] || 1506:SUSP-08 [Sustrato de papel cafe para roedores de 300 gr]",
+            "firma_atributos": "ATR-ALTO=35 || ATR-ANCHO=14 || ATR-LARGO=33 || ECOM-ATR-61e013836eeb3dc9=56 L || ECOM-ATR-794544c88ec2aa0f=33 cm | 14 cm | 35 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "440",
+            "codigo_producto": "PERA-5030",
+            "producto": "Pecera 50 x 26 x 30 cm 3 mm 39 litros",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "536:PERA-5030 [Pecera 50 x 26 x 30 cm 3 mm 39 litros] || 1764:PER-05-01 [Pecera 50 x 26 x 40 cm con tapa]",
+            "firma_atributos": "ATR-ALTO=31 || ATR-ANCHO=27 || ATR-LARGO=51 || ECOM-ATR-794544c88ec2aa0f=51 cm | 31 cm | 27 cm || ECOM-ATR-fccc8f9fde7b6108=3 mm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "697",
+            "codigo_producto": "ECOM-1019",
+            "producto": "Nupec Croqueta Costal Adulto Nutrición Canina Científica 20 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "793:NUEC-A20K [Nupec Croqueta Costal Adulto Nutrición Canina Científica 20 kg] || 1877:NUEC-A20K-GRANEL [Nupec Croqueta Costal Adulto Nutrición Canina Científica kg]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=20 kg",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "962",
+            "codigo_producto": "ECOM-1378",
+            "producto": "Heno de alfalfa natural por paca",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1058:FOHRS-PAFA [Heno de alfalfa natural por paca] || 1793:FOHRS-PAFAKG [Heno de alfalfa 1 kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1000",
+            "codigo_producto": "71135",
+            "producto": "Heno avena Timothy 250 gr para desgaste dental",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1096:71135-250GR [Heno avena Timothy 250 gr para desgaste dental] || 1763:71135 [Premium heno timothy standlee 20 lb 9 kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1109",
+            "codigo_producto": "ECOM-1560",
+            "producto": "Nupec Croqueta Costal Cachorro Nutrición Canina Científica 20 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1205:NUEC-C20K [Nupec Croqueta Costal Cachorro Nutrición Canina Científica 20 kg] || 1786:NUEC-C20K-GRANEL [Nupec Croqueta Costal Cachorro Nutrición Canina Científica 20 kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1113",
+            "codigo_producto": "ECOM-1564",
+            "producto": "Nupec Croqueta Costal Cachorro Razas pequeñas Nutrición Canina Científica 8 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1209:NUEC-CRP8K [Nupec Croqueta Costal Cachorro Razas pequeñas Nutrición Canina Científica 8 kg] || 1823:NUEC-CRP8K-GRANEL [Nupec Croqueta Costal Cachorro Razas pequeñas Nutrición Canina Científica]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=8 kg || ECOM-ATR-d0191b33d58b824e=",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1118",
+            "codigo_producto": "ECOM-1569",
+            "producto": "Cluster Rack Nupec Alimento Húmedo Digestivo con Pescado 16 Latas 100 gr c\/u",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1178:610871 [Lata Nupec Digestivo con Pescado Alimento húmedo 100 gr] || 1214:NUEC-CLERDIVE [Cluster Rack Nupec Alimento Húmedo Digestivo con Pescado 16 Latas 100 gr c\/u]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=100 gr",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1119",
+            "codigo_producto": "ECOM-1570",
+            "producto": "Cluster Rack Nupec Alimento Húmedo Cachorro Alto en Pollo 16 Latas 100 gr c\/u",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1185:LAT-02 [Lata Nupec Cachorro Alto en Pollo Alimento húmedo] || 1215:NUEC-CLERPPY [Cluster Rack Nupec Alimento Húmedo Cachorro Alto en Pollo 16 Latas 100 gr c\/u]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1120",
+            "codigo_producto": "ECOM-1571",
+            "producto": "Cluster Rack Nupec Alimento Húmedo Senior con Carne y Pollo 16 Latas 100 gr c\/u",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1186:610866 [Lata Nupec Senior con Carne y Pollo Alimento húmedo 100 gr] || 1216:NUEC-CLERSEOR [Cluster Rack Nupec Alimento Húmedo Senior con Carne y Pollo 16 Latas 100 gr c\/u]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1121",
+            "codigo_producto": "ECOM-1572",
+            "producto": "Cluster Rack Nupec Alimento Húmedo Weight Control (Control de peso) con Carne y Pollo 16 Latas 100 gr c\/u",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1187:610869 [Lata Nupec Weight Control (Control de peso) con Carne y Pollo Alimento húmedo 100 gr] || 1217:NUEC-CLERWEOL [Cluster Rack Nupec Alimento Húmedo Weight Control (Control de peso) con Carne y Pollo 16 Latas 100 gr c\/u]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1122",
+            "codigo_producto": "ECOM-1573",
+            "producto": "Cluster Rack Nupec Alimento Húmedo Felino Indoor (Gato interior) con Carne y Pollo 16 Latas 100 gr c\/u",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1188:619875 [Lata Nupec Felino Indoor (Gato interior) con Carne y Pollo Alimento húmedo 100 gr] || 1218:NUEC-CLERFEOR [Cluster Rack Nupec Alimento Húmedo Felino Indoor (Gato interior) con Carne y Pollo 16 Latas 100 gr c\/u]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1123",
+            "codigo_producto": "ECOM-1574",
+            "producto": "Cluster Rack Nupec Alimento Húmedo Felino Urinary (Gato problema urinario) con Pescado y Arándanos 16 Latas 100 gr c\/u",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1190:610879 [Lata Nupec Felino Urinary (Gato urinario) con Pescado y Arándanos Alimento húmedo 100 gr] || 1219:NUEC-CLERFEURRY [Cluster Rack Nupec Alimento Húmedo Felino Urinary (Gato problema urinario) con Pescado y Arándanos 16 Latas 100 gr c\/u]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1124",
+            "codigo_producto": "ECOM-1575",
+            "producto": "Cluster Rack Nupec Alimento Húmedo Felino Hairball (Gato bola de pelo) con Pescado 16 Latas 100 gr c\/u",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1220:NUEC-CLERFEHALL [Cluster Rack Nupec Alimento Húmedo Felino Hairball (Gato bola de pelo) con Pescado 16 Latas 100 gr c\/u] || 1729:610877 [Lata Nupec Felino Hairball (Gato bola de pelo) con Pescado Alimento húmedo 100 gr]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1125",
+            "codigo_producto": "ECOM-1576",
+            "producto": "Cluster Rack Nupec Alimento Perro Adulto Carne con Verduras",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1221:NUEC-CLERADTO [Cluster Rack Nupec Alimento Perro Adulto Carne con Verduras 16 Latas 100 gr c\/u] || 1728:610691 [Lata Nupec Adulto con Carne con Verduras Alimento húmedo 100 gr]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1126",
+            "codigo_producto": "ECOM-1577",
+            "producto": "Cluster Rack Nupec Alimento Húmedo KITTEN (Gatito) con Carne y Pollo 16 Latas 100 gr c\/u",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1189:LAT-07 [Lata Nupec Felino Kitten (Gatito) con Carne y Pollo Alimento húmedo] || 1222:NUEC-CLERFEEN [Cluster Rack Nupec Alimento Húmedo KITTEN (Gatito) con Carne y Pollo 16 Latas 100 gr c\/u]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1157",
+            "codigo_producto": "ECOM-1615",
+            "producto": "Nucan by Nupec Croqueta Costal Adulto 25 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1253:NUAN-ARMG25K [Alimento croqueta razas medianas a grandes nucan (por nupec) adulto 25 kg] || 1836:NUAN-ARMG25K-GRANEL [Alimento croqueta nucan (por nupec) adulto kg]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1444",
+            "codigo_producto": "ECOM-1928",
+            "producto": "Base rectangular de herreria para pecera de 30 x 15 x 70 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1543:BAROSA-PD3015 [Base rectangular de herreria para pecera de 30 x 15 cm con diseño de lineas rectas] || 1544:BAROSA-PD3015H [Base rectangular de herreria para pecera de 30 x 15 x 70 cm altura diseño de hondas]",
+            "firma_atributos": "VAR-6BC4688D611B=Lineas curvas || VAR-6BC4688D611B=Lineas rectas",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1450",
+            "codigo_producto": "ECOM-REV-39",
+            "producto": "Cama rudy chica 65 x 42 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1564:PI0107-0101 [Cama ruy chica galaxia] || 1565:PI0107-0102 [Cama ruy chica multicolor]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=42 cm | 65 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1453",
+            "codigo_producto": "ECOM-REV-49",
+            "producto": "Cama rudy grande 90 x 65 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1574:PI0208-0185 [Cama ruy grande galaxia] || 1575:PI0208-0189 [Cama ruy grande multicolor]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=90 cm | 65 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1454",
+            "codigo_producto": "ECOM-REV-51",
+            "producto": "Cama antiestrés fluffy hippie grande 75 cm (diametro) x 20 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1576:PI0101-0051 [Cama antiestrés grande para mascotas] || 1577:PI0102-0074 [Cama antiestrés grande para mascotas]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=20 cm | 75 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1457",
+            "codigo_producto": "DY513B",
+            "producto": "Jaula hámster fantastica",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1589:DY513B-RA [Jaula hámster fantastica] || 1590:DY513B-GS [Jaula hámster fantastica gris]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=47 cm | 30 cm | 37 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1459",
+            "codigo_producto": "96180",
+            "producto": "Transportadora mid mediana gris",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1594:96180 [Transportadora mediana gulliver gris con blanco] || 1595:96176 [Transportadora mid gulliver azul con blanco]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=28 cm | 31 cm | 42 cm || ECOM-ATR-794544c88ec2aa0f=42 cm | 28 cm | 31 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1470",
+            "codigo_producto": "ECOM-REV-123",
+            "producto": "Arenero catyclean 56 x 40 x 40 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1633:98649 [Arenero cathy easy clean azul] || 1634:98686 [Arenero cathy easy clean]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=40 cm | 56 cm || ECOM-ATR-794544c88ec2aa0f=56 cm | 40 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1473",
+            "codigo_producto": "GPARENM",
+            "producto": "Arenero tina",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1644:GPARENM-VE [Arenero tina] || 1645:GPARENM-GS [Arenero tina gris]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=16 cm | 50 cm | 41 cm || ECOM-ATR-794544c88ec2aa0f=50 cm | 41 cm | 16 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1474",
+            "codigo_producto": "MP080403",
+            "producto": "Arenero marco plus chico",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1646:MP080403 [Arenero chico con marco] || 1647:MP080403-RO [Arenero plus chico rojo]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=10 cm | 40 cm | 25 cm || ECOM-ATR-794544c88ec2aa0f=25 cm | 40 cm | 10 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1475",
+            "codigo_producto": "SCA-601",
+            "producto": "Arenero tinai 51.3 x 39 x 24.3",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1648:SCA-601 [Arenero con rejilla para limpieza de patas de gato 51.3 x 39 x 24.3 cm] || 1649:SCA-601-AL [Arenero tina anti derrame de arena azul]",
+            "firma_atributos": "ATR-ALTO=24.3 || ATR-ANCHO=39 || ATR-COLOR=#61A5FF || ATR-COLOR=#FEA9F7 || ECOM-ATR-794544c88ec2aa0f=39 cm | 51.3 cm | 24.3 cm || ECOM-ATR-794544c88ec2aa0f=51.3 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1476",
+            "codigo_producto": "SH-230133",
+            "producto": "Arenero aqua 45 x 34 x 39 cm",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1650:SH-230133-RA [Arenero aqua] || 1651:SH-230133-VE [Arenero aqua verde]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=39 cm | 34 cm | 45 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1478",
+            "codigo_producto": "SH-230904",
+            "producto": "Arenero oveja mamba naranja",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1654:SH-230904-NA [Arenero ovejamamba naranja] || 1655:SH-230904-MO [Arenero ovejamamba  morado]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=41 cm | 38 cm | 53 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1479",
+            "codigo_producto": "ECOM-REV-151",
+            "producto": "Arenero furba triple",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1656:800350797763 [Arenero furba triple] || 1657:800350797764 [Arenero furba triple verde]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=39 cm | 59 cm | 22 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1482",
+            "codigo_producto": "ECOM-REV-163",
+            "producto": "Rascadero banco",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1663:PI0710-0261 [Rascadero banco gris] || 1664:PI0710-0250 [Rascadero banco cafe]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=50 cm | 44 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1485",
+            "codigo_producto": "RJ120",
+            "producto": "Bañera casa para hámster 13 x 9 x 9 cm altura",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1672:RJ120 [Baño para hamster 13 x 9 x 9 cm] || 1673:RJ120-VE [Bañera casa para hámster verde]",
+            "firma_atributos": "ATR-COLOR=#007BD2 || ATR-COLOR=#4FFF8A || ECOM-ATR-794544c88ec2aa0f=13 cm | 9 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        },
+        {
+            "id_producto_erp": "1486",
+            "codigo_producto": "FL8262",
+            "producto": "Juguete para gato caña tira multiple",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1674:FL8262 [Juguete oruga catch] || 1675:FL8262-MO [Juguete para gato cañatira morada]",
+            "firma_atributos": "ATR-COLOR=#00BD42 || ATR-COLOR=#8800A3",
+            "propuesta": "revision_identidad"
+        },
+        {
+            "id_producto_erp": "1507",
+            "codigo_producto": "RJ539",
+            "producto": "Comedero dispensador de alimento",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1700:RJ539 [Alimentador de hamster 200 ml] || 1701:RJ539-RA [Comedero alimentador para hámster rosa]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=12.5 cm | 7 cm | 13 cm || ECOM-ATR-f6a4bdd3a66fc668=200 ml",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1510",
+            "codigo_producto": "DYNV",
+            "producto": "Disco giratorio ejercitador",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1704:DYNV04 [Juguete disco chico ejercitador para hamster] || 1705:DYNV05 [Juguete disco ejercitador grande para hamster]",
+            "firma_atributos": "ECOM-ATR-151dc69112bfcb7d=12.7 cm || ECOM-ATR-151dc69112bfcb7d=18 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1523",
+            "codigo_producto": "FL7981",
+            "producto": "Lampara mini nano blanca",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1724:FL7981 [Lampara blanca led nano 1.5 w] || 1725:FL7980 [Lampara negra led nano 1.5 w]",
+            "firma_atributos": "ECOM-ATR-794544c88ec2aa0f=9 cm | 6 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1524",
+            "codigo_producto": "ECOM-REV-185",
+            "producto": "Larva de mosca soldado 30 gr",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1726:FL4070 [Reptilia larva de mosca soldado 30 gr] || 1727:FL4046 [Redkite larva de mosca soldado 30 gr]",
+            "firma_atributos": "ECOM-ATR-57bb4b485f52628a=30 gr",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1527",
+            "codigo_producto": "LLAG",
+            "producto": "Llaveros 3D de gato articulado",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1731:LLAG-AOBO [Llavero 3D de gato articulado amarillo con blanco] || 1732:LLAG-BOMN [Llavero 3D de gato articulado blanco manchas naranjas]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1534",
+            "codigo_producto": "GPRH1",
+            "producto": "Rueda para hámster con base verde",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1740:GPRH1-VEP [Rueda para hámster con base verde] || 1741:GPRH1-VEN [Rueda para hámster con base amarilla]",
+            "firma_atributos": "ECOM-ATR-151dc69112bfcb7d=14 cm",
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1550",
+            "codigo_producto": "ALA-0012",
+            "producto": "Palo Plastico Paradero Rustico 30cm (2piezas)",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1768:ALA-0012 [Palo Plastico Paradero Rustico 30cm (2piezas)] || 1773:ALA-0012-1P [Palo Plastico Paradero Rustico 30cm (1 pieza)]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1552",
+            "codigo_producto": "26A31",
+            "producto": "Larva de Mosca Soldado Negro Deshidratada (Hermetia illucens) - Black Soldier Fly Larvae - 500g",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1770:26A31 [Larva de Mosca Soldado Negro Deshidratada (Hermetia illucens) - Black Soldier Fly Larvae - 500g] || 1774:26A31-30G [Larva de Mosca Soldado Negro Deshidratada (Hermetia illucens) - Black Soldier Fly Larvae - 30 g]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1553",
+            "codigo_producto": "ALA-0019",
+            "producto": "Mosco Seco Deshidratado (Alimento Mascotas) - 1 kg",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1771:ALA-0019 [Mosco Seco Deshidratado (Alimento Mascotas) - 1 kg] || 1775:ALA-0019-30G [Mosco Seco Deshidratado (Alimento Mascotas) - 30 g]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1554",
+            "codigo_producto": "24A07",
+            "producto": "Tenebrio Molitor (Gusano De La Harina) Deshidratado - Dehydrated mealworms - 500g",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1772:24A07 [Tenebrio Molitor (Gusano De La Harina) Deshidratado - Dehydrated mealworms - 500g] || 1776:24A07-30G [Tenebrio Molitor (Gusano De La Harina) Deshidratado - Dehydrated mealworms - 30 g]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1562",
+            "codigo_producto": "FOHRS-SAAL",
+            "producto": "Salvado natural",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "1794:FOHRS-SAAL [Salvado natural] || 1795:FOHRS-SAAL-100G [Salvado natural para tenebrios]",
+            "firma_atributos": null,
+            "propuesta": "variantes_sin_atributos"
+        },
+        {
+            "id_producto_erp": "1627",
+            "codigo_producto": "415562",
+            "producto": "ÜBER CONFETI PAPER BEDDING 56L",
+            "maneja_variantes": "1",
+            "skus_activos": "2",
+            "skus": "215:415364 [Sustrato papel confeti paper bedding 36 litros] || 1911:415562 [Sustrato papel confeti paper bedding 56 litros]",
+            "firma_atributos": "ATR-ALTO=40 || ATR-ANCHO=10 || ATR-LARGO=22 || ECOM-ATR-61e013836eeb3dc9=36 L || ECOM-ATR-794544c88ec2aa0f=22 cm | 10 cm | 40 cm",
+            "propuesta": "posible_presentacion_o_medida"
+        }
+    ],
+    "relaciones": {
+        "presentaciones": [],
+        "aperturas": [
+            {
+                "id_sku_origen": "146",
+                "sku_origen": "TP-40372",
+                "id_sku_destino": "1924",
+                "sku_destino": "TP-40372-GRANEL",
+                "factor_conversion": "4.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "628",
+                "sku_origen": "KMITA10",
+                "id_sku_destino": "1926",
+                "sku_destino": "KMITA10-GRANEL",
+                "factor_conversion": "10.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "700",
+                "sku_origen": "ALI-TEBRIO1K",
+                "id_sku_destino": "1884",
+                "sku_destino": "ALI-TEBRIO1K-PZA",
+                "factor_conversion": "6500.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "0",
+                "conserva_caducidad": "0"
+            },
+            {
+                "id_sku_origen": "793",
+                "sku_origen": "NUEC-A20K",
+                "id_sku_destino": "1877",
+                "sku_destino": "NUEC-A20K-GRANEL",
+                "factor_conversion": "1.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1112",
+                "sku_origen": "TP-40352",
+                "id_sku_destino": "1925",
+                "sku_destino": "TP-40352-GRANEL",
+                "factor_conversion": "4.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1113",
+                "sku_origen": "TP-40311",
+                "id_sku_destino": "2001",
+                "sku_destino": "TP-40311-GRANEL",
+                "factor_conversion": "4.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1205",
+                "sku_origen": "NUEC-C20K",
+                "id_sku_destino": "1786",
+                "sku_destino": "NUEC-C20K-GRANEL",
+                "factor_conversion": "20.000000",
+                "requiere_unidad_fisica": "1",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1209",
+                "sku_origen": "NUEC-CRP8K",
+                "id_sku_destino": "1823",
+                "sku_destino": "NUEC-CRP8K-GRANEL",
+                "factor_conversion": "1.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1220",
+                "sku_origen": "NUEC-CLERFEHALL",
+                "id_sku_destino": "1729",
+                "sku_destino": "610877",
+                "factor_conversion": "16.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1221",
+                "sku_origen": "NUEC-CLERADTO",
+                "id_sku_destino": "1728",
+                "sku_destino": "610691",
+                "factor_conversion": "16.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1253",
+                "sku_origen": "NUAN-ARMG25K",
+                "id_sku_destino": "1836",
+                "sku_destino": "NUAN-ARMG25K-GRANEL",
+                "factor_conversion": "1.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1710",
+                "sku_origen": "GRAVA-5",
+                "id_sku_destino": "2011",
+                "sku_destino": "GRAVA-5-GRANEL",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1711",
+                "sku_origen": "GRAVA-2",
+                "id_sku_destino": "2012",
+                "sku_destino": "GRAVA-2-GRANEL",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1712",
+                "sku_origen": "GRAVA-6",
+                "id_sku_destino": "2013",
+                "sku_destino": "GRAVA-6-GRANEL",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1713",
+                "sku_origen": "GRAVA-14",
+                "id_sku_destino": "2016",
+                "sku_destino": "GRAVA-14-GRANEL",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1714",
+                "sku_origen": "GRAVA-32",
+                "id_sku_destino": "2018",
+                "sku_destino": "GRAVA-32-GRANEL",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1715",
+                "sku_origen": "GRAVA-1",
+                "id_sku_destino": "2014",
+                "sku_destino": "GRAVA-1-GRANEL",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1716",
+                "sku_origen": "GRAVA-4",
+                "id_sku_destino": "2015",
+                "sku_destino": "GRAVA-4-GRANEL",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1717",
+                "sku_origen": "GRAVA-25",
+                "id_sku_destino": "2017",
+                "sku_destino": "GRAVA-25-GRANEL",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1802",
+                "sku_origen": "ALI-ZOBA1KG",
+                "id_sku_destino": "1803",
+                "sku_destino": "ALI-ZOBAPZ",
+                "factor_conversion": "1100.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "0",
+                "conserva_caducidad": "0"
+            },
+            {
+                "id_sku_origen": "1810",
+                "sku_origen": "SUET-GATOS25KG",
+                "id_sku_destino": "1902",
+                "sku_destino": "SUET-GATOS25KG-KG",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            },
+            {
+                "id_sku_origen": "1812",
+                "sku_origen": "A02877",
+                "id_sku_destino": "1901",
+                "sku_destino": "A02877-KG",
+                "factor_conversion": "20.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "0",
+                "conserva_caducidad": "0"
+            },
+            {
+                "id_sku_origen": "1814",
+                "sku_origen": "PROD0965",
+                "id_sku_destino": "1887",
+                "sku_destino": "PROD0965-KG",
+                "factor_conversion": "25.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "0",
+                "conserva_caducidad": "0"
+            },
+            {
+                "id_sku_origen": "1815",
+                "sku_origen": "PROD1023",
+                "id_sku_destino": "1899",
+                "sku_destino": "PROD1023-KG",
+                "factor_conversion": "10.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "0",
+                "conserva_caducidad": "0"
+            },
+            {
+                "id_sku_origen": "1816",
+                "sku_origen": "PROD1004",
+                "id_sku_destino": "1888",
+                "sku_destino": "PROD1004-KG",
+                "factor_conversion": "20.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "0",
+                "conserva_caducidad": "0"
+            },
+            {
+                "id_sku_origen": "1817",
+                "sku_origen": "PROD1038",
+                "id_sku_destino": "1886",
+                "sku_destino": "PROD1038-KG",
+                "factor_conversion": "10.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "0",
+                "conserva_caducidad": "0"
+            },
+            {
+                "id_sku_origen": "1827",
+                "sku_origen": "INOS-PESS",
+                "id_sku_destino": "1885",
+                "sku_destino": "INOS-PESS-KG",
+                "factor_conversion": "30.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "0",
+                "conserva_caducidad": "0"
+            },
+            {
+                "id_sku_origen": "1906",
+                "sku_origen": "TP-76700",
+                "id_sku_destino": "2006",
+                "sku_destino": "TP-76700-GRANEL",
+                "factor_conversion": "5.000000",
+                "requiere_unidad_fisica": "0",
+                "conserva_lote": "1",
+                "conserva_caducidad": "1"
+            }
+        ],
+        "paquetes": [
+            {
+                "id_paquete": "2",
+                "id_sku": "1764",
+                "sku": "PER-05-01",
+                "nombre": "Pecera 50 x 26 x 40 cm con tapa",
+                "tipo_paquete": "simple",
+                "modo_disponibilidad": "por_componentes",
+                "permite_configuracion_cliente": "1",
+                "componentes_activos": "2"
+            }
+        ]
+    },
+    "limitaciones": {
+        "propuesta_no_es_decision": true,
+        "nombres_son_pista": true,
+        "no_se_infieren_variantes_solo_por_texto": true,
+        "requiere_validacion_fisica_o_documental": true
+    }
+}

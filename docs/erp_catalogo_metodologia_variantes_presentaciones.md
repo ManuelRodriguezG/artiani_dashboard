@@ -1,7 +1,7 @@
 # ERP Catalogo - Metodologia de variantes, atributos y derivados
 
 Documentacion IA: Codex GPT-5
-Fecha: 2026-10-23
+Fecha: 2026-10-24
 Estado: metodologia propuesta; no implica migraciones ni cambios masivos.
 Alcance: Catalogo ERP, SKU, presentaciones, aperturas, paquetes y Ecommerce.
 
@@ -385,13 +385,113 @@ la base al 2026-10-23:
 | `ECOM-5`: churro blanco con 25/50/100/500 g y SKU base | Candidato documentado en venta a granel | Mantener maestro; relacionar presentaciones y separar stock preparado/base |
 | `ECOM-1443`: churro rojo con SKU base y 500 g fraccionarios | Candidato documentado en venta a granel | Saneamiento de reglas; decidir presentacion vs granel antes de publicar |
 
+### Auditoria productiva 2026-10-24
+
+Se ejecuto `storage/uat/uat_catalogo_variantes_productivo_readonly.php` contra la
+conexion productiva definida por `SERVER_NAME`. El reporte usa transaccion
+`READ ONLY`, hace `ROLLBACK` y no ejecuta DDL ni endpoints de guardado.
+
+| Indicador | Resultado | Lectura de negocio |
+|---|---:|---|
+| Productos no fusionados | 1,691 | Universo maestro actual |
+| Productos que manejan variantes | 150 | No certifica que esten bien modelados |
+| SKUs no fusionados | 2,025 | Identidad operativa conservada |
+| SKUs activos | 1,966 | Universo que debe validarse para Ecommerce |
+| Productos con multiples SKUs activos | 144 | Candidatos a clasificar, no a convertir masivamente |
+| Productos con variantes sin atributo de variante | 92 | Prioridad alta de auditoria |
+| SKUs con venta fraccionaria | 26 | Revisar antes de publicar online |
+| Presentaciones activas | 0 | Las presentaciones comerciales no tienen relacion activa hoy |
+| Aperturas de empaque activas | 28 | Ya existe flujo cerrado/origen -> destino |
+| Paquetes activos | 1 | Revisar receta y contrato Ecommerce |
+
+En los 144 productos con multiples SKUs, la primera clasificacion automatizada
+read-only produjo 88 candidatos `variantes_sin_atributos`, 32 candidatos
+`posible_presentacion_o_medida` y 24 casos `revision_identidad`. Es una bandeja
+de trabajo, no una instruccion de conversion: la clasificacion final debe revisar
+la evidencia del SKU y la identidad comercial.
+
+### Hallazgos de atributos actuales
+
+Los atributos activos marcados como variante son `Alto`, `Ancho`, `Color`,
+`Diametro`, `Diseno`, `Largo`, `Presentacion` y `Talla`.
+
+- `Color` es un candidato correcto a selector cuando los SKUs comparten modelo,
+  funcion y medidas.
+- `Presentacion` esta marcada como variante y tiene 3 usos; por la regla de este
+  documento debe pasar a revision prioritaria y normalmente convertirse en dato
+  de presentacion/SKU derivado, no en selector de variante generico.
+- `Alto`, `Ancho`, `Diametro` y `Largo` tienen uso amplio. No deben apagarse en
+  bloque: en una cama o jaula pueden representar talla/medida elegible, pero en
+  un SKU unico son atributos tecnicos. Se requiere decidir por familia y producto.
+- `Talla` existe como atributo de variante, pero tiene 0 usos; puede conservarse
+  como vocabulario preparado, sin inventar asignaciones.
+- `Diseno` tiene solo 2 usos y codigo generado; requiere revisar si representa
+  color/estilo seleccionable o un texto administrativo.
+
+### Primeros candidatos de negocio
+
+- `GRAVA` (`id_producto_erp=1515`): cinco colores y cinco SKUs `GRANEL`. El color
+  puede ser variante real; los SKUs granel deben separarse como derivados de
+  apertura/presentacion. No deben compartir un selector generico.
+- `ECOM-5` (`id_producto_erp=50`): 4 kg, 500/25/50/100 g y 1 kg granel. Es un
+  producto maestro razonable, pero requiere relacion formal de presentaciones;
+  hoy el reporte muestra cero presentaciones activas. El SKU de 4 kg a granel sí
+  tiene apertura activa.
+- `ECOM-1443` y `ECOM-1444`: siguen el mismo patrón de alimento cerrado,
+  presentaciones pequeñas y granel. Clasificar por presentación/derivado, no por
+  color o texto de variante.
+- `Cama day chica` (`id_producto_erp=24`): seis colores con medidas constantes;
+  candidato fuerte a variante `Color`, sujeto a confirmar que no existan modelos
+  o telas distintas ocultas en los códigos.
+- `Jaula para mamifero decan` (`id_producto_erp=1445`): cinco colores con
+  atributos `Color`; candidato a variante real si las medidas, estructura y
+  accesorios son equivalentes.
+- `Rascadero mich sencillo` (`id_producto_erp=44`): nombres y códigos incluyen
+  colores, pero también hay dos SKUs grises y uno sin color; requiere revisión
+  manual antes de agrupar.
+- `Pez monja` (`id_producto_erp=1533`): siete SKUs con colores/morfos; puede ser
+  variante por color o línea de pez, pero requiere validar especie, proveedor,
+  disponibilidad y si Ecommerce debe venderlos como opciones separadas.
+- `Churu premios para gato` (`id_producto_erp=1141`): sabores/recetas son
+  posibles variantes, pero el bote de 50 piezas y 14 g no debe mezclarse sin
+  confirmar la relación entre paquete y sabores individuales.
+
+La clasificación de estos casos es propuesta inicial. No autoriza cambios de
+atributos, fusiones, relaciones, nombres, precios, inventario ni publicaciones.
+
+### Precondicion: conciliar SKU proveedor antes de variantes
+
+Para el piloto `ECOM-VAR-29` / `id_producto_erp=24` se ejecuto
+`storage/uat/uat_catalogo_sku_proveedor_producto_readonly.php` en producción.
+El resultado actual es:
+
+- seis SKUs internos activos;
+- seis relaciones activas con el proveedor `PERRUCHES`;
+- una relación por color, con códigos de proveedor iguales al SKU interno;
+- ninguna fila de lista histórica disponible para validar los códigos;
+- todos los registros con `factor_conversion=1.000001`,
+  `cantidad_minima=1.000001` y `costo_ultimo=0`.
+
+La relación uno-a-uno parece consistente por estructura, pero no prueba que cada
+color esté correctamente acomodado. Los factores y cantidades con `1.000001`
+son datos sospechosos que no deben corregirse automáticamente porque afectan
+Compras y Recepcion.
+
+Orden correcto del piloto:
+
+1. Obtener lista, factura, catálogo o fotografía de empaque del proveedor.
+2. Confirmar código proveedor, color, modelo, medidas y unidad de compra por SKU.
+3. Clasificar cada relación como conservar, corregir, duplicada, faltante o
+   revisar manualmente.
+4. Presentar el mapa antes/después y el impacto en Compras, costos y recepción.
+5. Autorizar y aplicar únicamente las relaciones confirmadas.
+6. Después de cerrar proveedor, definir `Color` como variante y preparar Ecommerce.
+
 ### Limitacion de la auditoria de esta sesion
 
-Se intentaron ejecutar scripts read-only del repositorio, pero el servicio local
-`mysqld` no estaba iniciado. No se inicio el servicio, no se ejecuto DDL y no se
-consulto una base alternativa. Por tanto, en esta sesion no se certifican conteos
-actuales, filas actuales ni nuevos candidatos. La siguiente auditoria debe correr
-con MySQL disponible y guardar solo un reporte read-only con:
+La auditoria productiva ya se ejecuto en modo read-only. No se inicio el servicio
+local, no se usaron credenciales alternativas y no se ejecuto DDL. La evidencia
+actual debe interpretarse con estas limitaciones:
 
 - conteo de productos maestros, SKUs y SKUs activos por producto;
 - productos con `maneja_variantes=1` sin firma completa;
@@ -468,10 +568,13 @@ Fecha: 2026-10-23
   atributos, relaciones, precios, inventario ni publicaciones.
 - Decisiones: peso/contenido/presentacion no son variantes genericas; aperturas y
   paquetes tienen relaciones propias; especie recomendada es atributo/filtro.
-- Evidencia: el esquema y contratos existentes soportan la separacion; los
-  conteos de candidatos son historicos y deben reconfirmarse.
-- Pendientes: ejecutar auditoria read-only con MySQL disponible; revisar 55/7/34 y
-  los candidatos de granel; definir vocabularios finales por familia.
+- Evidencia: el esquema y contratos existentes soportan la separacion; la
+  auditoria productiva reporto 1,691 productos, 2,025 SKUs no fusionados, 144
+  productos con multiples SKUs, 92 sin atributos de variante, 0 presentaciones
+  activas y 28 aperturas activas.
+- Pendientes: revisar `ATR-PRESENTACION`, decidir dimensiones por familia,
+  reconstruir relaciones de presentaciones comerciales y analizar candidatos de
+  color/medida/granel con evidencia documental.
 - Impacta a: Compras, Almacen/Inventario, Precios/Ventas y Ecommerce publico.
 - Siguiente paso: generar reporte tabular read-only por producto/SKU con evidencia,
   confianza y clasificacion propuesta; no aplicar cambios masivos.

@@ -60,6 +60,9 @@
             activarBuscadoresSelects(document);
             renderIncidenciasCalidad();
             var params = new URLSearchParams(window.location.search);
+            if (params.get("incidencia_calidad")) {
+                enfocarIncidenciaCalidad(params.get("incidencia_calidad"));
+            }
             if (!productoInicialAbierto && params.get("id_producto_erp")) {
                 productoInicialAbierto = true;
                 abrirDetalle(params.get("id_producto_erp"));
@@ -580,7 +583,7 @@
             if (permisos.editar && ["resuelta", "descartada"].indexOf(String(item.estatus || "")) >= 0) {
                 acciones += " <button class=\"btn btn-sm btn-light-warning\" type=\"button\" data-incidencia-estatus=\"" + escapeAttr(item.id_incidencia_calidad) + "\" data-estatus=\"pendiente\"><i class=\"bi bi-arrow-counterclockwise\"></i> Restaurar</button>";
             }
-            return "<tr>" +
+            return "<tr id=\"catalogo_incidencia_" + escapeAttr(item.id_incidencia_calidad) + "\">" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.tipo_incidencia || "-") + "</div><span class=\"text-muted\">" + escapeHtml(item.titulo || "") + "</span></td>" +
                 "<td><span class=\"badge badge-light-primary\">" + escapeHtml(item.origen || "-") + "</span></td>" +
                 "<td>" + escapeHtml(referencia) + "</td>" +
@@ -588,6 +591,44 @@
                 "<td class=\"text-end\">" + acciones + "</td>" +
                 "</tr>";
         }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-7\">Sin incidencias abiertas</td></tr>";
+    }
+
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-28
+     * Proposito: resolver enlaces profundos de notificaciones y llevar al usuario a la incidencia de calidad solicitada.
+     * Impacto: Catalogo ERP/Notificaciones; solo cambia navegacion visual, sin escribir datos.
+     * Contrato: acepta `?incidencia_calidad={id}`, busca primero abiertas y amplia a todas si no aparece.
+     */
+    function enfocarIncidenciaCalidad(idIncidencia) {
+        var objetivo = document.getElementById("catalogo_incidencia_" + String(idIncidencia));
+        if (objetivo) {
+            objetivo.classList.add("table-warning");
+            objetivo.scrollIntoView({behavior: "smooth", block: "center"});
+            return;
+        }
+        var filtro = document.getElementById("catalogo_incidencias_estatus");
+        if (!filtro || filtro.value === "todas") {
+            return;
+        }
+        request("/catalogoerp/incidencias_calidad?id_incidencia_calidad=" + encodeURIComponent(idIncidencia) + "&estatus=todas&limite=1").then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            var objetivo = ((response.depurar && response.depurar.incidencias) || [])[0];
+            if (!objetivo) {
+                throw new Error("No se encontro la incidencia solicitada o no tienes acceso para consultarla.");
+            }
+            filtro.value = "todas";
+            incidenciasCalidad.push(objetivo);
+            renderIncidenciasCalidad();
+            var fila = document.getElementById("catalogo_incidencia_" + String(idIncidencia));
+            if (fila) {
+                fila.classList.add("table-warning");
+                fila.scrollIntoView({behavior: "smooth", block: "center"});
+            }
+        }).catch(function (error) {
+            Swal.fire({text: error.message || String(error), icon: "error", confirmButtonText: "Aceptar"});
+        });
     }
 
     function claseEstatusIncidencia(estatus) {

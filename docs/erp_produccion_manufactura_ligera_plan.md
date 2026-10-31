@@ -285,6 +285,9 @@ Impacto en el modulo:
 - El analisis del historial confirma que el volumen o los m2 de una hoja no predicen por si solos el resultado: hay piezas largas, piezas de anchos distintos, mezclas de espesores y hojas de 2.6 x 1.8 m y 3.6 x 2.6 m. El planeador debe expandir cada cantidad historica a piezas individuales, acomodarlas por bandas y calcular desperdicio sobre la hoja realmente ocupada.
 - La comparacion futura tendra tres metricas: area teorica de piezas contra area de hojas, desperdicio geométrico del acomodo visual y diferencia de configuracion contra el pedido historico. El porcentaje de area sera informativo, pero la decision de mejor acomodo dependera de si las piezas caben en bandas rectas con separacion y orientacion validas.
 - Las diferencias de 2 mm se conservaran como regla de calculo del pedido actual; no se aplicaran retroactivamente a medidas historicas sin una decision del usuario.
+- Regla corregida para el planeador: el espesor oficial del perfil activo prevalece sobre el espesor de una variante historica de pieza; las variantes importadas se conservan como evidencia, pero no crean hojas adicionales por si solas.
+- La merma porcentual inicia en 0%; el ajuste de 2 mm por dimension pertenece a la medida de corte solicitada y no debe interpretarse como una merma porcentual del vidrio.
+- El acomodo por bandas usa mejor ajuste entre hojas candidatas para reducir hojas parcialmente vacias; sigue respetando la direccion operativa de cortes rectos hacia el ancho corto.
 
 Revision inicial de identificadores:
 
@@ -1081,3 +1084,10 @@ Inventario de fabricacion y direccion de corte - 2026-10-24:
 - El planificador debe separar por espesor y comparar dos estrategias: mezcla de perfiles en una misma hoja contra una variante por hoja; se elegira la de menor desperdicio y, en empate, menor numero de hojas.
 - La direccion operativa de la hoja se normaliza como `lado largo de avance x lado corto de corte`. Las bandas avanzan sobre el lado largo y cada linea recta cruza el lado corto; cada vidrio conserva libertad de rotacion dentro de esa regla.
 - La hoja capturada como `180 x 260` y la capturada como `260 x 180` representan la misma direccion normalizada para el calculo visual.
+
+Correccion de codigo para simulacion - 2026-10-30:
+
+- `PERA-3040` corresponde a la pecera nominal `30 x 15 x 40 cm`.
+- `PERA-6035` corresponde a la pecera nominal `60 x 40 x 35 cm`.
+- `PERA-6040` corresponde a la pecera nominal `60 x 30 x 40 cm`.
+- Los datos nominales de `PERA-3040` y `PERA-6040` fueron corregidos en la base operativa el 2026-10-30.

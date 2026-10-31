@@ -6108,6 +6108,67 @@ class VentasErp extends CRUD {
         return htmlspecialchars((string) $valor, ENT_QUOTES, "UTF-8");
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-24.
+     * Proposito: incrustar en el PDF el QR de verificacion SAT para que Dompdf no dependa de cargar una imagen remota durante el render.
+     * Impacto: solo salida PDF de CFDI; conserva la misma URL de verificacion y no modifica el XML ni la operacion fiscal.
+     */
+    private function facturacionCfdiQrFuentePdf($qrUrl) {
+        $imagen = false;
+        if (function_exists("curl_init")) {
+            $curl = curl_init($qrUrl);
+            curl_setopt_array($curl, array(
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_USERAGENT => "Artiani-CFDI-PDF/1.0"
+            ));
+            $respuesta = curl_exec($curl);
+            $codigoHttp = intval(curl_getinfo($curl, CURLINFO_HTTP_CODE));
+            curl_close($curl);
+            if ($codigoHttp >= 200 && $codigoHttp < 300 && is_string($respuesta) && $respuesta !== "") {
+                $imagen = $respuesta;
+            }
+        }
+        if ($imagen === false) {
+            $contexto = stream_context_create(array(
+                "http" => array(
+                    "method" => "GET",
+                    "timeout" => 15,
+                    "ignore_errors" => true,
+                    "header" => "User-Agent: Artiani-CFDI-PDF/1.0\r\n"
+                ),
+                "ssl" => array(
+                    "verify_peer" => true,
+                    "verify_peer_name" => true
+                )
+            ));
+            $respuesta = @file_get_contents($qrUrl, false, $contexto);
+            if (is_string($respuesta) && $respuesta !== "") {
+                $imagen = $respuesta;
+            }
+        }
+        return is_string($imagen) && $imagen !== "" ? "data:image/png;base64," . base64_encode($imagen) : $qrUrl;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-10-24.
+     * Proposito: entregar a la previsualizacion la misma imagen QR que usa el PDF.
+     * Impacto: solo consulta/previsualizacion de CFDI; no conserva datos ni modifica tablas.
+     */
+    public function facturacionCfdiQrVista($cfdi) {
+        $selloCfdi = $this->valor($cfdi, "sello_cfdi", "");
+        $urlSat = "https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=" . rawurlencode($this->valor($cfdi, "uuid", "")) . "&re=" . rawurlencode($this->valor($cfdi, "rfc_emisor", "")) . "&rr=" . rawurlencode($this->valor($cfdi, "rfc_receptor", "")) . "&tt=" . rawurlencode(number_format(floatval($this->valor($cfdi, "total", 0)), 6, ".", "")) . "&fe=" . rawurlencode(substr(preg_replace("/\s+/", "", $selloCfdi), -8));
+        $qrUrl = "https://quickchart.io/qr?text=" . rawurlencode($urlSat) . "&size=180&margin=1";
+        return array(
+            "qr_sat_url" => $qrUrl,
+            "qr_sat_imagen" => $this->facturacionCfdiQrFuentePdf($qrUrl)
+        );
+    }
+
     private function facturacionCfdiGenerarPdfInterno($documento, $conceptos, $contenidoXml) {
         $parseo = $this->facturacionCfdiParsearContenidoInterno($contenidoXml);
         if (!empty($parseo["error"])) { throw new Exception($parseo["mensaje"]); }
@@ -6130,16 +6191,17 @@ class VentasErp extends CRUD {
         $cadena = "||" . $this->valor($cfdi, "version", "4.0") . "|" . $this->valor($cfdi, "uuid", "") . "|" . $this->valor($cfdi, "fecha_timbrado", "") . "|" . $this->valor($cfdi, "rfc_prov_certif", "") . "|" . $selloCfdi . "|" . $this->valor($cfdi, "no_certificado_sat", "") . "||";
         $urlSat = "https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=" . rawurlencode($this->valor($cfdi, "uuid", "")) . "&re=" . rawurlencode($this->valor($cfdi, "rfc_emisor", "")) . "&rr=" . rawurlencode($this->valor($cfdi, "rfc_receptor", "")) . "&tt=" . rawurlencode(number_format(floatval($this->valor($cfdi, "total", 0)), 6, ".", "")) . "&fe=" . rawurlencode(substr(preg_replace("/\s+/", "", $selloCfdi), -8));
         $qrUrl = "https://quickchart.io/qr?text=" . rawurlencode($urlSat) . "&size=240&margin=1";
-        $qrMarkup = "<img src=\"" . $this->facturacionCfdiEsc($qrUrl) . "\" alt=\"Código QR de verificación del SAT\"><small>Escanea para consultar el CFDI en el SAT</small>";
+        $qrSource = $this->facturacionCfdiQrFuentePdf($qrUrl);
+        $qrMarkup = "<img src=\"" . $this->facturacionCfdiEsc($qrSource) . "\" alt=\"Código QR de verificación del SAT\"><small>Escanea para consultar el CFDI en el SAT</small>";
         $html = "<!doctype html><html lang=\"es\"><head><meta charset=\"UTF-8\"><style>" .
-            "@page{margin:14px 18px 18px}body{font-family:DejaVu Sans,Arial,sans-serif;color:#202124;font-size:8px;margin:0}.document{border:1px solid #d7e1e4;padding:10px}" .
-            "table{border-collapse:collapse;width:100%}.header{border-bottom:3px solid #e9485b;padding-bottom:7px}.header td{vertical-align:top}.supplier{width:72%}.supplier img,.brand-mark{float:left;margin-right:10px;max-width:130px;max-height:42px}.brand-mark{width:130px;height:38px;border:2px solid #0b7376;border-radius:4px;padding:3px 7px;box-sizing:border-box}.brand-mark b{display:block;color:#e9485b;font-size:18px;letter-spacing:2px}.brand-mark span{display:block;color:#0b7376;font-size:6px}.supplier b{display:block;font-size:10px}.supplier span,.title small{display:block;font-size:7px;line-height:1.3}.title{text-align:right;width:28%}.title span{display:block;color:#0b7376;font-weight:bold;font-size:8px}.title b{display:block;color:#e9485b;font-size:18px}.bar{background:#0b7376;color:#fff;padding:4px 6px;margin-top:6px;font-size:7px;font-weight:bold;text-transform:uppercase}.split td{padding:4px;text-align:center;color:#fff;font-weight:bold}.split td:first-child{background:#e9485b}.split td:last-child{background:#0b7376}.receiver{border:1px solid #e8eef0;border-top:0}.receiver td{vertical-align:top;padding:6px;width:58%;font-size:7px;line-height:1.35}.receiver td:last-child{width:42%}.receiver b,.receiver span{display:block}.cert{padding:0 0 0 8px}.cert b,.cert span{display:block;padding:4px;background:#f1fbfb;border-left:3px solid #0b7376;font-size:6.5px;overflow-wrap:anywhere}.items{table-layout:fixed;margin-top:6px}.items th{background:#e9485b;color:#fff;font-size:6.5px;text-transform:uppercase;padding:4px 3px;text-align:left}.items td{border-bottom:1px solid #e7edef;padding:4px 3px;font-size:7px;vertical-align:top;overflow-wrap:anywhere}.items th:nth-child(1),.items td:nth-child(1){width:9%}.items th:nth-child(2),.items td:nth-child(2){width:11%}.items th:nth-child(3),.items td:nth-child(3){width:39%}.items th:nth-child(4),.items td:nth-child(4){width:14%}.items th:nth-child(5),.items td:nth-child(5){width:12%}.items th:nth-child(6),.items td:nth-child(6){width:15%}.items small{display:block;font-size:6px}.right{text-align:right}.payment{border:1px solid #d7e1e4;border-top:0}.payment td{vertical-align:top;padding:6px;font-size:7px}.payment td:first-child{width:62%}.payment td:last-child{width:38%;border-left:1px solid #b9d9da}.payment p{margin:0 0 3px}.totals p{display:table;width:100%;margin:0 0 3px}.totals p span,.totals p b{display:table-cell}.totals p b{text-align:right}.total{background:#e9485b;color:#fff;padding:5px;font-size:8px;font-weight:bold}.seals{border:1px solid #d7e1e4;border-top:0}.seals td{vertical-align:top;padding:6px}.seals td:first-child{width:28%}.qr{height:100px;background:#fff;border:0;color:#0b7376;text-align:center;box-sizing:border-box;font-size:6px}.qr img{display:block;width:86px;height:86px;margin:0 auto 2px}.qr small{display:block;font-size:6px;line-height:1.1}.label{display:block;color:#0b7376;font-size:7px;font-weight:bold;margin-bottom:2px}.seal{font-family:DejaVu Sans Mono,monospace;font-size:5.3px;line-height:1.15;word-break:break-all;margin:0 0 4px}.chain{border:1px solid #d7e1e4;border-top:0;padding:5px;font-family:DejaVu Sans Mono,monospace;font-size:5.3px;line-height:1.15;word-break:break-all;margin:0}.footer{margin-top:6px;background:#e9485b;color:#fff;text-align:center;padding:4px;font-size:6.5px}tr{page-break-inside:avoid}</style></head><body><div class=\"document\">" .
+            "@page{size:letter;margin:10mm 12mm}body{font-family:DejaVu Sans,Arial,sans-serif;color:#202124;font-size:8px;margin:0}.document{border:1px solid #d7e1e4;padding:10px}" .
+            "table{border-collapse:collapse;width:100%}.header{border-bottom:3px solid #e9485b;padding-bottom:7px}.header td{vertical-align:top}.supplier{width:72%}.supplier img,.brand-mark{float:left;margin-right:10px;max-width:130px;max-height:42px}.brand-mark{width:130px;height:38px;border:2px solid #0b7376;border-radius:4px;padding:3px 7px;box-sizing:border-box}.brand-mark b{display:block;color:#e9485b;font-size:18px;letter-spacing:2px}.brand-mark span{display:block;color:#0b7376;font-size:6px}.supplier b{display:block;font-size:10px}.supplier span,.title small{display:block;font-size:7px;line-height:1.3}.title{text-align:right;width:28%}.title span{display:block;color:#0b7376;font-weight:bold;font-size:8px}.title b{display:block;color:#e9485b;font-size:18px}.bar{background:#0b7376;color:#fff;padding:4px 6px;margin-top:6px;font-size:7px;font-weight:bold;text-transform:uppercase}.split td{padding:4px;text-align:center;color:#fff;font-weight:bold}.split td:first-child{background:#e9485b}.split td:last-child{background:#0b7376}.receiver{border:1px solid #e8eef0;border-top:0}.receiver td{vertical-align:top;padding:6px;width:58%;font-size:7px;line-height:1.35}.receiver td:last-child{width:42%}.receiver b,.receiver span{display:block}.cert{padding:0 0 0 8px}.cert b,.cert span{display:block;padding:4px;background:#f1fbfb;border-left:3px solid #0b7376;font-size:6.5px;overflow-wrap:anywhere}.items{table-layout:fixed;margin-top:6px}.items th{background:#e9485b;color:#fff;font-size:6.5px;text-transform:uppercase;padding:4px 3px;text-align:left}.items td{border-bottom:1px solid #e7edef;padding:4px 3px;font-size:7px;vertical-align:top;overflow-wrap:anywhere}.items th:nth-child(1),.items td:nth-child(1){width:9%}.items th:nth-child(2),.items td:nth-child(2){width:11%}.items th:nth-child(3),.items td:nth-child(3){width:39%}.items th:nth-child(4),.items td:nth-child(4){width:14%}.items th:nth-child(5),.items td:nth-child(5){width:12%}.items th:nth-child(6),.items td:nth-child(6){width:15%}.items small{display:block;font-size:6px}.right{text-align:right}.payment{border:1px solid #d7e1e4;border-top:0}.payment td{vertical-align:top;padding:6px;font-size:7px}.payment td:first-child{width:62%}.payment td:last-child{width:38%;border-left:1px solid #b9d9da}.payment p{margin:0 0 3px}.totals p{display:table;width:100%;margin:0 0 3px}.totals p span,.totals p b{display:table-cell}.totals p b{text-align:right}.total{background:#e9485b;color:#fff!important;padding:5px;font-size:8px;font-weight:bold}.total span,.total b{color:#fff!important}.seals{border:1px solid #d7e1e4;border-top:0}.seals td{vertical-align:top;padding:6px}.seals td:first-child{width:28%}.qr{height:100px;background:#fff;border:0;color:#0b7376;text-align:center;box-sizing:border-box;font-size:6px}.qr img{display:block;width:86px;height:86px;margin:0 auto 2px}.qr small{display:block;font-size:6px;line-height:1.1}.label{display:block;color:#0b7376;font-size:7px;font-weight:bold;margin-bottom:2px}.seal{font-family:DejaVu Sans Mono,monospace;font-size:5.3px;line-height:1.15;word-break:break-all;margin:0 0 4px}.chain{border:1px solid #d7e1e4;border-top:0;padding:5px;font-family:DejaVu Sans Mono,monospace;font-size:5.3px;line-height:1.15;word-break:break-all;margin:0}.footer{margin-top:6px;background:#e9485b;color:#fff;text-align:center;padding:4px;font-size:6.5px}tr{page-break-inside:avoid}</style></head><body><div class=\"document\">" .
             "<table class=\"header\"><tr><td class=\"supplier\">" . $logoMarkup . "<div><b>" . $this->facturacionCfdiEsc($this->valor($cfdi, "nombre_emisor", "Artiani")) . "</b><span>RFC: " . $this->facturacionCfdiEsc($this->valor($cfdi, "rfc_emisor", "")) . "</span><span>Régimen fiscal: " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "regimen_fiscal_emisor", ""), "regimen")) . "</span><span>Lugar de expedición: " . $this->facturacionCfdiEsc($this->valor($cfdi, "lugar_expedicion", "-")) . "</span></div></td><td class=\"title\"><span>FACTURA</span><b>" . $this->facturacionCfdiEsc($folio) . "</b><small>Fecha de emisión: " . $this->facturacionCfdiEsc($this->valor($cfdi, "fecha", "-")) . "</small><small>Fecha de certificación: " . $this->facturacionCfdiEsc($this->valor($cfdi, "fecha_timbrado", "-")) . "</small></td></tr></table>" .
             "<table class=\"split bar\"><tr><td>Receptor del comprobante fiscal</td><td>Folio fiscal</td></tr></table><table class=\"receiver\"><tr><td><b>" . $this->facturacionCfdiEsc($this->valor($cfdi, "nombre_receptor", "-")) . "</b><span>RFC: " . $this->facturacionCfdiEsc($this->valor($cfdi, "rfc_receptor", "-")) . "</span><span>Régimen fiscal: " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "regimen_fiscal_receptor", ""), "regimen")) . "</span><span>Domicilio fiscal: " . $this->facturacionCfdiEsc($this->valor($cfdi, "domicilio_fiscal_receptor", "-")) . "</span><span>Uso CFDI: " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "uso_cfdi", ""), "uso")) . "</span></td><td class=\"cert\"><b>" . $this->facturacionCfdiEsc($this->valor($cfdi, "uuid", "-")) . "</b><span>No. certificado digital: " . $this->facturacionCfdiEsc($this->valor($cfdi, "no_certificado", "-")) . "</span><span>No. certificado SAT: " . $this->facturacionCfdiEsc($this->valor($cfdi, "no_certificado_sat", "-")) . "</span></td></tr></table>" .
             "<table class=\"items\"><thead><tr><th>Cantidad</th><th>Unidad</th><th>Descripción</th><th>Precio</th><th>Descuento</th><th>Importe</th></tr></thead><tbody>" . $filas . "</tbody></table>" .
             "<div class=\"bar\">Información de pago y totales</div><table class=\"payment\"><tr><td><p><b>Lugar de expedición:</b> " . $this->facturacionCfdiEsc($this->valor($cfdi, "lugar_expedicion", "-")) . "</p><p><b>Forma de pago:</b> " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "forma_pago", ""), "forma")) . "</p><p><b>Método de pago:</b> " . $this->facturacionCfdiEsc($this->facturacionCfdiEtiqueta($this->valor($cfdi, "metodo_pago", ""), "metodo")) . "</p><p><b>Moneda:</b> " . $this->facturacionCfdiEsc($moneda) . " · Tipo de cambio: " . $this->facturacionCfdiEsc($this->valor($cfdi, "tipo_cambio", "1")) . "</p></td><td class=\"totals\"><p><span>Subtotal</span><b>" . $this->facturacionCfdiMonto($this->valor($cfdi, "subtotal", 0), $moneda) . "</b></p><p><span>Descuento</span><b>" . $this->facturacionCfdiMonto($this->valor($cfdi, "descuento", 0), $moneda) . "</b></p><p><span>Impuestos</span><b>" . $this->facturacionCfdiMonto($this->valor($cfdi, "impuestos_total", 0), $moneda) . "</b></p><p class=\"total\"><span>Total</span><b>" . $this->facturacionCfdiMonto($this->valor($cfdi, "total", 0), $moneda) . "</b></p></td></tr></table>" .
             "<table class=\"split bar\"><tr><td>Código de verificación SAT</td><td>Sellos digitales</td></tr></table><table class=\"seals\"><tr><td><div class=\"qr\">" . $qrMarkup . "</div></td><td><span class=\"label\">Sello digital del CFDI</span><p class=\"seal\">" . $this->facturacionCfdiEsc($selloCfdi) . "</p><span class=\"label\">Sello digital del SAT</span><p class=\"seal\">" . $this->facturacionCfdiEsc($selloSat) . "</p></td></tr></table><div class=\"bar\">Cadena original del complemento de certificación digital del SAT</div><p class=\"chain\">" . $this->facturacionCfdiEsc($cadena) . "</p><div class=\"footer\">Este documento es una representación impresa de un CFDI · Versión " . $this->facturacionCfdiEsc($this->valor($cfdi, "version", "4.0")) . "</div></div></body></html>";
-        $html = str_replace("</style></head>", ".header{border-bottom-color:#0b7376}.brand-mark b{color:#0b7376}.title b{color:#0b7376}.split td:first-child{background:#0b7376}.footer{background:#0b7376}.totals{box-sizing:border-box;overflow:hidden}.total{width:100%;box-sizing:border-box;margin-left:0;margin-right:0}</style></head>", $html);
+        $html = str_replace("</style></head>", ".header{border-bottom-color:#0b7376}.brand-mark b{color:#0b7376}.title b{color:#0b7376}.split td:first-child{background:#0b7376}.footer{background:#0b7376}.totals{box-sizing:border-box;overflow:hidden}.total{width:100%;box-sizing:border-box;margin-left:0;margin-right:0;color:#fff!important}.total span,.total b{color:#fff!important}.items{page-break-inside:auto}.items thead{display:table-header-group}.items tr{page-break-inside:avoid}</style></head>", $html);
         require_once dirname(__DIR__) . "/helpers/PDF/autoload.inc.php";
         $options = new \Dompdf\Options();
         $options->set("isRemoteEnabled", true);

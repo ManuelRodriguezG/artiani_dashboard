@@ -1057,6 +1057,6 @@
             "costos" => Sesionseguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20261017-incidencia-compra-unica"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20261028-incidencia-profunda"></script>
 </body>
 </html>

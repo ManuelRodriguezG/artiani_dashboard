@@ -6,6 +6,7 @@
     var configsHoja = {};
     var extras = [];
     var pedidosGuardados = [];
+    var planProveedor = [];
 
     function el(id) { return document.getElementById(id); }
     function escapeHtml(value) {
@@ -58,6 +59,24 @@
     function perfilPorId(id) {
         return perfiles.find(function (perfil) { return String(perfil.id) === String(id); });
     }
+    function bloqueParaCodigo(codigo) {
+        var texto = String(codigo || "").toUpperCase();
+        return planProveedor.find(function (bloque) {
+            return (bloque.perfiles || []).some(function (perfil) {
+                return texto && String(perfil || "").toUpperCase().indexOf(texto) >= 0;
+            });
+        }) || null;
+    }
+    function medidasHojaBloque(bloque) {
+        var coincidencia = String((bloque && bloque.hoja) || "").match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i);
+        return coincidencia ? {largo: Number(coincidencia[1]), ancho: Number(coincidencia[2])} : null;
+    }
+    function claveHojaPieza(pieza) {
+        return pieza.perfil_codigo || pieza.bloque_id || formato(pieza.espesor, 2);
+    }
+    function codigoBasePieza(pieza) {
+        return String(pieza.perfil_codigo || "").replace(/\s+\(faltante\)$/i, "");
+    }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-10-24
      * Proposito: permitir faltantes por pieza vinculados al perfil maestro.
@@ -93,7 +112,7 @@
         var piezas = perfil && Array.isArray(perfil.piezas) ? perfil.piezas : [];
         var pieza = piezas[Number(el("peceras_faltante_pieza").value)] || null;
         el("peceras_faltante_medida").textContent = pieza
-            ? formato(pieza.largo || pieza.largo_cm, 2) + " x " + formato(pieza.ancho || pieza.ancho_cm, 2) + " cm | " + formato(pieza.espesor || pieza.espesor_mm, 2) + " mm"
+            ? formato(pieza.largo || pieza.largo_cm, 2) + " x " + formato(pieza.ancho || pieza.ancho_cm, 2) + " cm | " + formato((perfil && perfil.datos && perfil.datos.espesor) || pieza.espesor || pieza.espesor_mm, 2) + " mm"
             : "Selecciona una pieza";
     }
     function uuid() {
@@ -108,24 +127,34 @@
         items.forEach(function (item) {
             var perfil = item.perfil;
             var d = perfil.datos || {};
+            var bloque = bloqueParaCodigo(perfil.codigo || perfil.nombre);
             var piezas = Array.isArray(perfil.piezas) ? perfil.piezas : [];
             piezas.forEach(function (pieza) {
                 salida.push({
                     perfil_id: perfil.id,
+                    perfil_codigo: perfil.codigo || perfil.nombre || "Perfil",
                     perfil_nombre: perfil.nombre || "Pecera sin nombre",
+                    bloque_id: bloque ? bloque.id : "",
+                    bloque_hoja: bloque ? bloque.hoja : "",
                     pieza: pieza.nombre || "Pieza",
                     largo: numero(pieza.largo || pieza.largo_cm),
                     ancho: numero(pieza.ancho || pieza.ancho_cm),
-                    espesor: numero(pieza.espesor || pieza.espesor_mm || d.espesor),
+                    // El espesor del perfil es la regla vigente; las variantes historicas
+                    // de cada pieza no deben crear grupos de 10, 5 o 3 mm por accidente.
+                    espesor: numero(d.espesor || perfil.espesor_mm || pieza.espesor || pieza.espesor_mm),
                     cantidad: entero(pieza.cantidad || pieza.cantidad_por_pecera || 1) * item.cantidad,
                     area: areaPieza(pieza, item.cantidad)
                 });
             });
         });
         extras.forEach(function (pieza) {
+            var bloque = bloqueParaCodigo(pieza.perfil_codigo);
             salida.push({
                 perfil_id: pieza.perfil_id || "extra",
+                perfil_codigo: pieza.perfil_codigo ? pieza.perfil_codigo + " (faltante)" : "Extra",
                 perfil_nombre: pieza.perfil_codigo ? pieza.perfil_codigo + " (faltante)" : "Extra",
+                bloque_id: bloque ? bloque.id : "",
+                bloque_hoja: bloque ? bloque.hoja : "",
                 pieza: pieza.nombre || "Pieza extra",
                 largo: numero(pieza.largo),
                 ancho: numero(pieza.ancho),
@@ -170,11 +199,17 @@
     function sincronizarTiposHoja(piezas) {
         var espesores = {};
         piezas.forEach(function (pieza) {
-            espesores[formato(pieza.espesor, 2)] = true;
+            espesores[claveHojaPieza(pieza)] = pieza.espesor;
         });
         Object.keys(espesores).forEach(function (key) {
             if (!configsHoja[key]) {
                 configsHoja[key] = configDefaultHoja(Number(key));
+                var bloque = bloqueParaCodigo(key);
+                var hojaBloque = medidasHojaBloque(bloque);
+                if (hojaBloque) {
+                    configsHoja[key].largo = hojaBloque.largo;
+                    configsHoja[key].ancho = hojaBloque.ancho;
+                }
             }
         });
         Object.keys(configsHoja).forEach(function (key) {
@@ -188,8 +223,10 @@
         var keys = Object.keys(configsHoja).sort();
         body.innerHTML = keys.length ? keys.map(function (key) {
             var c = configsHoja[key];
+            var bloque = bloqueParaCodigo(key);
+            var etiqueta = bloque ? key + " | " + bloque.espesor + " mm | " + bloque.hoja : key + " mm";
             return "<tr data-espesor=\"" + escapeHtml(key) + "\">" +
-                "<td><span class=\"badge badge-light-primary\">" + escapeHtml(key) + " mm</span></td>" +
+                "<td><span class=\"badge badge-light-primary\">" + escapeHtml(etiqueta) + "</span></td>" +
                 "<td><input class=\"form-control\" inputmode=\"decimal\" data-hoja-campo=\"largo\" value=\"" + escapeHtml(formato(c.largo, 2)) + "\"></td>" +
                 "<td><input class=\"form-control\" inputmode=\"decimal\" data-hoja-campo=\"ancho\" value=\"" + escapeHtml(formato(c.ancho, 2)) + "\"></td>" +
                 "<td><input class=\"form-control\" inputmode=\"decimal\" data-hoja-campo=\"merma\" value=\"" + escapeHtml(formato(c.merma, 2)) + "\"></td>" +
@@ -201,9 +238,9 @@
         var tipoAcomodo = el("peceras_pedido_acomodo").value;
         var grupos = {};
         piezasPedido().forEach(function (pieza) {
-            var key = formato(pieza.espesor, 2);
+            var key = claveHojaPieza(pieza);
             if (!grupos[key]) {
-                grupos[key] = {espesor: pieza.espesor, piezas: 0, area: 0, alertas: [], piezasDetalle: []};
+                grupos[key] = {clave: key, perfil_codigo: codigoBasePieza(pieza), bloque_id: pieza.bloque_id || "", bloque_hoja: pieza.bloque_hoja || "", espesor: pieza.espesor, piezas: 0, area: 0, alertas: [], piezasDetalle: []};
             }
             grupos[key].piezas += pieza.cantidad;
             grupos[key].area += pieza.area;
@@ -220,6 +257,8 @@
             var areaHoja = (hojaLargo / 100) * (hojaAncho / 100);
             g.hojaLargo = hojaLargo;
             g.hojaAncho = hojaAncho;
+            g.separacionCm = separacionCm;
+            g.bloque_hoja_fijada = Boolean(g.bloque_hoja);
             g.areaConMerma = g.area * (1 + merma);
             g.tipoAcomodo = tipoAcomodo;
             g.piezasDetalle.forEach(function (pieza) {
@@ -252,8 +291,13 @@
                 g.acomodo = null;
                 g.descripcionAcomodo = formato(g.areaConMerma, 4) + " m2 con merma";
             }
-            if (g.espesor >= 5.5 && tipoAcomodo !== "area") {
+            if (g.espesor >= 5.5 && tipoAcomodo !== "area" && !g.bloque_hoja_fijada) {
                 aplicarMejorHojaSeisMm(g, tipoAcomodo, separacionCm, config);
+            }
+            var bloquePlan = bloqueParaCodigo(g.perfil_codigo);
+            g.hojasSolicitadas = bloquePlan ? entero(bloquePlan.hojas_reservadas) : 0;
+            if (g.hojasSolicitadas > 0 && g.hojas > g.hojasSolicitadas) {
+                g.alertas.push("Requiere " + g.hojas + " hojas; se indicaron " + g.hojasSolicitadas + ". Las hojas adicionales deben confirmarse con el proveedor.");
             }
             return g;
         });
@@ -330,6 +374,7 @@
         piezasAgrupadas.forEach(function (pieza) {
             for (var i = 0; i < pieza.cantidad; i++) {
                 piezas.push({
+                    perfil_codigo: pieza.perfil_codigo,
                     perfil_nombre: pieza.perfil_nombre,
                     pieza: pieza.pieza,
                     largo: pieza.largo,
@@ -344,11 +389,23 @@
 
         var hojas = [];
         piezas.forEach(function (pieza) {
-            var colocada = false;
-            for (var h = 0; h < hojas.length && !colocada; h++) {
-                colocada = colocarEnHojaColumnas(hojas[h], pieza, hojaLargo, hojaAncho, separacionCm);
+            var mejorIndice = -1;
+            var mejorHoja = null;
+            var mejorDesperdicio = Infinity;
+            for (var h = 0; h < hojas.length; h++) {
+                var candidata = JSON.parse(JSON.stringify(hojas[h]));
+                if (colocarEnHojaColumnas(candidata, pieza, hojaLargo, hojaAncho, separacionCm)) {
+                    var desperdicio = areaHojaMenosPiezas(candidata, hojaLargo, hojaAncho);
+                    if (desperdicio < mejorDesperdicio) {
+                        mejorIndice = h;
+                        mejorHoja = candidata;
+                        mejorDesperdicio = desperdicio;
+                    }
+                }
             }
-            if (!colocada) {
+            if (mejorIndice >= 0) {
+                hojas[mejorIndice] = mejorHoja;
+            } else {
                 var hoja = {columnas: [], filas: [], piezas: []};
                 hojas.push(hoja);
                 if (!colocarEnHojaColumnas(hoja, pieza, hojaLargo, hojaAncho, separacionCm)) {
@@ -358,9 +415,18 @@
         });
         return {hojas: hojas, alertas: alertas};
     }
+    function areaHojaMenosPiezas(hoja, hojaLargo, hojaAncho) {
+        var areaHoja = (hojaLargo / 100) * (hojaAncho / 100);
+        var areaPiezas = (hoja.piezas || []).reduce(function (total, pieza) {
+            return total + (numero(pieza.largo) / 100) * (numero(pieza.ancho) / 100);
+        }, 0);
+        return areaHoja - areaPiezas;
+    }
     function colocarEnHojaColumnas(hoja, pieza, hojaLargo, hojaAncho, separacionCm) {
         var opciones = orientacionesPieza(pieza, hojaLargo, hojaAncho).sort(function (a, b) {
-            return a.largo - b.largo || b.ancho - a.ancho;
+            // EasyCut prioriza que la dimension larga avance por la hoja;
+            // solo se rota cuando la orientacion larga no cabe o desperdicia mas.
+            return b.largo - a.largo || a.ancho - b.ancho;
         });
         for (var o = 0; o < opciones.length; o++) {
             var orientada = opciones[o];
@@ -403,6 +469,7 @@
         piezasAgrupadas.forEach(function (pieza) {
             for (var i = 0; i < pieza.cantidad; i++) {
                 piezas.push({
+                    perfil_codigo: pieza.perfil_codigo,
                     perfil_nombre: pieza.perfil_nombre,
                     pieza: pieza.pieza,
                     largo: pieza.largo,
@@ -417,12 +484,24 @@
 
         var hojas = [];
         piezas.forEach(function (pieza) {
-            var colocada = false;
-            for (var h = 0; h < hojas.length && !colocada; h++) {
-                colocada = colocarEnHoja(hojas[h], pieza, hojaLargo, hojaAncho, separacionCm);
+            var mejorIndice = -1;
+            var mejorHoja = null;
+            var mejorDesperdicio = Infinity;
+            for (var h = 0; h < hojas.length; h++) {
+                var candidata = JSON.parse(JSON.stringify(hojas[h]));
+                if (colocarEnHoja(candidata, pieza, hojaLargo, hojaAncho, separacionCm)) {
+                    var desperdicio = areaHojaMenosPiezas(candidata, hojaLargo, hojaAncho);
+                    if (desperdicio < mejorDesperdicio) {
+                        mejorIndice = h;
+                        mejorHoja = candidata;
+                        mejorDesperdicio = desperdicio;
+                    }
+                }
             }
-            if (!colocada) {
-            var hoja = {filas: [], piezas: []};
+            if (mejorIndice >= 0) {
+                hojas[mejorIndice] = mejorHoja;
+            } else {
+                var hoja = {filas: [], piezas: []};
                 hojas.push(hoja);
                 if (!colocarEnHoja(hoja, pieza, hojaLargo, hojaAncho, separacionCm)) {
                     alertas.push(pieza.pieza + " no cabe en hoja " + formato(hojaLargo, 0) + "x" + formato(hojaAncho, 0));
@@ -503,7 +582,9 @@
         renderExtras();
 
         el("peceras_pedido_hojas").innerHTML = hojas.length ? hojas.map(function (grupo) {
-            return "<tr><td>" + escapeHtml(formato(grupo.espesor, 2)) + " mm</td><td>" + escapeHtml(grupo.piezas) + "</td><td>" + escapeHtml(formato(grupo.area, 4)) + " m2</td><td>" + escapeHtml(grupo.descripcionAcomodo) + "</td><td><span class=\"badge badge-light-primary fs-7\">" + escapeHtml(grupo.hojas) + "</span></td><td>" + escapeHtml(grupo.alertas.slice(0, 3).join(", ")) + "</td></tr>";
+            var etiquetaPerfil = grupo.perfil_codigo ? grupo.perfil_codigo + " | " : "";
+            var hojasPlan = grupo.hojasSolicitadas > 0 ? " de " + grupo.hojasSolicitadas + " indicadas" : "";
+            return "<tr><td>" + escapeHtml(etiquetaPerfil + formato(grupo.espesor, 2)) + " mm</td><td>" + escapeHtml(grupo.piezas) + "</td><td>" + escapeHtml(formato(grupo.area, 4)) + " m2</td><td>" + escapeHtml(grupo.descripcionAcomodo) + "</td><td><span class=\"badge " + (grupo.hojasSolicitadas > 0 && grupo.hojas > grupo.hojasSolicitadas ? "badge-light-danger" : "badge-light-primary") + " fs-7\">" + escapeHtml(grupo.hojas) + hojasPlan + "</span></td><td>" + escapeHtml(grupo.alertas.slice(0, 3).join(", ")) + "</td></tr>";
         }).join("") : "<tr><td colspan=\"6\" class=\"text-muted text-center py-5\">Sin perfiles en pedido.</td></tr>";
         renderDetalleAcomodo(hojas);
 
@@ -585,14 +666,183 @@
                 return;
             }
             var alternativas = Array.isArray(grupo.alternativasHoja) ? "<div class=\"text-muted small mb-2\">Alternativas 6 mm: " + grupo.alternativasHoja.map(function (opcion) { return escapeHtml(formato(opcion.largo, 0) + "x" + formato(opcion.ancho, 0) + " cm, " + opcion.hojas + " hoja(s), " + formato(opcion.desperdicio, 1) + "% desperdicio"); }).join(" | ") + "</div>" : "";
-            detalles.push("<div class=\"border rounded p-3 mb-3\"><div class=\"fw-bold mb-2\">Acomodo " + escapeHtml(formato(grupo.espesor, 2)) + " mm</div>" + alternativas +
+            detalles.push("<div class=\"border rounded p-3 mb-3\"><div class=\"fw-bold mb-2\">Acomodo " + escapeHtml(grupo.perfil_codigo ? grupo.perfil_codigo + " | " : "") + escapeHtml(formato(grupo.espesor, 2)) + " mm</div>" + alternativas +
                 grupo.acomodo.hojas.map(function (hoja, index) {
                     var cortes = hoja.columnas ? hoja.columnas.length + " banda(s) con corte al ancho" : hoja.filas.length + " fila(s)";
-                    return "<div class=\"text-muted small mb-1\">Hoja " + (index + 1) + ": " + cortes + ", " + hoja.piezas.length + " pieza(s), desperdicio " + formato(hoja.desperdicio, 1) + "%</div>";
+                    var codigos = hoja.piezas.map(function (pieza) { return pieza.perfil_codigo || "Extra"; }).filter(function (codigo, posicion, lista) { return lista.indexOf(codigo) === posicion; }).join(", ");
+                    return "<div class=\"text-muted small mb-1\">Hoja " + (index + 1) + ": " + cortes + ", " + hoja.piezas.length + " pieza(s), desperdicio " + formato(hoja.desperdicio, 1) + "%, códigos: " + escapeHtml(codigos) + "</div>";
                 }).join("") + "</div>");
         });
         contenedor.innerHTML = detalles.join("");
         renderVisualAcomodo(hojas);
+    }
+    function perfilPorCodigo(codigo) {
+        var buscado = String(codigo || "").toUpperCase();
+        var item = items.find(function (actual) {
+            return String(actual.perfil.codigo || actual.perfil.nombre || "").toUpperCase() === buscado;
+        });
+        if (item) {
+            return item.perfil;
+        }
+        return perfiles.find(function (perfil) {
+            return String(perfil.codigo || perfil.nombre || "").toUpperCase() === buscado;
+        }) || null;
+    }
+    function metricasCajaHoja(hoja, hojaLargo, hojaAncho) {
+        var derecha = 0;
+        var abajo = 0;
+        (hoja.piezas || []).forEach(function (pieza) {
+            derecha = Math.max(derecha, numero(pieza.x) + numero(pieza.corteLargo || pieza.largo));
+            abajo = Math.max(abajo, numero(pieza.y) + numero(pieza.ancho));
+        });
+        return {
+            derecha: Math.min(hojaLargo, derecha),
+            abajo: Math.min(hojaAncho, abajo),
+            libreLargo: Math.max(0, hojaLargo - derecha),
+            libreAncho: Math.max(0, hojaAncho - abajo)
+        };
+    }
+    function juegosCompletosHoja(hoja, perfil) {
+        if (!perfil || !Array.isArray(perfil.piezas) || !perfil.piezas.length) {
+            return 0;
+        }
+        var conteo = {};
+        (hoja.piezas || []).forEach(function (pieza) {
+            conteo[pieza.pieza] = (conteo[pieza.pieza] || 0) + 1;
+        });
+        var completos = Infinity;
+        perfil.piezas.forEach(function (pieza) {
+            var nombre = pieza.nombre || "Pieza";
+            var requerido = entero(pieza.cantidad || pieza.cantidad_por_pecera || 1);
+            completos = Math.min(completos, Math.floor((conteo[nombre] || 0) / requerido));
+        });
+        return completos === Infinity ? 0 : completos;
+    }
+    function juegosAdicionalesHoja(hoja, grupo) {
+        var perfil = perfilPorCodigo(grupo.perfil_codigo);
+        if (!perfil || !Array.isArray(perfil.piezas) || !perfil.piezas.length) {
+            return 0;
+        }
+        var simulada = JSON.parse(JSON.stringify(hoja));
+        var piezasReceta = perfil.piezas.slice().sort(function (a, b) {
+            return (numero(b.largo) * numero(b.ancho)) - (numero(a.largo) * numero(a.ancho));
+        });
+        var adicionales = 0;
+        for (var juego = 0; juego < 20; juego++) {
+            var candidata = JSON.parse(JSON.stringify(simulada));
+            var cabe = true;
+            for (var i = 0; i < piezasReceta.length && cabe; i++) {
+                var pieza = piezasReceta[i];
+                var cantidad = entero(pieza.cantidad || pieza.cantidad_por_pecera || 1);
+                for (var j = 0; j < cantidad; j++) {
+                    var unidad = {
+                        perfil_codigo: perfil.codigo || perfil.nombre,
+                        perfil_nombre: perfil.nombre || perfil.codigo,
+                        pieza: pieza.nombre || "Pieza",
+                        largo: numero(pieza.largo || pieza.largo_cm),
+                        ancho: numero(pieza.ancho || pieza.ancho_cm),
+                        espesor: numero((perfil.datos || {}).espesor || pieza.espesor || pieza.espesor_mm)
+                    };
+                    cabe = grupo.tipoAcomodo === "filas_rotacion"
+                        ? colocarEnHoja(candidata, unidad, numero(grupo.hojaLargo), numero(grupo.hojaAncho), numero(grupo.separacionCm))
+                        : colocarEnHojaColumnas(candidata, unidad, numero(grupo.hojaLargo), numero(grupo.hojaAncho), numero(grupo.separacionCm));
+                    if (!cabe) { break; }
+                }
+            }
+            if (!cabe) { break; }
+            simulada = candidata;
+            adicionales++;
+        }
+        return adicionales;
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-31
+     * Proposito: proponer piezas completas de perfiles vigentes que puedan aprovechar un sobrante.
+     * Impacto: Produccion/Pedido multiple vidrio; evita pedir una hoja adicional cuando existe una pieza util compatible.
+     * Contrato: solo recomienda piezas que el mismo algoritmo logra colocar en la hoja; no las agrega sin confirmacion.
+     */
+    function piezasSugeridasEnSobrante(hoja, grupo) {
+        var candidatos = [];
+        var vistos = {};
+        var fuente = perfiles.slice();
+        if (grupo.perfil_codigo) {
+            var actual = perfilPorCodigo(grupo.perfil_codigo);
+            if (actual) { fuente.push(actual); }
+        }
+        fuente.forEach(function (perfil) {
+            var espesor = numero((perfil.datos || {}).espesor || perfil.espesor_mm);
+            if (Math.abs(espesor - numero(grupo.espesor)) > 0.01 || !Array.isArray(perfil.piezas)) {
+                return;
+            }
+            perfil.piezas.forEach(function (pieza) {
+                var largo = numero(pieza.largo || pieza.largo_cm);
+                var ancho = numero(pieza.ancho || pieza.ancho_cm);
+                var clave = (perfil.codigo || perfil.nombre || "Perfil") + "|" + pieza.nombre + "|" + largo + "|" + ancho;
+                if (largo <= 0 || ancho <= 0 || vistos[clave]) { return; }
+                vistos[clave] = true;
+                var candidata = {
+                    perfil_codigo: perfil.codigo || perfil.nombre || "Perfil",
+                    pieza: pieza.nombre || "Pieza",
+                    largo: largo,
+                    ancho: ancho,
+                    espesor: espesor
+                };
+                var simulada = JSON.parse(JSON.stringify(hoja));
+                var cabe = grupo.tipoAcomodo === "filas_rotacion"
+                    ? colocarEnHoja(simulada, candidata, numero(grupo.hojaLargo), numero(grupo.hojaAncho), numero(grupo.separacionCm))
+                    : colocarEnHojaColumnas(simulada, candidata, numero(grupo.hojaLargo), numero(grupo.hojaAncho), numero(grupo.separacionCm));
+                if (cabe) {
+                    candidatos.push({perfil: candidata.perfil_codigo, pieza: candidata.pieza, largo: largo, ancho: ancho, area: largo * ancho});
+                }
+            });
+        });
+        return candidatos.sort(function (a, b) { return b.area - a.area; }).slice(0, 3);
+    }
+    function recomendacionSobrante(hoja, grupo, adicionales) {
+        var caja = metricasCajaHoja(hoja, numero(grupo.hojaLargo), numero(grupo.hojaAncho));
+        var minimo = Math.min(caja.libreLargo, caja.libreAncho);
+        if (adicionales > 0) {
+            return "Se recomienda usar primero los " + adicionales + " juego(s) adicional(es) detectados.";
+        }
+        if (minimo < 5) {
+            return "Sobrante menor a 5 cm en uno de sus lados: no es práctico pedir una pieza adicional; conviene dejarlo como desperdicio de corte.";
+        }
+        var piezas = piezasSugeridasEnSobrante(hoja, grupo);
+        if (piezas.length) {
+            return "Piezas completas viables para aprovecharlo: " + piezas.map(function (pieza) {
+                return pieza.perfil + " / " + pieza.pieza + " (" + formato(pieza.largo, 1) + " x " + formato(pieza.ancho, 1) + " cm)";
+            }).join(", ") + ".";
+        }
+        return "No se encontró una pieza completa de los perfiles actuales que aproveche este espacio; conviene conservarlo como sobrante útil para reparaciones, plataformas o rampas.";
+    }
+    function agregarJuegosPropuestos(codigo, cantidad) {
+        var buscado = String(codigo || "").toUpperCase();
+        var item = items.find(function (actual) {
+            return String(actual.perfil.codigo || actual.perfil.nombre || "").toUpperCase() === buscado;
+        });
+        if (!item || cantidad <= 0) { return; }
+        item.cantidad += cantidad;
+        render();
+    }
+    function resumenHojaVisual(hoja, grupo) {
+        var caja = metricasCajaHoja(hoja, numero(grupo.hojaLargo), numero(grupo.hojaAncho));
+        var perfil = perfilPorCodigo(grupo.perfil_codigo);
+        var juegos = juegosCompletosHoja(hoja, perfil);
+        var adicionales = juegosAdicionalesHoja(hoja, grupo);
+        var ocupacion = numero(hoja.aprovechamiento);
+        var piezas = (hoja.piezas || []).length;
+        var propuesta = adicionales > 0
+            ? "Propuesta: agregar " + adicionales + " juego(s) adicional(es) de " + (grupo.perfil_codigo || "este perfil") + " para aprovechar el espacio disponible. <button type=\"button\" class=\"btn btn-sm btn-primary ms-2\" data-agregar-juegos=\"" + escapeHtml(grupo.perfil_codigo || "") + "\" data-cantidad-juegos=\"" + adicionales + "\">Agregar al pedido</button>"
+            : "Propuesta: no se detecta otro juego completo en el espacio libre actual.";
+        if (grupo.hojasSolicitadas > 0 && grupo.hojas > grupo.hojasSolicitadas) {
+            propuesta += " Atención: el pedido requiere " + grupo.hojas + " hojas y solo se indicaron " + grupo.hojasSolicitadas + "; esta hoja queda fuera de la cantidad señalada.";
+        }
+        return "<div class=\"row g-2 small text-muted mb-2\">" +
+            "<div class=\"col-md-3\"><strong>Uso:</strong> " + escapeHtml(formato(ocupacion, 1)) + "% (" + escapeHtml(formato(hoja.areaUsada, 4)) + " de " + escapeHtml(formato(hoja.areaHoja, 4)) + " m2)</div>" +
+            "<div class=\"col-md-3\"><strong>Envolvente:</strong> " + escapeHtml(formato(caja.derecha, 1)) + " x " + escapeHtml(formato(caja.abajo, 1)) + " cm</div>" +
+            "<div class=\"col-md-3\"><strong>Libre:</strong> " + escapeHtml(formato(caja.libreLargo, 1)) + " x " + escapeHtml(formato(caja.libreAncho, 1)) + " cm</div>" +
+            "<div class=\"col-md-3\"><strong>Piezas/juegos:</strong> " + escapeHtml(piezas) + " piezas; " + escapeHtml(juegos) + " juego(s) completos</div>" +
+            "</div><div class=\"alert alert-light-primary py-2 px-3 mb-2\">" + propuesta + "</div><div class=\"text-muted small mb-2\"><strong>Sobrante:</strong> " + escapeHtml(recomendacionSobrante(hoja, grupo, adicionales)) + "</div>";
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-04
@@ -615,6 +865,9 @@
             var hojaAncho = numero(grupo.hojaAncho);
             grupo.acomodo.hojas.forEach(function (hoja, index) {
                 var altoVisual = Math.max(220, Math.min(420, (hojaAncho / Math.max(hojaLargo, 1)) * 520));
+                var caja = metricasCajaHoja(hoja, hojaLargo, hojaAncho);
+                var reglaSuperior = "<div class=\"vidrio-ruler-top\">Largo de hoja: " + escapeHtml(formato(hojaLargo, 1)) + " cm | Usado: " + escapeHtml(formato(caja.derecha, 1)) + " cm | Libre: " + escapeHtml(formato(caja.libreLargo, 1)) + " cm</div>";
+                var reglaLateral = "<div class=\"vidrio-ruler-side\">Ancho usado:<br>" + escapeHtml(formato(caja.abajo, 1)) + " / " + escapeHtml(formato(hojaAncho, 1)) + " cm<br>Libre: " + escapeHtml(formato(caja.libreAncho, 1)) + " cm</div>";
                 var bandasHtml = hoja.columnas ? hoja.columnas.map(function (columna) {
                     return "<div class=\"vidrio-band\" style=\"left:" + ((columna.x / hojaLargo) * 100) + "%;width:" + ((columna.ancho / hojaLargo) * 100) + "%\"></div>";
                 }).join("") : "";
@@ -623,10 +876,13 @@
                     var top = (pieza.y / hojaAncho) * 100;
                     var width = ((pieza.corteLargo || pieza.largo) / hojaLargo) * 100;
                     var height = (pieza.ancho / hojaAncho) * 100;
-                    var label = pieza.pieza + " " + formato(pieza.largo, 1) + "x" + formato(pieza.ancho, 1) + (pieza.corteLargo && pieza.corteLargo !== pieza.largo ? " corte " + formato(pieza.corteLargo, 1) : "");
+                    var label = (pieza.perfil_codigo || "Extra") + " / " + pieza.pieza + " " + formato(pieza.largo, 1) + "x" + formato(pieza.ancho, 1) + (pieza.corteLargo && pieza.corteLargo !== pieza.largo ? " corte " + formato(pieza.corteLargo, 1) : "");
                     return "<div class=\"vidrio-piece\" style=\"left:" + left + "%;top:" + top + "%;width:" + width + "%;height:" + height + "%\" title=\"" + escapeHtml(label) + "\">" + escapeHtml(label) + "</div>";
                 }).join("");
-                bloques.push("<div><div class=\"d-flex flex-wrap align-items-center gap-2 mb-2\"><div class=\"fw-bold\">" + escapeHtml(formato(grupo.espesor, 2)) + " mm - Hoja " + (index + 1) + "</div><div class=\"vidrio-waste small\">Desperdicio " + escapeHtml(formato(hoja.desperdicio, 1)) + "% | Aprovechado " + escapeHtml(formato(hoja.aprovechamiento, 1)) + "%</div></div><div class=\"vidrio-sheet\" style=\"height:" + altoVisual + "px\">" + bandasHtml + piezasHtml + "</div></div>");
+                var estadoHoja = grupo.hojasSolicitadas > 0 && index + 1 > grupo.hojasSolicitadas
+                    ? "<div class=\"alert alert-light-danger py-2 px-3 mb-2\">Hoja adicional no contemplada: las piezas no caben en las " + escapeHtml(grupo.hojasSolicitadas) + " hojas indicadas.</div>"
+                    : "";
+                bloques.push("<div><div class=\"d-flex flex-wrap align-items-center gap-2 mb-2\"><div class=\"fw-bold\">" + escapeHtml(grupo.perfil_codigo ? grupo.perfil_codigo + " | " : "") + escapeHtml(formato(grupo.espesor, 2)) + " mm - Hoja " + (index + 1) + "</div><div class=\"vidrio-waste small\">Desperdicio " + escapeHtml(formato(hoja.desperdicio, 1)) + "% | Aprovechado " + escapeHtml(formato(hoja.aprovechamiento, 1)) + "%</div></div>" + resumenHojaVisual(hoja, grupo) + estadoHoja + reglaSuperior + "<div class=\"vidrio-sheet-wrap\">" + reglaLateral + "<div class=\"flex-grow-1\"><div class=\"vidrio-sheet\" style=\"height:" + altoVisual + "px\">" + bandasHtml + piezasHtml + "</div></div></div></div>");
             });
         });
         contenedor.innerHTML = bloques.join("") || "<div class=\"text-muted\">Sin hojas acomodadas para mostrar.</div>";
@@ -643,6 +899,7 @@
             piezas_total: piezasPedido().reduce(function (total, pieza) { return total + pieza.cantidad; }, 0),
             area_total_m2: piezasPedido().reduce(function (total, pieza) { return total + pieza.area; }, 0),
             configs_hoja: configsHoja,
+            bloques_proveedor: planProveedor,
             recomendaciones_hoja: hojas.map(function (grupo) {
                 return {espesor: grupo.espesor, largo: grupo.hojaLargo, ancho: grupo.hojaAncho, hojas: grupo.hojas, alternativas: grupo.alternativasHoja || []};
             }),
@@ -671,9 +928,32 @@
         }) : [];
         extras = Array.isArray(pedido.extras) ? pedido.extras : [];
         configsHoja = pedido.configs_hoja || {};
+        planProveedor = Array.isArray(pedido.bloques_proveedor) ? pedido.bloques_proveedor : [];
         el("peceras_pedido_acomodo").value = pedido.tipo_acomodo || "columnas_ancho";
         el("peceras_pedido_nombre").value = pedido.nombre || "";
+        renderReportePedido(pedido);
         render();
+    }
+    function renderReportePedido(pedido) {
+        var contenedor = el("peceras_pedido_reporte");
+        if (!contenedor) { return; }
+        var plan = Array.isArray(pedido.recomendaciones_hoja) ? pedido.recomendaciones_hoja : [];
+        var pendientes = Array.isArray(pedido.pendientes) ? pedido.pendientes : [];
+        var bloques = Array.isArray(pedido.bloques_proveedor) ? pedido.bloques_proveedor : [];
+        var estrategia = pedido.estrategia_sobrantes || {};
+        if (!plan.length && !pendientes.length && !bloques.length) {
+            contenedor.innerHTML = "";
+            return;
+        }
+        var filas = plan.map(function (grupo) {
+            return "<tr><td>" + escapeHtml(grupo.grupo || "") + "</td><td>" + escapeHtml(grupo.descripcion || "") + "</td><td>" + escapeHtml(grupo.hoja || "") + "</td><td>" + escapeHtml(grupo.resultado || "") + "</td></tr>";
+        }).join("");
+        var bloquesHtml = bloques.length ? "<div class=\"mt-4\"><div class=\"fw-bold mb-2\">Plan por bloques del proveedor</div><div class=\"table-responsive\"><table class=\"table table-row-dashed align-middle gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>Bloque</th><th>Códigos</th><th>Hoja</th><th>Hojas</th><th>Objetivo</th></tr></thead><tbody>" + bloques.map(function (bloque) {
+            return "<tr><td><span class=\"badge badge-light-primary\">" + escapeHtml(bloque.id || "") + "</span></td><td>" + escapeHtml((bloque.perfiles || []).join(", ")) + "</td><td>" + escapeHtml(bloque.hoja || "") + "</td><td>" + escapeHtml(bloque.hojas_reservadas || "") + "</td><td>" + escapeHtml(bloque.objetivo || "") + "</td></tr>";
+        }).join("") + "</tbody></table></div></div>" : "";
+        var estrategiaHtml = estrategia.modo ? "<div class=\"alert alert-info mt-4 mb-0\"><div class=\"fw-bold mb-1\">Sobrantes</div><div>" + escapeHtml(estrategia.nota || "El sobrante se decide por hoja.") + "</div></div>" : "";
+        var pendientesHtml = pendientes.length ? "<div class=\"alert alert-warning mt-4 mb-0\"><div class=\"fw-bold mb-2\">Pendientes antes de confirmar</div><ul class=\"mb-0\">" + pendientes.map(function (pendiente) { return "<li>" + escapeHtml(pendiente) + "</li>"; }).join("") + "</ul></div>" : "";
+        contenedor.innerHTML = "<div class=\"border rounded p-4\"><div class=\"fw-bold fs-4 mb-3\">Reporte de simulación</div>" + (filas ? "<div class=\"table-responsive\"><table class=\"table table-row-dashed align-middle gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>Grupo</th><th>Combinación</th><th>Hoja</th><th>Resultado</th></tr></thead><tbody>" + filas + "</tbody></table></div>" : "") + bloquesHtml + estrategiaHtml + pendientesHtml + "</div>";
     }
     function renderPedidosGuardados() {
         var contenedor = el("peceras_pedido_guardados");
@@ -689,7 +969,9 @@
         });
         contenedor.innerHTML = "<div class=\"table-responsive\"><table class=\"table table-row-dashed align-middle gy-3\"><thead><tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>Pedido</th><th>Desperdicio</th><th>Hojas</th><th>Piezas</th><th>Fecha</th><th class=\"text-end\"></th></tr></thead><tbody>" +
             ordenados.map(function (pedido, index) {
-                return "<tr><td>" + (index === 0 ? "<span class=\"badge badge-light-success me-2\">Mejor</span>" : "") + escapeHtml(pedido.nombre) + "</td><td>" + escapeHtml(formato(pedido.desperdicio_promedio, 1)) + "%</td><td>" + escapeHtml(pedido.hojas_total) + "</td><td>" + escapeHtml(pedido.piezas_total) + "</td><td>" + escapeHtml(new Date(pedido.fecha).toLocaleString("es-MX")) + "</td><td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pedido-cargar=\"" + escapeHtml(pedido.id_pedido_vidrio) + "\">Cargar</button></td></tr>";
+                var esBorrador = /simulaci[oó]n/i.test(pedido.nombre || "");
+                var etiqueta = esBorrador ? "<span class=\"badge badge-light-warning me-2\">Borrador</span>" : (index === 0 ? "<span class=\"badge badge-light-success me-2\">Mejor</span>" : "");
+                return "<tr><td>" + etiqueta + escapeHtml(pedido.nombre) + "</td><td>" + escapeHtml(formato(pedido.desperdicio_promedio, 1)) + "%</td><td>" + escapeHtml(pedido.hojas_total) + "</td><td>" + escapeHtml(pedido.piezas_total) + "</td><td>" + escapeHtml(new Date(pedido.fecha).toLocaleString("es-MX")) + "</td><td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pedido-cargar=\"" + escapeHtml(pedido.id_pedido_vidrio) + "\">Cargar</button></td></tr>";
             }).join("") + "</tbody></table></div>";
     }
     function agregarPerfil(id, cantidad) {
@@ -770,6 +1052,11 @@
             render(true);
         });
         document.addEventListener("click", function (event) {
+            var agregarJuegos = event.target.closest("[data-agregar-juegos]");
+            if (agregarJuegos) {
+                agregarJuegosPropuestos(agregarJuegos.getAttribute("data-agregar-juegos"), entero(agregarJuegos.getAttribute("data-cantidad-juegos")));
+                return;
+            }
             var quitar = event.target.closest("[data-quitar-item]");
             if (!quitar) {
                 var extraQuitar = event.target.closest("[data-extra-quitar]");

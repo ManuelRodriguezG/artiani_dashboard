@@ -279,6 +279,12 @@ No usar `erp_notificaciones` como sustituto de la incidencia. La incidencia o pe
 
 ## Criterio de implementacion
 
+### Enlaces profundos a incidencias de calidad
+
+- Cuando una notificacion incluya `incidencia_calidad`, la pantalla de Catalogo debe consumir el identificador y enfocar esa incidencia dentro de la bandeja "Incidencias de calidad"; abrir solo `/catalogoerp` deja al usuario en el listado general y no completa la accion.
+- El endpoint de consulta de incidencias puede aceptar `id_incidencia_calidad` como filtro puntual de solo lectura para recuperar incidencias fuera de la primera pagina. El enlace no debe cambiar el estatus ni resolver la incidencia.
+- Fecha: 2026-10-28. Impacto: navegacion de notificaciones Catalogo; sin efectos de persistencia.
+
 No implementar notificaciones como texto estatico en vistas.
 
 Cada notificacion debe provenir de datos persistentes y respetar permisos. La UI solo debe consultar y renderizar lo que el backend permita.

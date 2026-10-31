@@ -14,10 +14,37 @@
             background: var(--bs-gray-100);
             position: relative;
             width: 100%;
-            max-width: 520px;
+            max-width: none;
             min-height: 220px;
             overflow: hidden;
             border-radius: 6px;
+        }
+        .vidrio-sheet-wrap {
+            display: flex;
+            align-items: stretch;
+            gap: .5rem;
+            width: 100%;
+        }
+        .vidrio-ruler-top {
+            color: var(--bs-gray-700);
+            padding: 0 0 .25rem;
+            margin-bottom: .15rem;
+            font-size: .78rem;
+            text-align: center;
+            display: block;
+            width: 100%;
+            font-weight: 600;
+        }
+        .vidrio-ruler-side {
+            width: 90px;
+            flex: 0 0 90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bs-gray-700);
+            padding: 0 .25rem;
+            font-size: .78rem;
+            text-align: center;
         }
         .vidrio-piece {
             position: absolute;
@@ -108,7 +135,7 @@
                                     </div>
                                     <div class="col-lg-1">
                                         <label class="form-label fw-semibold">Merma %</label>
-                                        <input class="form-control" id="peceras_pedido_merma" inputmode="decimal" value="12">
+                                            <input class="form-control" id="peceras_pedido_merma" inputmode="decimal" value="0">
                                     </div>
                                     <div class="col-lg-1">
                                         <label class="form-label fw-semibold">Separacion mm</label>
@@ -136,6 +163,7 @@
                                     </div>
                                 </div>
                                 <div id="peceras_pedido_guardados"></div>
+                                <div class="mt-5" id="peceras_pedido_reporte"></div>
                             </div>
                         </div>
 
@@ -225,38 +253,35 @@
                             <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Desperdicio promedio</div><div class="fs-2 fw-bold" id="peceras_pedido_kpi_desperdicio">0%</div></div></div></div>
                         </div>
 
-                        <div class="row g-6">
-                            <div class="col-xl-5">
-                                <div class="card h-100">
-                                    <div class="card-header border-0 pt-5"><h2 class="fw-bold fs-4 mb-0">Perfiles del pedido</h2></div>
-                                    <div class="card-body pt-3" id="peceras_pedido_items"></div>
-                                </div>
+                        <div class="card mb-6">
+                            <div class="card-header border-0 pt-5"><h2 class="fw-bold fs-4 mb-0">Perfiles del pedido</h2></div>
+                            <div class="card-body pt-3" id="peceras_pedido_items"></div>
+                        </div>
+
+                        <div class="card mb-6">
+                            <div class="card-header border-0 pt-5"><h2 class="fw-bold fs-4 mb-0">Acomodo visual por hoja</h2></div>
+                            <div class="card-body pt-3">
+                                <div class="text-muted mb-4">En `Bandas corte ancho`, cada banda alinea una linea recta que cruza el lado angosto de la hoja.</div>
+                                <div class="d-flex flex-column gap-6 w-100" id="peceras_pedido_acomodo_visual"></div>
                             </div>
-                            <div class="col-xl-7">
-                                <div class="card h-100">
-                                    <div class="card-header border-0 pt-5"><h2 class="fw-bold fs-4 mb-0">Resumen por hoja / espesor</h2></div>
-                                    <div class="card-body pt-3">
-                                        <div class="table-responsive">
-                                            <table class="table table-row-dashed align-middle gy-3">
-                                                <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Espesor</th><th>Piezas</th><th>Area</th><th>Acomodo</th><th>Hojas</th><th>Alertas</th></tr></thead>
-                                                <tbody id="peceras_pedido_hojas"></tbody>
-                                            </table>
-                                        </div>
-                                        <div class="mt-4" id="peceras_pedido_acomodo_detalle"></div>
-                                        <div class="separator my-5"></div>
-                                        <div>
-                                            <h3 class="fw-bold fs-5 mb-1">Acomodo visual</h3>
-                                            <div class="text-muted mb-4">En `Bandas corte ancho`, cada banda alinea una linea recta que cruza el lado angosto de la hoja.</div>
-                                            <div class="d-flex flex-column gap-6" id="peceras_pedido_acomodo_visual"></div>
-                                        </div>
-                                        <div class="separator my-5"></div>
-                                        <div class="table-responsive">
-                                            <table class="table table-row-dashed align-middle gy-3">
-                                                <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Perfil</th><th>Pieza</th><th>Medida</th><th>Espesor</th><th>Total</th><th></th></tr></thead>
-                                                <tbody id="peceras_pedido_piezas"></tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                        </div>
+
+                        <div class="card mb-6">
+                            <div class="card-header border-0 pt-5"><h2 class="fw-bold fs-4 mb-0">Resumen por hoja / espesor</h2></div>
+                            <div class="card-body pt-3">
+                                <div class="table-responsive">
+                                    <table class="table table-row-dashed align-middle gy-3">
+                                        <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Espesor</th><th>Piezas</th><th>Area</th><th>Acomodo</th><th>Hojas</th><th>Alertas</th></tr></thead>
+                                        <tbody id="peceras_pedido_hojas"></tbody>
+                                    </table>
+                                </div>
+                                <div class="mt-4" id="peceras_pedido_acomodo_detalle"></div>
+                                <div class="separator my-5"></div>
+                                <div class="table-responsive">
+                                    <table class="table table-row-dashed align-middle gy-3">
+                                        <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Perfil</th><th>Pieza</th><th>Medida</th><th>Espesor</th><th>Total</th><th></th></tr></thead>
+                                        <tbody id="peceras_pedido_piezas"></tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -268,6 +293,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/produccion/peceras_pedido_vidrio.js?v=20261024-1"></script>
+<script src="/assets/js/custom/apps/erp/produccion/peceras_pedido_vidrio.js?v=20261031-02"></script>
 </body>
 </html>

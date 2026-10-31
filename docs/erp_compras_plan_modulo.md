@@ -810,6 +810,16 @@ Esto mantiene backend correcto sin hacer al usuario dar rodeos.
 
 ## Productos y pendientes
 
+### Decision operativa 2026-10-27: compras preoperativas sin ajuste de existencias
+
+Durante la fase de adopcion inicial, Compras puede registrar ordenes y cerrar compras documentales para alimentar costos, proveedores y Catalogo ERP, pero no debe alterar existencias ni generar movimientos de kardex automaticamente.
+
+- Si una partida no tiene SKU ERP, Compras genera una incidencia `compra_producto_pendiente_alta` para Catalogo y su notificacion operativa correspondiente.
+- La incidencia puede atenderse creando un SKU temporal en borrador o relacionando la partida con un SKU ERP existente.
+- La creacion o resolucion de la incidencia no registra existencias, recepciones ni movimientos de inventario.
+- Las incidencias de conteo/ajuste de inventario quedan pendientes para una etapa posterior de Almacen y solo se ejecutaran mediante una accion explicita con permiso y autorizacion.
+- Esta regla aplica mientras el negocio no opere formalmente el flujo completo de recepcion e inventario.
+
 Casos que deben contemplarse:
 
 - Producto solicitado pero no comprado.
