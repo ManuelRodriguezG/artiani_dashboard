@@ -69,6 +69,19 @@ class Ventas extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-6 | Fecha: 2026-10-31
+   * Proposito: abrir la bandeja para revisar y resolver acciones de catalogacion nacidas en ventas historicas.
+   * Impacto: Ventas historicas/Catalogo; separa el trabajo historico de los pendientes POS que requieren turno.
+   * Contrato: vista protegida por ventas.ver o catalogo.ver; no ejecuta cambios al abrirse.
+   */
+  public function acciones_historicas() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    $this->vista("apps/erp/ventas/acciones_historicas", array(
+      "puede_clasificar" => Sesionseguridad::tienePermiso("ventas.operar") || Sesionseguridad::tienePermiso("catalogo.editar")
+    ));
+  }
+
+  /**
    * IA: Codex GPT-5
    * Fecha: 2026-10-14
    * Proposito: abrir captura planificada de ventas historicas separada del POS en tiempo real.
@@ -946,6 +959,66 @@ class Ventas extends Controlador {
     $_POST["id_usuario"] = $this->usuarioActualId();
     $respuesta = $this->modelo("VentasErp")->ventaRapidaSolicitarBorradorCatalogoReal($_POST);
     $this->auditarCobroPos("solicitar_borrador_catalogo_venta_rapida", $respuesta);
+    return json_encode($respuesta);
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Lista acciones de clasificacion historica pendientes, solo lectura. */
+  public function ventas_historicas_acciones_listar_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    return json_encode($this->modelo("VentasErp")->ventasHistoricasAccionesListarReadOnly($_GET));
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Prevalida una partida historica contra un SKU vigente sin escribir datos. */
+  public function ventas_historicas_clasificar_dryrun_erp() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    return json_encode($this->modelo("VentasErp")->ventaHistoricaClasificarDryRun($_POST));
+  }
+
+  /**
+   * IA: Codex GPT-6 | Fecha: 2026-10-31
+   * Proposito: asociar una partida historica a un SKU existente y cerrar su notificacion con auditoria.
+   * Impacto: solo identidad de la partida y trazabilidad; nunca caja, pagos, precios, almacen ni inventario.
+   * Contrato: POST protegido por CSRF; requiere ventas.operar o catalogo.editar, token, motivo y confirmacion.
+   */
+  public function ventas_historicas_clasificar_aplicar_erp() {
+    $this->requerirAlgunPermiso(array("ventas.operar", "catalogo.editar"));
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->ventaHistoricaClasificarAplicar($_POST);
+    Sesionseguridad::registrarAuditoria("ventas", "historica_clasificar_sku", array(
+      "entidad" => "erp_ventas_detalle",
+      "entidad_id" => isset($_POST["id_venta_detalle"]) ? intval($_POST["id_venta_detalle"]) : null,
+      "resultado" => !empty($respuesta["error"]) ? "error" : "ok",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Cierra con motivo una accion historica que no requiere SKU de Catalogo. */
+  public function ventas_historicas_mantener_rapida_erp() {
+    $this->requerirAlgunPermiso(array("ventas.operar", "catalogo.editar"));
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->ventaHistoricaMantenerRapida($_POST);
+    Sesionseguridad::registrarAuditoria("ventas", "historica_mantener_venta_rapida", array(
+      "entidad" => "erp_ventas_detalle",
+      "entidad_id" => isset($_POST["id_venta_detalle"]) ? intval($_POST["id_venta_detalle"]) : null,
+      "resultado" => !empty($respuesta["error"]) ? "error" : "ok",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : ""
+    ));
+    return json_encode($respuesta);
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Solicita a Catalogo un borrador para una partida historica sin SKU. */
+  public function ventas_historicas_solicitar_catalogo_erp() {
+    $this->requerirAlgunPermiso(array("ventas.operar", "catalogo.ver"));
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->ventaHistoricaSolicitarCatalogo($_POST);
+    Sesionseguridad::registrarAuditoria("ventas", "historica_solicitar_catalogo", array(
+      "entidad" => "erp_catalogo_incidencias_calidad",
+      "entidad_id" => isset($respuesta["depurar"]["id_incidencia_calidad"]) ? intval($respuesta["depurar"]["id_incidencia_calidad"]) : null,
+      "resultado" => !empty($respuesta["error"]) ? "error" : "ok",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : ""
+    ));
     return json_encode($respuesta);
   }
 

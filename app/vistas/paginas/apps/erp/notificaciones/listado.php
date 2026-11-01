@@ -53,7 +53,7 @@
                             </div>
                         </div>
 
-                        <div class="d-flex flex-column flex-md-row gap-3 mb-6">
+                        <div class="d-flex flex-column flex-md-row gap-3 mb-5">
                             <select class="form-select form-select-solid w-md-225px" id="notificaciones_estatus">
                                 <option value="">Pendientes activas</option>
                                 <option value="pendiente">Pendiente</option>
@@ -61,12 +61,20 @@
                                 <option value="bloqueada">Bloqueada</option>
                                 <option value="resuelta">Resuelta</option>
                             </select>
-                            <input class="form-control form-control-solid w-md-300px" id="notificaciones_area" placeholder="Filtrar por area responsable">
                             <button type="button" class="btn btn-light-primary" id="notificaciones_refrescar">Actualizar</button>
                         </div>
 
-                        <div class="d-flex flex-wrap gap-2 mb-6" id="notificaciones_modulos">
-                            <span class="text-muted">Sin pendientes por modulo</span>
+                        <div class="border rounded p-4 mb-6">
+                            <div class="fw-bold text-gray-800 mb-2">Separar notificaciones</div>
+                            <div class="text-muted fs-7 mb-3">Filtra por el módulo que generó el aviso o por el área que debe atenderlo.</div>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                                <span class="text-muted fw-semibold fs-7 me-1">Origen:</span>
+                                <div class="d-flex flex-wrap gap-2" id="notificaciones_modulos"><span class="text-muted">Cargando módulos...</span></div>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <span class="text-muted fw-semibold fs-7 me-1">Área responsable:</span>
+                                <div class="d-flex flex-wrap gap-2" id="notificaciones_areas"><span class="text-muted">Cargando áreas...</span></div>
+                            </div>
                         </div>
 
                         <div class="table-responsive">
@@ -77,13 +85,14 @@
                                     <th>Notificacion</th>
                                     <th>Modulo</th>
                                     <th>Area</th>
+                                    <th>Tipo</th>
                                     <th>Estado</th>
                                     <th>Fecha</th>
                                     <th class="text-end">Acciones</th>
                                 </tr>
                                 </thead>
                                 <tbody id="notificaciones_body">
-                                <tr><td colspan="7" class="text-center text-muted py-10">Cargando notificaciones...</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted py-10">Cargando notificaciones...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -95,6 +104,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/notificaciones/listado.js?v=20260616-1"></script>
+<script src="/assets/js/custom/apps/erp/notificaciones/listado.js?v=20261031-origen-area1"></script>
 </body>
 </html>

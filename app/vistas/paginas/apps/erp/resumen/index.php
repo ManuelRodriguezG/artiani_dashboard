@@ -90,6 +90,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/resumen/resumen.js?v=20260729-1"></script>
+<script src="/assets/js/custom/apps/erp/resumen/resumen.js?v=20261031-historicas1"></script>
 </body>
 </html>

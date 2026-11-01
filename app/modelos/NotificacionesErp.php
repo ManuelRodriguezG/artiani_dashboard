@@ -69,6 +69,7 @@ class NotificacionesErp extends CRUD {
     }
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Lista notificaciones visibles con filtro exacto de origen y area responsable. */
   public function listarUsuario($idUsuario, $permisos, $filtros = array()) {
     $filtro = $this->filtroVisibilidadUsuario($idUsuario, $permisos);
     if ($filtro["sql"] === "") {
@@ -95,6 +96,12 @@ class NotificacionesErp extends CRUD {
       if ($area !== "") {
         $where[] = "n.area_responsable=:area";
         $params[":area"] = $area;
+      }
+
+      $modulo = isset($filtros["modulo_origen"]) ? trim((string) $filtros["modulo_origen"]) : "";
+      if ($modulo !== "") {
+        $where[] = "n.modulo_origen=:modulo";
+        $params[":modulo"] = $modulo;
       }
 
       $limite = intval(isset($filtros["limite"]) ? $filtros["limite"] : 20);

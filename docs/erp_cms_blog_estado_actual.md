@@ -146,6 +146,18 @@ Resultado 2026-09-28:
 
 ## Handoff
 
+### Borrador editorial piton bola / 2026-10-31
+
+- IA: Codex GPT-6.1-sol. Paquete local en `storage/editorial/blog_piton_bola/`: `revision.html` (articulo, matriz y briefs), `articulo.html` (HTML del cuerpo), `paquete_revision.json` (evidencia y checklist), `payload_formulario.json` (campos POST, no ejecutados).
+- Articulo breve: `Piton bola: lo esencial para preparar su habitat`. Ofrece alternativas por talla y categoria; no impone kit. Clasificacion editorial independiente de disponibilidad.
+- Se comprobaron por GET las categorias 486, 594, 489, 597, 490 y 505. Matriz de 44 candidatos con IDs de publicacion, SKU, categoria, referencia de imagen, disponibilidad y motivo de condicion/omision. No hay precios ni stock exacto.
+- Terrarios y sustratos candidatos agotados; PRIVO refugios/bebederos no encontrados por busqueda publica (no implica inexistencia en ERP). Termometros 1802/1805 son de acuario/no validados; busquedas de higrometro/termohigrometro sin resultados. No reemplazar controlador de calefaccion por calentador sumergible de acuario.
+- Cinco briefs con ALT propuestos: portada, terrario, temperatura, humedad/sustrato y refugios/agua. No hay imagenes generadas ni altas Media. Cinco referencias de producto responden HEAD 200 con MIME imagen local; revision visual y acceso desde frontend externo pendientes.
+- Payload compatible con `$_POST` (multipart/form-data o formulario codificado); JSON serializado en imagen_portada/seo y relaciones. URL portada vacia, productos/imagenes/puntos vacios intencionalmente: completar antes de guardar. CSRF se obtiene de sesion al ejecutar, nunca se incluye en archivos.
+- Limites detectados: relacion de producto solo guarda ID/orden, sin etapa/compatibilidad; detalle publico limita a ocho y devuelve imagen/precio vacios, sin disponibilidad. Resolver tarjetas desde API publica y coordinar etiquetas antes de ampliar contrato. Coordenadas interactivas solo sobre imagen final revisada.
+- Estado de esquema no confirmado: intento GET de auditoria no devolvio JSON interpretable; revisar estado interno autenticado. No se aplico DDL ni se guardo/publico contenido.
+- Siguiente: aprobar redaccion y alternativas, producir/revisar imagenes, completar URLs y puntos del payload, validar esquema read-only y obtener autorizacion final de guardado/publicacion.
+
 Para continuar sin gastar tokens:
 
 1. Leer este archivo.

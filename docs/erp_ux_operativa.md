@@ -120,6 +120,15 @@ Reglas:
 - Mensajes de error deben decir que falta y como corregirlo.
 - Controles repetitivos deben tener dimensiones estables para no mover la tabla.
 
+## Notificaciones: origen y responsable
+
+Fecha: 2026-10-31
+
+- La bandeja debe distinguir visualmente el módulo que generó una notificación (`modulo_origen`) del área que debe atenderla (`area_responsable`). Son conceptos diferentes y deben tener filtros independientes.
+- Ofrecer filtros seleccionables con conteos para origen y área; no exigir que el usuario conozca o escriba claves técnicas.
+- Mostrar el tipo de aviso como contexto secundario. Usar etiquetas legibles para módulos/áreas comunes y un fallback que humanice claves desconocidas.
+- Al aplicar un filtro, conservar el estado/orden de prioridad de la bandeja y facilitar volver a “Todos”.
+
 ## Cuando pedir IA experta en UI/UX
 
 Usar un agente/modelo fuerte con enfoque UI/UX cuando la tarea implique:

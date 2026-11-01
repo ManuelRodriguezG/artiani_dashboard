@@ -7025,3 +7025,38 @@ Verificaciones:
 - `C:\xampp\php\php.exe -l app/modelos/VentasErp.php`: correcto.
 - `C:\xampp\php\php.exe -l app/controladores/Ventas.php`: correcto.
 - `node --check public/assets/js/custom/apps/erp/ventas/correcciones_historicas.js`: correcto.
+
+## Handoff 2026-10-31 - Resolucion de incidencias de SKU historico
+
+Estado:
+
+- Se agrego `/ventas/acciones_historicas` como bandeja dedicada para alertas de clasificacion SKU nacidas en carga historica.
+- Las interfaces de notificaciones del listado, navbar y resumen redirigen los avisos `venta_historica_regularizacion` con `accion=clasificar_sku` a la bandeja con el ID exacto. También se actualizó la URL configurada para avisos nuevos.
+- Se puede consultar el aviso, buscar SKU existente, prevalidar, clasificar la partida, solicitar incidencia a Catalogo o cerrarla con motivo como venta rapida.
+- Catalogo acepta el nuevo tipo `venta_historica_sku_sin_match`, permite abrir su incidencia específica y crear SKU temporal con prefijo `TMP-VHIS-`; no clasifica la venta automáticamente.
+
+Contrato de seguridad y datos:
+
+- Clasificar solo vincula `id_producto_erp`, `id_sku_erp` y `sku`, conserva descripción/importes/almacén, y registra evento histórico. No afecta caja, pagos, inventario ni kardex.
+- Las acciones reales validan venta histórica, aviso abierto y partida sin SKU. Clasificar y cerrar como venta rápida requieren motivo y confirmación fuerte.
+- Enviar a Catálogo requiere motivo y confirmación UI; crea/actualiza incidencia y su notificación de destino, sin modificar la venta.
+- No se ejecutó ninguna acción contra la base productiva, no se aplicó DDL y no se migraron notificaciones existentes. Las rutas antiguas se resuelven dinámicamente al abrir.
+
+Verificaciones realizadas:
+
+- PHP lint de controlador, modelo, vista, Catalogo y vistas globales que cargan las rutas.
+- `node --check` de la bandeja, JavaScript de notificaciones/resumen y Catalogo.
+- Sin prueba de escritura o navegación autenticada sobre productivo.
+
+Siguiente paso operativo:
+
+- Abrir desde la bandeja de notificaciones la incidencia histórica que antes enviaba a Catalogo y verificar que aterrice en la partida correcta. Resolverla solo después de revisar el SKU candidato y dejar motivo.
+
+## Avance 2026-11-01 - VENTA-RAPIDA y equivalencia de unidad base
+
+- La prevalidación ahora trata `sku=VENTA-RAPIDA` sin `id_sku_erp` como partida aún no clasificada. Un SKU ERP ya asignado sigue bloqueando reclasificación.
+- La bandeja muestra cantidad/unidad de venta y cantidad/unidad base actuales. Al elegir SKU, muestra su unidad base; una unidad distinta obliga a capturar manualmente la cantidad equivalente.
+- La aplicación actualiza SKU ERP e identidad, junto con `cantidad_base`/`unidad_base` explícitos, y audita ambos valores antes/después. Preserva cantidad/unidad vendida, precio, subtotal, total, descripción y almacén; no mueve inventario ni kardex.
+- Para `VHIS-20261022-000014`, la propuesta confirmada por conversación sería 3 pzas de 100 g, $20 por porción, total $60; SKU `26A17-KG-GRANEL`; cantidad base 0.3 kg. La interfaz mostraba almacén ID 4 (Acuario), pero el dueño confirma que corresponde a Mascotas (ID 5 ya usado por el módulo); corregir almacén es una operación histórica separada con su propia bitácora.
+- La prevalidación anterior falló porque consideraba `VENTA-RAPIDA` como SKU ya asignado. Ese bloqueo se está corrigiendo en el código antes de volver a prevalidar.
+- No se han aplicado cambios a la venta. La corrección de almacén requiere respaldo productivo externo y dry-run; no ejecutar hasta verificar respaldo, esquema/auditoría disponible, permiso y confirmación final de los valores.

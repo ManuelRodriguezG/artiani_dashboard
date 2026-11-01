@@ -145,7 +145,7 @@
     function renderItemNotificacion(item) {
         const prioridad = (item.prioridad || "normal").toLowerCase();
         const badge = clasePrioridad(prioridad);
-        const url = normalizarUrl(item.url_accion);
+        const url = urlNotificacion(item);
         const leida = numero(item.leida) === 1;
         const descripcion = item.descripcion ? '<div class="text-gray-500 fs-7">' + escapeHtml(item.descripcion) + '</div>' : "";
         const area = item.area_responsable ? escapeHtml(item.area_responsable) : "general";
@@ -269,6 +269,18 @@
             return escapeHtml(url);
         }
         return "#";
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Corrige el destino visual de acciones históricas guardadas antes de esta bandeja. */
+    function urlNotificacion(item) {
+        if (item && item.tipo === "venta_historica_regularizacion") {
+            let payload = item.payload_json || {};
+            if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch (e) { payload = {}; } }
+            if (payload && payload.accion === "clasificar_sku") {
+                return "/ventas/acciones_historicas?notificacion=" + encodeURIComponent(item.id_notificacion || "");
+            }
+        }
+        return normalizarUrl(item ? item.url_accion : "");
     }
 
     function formatearFecha(fecha) {

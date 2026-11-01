@@ -1572,6 +1572,8 @@ class CatalogoErpDatos extends CRUD {
         ":id" => $id
       ));
 
+      $notificacionesResueltas = $this->resolverNotificacionesCatalogoPorIncidencia($db, $actual, $estatus);
+
       $db->commit();
       return $this->respuesta(false, "success", "Incidencia de calidad actualizada", array(
         "id_incidencia_calidad" => $id,
@@ -1583,7 +1585,8 @@ class CatalogoErpDatos extends CRUD {
         "despues" => array(
           "estatus" => $estatus,
           "responsable_id" => $responsable ?: null
-        )
+        ),
+        "notificaciones_resueltas" => $notificacionesResueltas
       ));
     } catch (Exception $e) {
       if ($db->inTransaction()) {
@@ -1591,6 +1594,151 @@ class CatalogoErpDatos extends CRUD {
       }
       return $this->respuesta(true, "danger", $e->getMessage());
     }
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-31
+   * Proposito: sincronizar avisos de Catalogo cuando la evidencia de la incidencia ya confirma avance.
+   * Impacto: Catalogo/Compras/Proveedores; no cierra costos de Rentabilidad ni matching pendiente de Proveedores.
+   * Contrato: solo resuelve avisos de alta cuyo pendiente ya tiene SKU relacionado o decision final.
+   */
+  public function sincronizarNotificacionesCatalogo() {
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExisteCatalogo($db, "erp_notificaciones")) {
+        return $this->respuesta(false, "info", "La bandeja transversal no esta disponible", array("resueltas" => 0));
+      }
+      $resumen = array(
+        "revisadas" => 0,
+        "resueltas" => 0,
+        "sin_evidencia" => 0,
+        "tipos" => array()
+      );
+
+      $stmt = $db->query("SELECT n.id_notificacion, n.tipo, n.id_entidad_origen,
+          n.payload_json, n.estatus,
+          i.id_incidencia_calidad, i.id_sku, i.estatus estatus_incidencia,
+          i.origen, i.tipo_incidencia, i.id_referencia, i.detalle_json
+        FROM erp_notificaciones n
+        LEFT JOIN erp_catalogo_incidencias_calidad i
+          ON i.id_incidencia_calidad=n.id_entidad_origen
+          AND n.tipo='proveedor_producto_pendiente_alta_catalogo'
+        WHERE n.estatus IN ('pendiente','en_revision','bloqueada')
+          AND n.tipo IN ('proveedor_producto_pendiente_alta_catalogo','compra_producto_pendiente_alta')
+        ORDER BY n.id_notificacion ASC");
+
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $notificacion) {
+        $resumen["revisadas"]++;
+        $incidencia = $this->incidenciaParaNotificacionCatalogo($db, $notificacion);
+        if (!$incidencia || !$this->incidenciaConfirmaAltaCatalogo($incidencia)) {
+          $resumen["sin_evidencia"]++;
+          continue;
+        }
+        $cerrada = $this->resolverNotificacionPorIdCatalogo($db, intval($notificacion["id_notificacion"]), "evidencia_incidencia_catalogo");
+        if ($cerrada) {
+          $resumen["resueltas"]++;
+          $tipo = (string) $notificacion["tipo"];
+          $resumen["tipos"][$tipo] = isset($resumen["tipos"][$tipo]) ? $resumen["tipos"][$tipo] + 1 : 1;
+        }
+      }
+
+      return $this->respuesta(false, "success", "Notificaciones de Catalogo sincronizadas", $resumen);
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  private function resolverNotificacionesCatalogoPorIncidencia($db, $incidencia, $estatusNuevo) {
+    if (!is_array($incidencia)) {
+      return 0;
+    }
+    $estatusNuevo = trim((string) $estatusNuevo);
+    $puedeResolver = intval(isset($incidencia["id_sku"]) ? $incidencia["id_sku"] : 0) > 0
+      || in_array($estatusNuevo, array("resuelta", "descartada"), true);
+    if (!$puedeResolver) {
+      return 0;
+    }
+
+    $cerradas = 0;
+    require_once __DIR__ . "/NotificacionesErp.php";
+    $notificaciones = new NotificacionesErp();
+    $huella = trim((string) (isset($incidencia["huella"]) ? $incidencia["huella"] : ""));
+    if ($huella !== "") {
+      $tipo = $incidencia["origen"] === "proveedores"
+        ? "proveedor_producto_pendiente_alta_catalogo"
+        : ($incidencia["origen"] === "compra" ? "compra_producto_pendiente_alta" : "");
+      if ($tipo !== "") {
+        $cerradas += $notificaciones->resolverOperativaPorHuellaEnConexion($db, $tipo, $huella);
+      }
+    }
+    if ($incidencia["origen"] === "compra"
+      && (string) (isset($incidencia["tipo_incidencia"]) ? $incidencia["tipo_incidencia"] : "") === "compra_producto_pendiente_alta") {
+      $cerradas += $this->resolverNotificacionCompraPorIncidencia($db, $incidencia);
+    }
+    return $cerradas;
+  }
+
+  private function incidenciaParaNotificacionCatalogo($db, $notificacion) {
+    if ((string) $notificacion["tipo"] === "proveedor_producto_pendiente_alta_catalogo") {
+      $stmt = $db->prepare("SELECT * FROM erp_catalogo_incidencias_calidad WHERE id_incidencia_calidad=:id LIMIT 1");
+      $stmt->execute(array(":id" => intval($notificacion["id_entidad_origen"])));
+      $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+      return $fila ?: null;
+    }
+    $payload = $this->jsonArrayCatalogo(isset($notificacion["payload_json"]) ? $notificacion["payload_json"] : "");
+    $idOrden = intval(isset($payload["id_orden_compra"]) ? $payload["id_orden_compra"] : $notificacion["id_entidad_origen"]);
+    $sku = $this->textoArrayCatalogo($payload, "sku", "");
+    $nombre = $this->textoArrayCatalogo($payload, "nombre_producto", "");
+    $stmt = $db->prepare("SELECT * FROM erp_catalogo_incidencias_calidad
+      WHERE origen='compra' AND referencia_tipo='erp_compras_ordenes'
+        AND id_referencia=:orden AND tipo_incidencia='compra_producto_pendiente_alta'
+      ORDER BY id_incidencia_calidad DESC");
+    $stmt->execute(array(":orden" => $idOrden));
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $detalle = $this->jsonArrayCatalogo(isset($fila["detalle_json"]) ? $fila["detalle_json"] : "");
+      $skuFila = $this->textoArrayCatalogo($detalle, "sku", "");
+      $nombreFila = $this->textoArrayCatalogo($detalle, "nombre_producto", "");
+      if (($sku !== "" && strcasecmp($sku, $skuFila) === 0)
+        || ($sku === "" && $nombre !== "" && strcasecmp($nombre, $nombreFila) === 0)) {
+        return $fila;
+      }
+    }
+    return null;
+  }
+
+  private function incidenciaConfirmaAltaCatalogo($incidencia) {
+    return intval(isset($incidencia["id_sku"]) ? $incidencia["id_sku"] : 0) > 0
+      || in_array((string) (isset($incidencia["estatus"]) ? $incidencia["estatus"] : ""), array("resuelta", "descartada"), true);
+  }
+
+  private function resolverNotificacionCompraPorIncidencia($db, $incidencia) {
+    $detalle = $this->jsonArrayCatalogo(isset($incidencia["detalle_json"]) ? $incidencia["detalle_json"] : "");
+    $orden = intval(isset($incidencia["id_referencia"]) ? $incidencia["id_referencia"] : 0);
+    $sku = $this->textoArrayCatalogo($detalle, "sku", "");
+    $nombre = $this->textoArrayCatalogo($detalle, "nombre_producto", "");
+    if ($orden <= 0 || ($sku === "" && $nombre === "")) {
+      return 0;
+    }
+    $where = "tipo='compra_producto_pendiente_alta' AND modulo_origen='compras'
+      AND estatus IN ('pendiente','en_revision','bloqueada')
+      AND payload_json LIKE :orden";
+    $params = array(":orden" => '%"id_orden_compra":' . $orden . '%');
+    if ($sku !== "") {
+      $where .= " AND payload_json LIKE :sku";
+      $params[":sku"] = '%"sku":"' . addcslashes($sku, '%_\\') . '"%';
+    } else {
+      $where .= " AND payload_json LIKE :nombre";
+      $params[":nombre"] = '%"nombre_producto":"' . addcslashes($nombre, '%_\\') . '"%';
+    }
+    $stmt = $db->prepare("UPDATE erp_notificaciones SET estatus='resuelta', fecha_resolucion=NOW(), fecha_actualizacion=NOW() WHERE " . $where);
+    $stmt->execute($params);
+    return intval($stmt->rowCount());
+  }
+
+  private function resolverNotificacionPorIdCatalogo($db, $idNotificacion, $motivo) {
+    $stmt = $db->prepare("UPDATE erp_notificaciones SET estatus='resuelta', fecha_resolucion=NOW(), fecha_actualizacion=NOW(), descripcion=CONCAT(COALESCE(descripcion,''), ' [', :motivo, ']') WHERE id_notificacion=:id AND estatus IN ('pendiente','en_revision','bloqueada')");
+    $stmt->execute(array(":motivo" => $motivo, ":id" => intval($idNotificacion)));
+    return $stmt->rowCount() > 0;
   }
 
   public function listarPropuestasCostosProveedor() {
@@ -3056,7 +3204,8 @@ class CatalogoErpDatos extends CRUD {
       $esProveedorSinMatch = $incidencia["origen"] === "proveedores" && $incidencia["tipo_incidencia"] === "proveedor_sku_sin_match";
       $esCompraProductoPendiente = $incidencia["origen"] === "compra" && $incidencia["tipo_incidencia"] === "compra_producto_pendiente_alta";
       $esVentaRapidaSinMatch = $incidencia["origen"] === "ventas_pos" && $incidencia["tipo_incidencia"] === "venta_rapida_sku_sin_match";
-      if (!$esProveedorSinMatch && !$esCompraProductoPendiente && !$esVentaRapidaSinMatch) {
+      $esVentaHistoricaSinMatch = $incidencia["origen"] === "ventas_pos" && $incidencia["tipo_incidencia"] === "venta_historica_sku_sin_match";
+      if (!$esProveedorSinMatch && !$esCompraProductoPendiente && !$esVentaRapidaSinMatch && !$esVentaHistoricaSinMatch) {
         throw new Exception("Solo se permite crear SKU temporal desde una incidencia de proveedor, compra o venta POS sin SKU ERP");
       }
       if (in_array($incidencia["estatus"], array("resuelta", "descartada"), true)) {
@@ -3081,14 +3230,14 @@ class CatalogoErpDatos extends CRUD {
         );
       }
       $idReferencia = intval(isset($incidencia["id_referencia"]) ? $incidencia["id_referencia"] : 0);
-      $prefijoTemporal = $esVentaRapidaSinMatch ? "TMP-VRP-" : ($esCompraProductoPendiente ? "TMP-COMP-" : "TMP-PROV-");
+      $prefijoTemporal = $esVentaRapidaSinMatch ? "TMP-VRP-" : ($esVentaHistoricaSinMatch ? "TMP-VHIS-" : ($esCompraProductoPendiente ? "TMP-COMP-" : "TMP-PROV-"));
       $codigoCompraPorIncidencia = "TMP-COMP-OC" . $idReferencia . "-INC" . $idIncidencia;
       $codigoProducto = $esCompraProductoPendiente
         ? $codigoCompraPorIncidencia
         : $this->codigoTemporalCatalogo($this->texto($datos, "codigo_producto", $prefijoTemporal . $idReferencia), $prefijoTemporal . $idReferencia, 80);
       $nombreProducto = $this->texto($datos, "nombre_producto", "");
       if ($nombreProducto === "") {
-        $nombreProducto = $esVentaRapidaSinMatch
+        $nombreProducto = ($esVentaRapidaSinMatch || $esVentaHistoricaSinMatch)
           ? $this->textoArrayCatalogo($detalle, "descripcion_manual", "Producto POS pendiente")
           : $this->textoArrayCatalogo($renglon, "descripcion_proveedor", "Producto proveedor pendiente");
       }
@@ -3175,7 +3324,9 @@ class CatalogoErpDatos extends CRUD {
         "fecha" => date("c"),
         "nota" => $esVentaRapidaSinMatch
           ? "Creado desde incidencia de venta rapida POS; requiere completar Catalogo y volver a vincular el pendiente VRP."
-          : "Creado desde incidencia de Proveedores; requiere completar Catalogo y hacer matching desde Proveedores."
+        : ($esVentaHistoricaSinMatch
+          ? "Creado desde una partida de venta historica; completar el SKU y vincularlo desde Ventas > Acciones historicas."
+          : "Creado desde incidencia de Proveedores; requiere completar Catalogo y hacer matching desde Proveedores.")
       );
       $stmt->execute(array(
         ":producto" => $idProducto,
@@ -3194,6 +3345,12 @@ class CatalogoErpDatos extends CRUD {
         : ($esProveedorSinMatch
           ? $this->registrarNotificacionesSkuTemporalProveedor($db, $incidencia, $detalle, $renglon, $idProducto, $idSku, $sku, $idUsuario)
           : 0);
+      // La incidencia de Compras ya tiene evidencia al quedar vinculada al SKU temporal.
+      // No se cierran aqui pendientes de Rentabilidad ni matching de Proveedores.
+      $incidenciaActualizada = $incidencia;
+      $incidenciaActualizada["id_sku"] = $idSku;
+      $incidenciaActualizada["estatus"] = "en_revision";
+      $notificacionesResueltas = $this->resolverNotificacionesCatalogoPorIncidencia($db, $incidenciaActualizada, "en_revision");
 
       $db->commit();
       return $this->respuesta(false, "success", "SKU temporal creado en Catalogo", array(
@@ -3203,12 +3360,16 @@ class CatalogoErpDatos extends CRUD {
         "id_sku_proveedor" => intval(isset($relacionProveedor["id_sku_proveedor"]) ? $relacionProveedor["id_sku_proveedor"] : 0),
         "relacion_proveedor" => $relacionProveedor,
         "id_notificacion_seguimiento" => $idNotificacionSeguimiento,
+        "notificaciones_resueltas" => $notificacionesResueltas,
         "sku" => $sku,
         "codigo_producto" => $codigoProducto,
         "estatus" => "borrador",
         "siguiente_paso" => $esVentaRapidaSinMatch
           ? "Completar Catalogo y vincular el VRP desde Ventas/POS"
+          : ($esVentaHistoricaSinMatch
+            ? "Completar Catalogo y vincular la partida desde Ventas/Acciones historicas"
           : ($esCompraProductoPendiente ? "Completar Catalogo y relacionar el SKU con Proveedores si se volvera a comprar" : "Completar Catalogo y validar datos de compra/costo desde Proveedores")
+          )
       ));
     } catch (Exception $e) {
       if (isset($db) && $db->inTransaction()) {

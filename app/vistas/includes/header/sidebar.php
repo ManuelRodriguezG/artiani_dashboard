@@ -131,6 +131,7 @@ $gruposMenu = array(
             array('titulo' => 'Manual POS', 'ruta' => '/ventas/manual_pos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Pendientes venta rapida', 'ruta' => '/ventas/venta_rapida_pendientes', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Acciones ventas historicas', 'ruta' => '/ventas/acciones_historicas', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Carga historica', 'ruta' => '/ventas/carga_historica', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Correcciones historicas', 'ruta' => '/ventas/correcciones_historicas', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver'),
@@ -282,6 +283,7 @@ $gruposMenu = array(
             array('titulo' => 'Persistencia', 'ruta' => '/cms/persistencia', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Slots', 'ruta' => '/cms/slots', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Media', 'ruta' => '/cms/media', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Videos', 'ruta' => '/cms/videos', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Preview JSON', 'ruta' => '/cms/json', 'permiso' => array('cms.ver', 'catalogo.ver'))
         )
     ),
@@ -556,5 +558,5 @@ $gruposMenu = array(
 window.ERP_CSRF_TOKEN = <?= json_encode(Sesionseguridad::csrfToken()) ?>;
 </script>
 <script src="/assets/js/custom/security/session-guard.js"></script>
-<script src="/assets/js/custom/apps/erp/notificaciones/notificaciones.js?v=20260616-1"></script>
+<script src="/assets/js/custom/apps/erp/notificaciones/notificaciones.js?v=20261031-historicas1"></script>
 

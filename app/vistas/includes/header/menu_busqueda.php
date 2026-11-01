@@ -44,6 +44,7 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Manual POS', 'ruta' => '/ventas/manual_pos', 'permiso' => 'ventas.ver', 'detalle' => 'Ayuda punto de venta'),
             array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver', 'detalle' => 'Consultar precio SKU producto'),
             array('titulo' => 'Pendientes venta rapida', 'ruta' => '/ventas/venta_rapida_pendientes', 'permiso' => 'ventas.ver', 'detalle' => 'Ventas rapidas pendientes'),
+            array('titulo' => 'Acciones ventas historicas', 'ruta' => '/ventas/acciones_historicas', 'permiso' => 'ventas.ver', 'detalle' => 'Clasificar y crear SKU desde ventas historicas'),
             array('titulo' => 'Carga historica', 'ruta' => '/ventas/carga_historica', 'permiso' => 'ventas.ver', 'detalle' => 'Captura ventas pasadas sin afectar caja inventario'),
             array('titulo' => 'Correcciones historicas', 'ruta' => '/ventas/correcciones_historicas', 'permiso' => 'ventas.ver', 'detalle' => 'Auditar almacenes por partida sin reversa POS'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver', 'detalle' => 'Pedidos ventas clientes'),
@@ -114,6 +115,7 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Persistencia', 'ruta' => '/cms/persistencia', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'Persistencia contenido CMS'),
             array('titulo' => 'Slots', 'ruta' => '/cms/slots', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'Slots bloques contenido'),
             array('titulo' => 'Media', 'ruta' => '/cms/media', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'Imagenes archivos media'),
+            array('titulo' => 'Videos', 'ruta' => '/cms/videos', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'Videos TikTok relacionados con productos'),
             array('titulo' => 'Preview JSON', 'ruta' => '/cms/json', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'Previsualizar JSON CMS')
         )),
         array('seccion' => 'CMS', 'titulo' => 'Frontend', 'icono' => 'bi-window-sidebar', 'items' => array(

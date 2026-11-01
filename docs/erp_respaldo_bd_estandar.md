@@ -885,3 +885,13 @@ resultado=validado_con_marca_FIN_RESPALDO_ESQUEMA
 ```
 
 Nota: el respaldo completo por `mysqldump` no terminó por volumen de la conexión remota; el exportador PDO de esquema completo terminó correctamente y el cambio fue exclusivamente aditivo.
+
+
+## Respaldo 2026-10-31 — catálogos de jaulas por mascota
+
+IA: Codex GPT-6. Antes de crear siete catálogos autorizados por el dueño.
+
+- Archivo: `C:/xampp/panel_db_backups/productivo_panel_20261031_jaulas_por_mascota_045403.sql`.
+- SHA-256: `f07ea95f8b95f16b2b6446be90ce5c6391cba18be15740bb933e7a6dde2cd3fb`.
+- Alcance: datos de `erp_catalogo_comercial_catalogos`, `erp_catalogo_comercial_items` y `erp_catalogo_comercial_eventos`; archivo no vacío y final SQL comprobado; sin DDL ni datos maestros.
+- Evidencia y pendientes: `docs/erp_catalogos_jaulas_por_mascota_2026-10-31.md`.

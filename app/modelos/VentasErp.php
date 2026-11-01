@@ -153,6 +153,387 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-31
+     * Proposito: listar avisos activos de clasificacion historica con su venta y partida de origen.
+     * Impacto: bandeja de acciones historicas; consulta ventas y notificaciones sin escribir.
+     * Contrato: solo devuelve folios historicos del tipo y accion esperados.
+     */
+    public function ventasHistoricasAccionesListarReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_notificaciones") || !$this->tablaExiste($db, "erp_ventas") || !$this->tablaExiste($db, "erp_ventas_detalle")) {
+                return $this->respuesta(true, "warning", "Falta esquema para consultar acciones historicas");
+            }
+            $where = array(
+                "n.tipo='venta_historica_regularizacion'",
+                "n.modulo_origen='ventas_pos'",
+                "n.entidad_origen='erp_ventas_detalle'",
+                "n.area_responsable='catalogo'",
+                "n.payload_json LIKE '%\"accion\":\"clasificar_sku\"%'",
+                "v.canal='historico'",
+                "v.origen_venta='carga_historica'",
+                "v.modo_operacion='historico_sin_afectacion'"
+            );
+            $params = array();
+            $estatus = trim((string) $this->valor($filtros, "estatus", "abiertas"));
+            if ($estatus !== "todas") {
+                $where[] = "n.estatus IN ('pendiente','en_revision','bloqueada')";
+            }
+            $idNotificacion = intval($this->valor($filtros, "id_notificacion", 0));
+            if ($idNotificacion > 0) {
+                $where[] = "n.id_notificacion=:notificacion";
+                $params[":notificacion"] = $idNotificacion;
+            }
+            $idDetalle = intval($this->valor($filtros, "id_venta_detalle", 0));
+            if ($idDetalle > 0) {
+                $where[] = "d.id_venta_detalle=:detalle";
+                $params[":detalle"] = $idDetalle;
+            }
+            $folio = trim((string) $this->valor($filtros, "folio", ""));
+            if ($folio !== "") {
+                $where[] = "v.folio=:folio";
+                $params[":folio"] = $folio;
+            }
+            $limite = max(1, min(100, intval($this->valor($filtros, "limite", 50))));
+            $sql = "SELECT n.id_notificacion, n.tipo, n.estatus estatus_notificacion, n.titulo,
+                    n.descripcion descripcion_notificacion, n.fecha_registro fecha_notificacion,
+                    n.fecha_actualizacion notificacion_actualizada, n.payload_json,
+                    v.id_venta, v.folio folio_venta, v.fecha_venta_real, v.cliente_nombre_publico,
+                    d.id_venta_detalle, d.renglon, d.id_almacen, d.id_producto_erp, d.id_sku_erp,
+                    d.sku, d.descripcion, d.tipo_partida, d.cantidad_venta, d.unidad_venta,
+                    d.cantidad_base, d.unidad_base, d.precio_unitario, d.subtotal, d.total, d.estatus estatus_partida
+                FROM erp_notificaciones n
+                INNER JOIN erp_ventas_detalle d ON d.id_venta_detalle=n.id_entidad_origen
+                INNER JOIN erp_ventas v ON v.id_venta=d.id_venta
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY n.fecha_registro DESC, n.id_notificacion DESC
+                LIMIT " . $limite;
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($items as &$item) {
+                $item["payload"] = json_decode((string) $item["payload_json"], true);
+                if (!is_array($item["payload"])) { $item["payload"] = array(); }
+                unset($item["payload_json"]);
+            }
+            unset($item);
+            return $this->respuesta(false, "success", "Acciones historicas consultadas", array(
+                "acciones" => $items,
+                "contrato" => array("read_only" => true, "no_mueve_caja" => true, "no_mueve_inventario" => true, "no_mueve_kardex" => true)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudieron consultar las acciones historicas", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Prevalida una clasificacion historica sin escribir venta o catalogo. */
+    public function ventaHistoricaClasificarDryRun($datos = array()) {
+        $respuesta = $this->ventasHistoricasAccionesListarReadOnly(array(
+            "id_notificacion" => intval($this->valor($datos, "id_notificacion", 0)),
+            "id_venta_detalle" => intval($this->valor($datos, "id_venta_detalle", 0)),
+            "folio" => trim((string) $this->valor($datos, "folio", "")),
+            "estatus" => "abiertas",
+            "limite" => 1
+        ));
+        $items = $this->valor($this->valor($respuesta, "depurar", array()), "acciones", array());
+        $item = !empty($items) ? $items[0] : null;
+        $idSku = intval($this->valor($datos, "id_sku", 0));
+        $sku = $idSku > 0 ? $this->consultarSkuResolucionVentaRapida($this->getConexion(), $idSku) : null;
+        $bloqueos = array();
+        if (!$item) { $bloqueos[] = "Aviso historico pendiente no encontrado"; }
+        if ($item && !$this->partidaHistoricaSinSkuClasificado($item)) {
+            $bloqueos[] = "La partida ya tiene SKU relacionado; esta accion solo clasifica partidas sin SKU";
+        }
+        if ($idSku <= 0) { $bloqueos[] = "Selecciona un SKU para clasificar la partida"; }
+        if ($idSku > 0 && !$sku) { $bloqueos[] = "SKU no encontrado"; }
+        if ($sku && in_array((string) $sku["estatus_sku"], array("inactivo", "descontinuado", "fusionado"), true)) {
+            $bloqueos[] = "El SKU seleccionado no esta vigente";
+        }
+        $cantidadBaseNueva = $this->redondearPosReal($this->valor($datos, "cantidad_base_nueva", $item ? $item["cantidad_base"] : 0));
+        $unidadBaseNueva = trim((string) $this->valor($datos, "unidad_base_nueva", $item ? $item["unidad_base"] : ""));
+        if ($cantidadBaseNueva <= 0) { $bloqueos[] = "Indica la cantidad equivalente en la unidad base del SKU"; }
+        if ($unidadBaseNueva === "") { $bloqueos[] = "Indica la unidad base equivalente (por ejemplo, kg)"; }
+        if ($sku && $unidadBaseNueva !== "") {
+            $unidadesSku = array_filter(array_map(function ($valor) { return strtolower(trim((string) $valor)); }, array(
+                $sku["unidad_base_abreviatura"], $sku["unidad_base_codigo"], $sku["unidad_base_nombre"]
+            )));
+            if (!in_array(strtolower($unidadBaseNueva), $unidadesSku, true)) {
+                $bloqueos[] = "La unidad base capturada no coincide con la unidad base del SKU (" . ($sku["unidad_base_abreviatura"] ?: $sku["unidad_base_codigo"] ?: $sku["unidad_base_nombre"]) . ")";
+            }
+        }
+        if ($item && intval($this->valor($item, "id_venta_detalle", 0)) !== intval($this->valor($datos, "id_venta_detalle", $this->valor($item, "id_venta_detalle", 0)))) {
+            $bloqueos[] = "La partida no coincide con el aviso seleccionado";
+        }
+        return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Clasificacion historica prevalidada" : "Clasificacion historica requiere correcciones", array(
+            "dry_run" => true,
+            "bloqueos" => $bloqueos,
+            "aviso" => $item,
+            "sku" => $sku,
+            "plan" => array(
+                "actualizaria" => array("id_producto_erp" => $sku ? intval($sku["id_producto_erp"]) : null, "id_sku_erp" => $sku ? intval($sku["id_sku"]) : null, "sku" => $sku ? $sku["sku"] : null),
+                "actualizaria_cantidad_base" => array("anterior" => $item ? $item["cantidad_base"] : null, "nueva" => $cantidadBaseNueva, "unidad_anterior" => $item ? $item["unidad_base"] : null, "unidad_nueva" => $unidadBaseNueva),
+                "conservaria" => array("cantidad_venta", "unidad_venta", "descripcion", "precio", "subtotal", "total", "almacen", "fecha_historica", "pagos", "caja", "inventario", "kardex")
+            ),
+            "contrato" => array("read_only" => true, "no_mueve_caja" => true, "no_mueve_inventario" => true, "no_mueve_kardex" => true)
+        ));
+    }
+
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-31
+     * Proposito: vincular identidad SKU a una partida historica con bloqueo, revalidacion y auditoria.
+     * Impacto: vincula SKU y normaliza cantidad/unidad base documentada; preserva cantidad vendida e importes, sin efectos de inventario.
+     * Contrato: requiere token/confirmacion/motivo y conversión base explícita; cierra el aviso solo tras actualizar y auditar.
+     */
+    public function ventaHistoricaClasificarAplicar($datos = array()) {
+        $db = $this->getConexion();
+        $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+        $idNotificacion = intval($this->valor($datos, "id_notificacion", 0));
+        $idDetalle = intval($this->valor($datos, "id_venta_detalle", 0));
+        $idSku = intval($this->valor($datos, "id_sku", 0));
+        $cantidadBaseNueva = $this->redondearPosReal($this->valor($datos, "cantidad_base_nueva", 0));
+        $unidadBaseNueva = trim((string) $this->valor($datos, "unidad_base_nueva", ""));
+        $motivo = trim((string) $this->valor($datos, "motivo", ""));
+        if ($this->valor($datos, "token", "") !== "VENTAS_HISTORICAS_CLASIFICAR_REAL"
+            || strtoupper(trim((string) $this->valor($datos, "confirmacion", ""))) !== "CLASIFICAR VENTA HISTORICA"
+            || $idUsuario <= 0 || $idNotificacion <= 0 || $idDetalle <= 0 || $idSku <= 0 || $motivo === ""
+            || $cantidadBaseNueva <= 0 || $unidadBaseNueva === "") {
+            return $this->respuesta(true, "warning", "Clasificacion bloqueada: faltan confirmacion, SKU, cantidad/unidad base o motivo");
+        }
+        $dryRun = $this->ventaHistoricaClasificarDryRun($datos);
+        $bloqueos = $this->valor($this->valor($dryRun, "depurar", array()), "bloqueos", array());
+        if (!empty($dryRun["error"]) || !empty($bloqueos)) {
+            return $this->respuesta(true, "warning", "Clasificacion bloqueada por prevalidacion", array("dry_run" => $dryRun, "bloqueos" => $bloqueos));
+        }
+        try {
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT n.id_notificacion, n.estatus, n.payload_json, n.id_entidad_origen,
+                    v.id_venta, v.folio, v.canal, v.origen_venta, v.modo_operacion,
+                    d.id_venta_detalle, d.id_producto_erp, d.id_sku_erp, d.sku, d.descripcion,
+                    d.tipo_partida, d.id_almacen, d.cantidad_venta, d.unidad_venta,
+                    d.cantidad_base, d.unidad_base, d.precio_unitario, d.subtotal, d.total
+                FROM erp_notificaciones n
+                INNER JOIN erp_ventas_detalle d ON d.id_venta_detalle=n.id_entidad_origen
+                INNER JOIN erp_ventas v ON v.id_venta=d.id_venta
+                WHERE n.id_notificacion=:notificacion AND n.tipo='venta_historica_regularizacion'
+                  AND n.modulo_origen='ventas_pos' AND n.entidad_origen='erp_ventas_detalle'
+                  AND n.area_responsable='catalogo' FOR UPDATE");
+            $stmt->execute(array(":notificacion" => $idNotificacion));
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$fila || intval($fila["id_venta_detalle"]) !== $idDetalle
+                || $fila["estatus"] !== "pendiente" && $fila["estatus"] !== "en_revision" && $fila["estatus"] !== "bloqueada"
+                || $fila["canal"] !== "historico" || $fila["origen_venta"] !== "carga_historica" || $fila["modo_operacion"] !== "historico_sin_afectacion") {
+                throw new Exception("El aviso ya no esta abierto o no corresponde a una venta historica");
+            }
+            if (!$this->partidaHistoricaSinSkuClasificado($fila)) {
+                throw new Exception("La partida ya tiene SKU relacionado; no se modificó");
+            }
+            if (floatval($fila["cantidad_base"]) !== floatval($this->valor($datos, "cantidad_base_original", $fila["cantidad_base"]))
+                || trim((string) $fila["unidad_base"]) !== trim((string) $this->valor($datos, "unidad_base_original", $fila["unidad_base"]))) {
+                throw new Exception("La cantidad base de la partida cambió desde la consulta; vuelve a revisar el detalle");
+            }
+            $payload = json_decode((string) $fila["payload_json"], true);
+            if (!is_array($payload) || $this->valor($payload, "accion", "") !== "clasificar_sku") {
+                throw new Exception("El aviso no solicita clasificacion de SKU");
+            }
+            $sku = $this->consultarSkuResolucionVentaRapida($db, $idSku);
+            if (!$sku || in_array((string) $sku["estatus_sku"], array("inactivo", "descontinuado", "fusionado"), true)) {
+                throw new Exception("El SKU no esta disponible para clasificacion");
+            }
+            $snapshot = array(
+                "venta_historica" => array("folio" => $fila["folio"], "id_venta" => intval($fila["id_venta"]), "id_venta_detalle" => $idDetalle),
+                "partida_anterior" => array("id_producto_erp" => $fila["id_producto_erp"], "id_sku_erp" => $fila["id_sku_erp"], "sku" => $fila["sku"], "descripcion" => $fila["descripcion"], "id_almacen" => intval($fila["id_almacen"]), "cantidad_venta" => $fila["cantidad_venta"], "unidad_venta" => $fila["unidad_venta"], "cantidad_base" => $fila["cantidad_base"], "unidad_base" => $fila["unidad_base"], "precio_unitario" => $fila["precio_unitario"], "subtotal" => $fila["subtotal"], "total" => $fila["total"]),
+                "partida_despues" => array("cantidad_base" => $cantidadBaseNueva, "unidad_base" => $unidadBaseNueva),
+                "sku_asignado" => array("id_producto_erp" => intval($sku["id_producto_erp"]), "id_sku" => intval($sku["id_sku"]), "sku" => $sku["sku"], "nombre" => $sku["nombre_sku"]),
+                "motivo" => $motivo,
+                "contrato" => array("no_mover_caja" => true, "no_mover_pagos" => true, "no_mover_inventario" => true, "no_mover_kardex" => true, "conservar_precio_y_descripcion" => true)
+            );
+            $stmt = $db->prepare("UPDATE erp_ventas_detalle SET id_producto_erp=:producto, id_sku_erp=:sku_id, sku=:sku, cantidad_base=:cantidad_base, unidad_base=:unidad_base, fecha_actualizacion=NOW()
+                WHERE id_venta_detalle=:detalle AND id_venta=:venta");
+            $stmt->execute(array(":producto" => intval($sku["id_producto_erp"]), ":sku_id" => $idSku, ":sku" => $sku["sku"], ":cantidad_base" => $cantidadBaseNueva, ":unidad_base" => $unidadBaseNueva, ":detalle" => $idDetalle, ":venta" => intval($fila["id_venta"])));
+            if ($stmt->rowCount() !== 1) { throw new Exception("La partida no se actualizó; se revirtió la operación"); }
+            $this->registrarEventoVentaHistorica($db, intval($fila["id_venta"]), $fila["folio"], "accion_historica_sku_clasificado", "pendiente", "resuelta", $motivo, $snapshot, $idUsuario);
+            require_once __DIR__ . "/NotificacionesErp.php";
+            $notificaciones = new NotificacionesErp();
+            $cerradas = $notificaciones->resolverOperativaPorHuellaEnConexion($db, "venta_historica_regularizacion", trim((string) $this->valor($payload, "huella", "")));
+            if ($cerradas <= 0) { throw new Exception("No se pudo cerrar la notificacion historica despues de clasificar"); }
+            $db->commit();
+            return $this->respuesta(false, "success", "Partida historica clasificada contra SKU " . $sku["sku"], array(
+                "folio_venta" => $fila["folio"], "id_venta_detalle" => $idDetalle, "id_sku" => $idSku, "sku" => $sku["sku"], "cantidad_base" => $cantidadBaseNueva, "unidad_base" => $unidadBaseNueva, "notificaciones_resueltas" => $cerradas,
+                "contrato" => array("no_mueve_caja" => true, "no_mueve_pagos" => true, "no_mueve_inventario" => true, "no_mueve_kardex" => true)
+            ));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            return $this->respuesta(true, "danger", "No se pudo clasificar la partida historica", array("excepcion" => $e->getMessage(), "rollback" => true));
+        }
+    }
+
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-31
+     * Proposito: cerrar con motivo una accion historica cuando el producto debe permanecer como venta rapida.
+     * Impacto: notificacion y evento de auditoria; no edita la partida ni afecta caja, pagos o inventario.
+     * Contrato: solo cierra avisos abiertos de clasificar_sku y bloquea si hay una incidencia de Catalogo aún abierta.
+     */
+    public function ventaHistoricaMantenerRapida($datos = array()) {
+        $db = $this->getConexion();
+        $idNotificacion = intval($this->valor($datos, "id_notificacion", 0));
+        $idDetalle = intval($this->valor($datos, "id_venta_detalle", 0));
+        $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+        $motivo = trim((string) $this->valor($datos, "motivo", ""));
+        if ($this->valor($datos, "token", "") !== "VENTAS_HISTORICAS_MANTENER_RAPIDA"
+            || strtoupper(trim((string) $this->valor($datos, "confirmacion", ""))) !== "MANTENER VENTA RAPIDA"
+            || $idNotificacion <= 0 || $idDetalle <= 0 || $idUsuario <= 0 || $motivo === "") {
+            return $this->respuesta(true, "warning", "Indica el motivo y la partida que permanecerá como venta rápida");
+        }
+        try {
+            $db->beginTransaction();
+            $item = $this->consultarAccionVentaHistoricaCatalogo($db, array("id_notificacion" => $idNotificacion), true);
+            if (!$item || intval($item["id_venta_detalle"]) !== $idDetalle) { throw new Exception("Aviso histórico no encontrado o no corresponde a la partida"); }
+            if (!$this->partidaHistoricaSinSkuClasificado($item)) { throw new Exception("La partida ya tiene SKU relacionado; no se modificó"); }
+            $payload = is_array($item["payload"]) ? $item["payload"] : json_decode((string) $item["payload_json"], true);
+            $huella = trim((string) $this->valor($payload, "huella", ""));
+            if ($huella === "") { throw new Exception("El aviso no contiene huella de trazabilidad"); }
+            if ($this->tablaExiste($db, "erp_catalogo_incidencias_calidad")) {
+                $stmt = $db->prepare("SELECT id_incidencia_calidad FROM erp_catalogo_incidencias_calidad
+                    WHERE id_referencia=:detalle AND referencia_tipo='erp_ventas_detalle'
+                      AND tipo_incidencia='venta_historica_sku_sin_match'
+                      AND estatus IN ('pendiente','en_revision','bloqueada') LIMIT 1 FOR UPDATE");
+                $stmt->execute(array(":detalle" => $idDetalle));
+                if ($stmt->fetchColumn()) { throw new Exception("Hay una solicitud abierta en Catálogo; resuélvela o descártala antes de dejar la partida como venta rápida"); }
+            }
+            require_once __DIR__ . "/NotificacionesErp.php";
+            $notificaciones = new NotificacionesErp();
+            $cerradas = $notificaciones->resolverOperativaPorHuellaEnConexion($db, "venta_historica_regularizacion", $huella);
+            if ($cerradas <= 0) { throw new Exception("No se pudo cerrar el aviso histórico"); }
+            $this->registrarEventoVentaHistorica($db, intval($item["id_venta"]), $item["folio"], "accion_historica_mantenida_venta_rapida", "pendiente", "resuelta", $motivo, array(
+                "id_venta_detalle" => $idDetalle, "descripcion" => $item["descripcion"], "contrato" => array("partida_sin_cambio" => true, "no_mueve_caja" => true, "no_mueve_inventario" => true, "no_mueve_kardex" => true)
+            ), $idUsuario);
+            $db->commit();
+            return $this->respuesta(false, "success", "La partida permanece como venta rápida; se cerró la acción de clasificación", array("folio_venta" => $item["folio"], "id_venta_detalle" => $idDetalle, "notificaciones_resueltas" => $cerradas));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            return $this->respuesta(true, "danger", "No se pudo cerrar la acción histórica", array("excepcion" => $e->getMessage(), "rollback" => true));
+        }
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Crea idempotentemente una incidencia de Catalogo desde una partida historica sin SKU. */
+    public function ventaHistoricaSolicitarCatalogo($datos = array()) {
+        $idNotificacion = intval($this->valor($datos, "id_notificacion", 0));
+        $idDetalle = intval($this->valor($datos, "id_venta_detalle", 0));
+        $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+        $motivo = trim((string) $this->valor($datos, "motivo", ""));
+        if ($idNotificacion <= 0 || $idDetalle <= 0 || $idUsuario <= 0 || $motivo === "") { return $this->respuesta(true, "warning", "Indica el motivo e identifica el aviso y la partida historica"); }
+        $db = $this->getConexion();
+        try {
+            $db->beginTransaction();
+            $item = $this->consultarAccionVentaHistoricaCatalogo($db, array("id_notificacion" => $idNotificacion), true);
+            if (!$item || intval($item["id_venta_detalle"]) !== $idDetalle) { throw new Exception("Aviso historico no encontrado o no corresponde a la partida"); }
+            if (!$this->partidaHistoricaSinSkuClasificado($item)) { throw new Exception("La partida ya tiene SKU relacionado; no se creó incidencia"); }
+            if (!$this->tablaExiste($db, "erp_catalogo_incidencias_calidad")) { throw new Exception("El esquema de incidencias de Catalogo no esta disponible; no se modificó la venta"); }
+            $huellaBase = "venta_historica|" . $idDetalle . "|clasificar_sku";
+            $huella = hash("sha256", $huellaBase);
+            $stmt = $db->prepare("SELECT estatus FROM erp_catalogo_incidencias_calidad WHERE huella=:huella LIMIT 1 FOR UPDATE");
+            $stmt->execute(array(":huella" => $huella));
+            $estatusIncidenciaExistente = $stmt->fetchColumn();
+            if (in_array($estatusIncidenciaExistente, array("resuelta", "descartada"), true)) {
+                throw new Exception("La incidencia previa de Catalogo ya está cerrada; revisa su resultado antes de solicitarla de nuevo");
+            }
+            $detalle = array(
+                "origen" => "venta_historica", "folio_venta" => $item["folio"], "id_venta" => intval($item["id_venta"]),
+                "id_venta_detalle" => $idDetalle, "id_notificacion_origen" => $idNotificacion,
+                "descripcion_manual" => $item["descripcion"], "id_almacen" => intval($item["id_almacen"]),
+                "cantidad" => $item["cantidad_venta"], "unidad_venta" => $item["unidad_venta"],
+                "precio_unitario" => $item["precio_unitario"], "total" => $item["total"], "motivo_solicitud" => $motivo,
+                "huella_base" => $huellaBase
+            );
+            $evidencia = array("partida_historica" => $item, "contrato" => array("no_modificar_venta" => true, "no_mover_caja" => true, "no_mover_inventario" => true));
+            $propuesta = array("accion_sugerida" => "crear_o_clasificar_sku_venta_historica", "nombre_producto_sugerido" => $item["descripcion"], "requiere_completar" => array("categoria", "unidad_base", "reglas_inventario", "lista_precio"));
+            $stmt = $db->prepare("INSERT INTO erp_catalogo_incidencias_calidad
+                (huella, tipo_incidencia, entidad_tipo, id_producto_erp, id_sku, id_referencia, referencia_tipo, origen, severidad, titulo, descripcion, detalle_json, evidencia_json, propuesta_json, estatus, creado_por)
+                VALUES (:huella, 'venta_historica_sku_sin_match', 'sku', NULL, NULL, :referencia, 'erp_ventas_detalle', 'ventas_pos', 'alta', :titulo, :descripcion, :detalle, :evidencia, :propuesta, 'pendiente', :usuario)
+                ON DUPLICATE KEY UPDATE titulo=VALUES(titulo), descripcion=VALUES(descripcion), detalle_json=VALUES(detalle_json), evidencia_json=VALUES(evidencia_json), propuesta_json=VALUES(propuesta_json), estatus=IF(estatus IN ('resuelta','descartada'), estatus, 'pendiente'), fecha_actualizacion=CURRENT_TIMESTAMP");
+            $stmt->execute(array(
+                ":huella" => $huella, ":referencia" => $idDetalle,
+                ":titulo" => "Crear o clasificar producto historico " . $item["folio"],
+                ":descripcion" => "Partida historica requiere SKU: " . substr((string) $item["descripcion"], 0, 220),
+                ":detalle" => json_encode($detalle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ":evidencia" => json_encode($evidencia, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ":propuesta" => json_encode($propuesta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ":usuario" => $idUsuario
+            ));
+            $stmt = $db->prepare("SELECT * FROM erp_catalogo_incidencias_calidad WHERE huella=:huella LIMIT 1");
+            $stmt->execute(array(":huella" => $huella));
+            $incidencia = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$incidencia) { throw new Exception("No se pudo confirmar la incidencia de Catalogo"); }
+            require_once __DIR__ . "/NotificacionesErp.php";
+            $notificaciones = new NotificacionesErp();
+            $notificacionCatalogo = $notificaciones->guardarOperativaEnConexion($db, array(
+                "tipo" => "venta_historica_catalogo_sku", "modulo_origen" => "ventas_pos",
+                "entidad_origen" => "erp_catalogo_incidencias_calidad", "id_entidad_origen" => intval($incidencia["id_incidencia_calidad"]),
+                "area_responsable" => "catalogo", "permiso_requerido" => "catalogo.ver", "titulo" => $incidencia["titulo"],
+                "descripcion" => $incidencia["descripcion"], "prioridad" => "alta", "url_accion" => "/catalogoerp?incidencia_calidad=" . intval($incidencia["id_incidencia_calidad"]),
+                "payload_json" => array("huella" => $huella, "id_incidencia_calidad" => intval($incidencia["id_incidencia_calidad"]), "folio_venta" => $item["folio"], "id_venta_detalle" => $idDetalle), "creado_por" => $idUsuario
+            ));
+            $this->registrarEventoVentaHistorica($db, intval($item["id_venta"]), $item["folio"], "accion_historica_catalogo_solicitada", "pendiente", "en_revision", $motivo, array("id_venta_detalle" => $idDetalle, "id_incidencia_calidad" => intval($incidencia["id_incidencia_calidad"]), "id_notificacion_catalogo" => $notificacionCatalogo, "contrato" => array("no_afecta_caja" => true, "no_afecta_inventario" => true)), $idUsuario);
+            $db->commit();
+            return $this->respuesta(false, "success", "Incidencia enviada a Catalogo para revision", array("id_incidencia_calidad" => intval($incidencia["id_incidencia_calidad"]), "id_notificacion_catalogo" => intval($notificacionCatalogo), "url_catalogo" => "/catalogoerp?incidencia_calidad=" . intval($incidencia["id_incidencia_calidad"])));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            return $this->respuesta(true, "danger", "No se pudo solicitar revision de Catalogo", array("excepcion" => $e->getMessage(), "rollback" => true));
+        }
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Carga una acción histórica abierta y opcionalmente bloquea sus filas para resolverla. */
+    private function consultarAccionVentaHistoricaCatalogo($db, $filtros, $bloquear = false) {
+        $idNotificacion = intval($this->valor($filtros, "id_notificacion", 0));
+        $idDetalle = intval($this->valor($filtros, "id_venta_detalle", 0));
+        $where = array("n.tipo='venta_historica_regularizacion'", "n.modulo_origen='ventas_pos'", "n.entidad_origen='erp_ventas_detalle'", "n.area_responsable='catalogo'", "n.payload_json LIKE '%\"accion\":\"clasificar_sku\"%'", "v.canal='historico'", "v.origen_venta='carga_historica'", "v.modo_operacion='historico_sin_afectacion'");
+        $params = array();
+        if ($idNotificacion > 0) { $where[] = "n.id_notificacion=:notificacion"; $params[":notificacion"] = $idNotificacion; }
+        if ($idDetalle > 0) { $where[] = "d.id_venta_detalle=:detalle"; $params[":detalle"] = $idDetalle; }
+        if ($idNotificacion <= 0 && $idDetalle <= 0) { return null; }
+        if (empty($filtros["incluir_cerrada"])) { $where[] = "n.estatus IN ('pendiente','en_revision','bloqueada')"; }
+        $sql = "SELECT n.id_notificacion, n.estatus, n.payload_json, n.titulo, n.descripcion descripcion_notificacion,
+                v.id_venta, v.folio, v.canal, v.origen_venta, v.modo_operacion, v.fecha_venta_real,
+                d.id_venta_detalle, d.renglon, d.id_almacen, d.id_producto_erp, d.id_sku_erp, d.sku, d.descripcion,
+                d.tipo_partida, d.cantidad_venta, d.unidad_venta, d.cantidad_base, d.unidad_base, d.precio_unitario, d.subtotal, d.total
+            FROM erp_notificaciones n
+            INNER JOIN erp_ventas_detalle d ON d.id_venta_detalle=n.id_entidad_origen
+            INNER JOIN erp_ventas v ON v.id_venta=d.id_venta
+            WHERE " . implode(" AND ", $where) . " ORDER BY n.id_notificacion DESC LIMIT 1" . ($bloquear ? " FOR UPDATE" : "");
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$item) { return null; }
+        $item["payload"] = json_decode((string) $item["payload_json"], true);
+        return $item;
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-11-01 | Distingue el marcador VENTA-RAPIDA de un SKU ERP ya asignado. */
+    private function partidaHistoricaSinSkuClasificado($partida) {
+        if (intval($this->valor($partida, "id_sku_erp", 0)) > 0) { return false; }
+        $sku = strtoupper(trim((string) $this->valor($partida, "sku", "")));
+        return $sku === "" || in_array($sku, array("VENTA-RAPIDA", "VENTA_RAPIDA"), true);
+    }
+
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-10-31
+     * Proposito: agregar trazabilidad de una accion historica sin etiquetarla como evento POS.
+     * Impacto: erp_ventas_eventos; solo agrega auditoria y no toca la venta ni sus efectos financieros o de inventario.
+     */
+    private function registrarEventoVentaHistorica($db, $idVenta, $folio, $tipoEvento, $estatusAnterior, $estatusNuevo, $motivo, $snapshot, $idUsuario) {
+        if (!$this->tablaExiste($db, "erp_ventas_eventos")) { return 0; }
+        $stmt = $db->prepare("INSERT INTO erp_ventas_eventos
+            (id_venta, folio, tipo_evento, estatus_anterior, estatus_nuevo, monto, referencia, datos_snapshot, observaciones, creado_por)
+            VALUES (:venta, :folio, :tipo, :anterior, :nuevo, 0, :referencia, :snapshot, :observaciones, :usuario)");
+        $stmt->execute(array(
+            ":venta" => intval($idVenta), ":folio" => $folio, ":tipo" => $tipoEvento,
+            ":anterior" => $estatusAnterior, ":nuevo" => $estatusNuevo, ":referencia" => $motivo,
+            ":snapshot" => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ":observaciones" => $motivo, ":usuario" => intval($idUsuario) ?: null
+        ));
+        return intval($db->lastInsertId());
+    }
+
+    /**
      * IA: Codex GPT-5
      * Fecha: 2026-10-14
      * Proposito: entregar catalogos minimos para captura historica de ventas.
@@ -5491,6 +5872,7 @@ class VentasErp extends CRUD {
                     COALESCE(r.precision_decimal, 0) precision_decimal,
                     COALESCE(r.incremento_minimo_venta, 1.000000) incremento_minimo_venta,
                     COALESCE(NULLIF(r.unidad_venta_label, ''), ub.abreviatura, ub.codigo, '') unidad_venta_label,
+                    ub.abreviatura unidad_base_abreviatura, ub.codigo unidad_base_codigo, ub.nombre unidad_base_nombre,
                     COALESCE(r.generar_etiqueta_interna, 0) generar_etiqueta_interna,
                     COALESCE(r.requiere_lote, 0) requiere_lote,
                     COALESCE(r.requiere_caducidad, 0) requiere_caducidad,
@@ -15691,12 +16073,14 @@ class VentasErp extends CRUD {
     private function consultarSkuResolucionVentaRapida($db, $idSku) {
         $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.nombre nombre_sku, s.estatus estatus_sku,
                 s.tipo_inventario, s.id_producto_erp, p.nombre producto,
+                s.id_unidad_base, ub.abreviatura unidad_base_abreviatura, ub.codigo unidad_base_codigo, ub.nombre unidad_base_nombre,
                 COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
                 COALESCE(r.permite_venta_fraccionaria,0) permite_venta_fraccionaria,
                 COALESCE(r.unidad_venta_label,'') unidad_venta_label,
                 COALESCE(r.incremento_minimo_venta,1) incremento_minimo_venta
             FROM erp_catalogo_skus s
             INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            LEFT JOIN erp_catalogo_unidades ub ON ub.id_unidad=s.id_unidad_base
             LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
             WHERE s.id_sku=:sku
             LIMIT 1");
@@ -16889,7 +17273,7 @@ class VentasErp extends CRUD {
                 "area" => "catalogo",
                 "permiso" => "catalogo.ver",
                 "prioridad" => "alta",
-                "url" => "/catalogoerp",
+                "url" => "/ventas/acciones_historicas",
                 "descripcion" => "Producto historico requiere alta, vinculacion o limpieza de SKU"
             ),
             "revisar_proveedor" => array(
@@ -17001,7 +17385,7 @@ class VentasErp extends CRUD {
                 "titulo" => $config["nombre"] . " - " . $folioVenta,
                 "descripcion" => $config["descripcion"] . ": " . substr($descripcion !== "" ? $descripcion : $sku, 0, 220),
                 "prioridad" => $config["prioridad"],
-                "url_accion" => $this->urlAccionVentaHistorica($config["url"], $accion, $idSku, $idAlmacen, $folioVenta),
+                "url_accion" => $this->urlAccionVentaHistorica($config["url"], $accion, $idSku, $idAlmacen, $folioVenta, $idDetalle),
                 "payload_json" => $payload,
                 "creado_por" => intval($idUsuario) ?: null
             ));
@@ -17020,8 +17404,10 @@ class VentasErp extends CRUD {
         );
     }
 
-    private function urlAccionVentaHistorica($urlBase, $accion, $idSku, $idAlmacen, $folioVenta) {
+    private function urlAccionVentaHistorica($urlBase, $accion, $idSku, $idAlmacen, $folioVenta, $idDetalle = 0) {
         $params = array("origen" => "venta_historica", "folio" => $folioVenta);
+        if ($idDetalle > 0) { $params["id_venta_detalle"] = intval($idDetalle); }
+        if ($urlBase === "/ventas/acciones_historicas") { unset($params["origen"]); }
         if ($idSku > 0) { $params["id_sku"] = $idSku; }
         if ($idAlmacen > 0) { $params["id_almacen"] = $idAlmacen; }
         if ($accion !== "") { $params["accion"] = $accion; }

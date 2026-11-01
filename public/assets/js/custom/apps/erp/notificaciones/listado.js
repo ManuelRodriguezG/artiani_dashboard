@@ -1,13 +1,15 @@
 /**
  * ERP Notificaciones - Bandeja general
- * Documentacion IA: Codex GPT-5
- * Version: 1.0
- * Descripcion: lista alertas operativas visibles por permisos del usuario.
+ * IA: Codex GPT-6 | Fecha: 2026-10-31
+ * Proposito: listar alertas y separarlas por modulo de origen, area responsable y tipo.
+ * Impacto: bandeja general de notificaciones ERP; los filtros solo consultan datos existentes.
  */
 (function () {
     const ENDPOINT_RESUMEN = "/sistema/notificaciones_resumen_erp";
     const ENDPOINT_LISTAR = "/sistema/notificaciones_listar_erp";
     const ENDPOINT_LEER = "/sistema/notificacion_marcar_leida_erp";
+    let filtroModulo = "";
+    let filtroArea = "";
 
     document.addEventListener("DOMContentLoaded", function () {
         enlazarEventos();
@@ -15,15 +17,13 @@
     });
 
     /**
-     * ERP Notificaciones - Bandeja general
-     * Documentacion IA: Codex GPT-5
-     * Version: 1.0
-     * Conecta filtros y acciones de lectura.
+     * IA: Codex GPT-6 | Fecha: 2026-10-31
+     * Proposito: enlaza filtros de origen/area, estado y acciones de lectura.
+     * Impacto: UX de la bandeja de notificaciones.
      */
     function enlazarEventos() {
         const refrescar = document.getElementById("notificaciones_refrescar");
         const estatus = document.getElementById("notificaciones_estatus");
-        const area = document.getElementById("notificaciones_area");
 
         if (refrescar) {
             refrescar.addEventListener("click", cargarBandeja);
@@ -31,13 +31,19 @@
         if (estatus) {
             estatus.addEventListener("change", cargarBandeja);
         }
-        if (area) {
-            area.addEventListener("keydown", function (event) {
-                if (event.key === "Enter") {
-                    cargarBandeja();
-                }
-            });
-        }
+        document.addEventListener("click", function (event) {
+            const modulo = event.target.closest("[data-notificaciones-modulo]");
+            const area = event.target.closest("[data-notificaciones-area]");
+            if (modulo) {
+                filtroModulo = modulo.getAttribute("data-notificaciones-modulo") || "";
+                cargarBandeja();
+                return;
+            }
+            if (area) {
+                filtroArea = area.getAttribute("data-notificaciones-area") || "";
+                cargarBandeja();
+            }
+        });
 
         document.addEventListener("click", function (event) {
             const boton = event.target.closest(".notificaciones-marcar-leida");
@@ -74,12 +80,10 @@
         params.append("limite", "50");
 
         const estatus = valor("notificaciones_estatus");
-        const area = valor("notificaciones_area");
+        if (filtroArea) { params.append("area_responsable", filtroArea); }
+        if (filtroModulo) { params.append("modulo_origen", filtroModulo); }
         if (estatus) {
             params.append("estatus", estatus);
-        }
-        if (area) {
-            params.append("area_responsable", area);
         }
         return params.toString();
     }
@@ -105,6 +109,7 @@
         setText("notificaciones_altas", numero(resumen.altas));
         setText("notificaciones_areas_total", Array.isArray(resumen.por_area) ? resumen.por_area.length : 0);
         renderModulos(Array.isArray(resumen.por_modulo) ? resumen.por_modulo : []);
+        renderAreas(Array.isArray(resumen.por_area) ? resumen.por_area : []);
     }
 
     function renderModulos(modulos) {
@@ -112,12 +117,19 @@
         if (!contenedor) {
             return;
         }
-        if (!modulos.length) {
-            contenedor.innerHTML = '<span class="text-muted">Sin pendientes por modulo</span>';
-            return;
-        }
-        contenedor.innerHTML = modulos.map(function (modulo) {
-            return '<span class="badge badge-light-primary fs-7">' + escapeHtml(modulo.modulo_origen || "general") + ': ' + numero(modulo.total) + '</span>';
+        contenedor.innerHTML = '<button type="button" class="btn btn-sm ' + (!filtroModulo ? "btn-primary" : "btn-light-primary") + '" data-notificaciones-modulo="">Todos</button>' + modulos.map(function (modulo) {
+            const key = modulo.modulo_origen || "";
+            return '<button type="button" class="btn btn-sm ' + (filtroModulo === key ? "btn-primary" : "btn-light-primary") + '" data-notificaciones-modulo="' + escapeHtml(key) + '">' + escapeHtml(etiquetaOrigen(key)) + ' <span class="badge badge-light ms-1">' + numero(modulo.total) + '</span></button>';
+        }).join("");
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Crea filtros por area de atencion usando los conteos visibles del resumen. */
+    function renderAreas(areas) {
+        const contenedor = document.getElementById("notificaciones_areas");
+        if (!contenedor) { return; }
+        contenedor.innerHTML = '<button type="button" class="btn btn-sm ' + (!filtroArea ? "btn-primary" : "btn-light-primary") + '" data-notificaciones-area="">Todas</button>' + areas.map(function (area) {
+            const key = area.area_responsable || "";
+            return '<button type="button" class="btn btn-sm ' + (filtroArea === key ? "btn-primary" : "btn-light-primary") + '" data-notificaciones-area="' + escapeHtml(key) + '">' + escapeHtml(etiquetaOrigen(key)) + ' <span class="badge badge-light ms-1">' + numero(area.total) + '</span></button>';
         }).join("");
     }
 
@@ -127,7 +139,7 @@
             return;
         }
         if (!items.length) {
-            body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-10">Sin notificaciones para los filtros seleccionados</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-10">Sin notificaciones para los filtros seleccionados</td></tr>';
             return;
         }
 
@@ -137,7 +149,7 @@
     function renderFila(item) {
         const prioridad = item.prioridad || "normal";
         const leida = numero(item.leida) === 1;
-        const url = normalizarUrl(item.url_accion);
+        const url = urlNotificacion(item);
         const accionPrincipal = url === "#"
             ? ""
             : '<a class="btn btn-sm btn-light-primary me-2" href="' + url + '">Abrir</a>';
@@ -152,8 +164,9 @@
                     '<div class="' + (leida ? "fw-semibold" : "fw-bold") + ' text-gray-800">' + escapeHtml(item.titulo || "Notificacion") + '</div>' +
                     '<div class="text-muted fs-7">' + escapeHtml(item.descripcion || "") + '</div>' +
                 '</td>' +
-                '<td>' + escapeHtml(item.modulo_origen || "") + '</td>' +
-                '<td>' + escapeHtml(item.area_responsable || "") + '</td>' +
+                '<td>' + escapeHtml(etiquetaOrigen(item.modulo_origen || "general")) + '</td>' +
+                '<td>' + escapeHtml(etiquetaOrigen(item.area_responsable || "general")) + '</td>' +
+                '<td><span class="badge badge-light-info">' + escapeHtml(etiquetaOrigen(item.tipo || "general")) + '</span></td>' +
                 '<td><span class="badge badge-light">' + escapeHtml(item.estatus || "") + '</span></td>' +
                 '<td>' + escapeHtml(formatearFecha(item.fecha_registro)) + '</td>' +
                 '<td class="text-end">' + accionPrincipal + accionLectura + '</td>' +
@@ -196,7 +209,7 @@
     function renderError(mensaje) {
         const body = document.getElementById("notificaciones_body");
         if (body) {
-            body.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-10">' + escapeHtml(mensaje || "Error al consultar notificaciones") + '</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-10">' + escapeHtml(mensaje || "Error al consultar notificaciones") + '</td></tr>';
         }
     }
 
@@ -224,6 +237,18 @@
         return "#";
     }
 
+    /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Dirige también avisos históricos ya guardados a su bandeja resolutiva. */
+    function urlNotificacion(item) {
+        if (item && item.tipo === "venta_historica_regularizacion") {
+            var payload = item.payload_json || {};
+            if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch (e) { payload = {}; } }
+            if (payload && payload.accion === "clasificar_sku") {
+                return "/ventas/acciones_historicas?notificacion=" + encodeURIComponent(item.id_notificacion || "");
+            }
+        }
+        return normalizarUrl(item ? item.url_accion : "");
+    }
+
     function formatearFecha(fecha) {
         if (!fecha) {
             return "";
@@ -244,6 +269,27 @@
     function valor(id) {
         const elemento = document.getElementById(id);
         return elemento ? String(elemento.value || "").trim() : "";
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Traduce claves técnicas simples para mostrar origen y tipo de manera legible. */
+    function etiquetaOrigen(valor) {
+        const etiquetas = {
+            ventas_pos: "Ventas y POS",
+            ecommerce_publico: "Ecommerce",
+            catalogo: "Catálogo",
+            compras: "Compras",
+            almacen: "Almacén",
+            inventario: "Inventario",
+            finanzas: "Finanzas",
+            proveedores: "Proveedores",
+            rentabilidad: "Rentabilidad",
+            venta_historica_regularizacion: "Regularización histórica",
+            venta_rapida_sku_sin_match: "SKU de venta rápida pendiente",
+            general: "General"
+        };
+        const key = String(valor || "general");
+        if (etiquetas[key]) { return etiquetas[key]; }
+        return key.replace(/[_-]+/g, " ").replace(/\b\w/g, function (letra) { return letra.toUpperCase(); });
     }
 
     function setText(id, texto) {

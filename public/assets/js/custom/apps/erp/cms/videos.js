@@ -2,7 +2,7 @@
  * IA: Codex GPT-5 | Fecha: 2026-09-28
  * Proposito: operar la consola CMS Videos para enlaces TikTok.
  * Impacto: UI CMS Videos; lista, consulta, guarda y cambia estatus con CSRF.
- * Contrato: usa endpoints /cms/videos_*; no sube ni descarga videos.
+ * Contrato: usa endpoints /cms/videos_* y /cms/media_admin_subir_erp para miniaturas; no sube ni descarga videos.
  */
 (function () {
   "use strict";
@@ -118,6 +118,49 @@
     els.preview.alt = els.thumbnailAlt.value.trim() || "Preview miniatura";
   }
 
+  function setThumbnailStatus(texto, tipo) {
+    if (!els.thumbnailStatus) return;
+    els.thumbnailStatus.className = "fs-8 mt-3 text-" + (tipo === "danger" ? "danger" : tipo === "success" ? "success" : "muted");
+    els.thumbnailStatus.textContent = texto;
+  }
+
+  async function subirMiniatura() {
+    var input = els.thumbnailFile;
+    var file = input && input.files ? input.files[0] : null;
+    if (!file) { setThumbnailStatus("Selecciona una imagen antes de subirla.", "danger"); return; }
+    try {
+      setThumbnailStatus("Preparando miniatura...", "muted");
+      var archivoFinal = file;
+      if (els.thumbnailWebp && els.thumbnailWebp.checked) {
+        if (!window.CmsMediaTools || typeof window.CmsMediaTools.convertirWebp !== "function") throw new Error("No se pudo cargar la herramienta WebP. Recarga la pagina.");
+        archivoFinal = await window.CmsMediaTools.convertirWebp(file);
+      }
+      var data = new FormData();
+      data.append("_csrf", window.ERP_CSRF_TOKEN || "");
+      data.append("archivo", archivoFinal);
+      data.append("alt", els.thumbnailAlt.value.trim() || (els.titulo.value.trim() ? "Miniatura de " + els.titulo.value.trim() : "Miniatura de video TikTok"));
+      data.append("nombre_seo", slugify(els.titulo.value || "miniatura-video-tiktok"));
+      data.append("uso", "comercial");
+      data.append("tipo", "thumb");
+      var resp = await fetch("/cms/media_admin_subir_erp", { method: "POST", body: data, credentials: "same-origin" });
+      var json = await resp.json();
+      if (json.error) throw new Error(json.mensaje || "No se pudo guardar la miniatura.");
+      var item = json.depurar && (json.depurar.item || json.depurar);
+      var url = item && (item.url || item.ruta_publica) ? (item.url || item.ruta_publica) : "";
+      if (!url) throw new Error("La imagen se guardo, pero no se recibio su URL publica.");
+      els.thumbnailUrl.value = url;
+      if (!els.thumbnailAlt.value.trim()) els.thumbnailAlt.value = item.alt || item.alt_text || "Miniatura de video TikTok";
+      if (!els.ogImage.value.trim()) els.ogImage.value = url;
+      renderPreview();
+      setThumbnailStatus("Miniatura guardada en Media CMS. Pulsa Guardar borrador para asociarla al video.", "success");
+      setSalida(json);
+      input.value = "";
+    } catch (error) {
+      setThumbnailStatus(error.message || "No se pudo subir la miniatura.", "danger");
+      setSalida(error.message || error);
+    }
+  }
+
   function renderEstado(respuesta) {
     var depurar = respuesta && respuesta.depurar ? respuesta.depurar : {};
     var auditoria = depurar.esquema && depurar.esquema.auditoria ? depurar.esquema.auditoria : {};
@@ -195,6 +238,9 @@
     els.embedUrl.value = "";
     els.thumbnailUrl.value = "";
     els.thumbnailAlt.value = "";
+    if (els.thumbnailFile) els.thumbnailFile.value = "";
+    if (els.thumbnailWebp) els.thumbnailWebp.checked = true;
+    setThumbnailStatus("La imagen se guardará en Media CMS y se asociará al video al guardar.", "muted");
     els.author.value = "";
     els.postId.value = "";
     els.duracion.value = "";
@@ -351,6 +397,7 @@
     els.postId.addEventListener("blur", sincronizarTikTok);
     els.thumbnailUrl.addEventListener("input", renderPreview);
     els.thumbnailAlt.addEventListener("input", renderPreview);
+    els.thumbnailUpload.addEventListener("click", subirMiniatura);
     els.titulo.addEventListener("blur", function () {
       if (!els.slug.value.trim()) els.slug.value = slugify(els.titulo.value);
       if (!els.seoTitle.value.trim()) els.seoTitle.value = els.titulo.value + " | Artiani";
@@ -382,6 +429,10 @@
     els.embedUrl = $("cms_videos_embed_url");
     els.thumbnailUrl = $("cms_videos_thumbnail_url");
     els.thumbnailAlt = $("cms_videos_thumbnail_alt");
+    els.thumbnailFile = $("cms_videos_thumbnail_file");
+    els.thumbnailWebp = $("cms_videos_thumbnail_webp");
+    els.thumbnailUpload = $("cms_videos_thumbnail_upload");
+    els.thumbnailStatus = $("cms_videos_thumbnail_status");
     els.author = $("cms_videos_tiktok_author");
     els.postId = $("cms_videos_tiktok_post_id");
     els.duracion = $("cms_videos_duracion");

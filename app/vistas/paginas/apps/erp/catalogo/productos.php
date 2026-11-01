@@ -240,6 +240,9 @@
                                                 <option value="todas">Todas</option>
                                             </select>
                                             <span class="badge badge-light-primary" id="catalogo_incidencias_total">0 incidencias</span>
+                                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
+                                            <button class="btn btn-sm btn-light-success" type="button" id="catalogo_incidencias_sincronizar" title="Cierra avisos cuyo avance ya esta confirmado por el Catalogo"><i class="bi bi-magic"></i> Sincronizar estados</button>
+                                            <?php endif; ?>
                                             <button class="btn btn-sm btn-light-primary" type="button" id="catalogo_incidencias_recargar">
                                                 <i class="bi bi-arrow-clockwise"></i> Recargar
                                             </button>

@@ -4868,3 +4868,20 @@ Actualizacion 2026-09-03:
   - notificacion `417`: `GRAVA-32-GRANEL`.
 - Impacto respetado: no se tocaron inventario, ventas, POS, ecommerce, precios ni costos.
 - Estado del lote `GRAVA-EST`: `GRAVA-14`, `GRAVA-25` y `GRAVA-32` ya tienen su SKU `-GRANEL` en `KG` y apertura de empaque por factor `25`.
+## Correccion 2026-10-31 - Sincronizacion de notificaciones de Catalogo
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Problema: la bandeja transversal conservaba pendientes de Catalogo aunque la incidencia ya tuviera SKU ERP relacionado o una decision final. Esto obligaba a revisar y cerrar avisos manualmente y hacia crecer el acumulado.
+- Correccion automatica: al crear un SKU temporal desde una incidencia de Compras, el aviso `compra_producto_pendiente_alta` se resuelve dentro de la misma transaccion cuando la incidencia queda vinculada al SKU.
+- Correccion automatica: al cambiar el estatus de una incidencia de calidad, se intenta resolver el aviso vinculado cuando existe SKU relacionado o la decision es `resuelta`/`descartada`.
+- Herramienta de recuperacion: se agrego `POST /catalogoerp/notificaciones_catalogo_sincronizar` y el boton `Sincronizar estados` en la tabla de Incidencias de calidad. Revisa el acumulado existente y solo cierra avisos de alta con evidencia verificable.
+- Tipos incluidos:
+  - `proveedor_producto_pendiente_alta_catalogo` cuando la incidencia de Proveedores ya tiene SKU o decision final.
+  - `compra_producto_pendiente_alta` cuando la incidencia de Compras ya tiene SKU o decision final.
+- Tipos excluidos deliberadamente:
+  - `catalogo_sku_derivado_costo_pendiente`: lo resuelve Rentabilidad.
+  - matching de proveedor: lo resuelve Proveedores.
+  - regularizacion de venta historica: la resuelve Ventas.
+- Seguridad operativa: no se hace limpieza ciega por antiguedad ni se cierran avisos sin evidencia. El endpoint requiere `catalogo.editar`, conserva la descripcion del aviso y registra auditoria.
+- Impacto: no requiere DDL ni modifica inventario, precios, costos o ventas.
+- Uso operativo: atender primero la incidencia; despues pulsar `Sincronizar estados` para reconciliar avisos antiguos. Los que sigan abiertos requieren accion del modulo responsable o evidencia faltante.

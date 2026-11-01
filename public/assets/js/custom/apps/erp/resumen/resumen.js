@@ -65,7 +65,7 @@
             return;
         }
         contenedor.innerHTML = items.map(function (item) {
-            var url = normalizarUrl(item.url_accion);
+            var url = urlNotificacion(item);
             var boton = url === "#" ? "" : '<a class="btn btn-sm btn-light-primary" href="' + escapeAttr(url) + '">Abrir</a>';
             return '<div class="resumen-alert-row py-3 d-flex flex-stack gap-3">' +
                 '<div class="min-w-0">' +
@@ -209,6 +209,18 @@
             return "#";
         }
         return url;
+    }
+
+    /** IA: Codex GPT-6 | Fecha: 2026-10-31 | Usa la bandeja histórica también desde el resumen operativo. */
+    function urlNotificacion(item) {
+        if (item && item.tipo === "venta_historica_regularizacion") {
+            var payload = item.payload_json || {};
+            if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch (e) { payload = {}; } }
+            if (payload && payload.accion === "clasificar_sku") {
+                return "/ventas/acciones_historicas?notificacion=" + encodeURIComponent(item.id_notificacion || "");
+            }
+        }
+        return normalizarUrl(item ? item.url_accion : "");
     }
 
     function escapeHtml(value) {

@@ -199,6 +199,20 @@ Cada modulo nuevo debe responder:
 5. Cual es la ruta para atenderlas.
 6. Cuando se consideran resueltas.
 
+## Decision 2026-10-31 - Acciones de SKU en ventas historicas
+
+- Los avisos `venta_historica_regularizacion` con `accion=clasificar_sku` deben abrir `/ventas/acciones_historicas`, no el Catalogo genérico. El destino se corrige al abrir tanto notificaciones antiguas como nuevas; no requiere reescribir datos productivos existentes.
+- La bandeja histórica muestra avisos abiertos y permite buscar el SKU existente, solicitar revisión/alta a Catálogo o dejar la partida explícitamente como venta rápida.
+- El enlace a Catálogo debe llevar al ID específico de `erp_catalogo_incidencias_calidad` mediante `?incidencia_calidad=...`.
+- Clasificar solo vincula `id_producto_erp`, `id_sku_erp` y `sku` en una partida histórica sin SKU; conserva descripción e importes capturados. No recalcula precios ni afecta pagos, caja, almacén, inventario o kardex.
+- El marcador `VENTA-RAPIDA` es un placeholder, no un SKU asignado. La prevalidación debe permitir clasificar esa partida cuando `id_sku_erp` todavía está vacío.
+- Cuando la unidad vendida difiera de la unidad base del SKU, la clasificación debe pedir cantidad/unidad base explícitas y guardar ambas en el snapshot de auditoría. Debe conservar cantidad/unidad de venta y todos los importes, sin generar movimientos de inventario.
+- La clasificación exige permiso de operación, revalidación transaccional, motivo y confirmación fuerte. La acción de mantener como venta rápida también requiere motivo y confirmación.
+- Solicitar revisión a Catálogo crea una incidencia trazable; la venta permanece abierta para clasificación posterior. Crear un SKU temporal en Catálogo no clasifica automáticamente la venta.
+- Si la partida ya tiene SKU, las acciones de clasificar, solicitar alta o cerrar como venta rápida se bloquean para evitar sobrescribir o cerrar trabajo obsoleto.
+
+Verificación de código: lint PHP/JS y revisión de rutas; no se aplicaron escrituras ni cambios de esquema en la base productiva.
+
 ## Comercial/Listas desde Catalogo, Almacen y Rentabilidad
 
 Listas de precios debe recibir pendientes cuando otro modulo crea o cambia una unidad vendible que requiere decision comercial.
@@ -278,6 +292,15 @@ La interfaz debe mostrar separadamente:
 No usar `erp_notificaciones` como sustituto de la incidencia. La incidencia o pendiente persistente conserva el trabajo y la notificacion solo avisa, cuenta y enlaza a la atencion correspondiente.
 
 ## Criterio de implementacion
+
+### Acciones de catalogacion de ventas historicas
+
+- Una notificacion `venta_historica_regularizacion` con `accion=clasificar_sku` debe abrir `/ventas/acciones_historicas`, usando el ID de notificacion o partida para cargar venta y detalle exactos. La bandeja de notificaciones debe resolver este destino tambien para avisos ya persistidos cuyo `url_accion` antiguo apuntaba a `/catalogoerp`.
+- La bandeja es independiente de Pendientes venta rapida POS: una venta historica no tiene folio VRP, caja ni turno. Su origen de verdad es la partida `erp_ventas_detalle`, y el aviso existente conserva la huella de idempotencia.
+- Acciones disponibles: asociar SKU existente con prevalidacion y auditoria; solicitar una incidencia real a Catalogo cuando no haya SKU; o cerrar la tarea con motivo y conservar la partida como venta rapida.
+- La clasificacion solo puede actualizar `id_producto_erp`, `id_sku_erp` y `sku` de la partida. Debe conservar descripcion, cantidad, precio, total, fecha y almacen, y no generar caja, pagos, inventario o kardex.
+- Solicitar alta crea una incidencia de Catalogo enlazada a `erp_ventas_detalle`; la notificacion historica sigue abierta hasta que la identidad se vincule o la partida se deje expresamente como venta rapida.
+- Fecha: 2026-10-31. Impacto: Ventas historicas, Catalogo y navegacion de notificaciones. No requiere DDL.
 
 ### Enlaces profundos a incidencias de calidad
 

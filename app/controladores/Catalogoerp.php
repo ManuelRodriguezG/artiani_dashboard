@@ -277,6 +277,24 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-10-31
+   * Proposito: sincronizar avisos de Catalogo con evidencia persistente de incidencias atendidas.
+   * Impacto: Catalogo/Compras/Proveedores; no resuelve costos ni matching de otras areas.
+   * Contrato: POST protegido por `catalogo.editar`; opera de forma idempotente.
+   */
+  public function notificaciones_catalogo_sincronizar() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarNotificacionesCatalogo();
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_notificaciones_catalogo", array(
+      "entidad" => "erp_notificaciones",
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
   public function incidencia_proveedor_crear_sku_temporal() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->crearSkuTemporalDesdeIncidenciaProveedor($_POST, $this->usuarioActualId());

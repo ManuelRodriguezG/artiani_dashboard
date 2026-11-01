@@ -560,12 +560,13 @@
             var puedeTemporal = permisos.editar &&
                 ((item.origen === "proveedores" && item.tipo_incidencia === "proveedor_sku_sin_match") ||
                  (item.origen === "compra" && item.tipo_incidencia === "compra_producto_pendiente_alta") ||
-                 (item.origen === "ventas_pos" && item.tipo_incidencia === "venta_rapida_sku_sin_match")) &&
+                 (item.origen === "ventas_pos" && ["venta_rapida_sku_sin_match", "venta_historica_sku_sin_match"].indexOf(item.tipo_incidencia) >= 0)) &&
                 !item.id_sku &&
                 ["pendiente", "en_revision", "bloqueada"].indexOf(String(item.estatus || "")) >= 0;
             var requiereSkuAntesResolver = item.origen === "proveedores" &&
                 item.tipo_incidencia === "proveedor_sku_sin_match" &&
                 !item.id_sku;
+            requiereSkuAntesResolver = requiereSkuAntesResolver || (item.origen === "ventas_pos" && item.tipo_incidencia === "venta_historica_sku_sin_match" && !item.id_sku);
             var acciones = puedeTemporal
                 ? "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-sku-temporal=\"" + escapeAttr(item.id_incidencia_calidad) + "\"><i class=\"bi bi-plus-lg\"></i> SKU temporal</button>"
                 : "";
@@ -688,6 +689,36 @@
             renderIncidenciasCalidad();
         }).catch(function (error) {
             Swal.fire({text: error.message || String(error), icon: "error", confirmButtonText: "Aceptar"});
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-10-31
+     * Proposito: ejecutar una sola sincronizacion idempotente de avisos con evidencia persistente.
+     * Impacto: UX de Catalogo; evita resolver uno por uno sin cerrar costos o matching externo.
+     */
+    function sincronizarNotificacionesCatalogo() {
+        var boton = document.getElementById("catalogo_incidencias_sincronizar");
+        if (boton) {
+            boton.disabled = true;
+        }
+        request("/catalogoerp/notificaciones_catalogo_sincronizar", {}).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            var resumen = response.depurar || {};
+            Swal.fire({
+                text: "Se sincronizaron " + Number(resumen.resueltas || 0) + " aviso(s). Los pendientes sin evidencia siguen abiertos.",
+                icon: "success",
+                confirmButtonText: "Aceptar"
+            });
+            recargarIncidenciasCalidad();
+        }).catch(function (error) {
+            Swal.fire({text: error.message || String(error), icon: "error", confirmButtonText: "Aceptar"});
+        }).finally(function () {
+            if (boton) {
+                boton.disabled = false;
+            }
         });
     }
 
@@ -973,15 +1004,17 @@
         var detalle = incidencia.detalle_json || {};
         var renglon = evidencia.renglon || {};
         var esVentaRapida = incidencia.origen === "ventas_pos" && incidencia.tipo_incidencia === "venta_rapida_sku_sin_match";
+        var esVentaHistorica = incidencia.origen === "ventas_pos" && incidencia.tipo_incidencia === "venta_historica_sku_sin_match";
         var esCompra = incidencia.origen === "compra" && incidencia.tipo_incidencia === "compra_producto_pendiente_alta";
         setValor(form, "id_incidencia_calidad", incidencia.id_incidencia_calidad);
-        if (esVentaRapida) {
+        if (esVentaRapida || esVentaHistorica) {
             var folio = detalle.folio_pendiente || incidencia.id_referencia || incidencia.id_incidencia_calidad;
             var descripcion = detalle.descripcion_manual || incidencia.titulo || "";
             var codigo = detalle.codigo_barras || "";
-            setValor(form, "codigo_producto", "TMP-VRP-" + String(folio).replace(/[^A-Za-z0-9]/g, ""));
+            var prefijo = esVentaHistorica ? "TMP-VHIS-" : "TMP-VRP-";
+            setValor(form, "codigo_producto", prefijo + String(folio).replace(/[^A-Za-z0-9]/g, ""));
             setValor(form, "nombre_producto", descripcion);
-            setValor(form, "sku", codigo || ("TMP-VRP-" + String(folio).replace(/[^A-Za-z0-9]/g, "")));
+            setValor(form, "sku", codigo || (prefijo + String(folio).replace(/[^A-Za-z0-9]/g, "")));
             setValor(form, "nombre_sku", descripcion);
         } else if (esCompra) {
             /**
@@ -3901,6 +3934,7 @@
         var tamanoPaginaSelect = document.getElementById("catalogo_tamano_pagina");
         var incidenciasBody = document.getElementById("catalogo_incidencias_body");
         var incidenciasRecargar = document.getElementById("catalogo_incidencias_recargar");
+        var incidenciasSincronizar = document.getElementById("catalogo_incidencias_sincronizar");
         var incidenciasEstatus = document.getElementById("catalogo_incidencias_estatus");
         var auditoriaPreciosRecargar = document.getElementById("catalogo_auditoria_precios_recargar");
         var auditoriaCostosRecargar = document.getElementById("catalogo_auditoria_costos_recargar");
@@ -4073,6 +4107,9 @@
         }
         if (incidenciasRecargar) {
             incidenciasRecargar.addEventListener("click", recargarIncidenciasCalidad);
+        }
+        if (incidenciasSincronizar) {
+            incidenciasSincronizar.addEventListener("click", sincronizarNotificacionesCatalogo);
         }
         if (incidenciasEstatus) {
             incidenciasEstatus.addEventListener("change", recargarIncidenciasCalidad);

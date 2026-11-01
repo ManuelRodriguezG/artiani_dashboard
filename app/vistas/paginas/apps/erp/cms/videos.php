@@ -1,3 +1,13 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base href="../../../../">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CMS - Videos</title>
+  <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
+  <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
+  <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
 <?php
 /**
  * IA: Codex GPT-5
@@ -8,32 +18,58 @@
  */
 ?>
 <style>
-  .cms-videos-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .cms-videos-list { max-height: 560px; overflow: auto; }
-  .cms-videos-item { border: 1px solid #eef1f5; border-radius: 8px; padding: 12px; cursor: pointer; }
-  .cms-videos-item:hover { background: #f9fafb; }
+  .cms-videos-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .cms-videos-list { max-height: 620px; overflow: auto; }
+  .cms-videos-item { border: 1px solid #e4e6ef; border-radius: 10px; padding: 12px; cursor: pointer; background: #fff; transition: border-color .15s ease, background .15s ease; }
+  .cms-videos-item:hover, .cms-videos-item.is-active { border-color: #009ef7; background: #f1faff; }
   .cms-videos-thumb { width: 72px; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 8px; background: #f5f8fa; }
-  .cms-videos-preview { aspect-ratio: 9 / 16; max-height: 520px; width: min(100%, 300px); object-fit: cover; border-radius: 8px; background: #f5f8fa; }
+  .cms-videos-preview { aspect-ratio: 9 / 16; max-height: 470px; width: min(100%, 280px); object-fit: cover; border-radius: 10px; background: #eef2f7; }
   .cms-videos-output { min-height: 180px; max-height: 360px; overflow: auto; }
   .cms-videos-textarea { min-height: 96px; }
+  .cms-videos-section { border: 1px solid #e4e6ef; border-radius: 10px; padding: 16px; background: #fbfdff; }
+  .cms-videos-section-title { color: #181c32; font-weight: 700; font-size: 1.05rem; }
+  .cms-videos-sticky { position: sticky; top: 20px; }
+  .cms-videos-empty { border: 1px dashed #cfd3e1; border-radius: 10px; padding: 28px 16px; text-align: center; }
   @media (max-width: 991.98px) { .cms-videos-grid { grid-template-columns: 1fr; } }
 </style>
+ </head>
+<body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
+<div class="d-flex flex-column flex-root app-root" id="kt_app_root">
+  <div class="app-page flex-column flex-column-fluid" id="kt_app_page">
+    <?= include_once '../app/vistas/includes/header/header.php'; ?>
+    <div class="app-wrapper flex-column flex-row-fluid" id="kt_app_wrapper">
+      <?= include_once '../app/vistas/includes/header/sidebar.php'; ?>
+      <div class="app-main flex-column flex-row-fluid" id="kt_app_main">
+        <div class="d-flex flex-column flex-column-fluid">
+          <div class="app-toolbar py-3 py-lg-5">
+            <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
+              <div>
+                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">CMS / Videos</h1>
+                <span class="text-muted">Administra videos TikTok, miniaturas, SEO y relaciones con productos.</span>
+              </div>
+              <div class="d-flex gap-2 flex-wrap">
+                <a class="btn btn-light" href="/cms"><i class="bi bi-grid"></i> Mapa CMS</a>
+                <a class="btn btn-light" href="/cms/media"><i class="bi bi-images"></i> Media / Archivos</a>
+                <a class="btn btn-light-primary" href="/ecommercePublico/videos_manifest" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> API pública</a>
+              </div>
+            </div>
+          </div>
+          <div class="app-content flex-column-fluid">
+            <div class="app-container container-fluid">
+              <div class="alert alert-info d-flex align-items-start gap-3 mb-5">
+                <i class="bi bi-play-btn fs-2"></i>
+                <div><div class="fw-bold">Videos comerciales del ecommerce</div><div>Los videos se alojan en TikTok. Aquí se administran el enlace, la miniatura, el contenido editorial y los productos relacionados.</div></div>
+              </div>
 
-<div class="post d-flex flex-column-fluid" id="kt_post">
-  <div id="kt_content_container" class="container-xxl">
-    <div class="d-flex flex-wrap flex-stack mb-6">
-      <div>
-        <h1 class="fw-bold mb-2">CMS Videos TikTok</h1>
-        <div class="text-muted">Enlaces TikTok, miniaturas, copy y relaciones para ecommerce publico.</div>
-      </div>
-      <div class="d-flex gap-2">
-        <a class="btn btn-light" href="/cms/frontend/blog"><i class="bi bi-journal-text"></i> Blog CMS</a>
-        <a class="btn btn-light-primary" href="/ecommercePublico/videos_manifest" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Manifest publico</a>
-      </div>
-    </div>
+              <div class="d-flex flex-wrap gap-2 mb-5">
+                <a class="btn btn-sm btn-light-primary" href="/cms/videos"><i class="bi bi-play-btn"></i> Videos</a>
+                <a class="btn btn-sm btn-light" href="/cms/frontend/producto"><i class="bi bi-box-seam"></i> Vista producto</a>
+                <a class="btn btn-sm btn-light" href="/cms/frontend/categorias"><i class="bi bi-tags"></i> Vista categorías</a>
+              </div>
 
     <div class="row g-5">
       <div class="col-xl-4">
+        <div class="cms-videos-sticky">
         <div class="card mb-5">
           <div class="card-header">
             <h3 class="card-title">Estado del modulo</h3>
@@ -78,6 +114,7 @@
           <div class="card-body">
             <pre class="cms-videos-output bg-light rounded p-3 mb-0 fs-8" id="cms_videos_salida">{}</pre>
           </div>
+        </div>
         </div>
       </div>
 
@@ -185,18 +222,30 @@
                 </div>
 
                 <div class="col-lg-4">
-                  <div class="bg-light rounded p-4 mb-5 text-center">
+                  <div class="cms-videos-section mb-5 text-center">
                     <img class="cms-videos-preview" id="cms_videos_preview" alt="Preview miniatura">
                     <div class="text-muted fs-8 mt-3">Los listados publicos usan esta miniatura; TikTok se carga hasta click.</div>
                   </div>
-                  <div class="mb-5">
+                  <div class="cms-videos-section mb-5">
+                    <div class="cms-videos-section-title mb-3"><i class="bi bi-image me-2"></i>Miniatura</div>
+                    <label class="form-label" for="cms_videos_thumbnail_file">Cargar imagen</label>
+                    <input class="form-control form-control-solid" id="cms_videos_thumbnail_file" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                    <div class="form-text">Puedes seleccionar JPG, PNG o WebP. Se puede convertir a WebP antes de guardarla.</div>
+                    <div class="form-check form-switch form-check-custom form-check-solid mt-4">
+                      <input class="form-check-input" type="checkbox" id="cms_videos_thumbnail_webp" checked>
+                      <label class="form-check-label" for="cms_videos_thumbnail_webp">Convertir a WebP</label>
+                    </div>
+                    <button class="btn btn-light-primary btn-sm mt-4 w-100" type="button" id="cms_videos_thumbnail_upload"><i class="bi bi-cloud-arrow-up"></i> Subir miniatura</button>
+                    <div class="text-muted fs-8 mt-3" id="cms_videos_thumbnail_status">La imagen se guardará en Media CMS y se asociará al video al guardar.</div>
+                  </div>
+                  <div class="cms-videos-section mb-5">
+                    <div class="cms-videos-section-title mb-3"><i class="bi bi-box-seam me-2"></i>Relaciones comerciales</div>
                     <label class="form-label">Producto principal JSON</label>
                     <textarea class="form-control form-control-solid cms-videos-textarea" id="cms_videos_producto_principal_json" spellcheck="false">{
   "slug_producto": "",
   "id_publicacion": 0,
   "id_sku": 0
 }</textarea>
-                  </div>
                   <div class="mb-5">
                     <label class="form-label">Productos relacionados JSON</label>
                     <textarea class="form-control form-control-solid cms-videos-textarea" id="cms_videos_productos_json" spellcheck="false">[]</textarea>
@@ -205,10 +254,15 @@
                     <label class="form-label">Categorias JSON</label>
                     <textarea class="form-control form-control-solid cms-videos-textarea" id="cms_videos_categorias_json" spellcheck="false">[]</textarea>
                   </div>
+                  </div>
                 </div>
               </div>
 
               <div class="separator my-6"></div>
+              <div class="cms-videos-section mb-5">
+                <div class="cms-videos-section-title mb-1"><i class="bi bi-search me-2"></i>Indexación y redes</div>
+                <div class="text-muted fs-7">El SEO se publica únicamente cuando el video tenga miniatura y pase la validación de publicación.</div>
+              </div>
               <div class="cms-videos-grid">
                 <div>
                   <label class="form-label">SEO title</label>
@@ -239,9 +293,15 @@
         </div>
       </div>
     </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 <script>
   window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/videos.js?v=20260928-videos1"></script>
+<script src="/assets/js/custom/apps/erp/cms/media_tools.js?v=20260925-media-acceso2"></script>
+<script src="/assets/js/custom/apps/erp/cms/videos.js?v=20261031-videos2"></script>

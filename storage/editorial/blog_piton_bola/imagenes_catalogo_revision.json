@@ -1,0 +1,54 @@
+{
+  "estado": "borradores_locales_referenciados_catalogo",
+  "generador": "imagegen_builtin",
+  "referencias_revisadas": [
+    {"sku":"TERA-8050","id_publicacion":2128,"rol":"terrario","archivo":"referencias_catalogo/TERA-8050.webp"},
+    {"sku":"TERA-1004040","id_publicacion":2196,"rol":"terrario_alternativo","archivo":"referencias_catalogo/TERA-1004040.webp"},
+    {"sku":"PROD0965-1500G","id_publicacion":2747,"rol":"sustrato_coco","archivo":"referencias_catalogo/PROD0965-1500G.webp"},
+    {"sku":"PROD1038-1000GR","id_publicacion":2754,"rol":"sustrato_corteza","archivo":"referencias_catalogo/PROD1038-1000GR.webp"},
+    {"sku":"HPT2136","id_publicacion":222,"rol":"calefaccion_condicional","archivo":"referencias_catalogo/HPT2136.jpg"}
+  ],
+  "imagenes": [
+    {
+      "archivo":"imagenes_revision/catalogo-portada-v2.png",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Hábitat de pitón bola con terrario de vidrio, sustratos y calefacción protegida",
+      "pines_posibles":["TERA-8050","PROD0965-1500G","PROD1038-1000GR","HPT2136"],
+      "nota":"La escena muestra los productos como referencias visuales; validar disponibilidad y compatibilidad antes de relacionarlos."
+    },
+    {
+      "archivo":"imagenes_revision/catalogo-terrario-v2.png",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Terrario de vidrio preparado para una pitón bola",
+      "pines_posibles":["TERA-8050"],
+      "nota":"El terrario es el elemento claramente identificable; refugios, rama y bebedero son genéricos."
+    },
+    {
+      "archivo":"imagenes_revision/catalogo-temperatura-v2.png",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Terrario de pitón bola con foco protegido y gradiente térmico",
+      "pines_posibles":["TERA-8050","HPT2136"],
+      "nota":"El foco requiere termostato, guardia/protección y validación de potencia, distancia y superficie. Los medidores no son productos identificados del catálogo."
+    },
+    {
+      "archivo":"imagenes_revision/catalogo-humedad-sustrato-v2.png",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Terrario de pitón bola con sustratos de coco y corteza del catálogo",
+      "pines_posibles":["TERA-8050","PROD0965-1500G","PROD1038-1000GR"],
+      "nota":"Las bolsas son referencias visuales; confirmar composición, uso y disponibilidad antes de recomendarlas."
+    },
+    {
+      "archivo":"imagenes_revision/catalogo-refugios-agua-v2.png",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Terrario de pitón bola con dos refugios, rama baja y recipiente estable de agua",
+      "pines_posibles":["TERA-8050"],
+      "nota":"No fijar pines a refugio, rama o bebedero porque no hay referencias públicas verificadas para esos productos."
+    }
+  ],
+  "bloqueos": [
+    "Los productos consultados estaban agotados o requerían consultar disponibilidad al momento de la revisión.",
+    "No usar un pin de compra hasta validar disponibilidad actual y compatibilidad.",
+    "No publicar las imágenes ni guardar relaciones en CMS sin autorización final.",
+    "Las coordenadas deben tomarse sobre el recorte final aprobado, no sobre esta propuesta preliminar."
+  ]
+}
