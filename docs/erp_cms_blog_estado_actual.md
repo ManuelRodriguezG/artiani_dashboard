@@ -2,7 +2,7 @@
 
 Documentacion IA: Codex GPT-5  
 Fecha: 2026-09-28  
-Estado: backend y UI editorial preparados; persistencia real pendiente de DDL autorizado
+Estado vigente 2026-11-01: ocho tablas creadas con respaldo/autorizacion; primer articulo registrado como borrador; carga de imagenes integrada al editor local.
 
 ## Proposito
 
@@ -114,7 +114,7 @@ Fecha: 2026-09-29
 
 ## Pendientes priorizados
 
-1. Autorizar respaldo externo y DDL antes de persistir contenido real. La base actual debe tratarse como productiva.
+1. Subir portada e imagenes de apoyo del primer borrador mediante el editor y revisar sus relaciones antes de autorizar publicacion. Respaldo/DDL completados el 2026-11-01.
 2. Pulir UX visual post-DDL con pruebas reales: reordenar relaciones, validar guardado/publicacion y revisar preview con datos persistidos.
 3. Despues del DDL autorizado, agregar pruebas con transaccion/rollback para guardar/publicar/pausar.
 
@@ -145,6 +145,68 @@ Resultado 2026-09-28:
 - No cargar iframes de video en primer render.
 
 ## Handoff
+
+### Revision funcional en frontend local / 2026-11-01
+
+- IA: Codex GPT-6.1-sol. El dueno indica primero revisar local y subir hosting despues. Esta instruccion reemplaza la publicacion previa pendiente: **no cambiar estado productivo para una revision local**.
+- Listado `http://artiani.com.local/blog` y detalle `http://artiani.com.local/blog/piton-bola-preparar-habitat` responden 200 y muestran el articulo real, portada, cuatro apoyos y dos bloques/seis pines. No es fixture ni demo.
+- Frontend `app/Api/ErpEcommerceApi.php` y `app/Pages/blog.php` dejan de forzar demo=1. No se usa fallback a fixture para Blog normal. HTML de imagenes y relaciones de media/bloques se resuelven contra host API local; links comerciales permanecen del frontend.
+- Para conservar Blog1 como borrador en BD compartida se agrega endpoint privado de revision `/ecommercePublico/blog_preview_local/{slug}`: GET, Host panel.com.local, IP loopback y clave privada servidor-servidor. Solo permite el ID/slug habilitados. Sin clave o con slug/host distinto no entrega contenido. Sin CORS ni cache, noindex.
+- Activacion local `storage/uat/activar_blog_preview_local.php`, sin BD: crea clave en `storage/cms_blog_preview_local/access.json`, fuera de public y excluido de Git. **No mostrar ni empaquetar esa carpeta/clave**. Para desactivar, habilitado=false en el archivo privado; el frontend vuelve al API publico normal.
+- El adaptador frontend usa esa revision solo con APP_ENV=local, Host artiani.com.local, IP loopback y API http://panel.com.local. Lee configuracion local por servidor; no conecta MySQL ni transmite clave a navegador. No cachea la revision ni la mezcla con fixtures. Otros entornos consultan publicaciones publicas reales.
+- Compatibilidad corregida sin escribir BD: tipo de bloque historico imagen-productos se entrega como imagen_productos para el renderer. Por eso ahora se ven los dos bloques reales.
+- QA: 7 comprobaciones offline de adaptador, 7 controles de acceso/estado por GET, 37 contratos catalogo y 126 defensas publicas, sintaxis PHP. Navegador Chromium headless aislado (sin perfil/sesion de Chrome usuario) bloqueo POST y externos: escritorio1440 y movil390, 200, siete elementos img correspondientes a cinco WebP1536x1024, todos cargados, seis pines, sin overflow. Capturas `storage/editorial/blog_piton_bola/qa_local/desktop.png` y `mobile.png` inspeccionadas.
+- No se cambio DB ni se publico/desplego en esta tarea. Imagenes siguen faltando en hosting; el paquete de cinco archivos y manifest anteriores siguen vigentes. Cambios concurrentes Videos del repo frontend se conservaron intactos.
+- Siguiente: revision humana en el enlace local. Despues del visto bueno, sincronizar cinco archivos al hosting, desactivar/excluir preview privado, desplegar codigo compatible y solo entonces autorizar publicacion real. No generar nuevamente articulo/imagenes ni reactivar demo.
+
+### Cinco imagenes registradas y vinculadas / 2026-11-01
+
+- IA: Codex GPT-6.1-sol. El dueno solicita subir cinco WebP, vincular y verificar antes de publicar; despues indica usar el sistema del proyecto. Se completa importacion CLI con validadores Media existentes, sin suplantar sesiones.
+- Media IDs 39 portada, 40 terrario, 41 temperatura, 42 humedad/sustrato, 43 refugios/agua. Las cinco son WebP 1536x1024. URL/hash/bytes y estado de acceso en `storage/editorial/blog_piton_bola/manifest_media_registrada.json`.
+- Articulo productivo ID1 queda en **borrador** con portada, cuatro apoyos, dos bloques interactivos, cinco productos y seis categorias. HTML conserva fuentes compactas v4 y sustituye todos los tokens por URLs reales.
+- Los cinco archivos fisicos estan en `public/assets/media/cms/ecommerce/`. GET local con query unica sin sesion: 200 image/webp y SHA256 exacto en los cinco. La misma URL en `https://sys.artiani.com.mx` devuelve 404 HTML para los cinco. Base compartida no implica almacenamiento fisico compartido; NO publicar hasta transferir y verificar hosting.
+- ZIP de despliegue: `storage/editorial/blog_piton_bola/imagenes_blog_piton_para_hosting.zip`; extraer conservando nombres exactos en `assets/media/cms/ecommerce` del public del hosting del panel. No volver a dar de alta los medios ni generar otros nombres; las filas ya existen.
+- Bloqueo adicional frontend comprobado por lectura: `C:\xampp\htdocs\frontend\ecommerce-publico\app\Api\ErpEcommerceApi.php`, `getBlog` y `getBlogPost` fuerzan demo=1. Debe retirarse del consumo normal. Revisar ademas URLs de imagenes de contenido/bloques contra el host API: el normalizador adapta portada pero las relaciones se agregan despues y HTML conserva src relativos. No se editaron archivos del repo frontend.
+- Control visual del navegador no disponible: la herramienta rechazo Google Chrome por falta de permiso. No se afirma inspeccion visual en frontend. Busqueda de integracion para SFTP/cPanel no encontro opcion pertinente; no hay conexion de hosting configurada en el proyecto inspeccionado.
+- Implementacion: `EcommerceCatalogoPublico::mediaImportarEditorialCli` restringe fuentes a storage/editorial y PHP CLI. Comparte inspeccion, deduplicacion, nombres, permisos y registro con upload HTTP; el flujo HTTP conserva is_uploaded_file/move_uploaded_file. Solo CLI copia el original aprobado; no abre endpoint de importacion HTTP.
+- Runner aplicado una vez: `storage/uat/uat_cms_blog_imagenes_apply_authorized.php`; no reejecutar sobre articulo ya modificado, guardia de contenido evita sobrescribir. Conserva recibos parciales en caso de fallo; revisar biblioteca antes de reintentar.
+- Respaldo externo puntual previo: `C:\xampp\panel_db_backups\productivo_panel_20261101_205112_antes_blog1_imagenes.json`, SHA256 `fdf1dde4aaecca6e5fa3ce8bfeb7583f8fb21182e1dce438f16c4c401a4a7e82`. Contiene fila del articulo, relaciones de media/bloques y coincidencias previas de hash; no es respaldo completo.
+- Pruebas: sintaxis PHP y 17 escenarios Media aislados correctos tras adaptar el harness al servicio comun. Primera ejecucion sandbox bloqueo rename de fixtures; prueba elevada completa paso. No hubo DDL ni cambios a productos/inventario.
+- Siguiente: transferir cinco archivos al hosting, comprobar 200/hash sin sesion y corregir consumo demo del frontend. Publicacion ya solicitada por el dueno, pero NO ejecutada al fallar requisitos de despliegue. Tras resolverlos usar `adminEstatus` con auditoria y verificar API/listado/detalle/frontend; no pedir nueva autorizacion para la misma publicacion salvo cambio de alcance.
+
+### Referencias editoriales compactas / 2026-11-01
+
+- IA: Codex GPT-6.1-sol. Ajuste solicitado y aplicado al borrador productivo ID1: referencias numeradas en texto y tres enlaces agrupados al final bajo `Fuentes de consulta`.
+- Conserva datos de cuidado; agrega nota orientativa y aclara que las fuentes no avalan Artiani ni sus productos. Enlaces externos al final abren aparte con noopener/noreferrer; enlaces a categorias intactos.
+- Se modificaron solo contenido_html/contenido_texto/fecha_actualizacion. Conserva borrador, SEO, imagenes y relaciones; no publica. Verificacion posterior: contenido exacto y auditoria confirmados.
+- Fuente actual para captura con imagenes: `storage/editorial/blog_piton_bola/payload_formulario_v4.json` (sustituye editorialmente v3, conserva tokens Media pendientes). Texto ya guardado: `articulo_cms_referencias_v4.html`. No reimportar v3 porque regresaria la presentacion anterior de fuentes.
+- Respaldo puntual externo: `C:\xampp\panel_db_backups\productivo_panel_20261101_191929_antes_blog1_referencias.sql`, 6878 bytes, SHA256 `ad6e9e9334e24497b61162ef6094fe12183804cc270b013752a763b897f2d661`. No contiene respaldo completo de BD; restaura solo los tres campos previos del articulo con plan autorizado.
+- Runner `storage/uat/uat_cms_blog_referencias_apply_authorized.php`: CLI/token, verifica estado/slug/contenido bajo bloqueo, no sobrescribe cambios concurrentes y es idempotente si ya esta aplicado. Archivo de cambio v4 conserva texto anterior/nuevo.
+- Siguiente: subir las imagenes aprobadas en editor y revisar el borrador antes de solicitar publicacion. Sin cambios a esquema o Media en esta tarea.
+
+### Activacion productiva y carga en Blog / 2026-11-01
+
+- IA: Codex GPT-6.1-sol. El dueno autoriza expresamente respaldo y ocho tablas tras confirmar conexion productiva `artianicom_sys`. No inferir que XAMPP es base de pruebas.
+- Respaldo completo: `C:\xampp\panel_db_backups\productivo_panel_20261101_antes_activar_blog_190451.sql`, 265906487 bytes, SHA256 `f0a6be024f27b91558a08e84e304ab5459639268a98cdcd3c7b67bb076f42c1f`; mysqldump codigo 0 y marca final verificada. Referencia registrada en `docs/erp_respaldo_bd_estandar.md`.
+- Se aplico exclusivamente `EcommercePublicoEsquema::planActualizarCmsBlog(true)` (ocho CREATE del submodulo). Auditoria final: ocho disponibles, cero faltantes, cero DDL pendientes. No cambios de esquema a catalogo, inventario ni Videos.
+- Runner CLI con token/respaldo: `storage/uat/uat_cms_blog_piton_apply_authorized.php`. Reusa modelo, transaccion del borrador y comprobacion por slug; reejecutar no sobrescribe articulo existente. Registra evento de auditoria con origen CLI sin suplantar usuario. DDL no es transaccional; ante error revisar auditoria antes de reintentar.
+- Articulo real ID **1**, slug `piton-bola-preparar-habitat`, estado **borrador**, cinco productos y seis categorias. Sin portada ni imagenes, sin tokens Media en el HTML. API publica no lo devuelve. Abrir `/cms/blog?id=1`.
+- `adminGuardar` permite borradores sin portada para capturar texto primero; al adjuntar imagen exige URL permitida/ALT. Publicacion exige portada con URL y ALT. No se puede publicar el borrador incompleto.
+- Vista/JS Blog agregan `Subir imagen al Blog`: original hasta 2 MB, ALT, nombre opcional, destino portada/apoyo al final/solo biblioteca. Reusa POST `media_admin_subir_erp`, permiso existente de edicion, CSRF, uso blog/tipo editorial y comprobacion publica `CmsMediaTools.verificarDisponibilidad`. No agrega endpoints ni permisos.
+- Una carga confirmada con advertencia no se aplica automaticamente ni se reintenta. Si el operador cambia de articulo durante la carga, queda en biblioteca sin asignarla al nuevo articulo. Despues de asignar debe pulsar Guardar borrador. Portada conserva dimensiones reales; carga de apoyo registra referencia y figura HTML.
+- UI disponible en checkout `panel_de_control`; desplegar juntos modelo, vista y JS Blog al hosting si se opera desde sys.artiani.com.mx. Incluir `media_tools.js` vigente que ya usa el CMS.
+- Verificaciones: PHP/JS sintaxis, UAT Blog read-only con conexion productiva confirmada, bloqueo de publicar sin portada y nueve escenarios de carga aislada (`storage/uat/uat_cms_blog_upload_aislada.js`, sin red/BD). Consulta posterior confirma ID1/borrador/5 productos/6 categorias/0 imagenes y oculto publicamente. No se probo subida real ni inspeccion visual en navegador.
+- Siguiente: usar el boton de carga para los cinco WebP aprobados en `imagenes_revision/catalogo-v3-*.webp`, guardar y revisar portada/apoyos. Los pines se incorporan solo despues de tener las URLs reales. Publicar requiere autorizacion posterior. No volver a crear el primer articulo ni duplicar Media.
+
+### Preparacion CMS con imagenes v3 / 2026-11-01
+
+- IA: Codex GPT-6.1-sol. Se recibe serie visual como aprobada desde contenido. Cinco WebP inspeccionados: 1536x1024 (3:2), entre 239670 y 403336 bytes. No se alteraron imagenes ni se subieron a Media.
+- Entrega actual: `storage/editorial/blog_piton_bola/revision_cms_v3.html` (articulo ilustrado y pines), `articulo_v3.html`, `payload_formulario_v3.json` y `preparacion_cms_v3.json` (manifest local, ALT, relaciones y checklist). Preserva paquetes anteriores.
+- GET actual confirma publicaciones 2128 (TERA-8050), 2747 (coco), 2754 (corteza), 2174 (CAM-01), 2175 (CAM-02): todas agotadas. Son alternativas condicionales, no kit ni compra inmediata. No hay precios ni stock exacto.
+- Dos bloques de pines propuestos sobre recorte 3:2 completo: portada (terrario/coco/CAM-01/CAM-02) y sustratos (coco/corteza). PRIVO-CUTROMD y PRIVO-CUTROCH quedan bloqueados fuera del payload por falta de publicacion/categoria/medidas; no atribuir aptitud para adultos. Medidores, controlador, foco, guardia, soporte, agua y decoracion genericos sin pin.
+- Las escenas no demuestran componentes incluidos ni montaje tecnico correcto. Captions explican alcance; campanas requieren validar proteccion/control/potencia/distancia. Los ALT describen la escena sin prometer especificaciones.
+- Payload conserva estado borrador y relaciones candidatas. Usa tokens `@@MEDIA_*_URL@@` en portada, HTML, SEO, imagenes y bloques: NO enviar sin resolverlos con URLs reales del alta Media autorizada. No usar rutas storage como URLs publicas. Obtener CSRF desde sesion al ejecutar.
+- Siguiente: revision humana del conjunto; autorizar subida de estos cinco WebP, resolver tokens y comprobar acceso publico/esquema antes de guardar borrador autorizado. Publicar requiere instruccion posterior. No hubo escrituras BD, DDL, altas Media ni relaciones persistidas.
 
 ### Borrador editorial piton bola / 2026-10-31
 

@@ -10,6 +10,8 @@
   var els = {};
   var ultimaLista = [];
   var bloqueProductoResultados = [];
+  var uploadOcupado = false;
+  var uploadPermitido = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -124,6 +126,8 @@
     els.orden.value = "0";
     els.destacado.checked = false;
     els.portadaUrl.value = "";
+    els.portadaUrl.dataset.width = "0";
+    els.portadaUrl.dataset.height = "0";
     els.portadaAlt.value = "";
     els.extracto.value = "";
     els.contenido.value = "";
@@ -158,6 +162,8 @@
         els.orden.value = String(pub.orden || 0);
         els.destacado.checked = Number(pub.destacado || 0) === 1;
         els.portadaUrl.value = pub.imagen_portada && pub.imagen_portada.url ? pub.imagen_portada.url : "";
+        els.portadaUrl.dataset.width = (pub.imagen_portada || {}).width || 0;
+        els.portadaUrl.dataset.height = (pub.imagen_portada || {}).height || 0;
         els.portadaAlt.value = pub.imagen_portada && (pub.imagen_portada.alt || pub.imagen_portada.alt_text) ? (pub.imagen_portada.alt || pub.imagen_portada.alt_text) : "";
         els.extracto.value = pub.extracto || "";
         els.contenido.value = pub.contenido_html || "";
@@ -197,8 +203,8 @@
     form.append("imagen_portada", JSON.stringify({
       url: els.portadaUrl.value.trim(),
       alt: els.portadaAlt.value.trim(),
-      width: 1600,
-      height: 900
+      width: Number(els.portadaUrl.dataset.width || 0),
+      height: Number(els.portadaUrl.dataset.height || 0)
     }));
     form.append("seo", JSON.stringify({
       title: els.seoTitle.value.trim() || (els.titulo.value.trim() + " | Artiani"),
@@ -842,6 +848,8 @@
             var url = mediaUrl(item);
             var alt = mediaAlt(item);
             els.portadaUrl.value = url;
+            els.portadaUrl.dataset.width = item.ancho || item.width || 0;
+            els.portadaUrl.dataset.height = item.alto || item.height || 0;
             if (!els.portadaAlt.value.trim() && alt) els.portadaAlt.value = alt;
             els.mediaPanel.classList.add("d-none");
           });
@@ -852,6 +860,99 @@
         els.mediaLista.innerHTML = '<div class="col-12"><div class="alert alert-light-danger fs-7 mb-0">No fue posible consultar Media CMS.</div></div>';
         setSalida(error.message || error);
       });
+  }
+
+  /** IA: Codex GPT-6.1-sol | 2026-11-01.
+   * Proposito: mostrar avisos de carga sin confundir guardado Media con guardado del articulo.
+   * Impacto: Blog; mensajes con foco y sin insercion de HTML del servidor.
+   */
+  function avisoCarga(texto, tipo) {
+    var aviso = $("cms_blog_upload_estado");
+    aviso.className = "alert alert-" + tipo + " mt-3";
+    aviso.textContent = texto;
+    aviso.focus();
+  }
+
+  /** IA: Codex GPT-6.1-sol | 2026-11-01. Proposito: ocultar alta sin permiso de edicion;
+   * contrato: GET preflight existente, el servidor revalida permiso y CSRF al subir.
+   */
+  async function cargarPermisoUpload() {
+    try {
+      var response = await fetch("/cms/media_admin_preflight_erp", {credentials: "same-origin"});
+      var json = await response.json();
+      uploadPermitido = response.ok && !json.error && !!(json.depurar && json.depurar.permisos && json.depurar.permisos.editar);
+      $("cms_blog_upload_panel").classList.toggle("d-none", !uploadPermitido);
+    } catch (error) { uploadPermitido = false; }
+  }
+
+  /** IA: Codex GPT-6.1-sol | 2026-11-01.
+   * Proposito: subir original a Media CMS y asignarlo al formulario despues de comprobar acceso publico.
+   * Impacto: alta Media autenticada; nunca guarda/publica articulo automaticamente.
+   * Contrato: POST archivo/alt/uso=blog/tipo=editorial con CSRF; max 2 MB;
+   * ante respuesta incierta no reintentar automaticamente ni confundir fallo HTTP con rollback.
+   */
+  async function subirImagenBlog() {
+    if (!uploadPermitido || uploadOcupado) return;
+    var input = $("cms_blog_upload_file"), file = input.files && input.files[0];
+    var alt = $("cms_blog_upload_alt").value.trim();
+    var destino = $("cms_blog_upload_destino").value;
+    var contextoArticulo = [els.id.value, els.titulo.value, els.slug.value].join("|");
+    if (!file || !alt) { avisoCarga("Selecciona una imagen y captura su descripcion ALT.", "warning"); return; }
+    if (!/\.(jpe?g|png|webp|gif|avif)$/i.test(file.name) || !file.size || file.size > 2097152) {
+      avisoCarga("Usa JPG, PNG, WebP, GIF o AVIF de hasta 2 MB. El servidor validara su contenido.", "warning"); return;
+    }
+    // Verificar JSON antes de escribir Media, para no perder una alta por captura local invalida.
+    if (destino === "contenido" && leerJsonArray(els.imagenesJson) === null) return;
+    if (!window.CmsMediaTools) { avisoCarga("Recarga la pagina: falta la herramienta de comprobacion Media.", "danger"); return; }
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("archivo", file);
+    form.append("alt", alt);
+    form.append("uso", "blog");
+    form.append("tipo", "editorial");
+    form.append("nombre_seo", $("cms_blog_upload_nombre").value.trim());
+    var boton = $("cms_blog_upload_btn"), confirmada = false;
+    uploadOcupado = true;
+    boton.disabled = true;
+    avisoCarga("Subiendo imagen a Media CMS...", "info");
+    try {
+      var response = await fetch("/cms/media_admin_subir_erp", {
+        method: "POST", credentials: "same-origin", body: form,
+        headers: {"X-CSRF-Token": window.ERP_CSRF_TOKEN || "", "Accept": "application/json", "X-Requested-With": "XMLHttpRequest"}
+      });
+      var json;
+      try { json = await response.json(); }
+      catch (error) { throw new Error("Respuesta de carga no interpretable. Revisa Media CMS antes de volver a subir la imagen."); }
+      if (!response.ok || json.error) throw new Error(json.mensaje || "No se pudo confirmar la carga. Revisa Media CMS antes de reintentar.");
+      confirmada = true;
+      var depurar = json.depurar || {}, item = depurar.item || depurar;
+      input.value = "";
+      if (!item.url) { avisoCarga("El servidor confirmo el guardado sin devolver una referencia. Revisa Media CMS; no vuelvas a subirla.", "warning"); return; }
+      avisoCarga("Imagen guardada. Comprobando acceso publico...", "info");
+      var comprobacion = await window.CmsMediaTools.verificarDisponibilidad(item);
+      if (!comprobacion.ok || json.tipo === "warning") {
+        avisoCarga((json.tipo === "warning" ? (json.mensaje || "") + " " : "") + comprobacion.mensaje + " Referencia: " + item.url + ". No se asigno automaticamente; revisa Media CMS.", "warning");
+        return;
+      }
+      if (contextoArticulo !== [els.id.value, els.titulo.value, els.slug.value].join("|")) {
+        avisoCarga("Imagen guardada en Media CMS. Cambiaste de articulo durante la carga; seleccionala desde Media en el articulo correspondiente.", "warning");
+        return;
+      }
+      if (destino === "portada") {
+        els.portadaUrl.value = item.url;
+        els.portadaUrl.dataset.width = item.ancho || item.width || 0;
+        els.portadaUrl.dataset.height = item.alto || item.height || 0;
+        els.portadaAlt.value = alt;
+      } else if (destino === "contenido") {
+        agregarImagenInterna(item);
+        var figura = '<figure><img src="' + escapeHtml(item.url) + '" alt="' + escapeHtml(alt) + '" loading="lazy"><figcaption>' + escapeHtml(alt) + '</figcaption></figure>';
+        els.contenido.value += "\n" + figura;
+      }
+      renderPreview();
+      avisoCarga(destino === "biblioteca" ? "Imagen guardada y verificada en Media CMS." : "Imagen subida, verificada y agregada al formulario. Pulsa Guardar borrador para conservarla en el articulo.", "success");
+    } catch (error) {
+      avisoCarga((confirmada ? "La imagen ya fue guardada. " : "") + (error.message || "No se pudo confirmar la carga.") + " Revisa Media CMS antes de repetir la carga.", confirmada ? "warning" : "danger");
+    } finally { uploadOcupado = false; boton.disabled = false; }
   }
 
   function bind() {
@@ -911,6 +1012,7 @@
     $("cms_blog_pausar_btn").addEventListener("click", function () { cambiarEstatus("pausado"); });
     $("cms_blog_preview_btn").addEventListener("click", renderPreview);
     $("cms_blog_media_btn").addEventListener("click", abrirMediaPortada);
+    $("cms_blog_upload_btn").addEventListener("click", subirImagenBlog);
     $("cms_blog_media_cerrar").addEventListener("click", function () { els.mediaPanel.classList.add("d-none"); });
     $("cms_blog_productos_btn").addEventListener("click", buscarProductosRelacionados);
     $("cms_blog_productos_buscar_btn").addEventListener("click", buscarProductosRelacionados);
@@ -979,5 +1081,9 @@
     bind();
     cargarEstado();
     listar();
+    cargarPermisoUpload();
+    // IA: Codex GPT-6.1-sol | 2026-11-01. Abrir el borrador por enlace, sin guardado automatico.
+    var idInicial = Number(new URLSearchParams(window.location.search).get("id"));
+    if (idInicial > 0 && Number.isInteger(idInicial)) cargarItem(idInicial);
   });
 })();

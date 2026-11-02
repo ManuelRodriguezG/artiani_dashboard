@@ -54,3 +54,8 @@ La comprobación visual en navegador quedó pendiente porque la sesión actual r
 Respaldo previo externo: `C:/xampp/panel_db_backups/productivo_panel_20261031_jaulas_por_mascota_045403.sql`. SHA-256: `f07ea95f8b95f16b2b6446be90ce5c6391cba18be15740bb933e7a6dde2cd3fb`. Incluye las tres tablas comerciales afectadas; sin DDL.
 
 Reporte detallado, planes, snapshot y resultados en `C:/Users/aleja/.codex/visualizations/2026/10/15/01a140f4-02af-7a92-a436-b067bec4a771/jaulas_por_mascota_2026-10-31/`.
+
+
+## Actualizacion 2026-11-01 — portadas recibidas
+
+Se asignaron las seis portadas finales de conejos, cuyos, erizos, chinchillas (exclusivamente v2), hurones y perros. Solo queda pendiente CC-00057, Jaulas para gatos. Detalle, respaldo y verificaciones: `docs/erp_catalogos_comerciales_portadas_jaulas_2026-11-01.md`. Productos, categorias y selecciones sin modificaciones.

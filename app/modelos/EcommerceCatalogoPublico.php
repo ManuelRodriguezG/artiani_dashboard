@@ -1191,6 +1191,28 @@ class EcommerceCatalogoPublico extends CRUD {
    * Contrato: valida upload real, MIME, extension, peso, dimensiones, hash y alt text antes de mover archivo e insertar BD.
    */
   public function mediaAdminSubirInterno($archivo, $datos = array(), $idUsuario = 0) {
+    return $this->mediaGuardarArchivoValidado($archivo, $datos, $idUsuario, false);
+  }
+
+  /** IA: Codex GPT-6.1-sol | Fecha: 2026-11-01.
+   * Proposito: importar originales editoriales por tarea CLI autorizada con las mismas reglas Media.
+   * Impacto: biblioteca CMS; no admite HTTP, archivos ajenos a storage/editorial ni enlaces simbolicos.
+   * Contrato: el runner autorizado respalda/audita; nunca simular uploads HTTP ni modificar permisos de usuario.
+   */
+  public function mediaImportarEditorialCli($ruta, $datos = array()) {
+    $raiz = realpath(dirname(__DIR__, 2) . '/storage/editorial');
+    $origen = realpath($ruta);
+    if (PHP_SAPI !== 'cli' || !$raiz || !$origen || is_link($ruta) || !is_file($origen) || strpos($origen, $raiz . DIRECTORY_SEPARATOR) !== 0) {
+      return $this->respuesta(true, 'danger', 'Importacion editorial permitida solo desde CLI y carpeta editorial autorizada');
+    }
+    return $this->mediaGuardarArchivoValidado(array('tmp_name' => $origen, 'name' => basename($origen), 'size' => filesize($origen), 'error' => UPLOAD_ERR_OK), $datos, 0, true);
+  }
+
+  /** IA: Codex GPT-6.1-sol | Fecha: 2026-11-01.
+   * Proposito: compartir validacion, hash, nombre, permisos y persistencia entre upload HTTP e importacion CLI.
+   * Contrato: importacionCli es interno, no se obtiene de request; HTTP conserva is_uploaded_file/move_uploaded_file.
+   */
+  private function mediaGuardarArchivoValidado($archivo, $datos, $idUsuario, $importacionCli) {
     $db = $this->getConexion();
     $rutaDestino = "";
     $archivoMovido = false;
@@ -1201,7 +1223,8 @@ class EcommerceCatalogoPublico extends CRUD {
         throw new Exception("La tabla de Media CMS no existe. Ejecuta primero la persistencia autorizada.");
       }
 
-      $this->mediaValidarArchivoUpload($archivo);
+      if (!$importacionCli) { $this->mediaValidarArchivoUpload($archivo); }
+      elseif (PHP_SAPI !== 'cli') { throw new Exception('Importacion no disponible por HTTP'); }
       // IA: Codex GPT-6 | 2026-09-24 | Conservar formato real y validar tambien ICO sin conversion.
       $inspeccion = CmsMediaArchivo::inspeccionar($archivo["tmp_name"], $archivo["name"]);
       $mime = $inspeccion["mime"];
@@ -1267,7 +1290,8 @@ class EcommerceCatalogoPublico extends CRUD {
       if (is_file($rutaDestino)) {
         throw new Exception("Ya existe un archivo con el nombre generado");
       }
-      if (!move_uploaded_file($archivo["tmp_name"], $rutaDestino)) {
+      $movido = $importacionCli ? copy($archivo["tmp_name"], $rutaDestino) : move_uploaded_file($archivo["tmp_name"], $rutaDestino);
+      if (!$movido) {
         throw new Exception("No fue posible guardar la imagen");
       }
       $archivoMovido = true;

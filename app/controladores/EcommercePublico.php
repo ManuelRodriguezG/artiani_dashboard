@@ -349,6 +349,50 @@ class EcommercePublico extends Controlador {
     return $this->responderApiPublica($blog->blogPublico($_GET));
   }
 
+  /** IA: Codex GPT-6.1-sol | Fecha: 2026-11-01.
+   * Proposito: revisar el articulo real solo en el frontend local sin publicarlo en la BD compartida.
+   * Contrato: GET, host local exacto, IP loopback y clave privada servidor-servidor. Solo ID habilitado;
+   * no admite claves en URL, no comparte CORS, no cachea ni cambia estado/persistencia.
+   */
+  public function blog_preview_local($slug = "") {
+    header('Cache-Control: no-store, private');
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Content-Type: application/json; charset=utf-8');
+    $configPath = dirname(__DIR__, 2) . '/storage/cms_blog_preview_local/access.json';
+    $config = is_file($configPath) ? json_decode(file_get_contents($configPath), true) : array();
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $token = (string) ($_SERVER['HTTP_X_CMS_BLOG_PREVIEW_KEY'] ?? '');
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET' || $host !== 'panel.com.local'
+        || !in_array($ip, array('127.0.0.1', '::1'), true) || empty($config['habilitado'])
+        || !is_string($config['key'] ?? null) || strlen($config['key']) !== 64
+        || !hash_equals($config['key'], $token)) {
+      http_response_code(404);
+      return json_encode(array('error' => true, 'depurar' => array()));
+    }
+    $r = $this->modelo('EcommerceBlogPublico')->adminConsultar(intval($config['id_blog_publicacion'] ?? 0));
+    if (!empty($r['error']) || trim((string) ($r['depurar']['publicacion']['slug'] ?? '')) !== ($config['slug'] ?? '')
+        || ($slug !== '' && $slug !== $config['slug'])) {
+      http_response_code(404);
+      return json_encode(array('error' => true, 'depurar' => array()));
+    }
+    $post = $r['depurar']['publicacion'];
+    $post['seo']['robots'] = 'noindex,nofollow';
+    $post['preview_local'] = true;
+    if ($slug === '') {
+      // Nunca entregar el cuerpo del borrador en una tarjeta de listado.
+      unset($post['contenido_html']);
+      $q = trim((string) ($_GET['q'] ?? ''));
+      $match = $q === '' || mb_stripos($post['titulo'] . ' ' . $post['extracto'], $q) !== false;
+      $items = $match ? array($post) : array();
+      return json_encode(array('error' => false, 'depurar' => array('preview_local' => true, 'items' => $items, 'paginacion' => array('pagina' => 1, 'limite' => 12, 'total' => count($items), 'total_paginas' => 1))));
+    }
+    $rels = $r['depurar']['relaciones'];
+    return json_encode(array('error' => false, 'depurar' => array('preview_local' => true, 'publicacion' => $post,
+      'imagenes' => $rels['imagenes'], 'productos_relacionados' => $rels['productos'], 'categorias_relacionadas' => $rels['categorias'],
+      'bloques_interactivos' => $rels['bloques_interactivos'], 'videos' => $rels['videos'], 'publicaciones_relacionadas' => array())));
+  }
+
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
    * Proposito: exponer manifest publico del Blog/CMS.

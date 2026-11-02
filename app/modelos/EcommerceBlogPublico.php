@@ -306,10 +306,14 @@ class EcommerceBlogPublico extends CRUD {
     if ($titulo === "" || $slug === "") {
       return $this->respuesta(true, "warning", "Titulo y slug son obligatorios", array("ok" => false));
     }
+    // IA: Codex GPT-6.1-sol | 2026-11-01. Guardar texto primero: portada opcional en borrador;
+    // al adjuntarla exige URL/ALT, y publicar siempre exige portada completa.
     $portada = $this->jsonDesdeEntrada($this->valor($datos, "imagen_portada", array()));
-    if (!$this->imagenTieneAlt($portada)) {
+    $portadaUrl = trim((string) $this->valor($portada, "url", ""));
+    if ($portadaUrl !== "" && (!$this->urlContenidoPermitida($portadaUrl) || $portadaUrl[0] === "#" || !$this->imagenTieneAlt($portada))) {
       return $this->respuesta(true, "warning", "La imagen de portada requiere texto ALT", array("ok" => false, "campo" => "imagen_portada.alt"));
     }
+    if ($portadaUrl === "") { $portada = array(); }
     $contenidoHtml = $this->sanitizarContenidoHtmlBlog((string) $this->valor($datos, "contenido_html", ""));
     $seo = $this->jsonDesdeEntrada($this->valor($datos, "seo", array()));
     $params = array(
@@ -682,7 +686,9 @@ class EcommerceBlogPublico extends CRUD {
     $stmt->execute(array(":id" => $id));
     $items = array();
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
-      $items[] = array("tipo" => $fila["tipo"], "titulo" => $fila["titulo"], "imagen" => $this->jsonDecode($fila["imagen_json"]), "puntos" => $this->jsonDecode($fila["puntos_json"]));
+      // IA: Codex GPT-6.1-sol | 2026-11-01. Compatibilidad con slug guardado y contrato publico imagen_productos.
+      $tipo = $fila['tipo'] === 'imagen-productos' ? 'imagen_productos' : $fila['tipo'];
+      $items[] = array("tipo" => $tipo, "titulo" => $fila["titulo"], "imagen" => $this->jsonDecode($fila["imagen_json"]), "puntos" => $this->jsonDecode($fila["puntos_json"]));
     }
     return $items;
   }
@@ -817,7 +823,11 @@ class EcommerceBlogPublico extends CRUD {
     if (trim((string) $fila["slug"]) === "") { $bloqueos[] = "slug_obligatorio"; }
     if (trim((string) $fila["extracto"]) === "") { $bloqueos[] = "extracto_obligatorio"; }
     if (trim(strip_tags((string) $fila["contenido_html"])) === "") { $bloqueos[] = "contenido_obligatorio"; }
-    if (!$this->imagenTieneAlt($this->jsonDecode($fila["imagen_portada_json"]))) { $bloqueos[] = "portada_alt_obligatorio"; }
+    // IA: Codex GPT-6.1-sol | 2026-11-01. Un borrador sin imagen nunca debe publicarse.
+    $portada = $this->jsonDecode($fila["imagen_portada_json"]);
+    $urlPortada = trim((string) $this->valor($portada, "url", ""));
+    if ($urlPortada === "" || !$this->urlContenidoPermitida($urlPortada) || $urlPortada[0] === "#") { $bloqueos[] = "portada_url_obligatoria"; }
+    if (!$this->imagenTieneAlt($portada)) { $bloqueos[] = "portada_alt_obligatorio"; }
     return $bloqueos;
   }
 

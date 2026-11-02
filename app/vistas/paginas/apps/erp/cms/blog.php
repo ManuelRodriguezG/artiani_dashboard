@@ -182,6 +182,22 @@
               </div>
 
               <div class="mt-4">
+                <!-- IA: Codex GPT-6.1-sol | 2026-11-01. Carga compartida Media sin publicar el articulo. -->
+                <div id="cms_blog_upload_panel" class="border rounded p-4 d-none">
+                  <h3 class="fs-5">Subir imagen al Blog</h3>
+                  <p class="text-muted fs-7">Puedes guardar primero el texto y agregar imagenes despues. La imagen se conserva en Media CMS; pulsa Guardar borrador para conservarla en este articulo.</p>
+                  <div class="cms-blog-grid">
+                    <div><label class="form-label" for="cms_blog_upload_file">Archivo (maximo 2 MB)</label><input class="form-control" type="file" id="cms_blog_upload_file" accept=".jpg,.jpeg,.png,.webp,.gif,.avif"></div>
+                    <div><label class="form-label" for="cms_blog_upload_destino">Usar como</label><select class="form-select" id="cms_blog_upload_destino"><option value="portada">Portada</option><option value="contenido">Imagen de apoyo al final del articulo</option><option value="biblioteca">Solo biblioteca Media</option></select></div>
+                    <div><label class="form-label" for="cms_blog_upload_alt">Descripcion ALT</label><input class="form-control" id="cms_blog_upload_alt" maxlength="255" placeholder="Describe lo que se ve en la imagen"></div>
+                    <div><label class="form-label" for="cms_blog_upload_nombre">Nombre descriptivo (opcional)</label><input class="form-control" id="cms_blog_upload_nombre" maxlength="120" placeholder="piton-bola-terrario"></div>
+                  </div>
+                  <button class="btn btn-light-primary mt-3" type="button" id="cms_blog_upload_btn"><i class="bi bi-cloud-upload"></i> Subir imagen</button>
+                  <div class="mt-3 d-none" id="cms_blog_upload_estado" role="status" tabindex="-1"></div>
+                </div>
+              </div>
+
+              <div class="mt-4">
                 <label class="form-label">Extracto</label>
                 <textarea class="form-control form-control-solid" id="cms_blog_extracto" rows="3"></textarea>
               </div>
@@ -370,6 +386,7 @@
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="assets/js/custom/apps/erp/cms/blog.js?v=20260928-blog9"></script>
+<script src="assets/js/custom/apps/erp/cms/media_tools.js?v=20260925-media-validacion3"></script>
+<script src="assets/js/custom/apps/erp/cms/blog.js?v=20261101-blog-upload1"></script>
 </body>
 </html>

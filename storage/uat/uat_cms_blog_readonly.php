@@ -33,6 +33,13 @@ $htmlSanitizado = $sanitizador->invoke(
   "<h2 onclick=alert(1)>Titulo</h2><p>Texto <a href=\"javascript:alert(1)\">x</a><a href=\"/blog/ok\" target=\"_blank\">ok</a><script>alert(1)</script><img src=\"/img.webp\" onerror=\"x\" alt=\"Alt\"></p>"
 );
 
+// IA: Codex GPT-6.1-sol | 2026-11-01. Un borrador admite portada pendiente; publicar exige URL y ALT.
+$validarPublicacion = new ReflectionMethod("EcommerceBlogPublico", "bloqueosPublicacion");
+$validarPublicacion->setAccessible(true);
+$filaSinPortada = array("titulo" => "Prueba", "slug" => "prueba", "extracto" => "Prueba", "contenido_html" => "<p>Prueba</p>", "imagen_portada_json" => '{}');
+$bloqueosSinPortada = $validarPublicacion->invoke($blog, $filaSinPortada);
+$publicarSinPortadaBloqueado = in_array("portada_url_obligatoria", $bloqueosSinPortada, true) && in_array("portada_alt_obligatorio", $bloqueosSinPortada, true);
+
 $planDepurar = isset($plan["depurar"]) && is_array($plan["depurar"]) ? $plan["depurar"] : array();
 $auditoriaDepurar = isset($auditoria["depurar"]) && is_array($auditoria["depurar"]) ? $auditoria["depurar"] : array();
 
@@ -59,11 +66,13 @@ $ok = empty($manifest["error"])
   && stripos($htmlSanitizado, "onclick") === false
   && stripos($htmlSanitizado, "onerror") === false
   && strpos($htmlSanitizado, 'href="/blog/ok"') !== false
-  && strpos($htmlSanitizado, 'rel="noopener noreferrer"') !== false;
+  && strpos($htmlSanitizado, 'rel="noopener noreferrer"') !== false
+  && $publicarSinPortadaBloqueado;
 
 echo json_encode(array(
   "ok" => $ok,
   "modo" => "read-only",
+  "publicar_sin_portada_bloqueado" => $publicarSinPortadaBloqueado,
   "senal_cms_blog" => $ok ? "verde_contrato_blog_readonly" : "revisar_contrato_blog",
   "contratos" => array(
     "manifest_ok" => empty($manifest["error"]),

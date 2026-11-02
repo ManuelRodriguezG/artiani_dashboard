@@ -1,0 +1,153 @@
+{
+  "ia": "Codex GPT-6.1-sol",
+  "fecha": "2026-11-01",
+  "articulo": {
+    "id": 1,
+    "slug": "piton-bola-preparar-habitat",
+    "estado": "borrador",
+    "portada": {
+      "url": "/assets/media/cms/ecommerce/piton-bola-portada-35515589.webp",
+      "alt": "Pitón bola en un terrario con sustrato, refugio y campanas mostradas como alternativas",
+      "width": 1536,
+      "height": 1024
+    },
+    "apoyos": 4,
+    "bloques": 2
+  },
+  "archivos": [
+    {
+      "id": 43,
+      "nombre": "piton-bola-refugios-agua-3ba97201.webp",
+      "ruta_local": "public/assets/media/cms/ecommerce/piton-bola-refugios-agua-3ba97201.webp",
+      "ruta_hosting": "/assets/media/cms/ecommerce/piton-bola-refugios-agua-3ba97201.webp",
+      "sha256": "0e920ebcc617d9331cf8b5dd3af7ebeb1a38c9b51ff59d70dbf5dabee74d95fc",
+      "bytes": 358904,
+      "width": 1536,
+      "height": 1024,
+      "local": {
+        "http": 200,
+        "mime": "image/webp",
+        "hash": true
+      },
+      "publico": {
+        "host": "https://sys.artiani.com.mx",
+        "http": 404,
+        "mime": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "id": 42,
+      "nombre": "piton-bola-humedad-sustrato-4ab36e86.webp",
+      "ruta_local": "public/assets/media/cms/ecommerce/piton-bola-humedad-sustrato-4ab36e86.webp",
+      "ruta_hosting": "/assets/media/cms/ecommerce/piton-bola-humedad-sustrato-4ab36e86.webp",
+      "sha256": "612b77414dd164f56a156a9dafff3f6f006006fed05f46b7bd39874aa7e578a5",
+      "bytes": 403336,
+      "width": 1536,
+      "height": 1024,
+      "local": {
+        "http": 200,
+        "mime": "image/webp",
+        "hash": true
+      },
+      "publico": {
+        "host": "https://sys.artiani.com.mx",
+        "http": 404,
+        "mime": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "id": 41,
+      "nombre": "piton-bola-temperatura-1d086cfa.webp",
+      "ruta_local": "public/assets/media/cms/ecommerce/piton-bola-temperatura-1d086cfa.webp",
+      "ruta_hosting": "/assets/media/cms/ecommerce/piton-bola-temperatura-1d086cfa.webp",
+      "sha256": "8a7cc104d905e49bf43d4edbf4c4bfd21c8c4ee642669cfaff49dc175bd5e099",
+      "bytes": 239670,
+      "width": 1536,
+      "height": 1024,
+      "local": {
+        "http": 200,
+        "mime": "image/webp",
+        "hash": true
+      },
+      "publico": {
+        "host": "https://sys.artiani.com.mx",
+        "http": 404,
+        "mime": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "id": 40,
+      "nombre": "piton-bola-terrario-37ce26e4.webp",
+      "ruta_local": "public/assets/media/cms/ecommerce/piton-bola-terrario-37ce26e4.webp",
+      "ruta_hosting": "/assets/media/cms/ecommerce/piton-bola-terrario-37ce26e4.webp",
+      "sha256": "d902b492dc6846925ef92d70e491de8dbf6b183c1e3f0093272ad9e414082c72",
+      "bytes": 312106,
+      "width": 1536,
+      "height": 1024,
+      "local": {
+        "http": 200,
+        "mime": "image/webp",
+        "hash": true
+      },
+      "publico": {
+        "host": "https://sys.artiani.com.mx",
+        "http": 404,
+        "mime": "text/html; charset=UTF-8"
+      }
+    },
+    {
+      "id": 39,
+      "nombre": "piton-bola-portada-35515589.webp",
+      "ruta_local": "public/assets/media/cms/ecommerce/piton-bola-portada-35515589.webp",
+      "ruta_hosting": "/assets/media/cms/ecommerce/piton-bola-portada-35515589.webp",
+      "sha256": "1b8576e2eb47952882e09f1aa83bb32c2953db58adc2643a6943bccd003fd60f",
+      "bytes": 283034,
+      "width": 1536,
+      "height": 1024,
+      "local": {
+        "http": 200,
+        "mime": "image/webp",
+        "hash": true
+      },
+      "publico": {
+        "host": "https://sys.artiani.com.mx",
+        "http": 404,
+        "mime": "text/html; charset=UTF-8"
+      }
+    }
+  ],
+  "respaldo": {
+    "archivo": "C:/xampp/panel_db_backups/productivo_panel_20261101_205112_antes_blog1_imagenes.json",
+    "sha256": "fdf1dde4aaecca6e5fa3ce8bfeb7583f8fb21182e1dce438f16c4c401a4a7e82"
+  },
+  "despliegue": {
+    "zip": "imagenes_blog_piton_para_hosting.zip",
+    "destino": "Carpeta assets/media/cms/ecommerce del public del panel en sys.artiani.com.mx; conservar nombres exactos",
+    "no_reimportar_media": true,
+    "verificacion": "Las cinco URLs deben responder 200 image/webp sin sesión y coincidir con SHA256. Después publicar con adminEstatus y comprobar API pública."
+  },
+  "frontend": {
+    "estado": "pendiente_conexion_blog_real",
+    "hallazgos": [
+      {
+        "archivo": "C:/xampp/htdocs/frontend/ecommerce-publico/app/Api/ErpEcommerceApi.php",
+        "metodos": [
+          "getBlog",
+          "getBlogPost"
+        ],
+        "problema": "Ambos fuerzan demo=1. El slug real no se devuelve en el modo demo aunque se publique.",
+        "accion": "Quitar demo=1 del consumo normal. Dejar el demo solo como opción explícita de maquetación."
+      },
+      {
+        "archivo": "C:/xampp/htdocs/frontend/ecommerce-publico/app/Api/ErpEcommerceApi.php",
+        "problema": "El normalizador adapta portada, pero relaciones se agregan después; HTML interno y bloques mantienen src relativos de CMS.",
+        "accion": "Resolver src de contenido y URL de bloques contra el host API sin romper enlaces a categorías/productos."
+      }
+    ]
+  },
+  "restricciones": {
+    "chrome": "Herramienta respondió: Computer Use was not approved to use Google Chrome. No se inspeccionó visualmente el frontend.",
+    "hosting": "GET de carga Media redirige al login; no hay sesión de hosting autorizada disponible mediante herramienta.",
+    "publicacion": "No ejecutada: fallan las URLs del hosting y el frontend fuerza demo."
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "estado": "borradores_locales_referenciados_catalogo",
+  "generador": "imagegen_builtin",
+  "version": "v3",
+  "formatos_disponibles": ["png", "webp"],
+  "proposito": "Serie visual para revision humana del articulo de piton bola usando referencias reales del catalogo. No es un registro CMS ni autoriza pins de compra por si sola.",
+  "referencias_revisadas": [
+    {"sku":"TERA-8050","id_publicacion":2128,"rol":"terrario_principal","archivo":"referencias_catalogo/TERA-8050.webp"},
+    {"sku":"PROD0965-1500G","id_publicacion":2747,"rol":"sustrato_coco","archivo":"referencias_catalogo/PROD0965-1500G.webp"},
+    {"sku":"PROD1038-1000GR","id_publicacion":2754,"rol":"sustrato_corteza","archivo":"referencias_catalogo/PROD1038-1000GR.webp"},
+    {"sku":"CAM-01","id_publicacion":2174,"rol":"campana_principal","archivo":"referencias_catalogo/CAM-01.webp"},
+    {"sku":"CAM-02","id_publicacion":2175,"rol":"campana_alternativa","archivo":"referencias_catalogo/CAM-02.webp"},
+    {"sku":"PRIVO-CUTROMD","id_publicacion":null,"rol":"cueva_tronco_mediana","archivo":"referencias_catalogo/PRIVO-CUTROMD.webp","bloqueo":"sin_publicacion_publica; validar categoria y publicacion antes de pin"},
+    {"sku":"PRIVO-CUTROCH","id_publicacion":null,"rol":"cueva_tronco_chica","archivo":"referencias_catalogo/PRIVO-CUTROCH.webp","bloqueo":"sin_publicacion_publica; validar tamano segun ejemplar antes de recomendar"}
+  ],
+  "imagenes": [
+    {
+      "archivo":"imagenes_revision/catalogo-v3-portada.png",
+      "archivo_webp":"imagenes_revision/catalogo-v3-portada.webp",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Habitat de piton bola con terrario TERA-8050, sustrato de coco, cuevas y campanas de calor",
+      "pines_posibles":["TERA-8050","PROD0965-1500G","CAM-01","CAM-02","PRIVO-CUTROMD"],
+      "nota":"CAM-01 aparece instalada como referencia principal y CAM-02 como alternativa visual fuera del terrario. La cueva mediana requiere publicacion publica y validacion de tamano antes de pin. No fijar pin a elementos genericos."
+    },
+    {
+      "archivo":"imagenes_revision/catalogo-v3-terrario.png",
+      "archivo_webp":"imagenes_revision/catalogo-v3-terrario.webp",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Terrario TERA-8050 preparado para una piton bola con dos tamanos de cueva",
+      "pines_posibles":["TERA-8050","PRIVO-CUTROMD","PRIVO-CUTROCH"],
+      "nota":"TERA-8050 es el producto claramente identificable. Las dos cuevas se muestran como alternativas de tamano, no como recomendacion universal; ambas requieren publicacion publica antes de usar pin."
+    },
+    {
+      "archivo":"imagenes_revision/catalogo-v3-temperatura.png",
+      "archivo_webp":"imagenes_revision/catalogo-v3-temperatura.webp",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Terrario de piton bola con campana CAM-01 instalada y CAM-02 como alternativa",
+      "pines_posibles":["TERA-8050","CAM-01","CAM-02"],
+      "nota":"CAM-01 funciona mejor como referencia principal por ser visible sobre el terrario; CAM-02 se presenta como alternativa. No afirmar que incluyen foco, guardia o termostato. La instalacion real requiere proteccion, control y validacion de potencia y distancia."
+    },
+    {
+      "archivo":"imagenes_revision/catalogo-v3-humedad-sustrato.png",
+      "archivo_webp":"imagenes_revision/catalogo-v3-humedad-sustrato.webp",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Terrario TERA-8050 con sustratos de coco y corteza del catalogo",
+      "pines_posibles":["TERA-8050","PROD0965-1500G","PROD1038-1000GR","CAM-01","PRIVO-CUTROMD"],
+      "nota":"Las bolsas corresponden a referencias reales del catalogo. Confirmar disponibilidad y compatibilidad antes de relacionarlas. Los medidores y recipiente son genericos."
+    },
+    {
+      "archivo":"imagenes_revision/catalogo-v3-refugios-agua.png",
+      "archivo_webp":"imagenes_revision/catalogo-v3-refugios-agua.webp",
+      "dimensiones_reales":"1536x1024",
+      "alt":"Terrario de piton bola con cuevas de dos tamanos, sustrato y campana de calor",
+      "pines_posibles":["TERA-8050","PROD0965-1500G","CAM-01","PRIVO-CUTROMD","PRIVO-CUTROCH"],
+      "nota":"La cueva mediana es la referencia principal y la chica se muestra como alternativa para ejemplares pequenos o usos temporales, siempre validando medidas. No fijar pin hasta contar con publicaciones publicas."
+    }
+  ],
+  "validaciones_pendientes": [
+    "Confirmar disponibilidad actual antes de publicar o mostrar CTA de compra.",
+    "Validar compatibilidad de cada terrario y cueva con la longitud actual y crecimiento del ejemplar.",
+    "Validar CAM-01/CAM-02 con proteccion, control, potencia y distancia; la imagen no sustituye la ficha tecnica.",
+    "PRIVO-CUTROMD aparece actualmente sin publicacion publica y con categoria de accesorios de acuario; revisar categorizacion antes de relacionarlo.",
+    "PRIVO-CUTROCH aparece sin publicacion publica; confirmar que sus medidas sean apropiadas para el uso editorial.",
+    "Las coordenadas de pines deben tomarse sobre el recorte final aprobado.",
+    "No subir imagenes ni guardar relaciones en CMS sin aprobacion final explicita."
+  ]
+}

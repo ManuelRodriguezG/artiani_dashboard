@@ -106,6 +106,45 @@ docs/erp_ecommerce_publico_orden_activacion_autorizada.md
 
 ## Respaldos generados
 
+Blog ID1: importacion/vinculacion de cinco imagenes autorizada 2026-11-01; respaldo puntual JSON previo:
+
+```text
+archivo=C:\xampp\panel_db_backups\productivo_panel_20261101_205112_antes_blog1_imagenes.json
+sha256=fdf1dde4aaecca6e5fa3ce8bfeb7583f8fb21182e1dce438f16c4c401a4a7e82
+alcance=fila_blog1_relaciones_media_bloques_y_medios_con_hash_coincidente
+validado=escritura_completa_y_sha256
+resultado=medios39_43_registrados_y_vinculados_estado_borrador
+```
+
+Es una instantanea puntual, no SQL ejecutable ni respaldo completo. Restaurar solo con plan autorizado considerando los medios posteriores. Cinco archivos locales verificados; despliegue de archivos al hosting pendiente.
+
+Blog ID1: ajuste editorial de referencias autorizado 2026-11-01, respaldo puntual previo (no completo):
+
+```text
+archivo=C:\xampp\panel_db_backups\productivo_panel_20261101_191929_antes_blog1_referencias.sql
+tamano_bytes=6878
+sha256=ad6e9e9334e24497b61162ef6094fe12183804cc270b013752a763b897f2d661
+alcance=contenido_html_contenido_texto_fecha_actualizacion_blog_id_1
+validado=escritura_completa_y_sha256
+resultado=referencias_agrupadas_estado_borrador_sin_publicar
+```
+
+El SQL de recuperacion afecta solo esos campos del articulo ID1; no ejecutar sin revisar cambios posteriores y autorizacion de restauracion. Se conserva el respaldo completo de activacion listado abajo.
+
+CMS Blog: activacion de ocho tablas y primer articulo como borrador autorizados por el dueno el 2026-11-01:
+
+```text
+archivo=C:\xampp\panel_db_backups\productivo_panel_20261101_antes_activar_blog_190451.sql
+base=artianicom_sys
+tamano_bytes=265906487
+sha256=f0a6be024f27b91558a08e84e304ab5459639268a98cdcd3c7b67bb076f42c1f
+validado=mysqldump_exit_0_marca_final_y_sha256
+alcance=respaldo_completo_antes_de_8_CREATE_Blog
+resultado=8_tablas_disponibles_borrador_blog_id_1_no_publicado
+```
+
+No ejecutar el respaldo para revertir indiscriminadamente la base: cualquier restauracion requiere revisar cambios posteriores y un plan autorizado. Alta ejecutada mediante `storage/uat/uat_cms_blog_piton_apply_authorized.php`; imagenes pendientes de carga manual en el editor.
+
 Catálogos comerciales: asignación de 45 portadas definitivas autorizada por el dueño el 2026-10-17:
 
 ```text
@@ -895,3 +934,14 @@ IA: Codex GPT-6. Antes de crear siete catálogos autorizados por el dueño.
 - SHA-256: `f07ea95f8b95f16b2b6446be90ce5c6391cba18be15740bb933e7a6dde2cd3fb`.
 - Alcance: datos de `erp_catalogo_comercial_catalogos`, `erp_catalogo_comercial_items` y `erp_catalogo_comercial_eventos`; archivo no vacío y final SQL comprobado; sin DDL ni datos maestros.
 - Evidencia y pendientes: `docs/erp_catalogos_jaulas_por_mascota_2026-10-31.md`.
+
+
+## Respaldo 2026-11-01 — seis portadas de jaulas
+
+IA: Codex GPT-6. Asignacion autorizada de PNG a CC-00051–CC-00056; chinchillas v2.
+
+- Archivo: `C:/xampp/panel_db_backups/productivo_panel_20261101_203714_antes_asignar_portadas_comerciales.sql`.
+- SHA-256: `5a4f4c8bfe8f7b0a864400d27a9cd5447a36caf7d47c369e11fc1be3ac2ba0c5`.
+- Alcance: datos de tablas comerciales catalogos/items/eventos; respaldo externo nuevo no vacio y terminacion SQL validada; sin DDL.
+- Resultado: seis portadas activas, 51 catalogos restantes y todas las selecciones sin cambios.
+- Evidencia: `docs/erp_catalogos_comerciales_portadas_jaulas_2026-11-01.md`.

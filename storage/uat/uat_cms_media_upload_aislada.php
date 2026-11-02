@@ -146,6 +146,8 @@ namespace CmsMediaUploadUat {
 
   // IA: Codex GPT-6 | 2026-09-25 | Los dos metodos vienen del codigo actual; las dependencias son minimas y aisladas.
   $alta = extraerMetodo(__DIR__ . '/../../app/modelos/EcommerceCatalogoPublico.php', 'mediaAdminSubirInterno', 'public');
+  // IA: Codex GPT-6.1-sol | 2026-11-01. Probar el servicio compartido sin simular importaciones CLI.
+  $alta .= extraerMetodo(__DIR__ . '/../../app/modelos/EcommerceCatalogoPublico.php', 'mediaGuardarArchivoValidado', 'private');
   $diagnostico = extraerMetodo(__DIR__ . '/../../app/modelos/EcommerceMediaGestion.php', 'mediaAdjuntarValidacionArchivo', 'private');
   eval('namespace CmsMediaUploadUat; use \\Throwable; use \\Exception; use \\PDOException; use \\CmsMediaNombre; trait MetodosReales {' . $alta . $diagnostico . '}');
 
