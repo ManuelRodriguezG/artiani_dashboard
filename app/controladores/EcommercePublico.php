@@ -1173,6 +1173,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-11-02.
+   * Proposito: consultar diferencias entre URLs SEO actuales y el snapshot persistido.
+   * Impacto: Ecommerce SEO; permite detectar productos y categorias pendientes sin modificar datos.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function seo_cambios_pendientes_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoCambiosPendientesInterno($_GET), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: preparar importacion de URLs viejas sin guardar BD.
    * Impacto: Ecommerce SEO; normaliza URLs, detecta tipo probable y sugiere destinos publicos.

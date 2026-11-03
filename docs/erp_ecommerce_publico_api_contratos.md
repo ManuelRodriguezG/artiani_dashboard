@@ -8,6 +8,10 @@ Estado: contrato read-only para frontend ecommerce externo; API publica Fase 1 c
 
 El ERP no renderiza la tienda publica. El proyecto ecommerce vive aparte y consume endpoints del ERP. Este sistema prepara informacion viva y controlada: productos publicados, filtros, detalle y disponibilidad simple.
 
+## Productos relacionados del Blog / 2026-11-02
+
+IA: Codex GPT-6. `GET /ecommercePublico/blog/{slug}` devuelve `depurar.productos_relacionados[]` con objetos identicos a `GET /ecommercePublico/catalogo?vista=card&agrupacion=sku`: imagen/ALT, precio y moneda publicos, IDs y SKU, URLs, marca/categoria, permisos comerciales y grupo de producto. Reutilizar la tarjeta normal del catalogo; no consultar cada ficha para completar los relacionados. Blog conserva el SKU y orden editorial, y Catalogo sigue controlando visibilidad/precios/disponibilidad. No incluye costos ni stock exacto. Campos ausentes en el catalogo de origen no se inventan. Preview local utiliza el mismo contrato conservando el articulo en borrador. Detalle de implementacion y pruebas en `docs/erp_cms_blog_estado_actual.md`.
+
 ## Manifiesto
 
 Endpoint:

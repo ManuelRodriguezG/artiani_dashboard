@@ -3596,6 +3596,38 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * IA: Codex GPT-6 | Fecha: 2026-11-02
+   * Proposito: resolver relaciones editoriales con las mismas tarjetas del catalogo normal.
+   * Impacto: CMS Blog; comparte precios, imagenes, taxonomia, grupos y acciones publicas.
+   * Contrato: solo lectura, hasta 50 IDs unicos en orden recibido; excluye no publicados,
+   * productos/SKUs inactivos y granel mediante sqlPublicacionesBase. No expone stock exacto.
+   */
+  public function tarjetasPublicasPorIds($ids) {
+    $idsValidos = array();
+    foreach ((array) $ids as $id) {
+      if ((!is_int($id) && !is_string($id)) || !ctype_digit((string) $id) || intval($id) <= 0) { continue; }
+      $idsValidos[intval($id)] = intval($id);
+      if (count($idsValidos) >= 50) { break; }
+    }
+    if (empty($idsValidos)) { return array(); }
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) { return array(); }
+    $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'",
+      "pub.id_publicacion IN (" . implode(",", array_fill(0, count($idsValidos), "?")) . ")");
+    $stmt = $db->prepare($this->sqlPublicacionesBase($where));
+    $stmt->execute(array_values($idsValidos));
+    $porId = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $porId[intval($fila["id_publicacion"])] = $this->publicacionCardPublica($this->formatearPublicacion($fila));
+    }
+    $items = array();
+    foreach ($idsValidos as $id) {
+      if (isset($porId[$id])) { $items[] = $porId[$id]; }
+    }
+    return $items;
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: consultar una publicacion ecommerce por slug para ficha publica.
    * Impacto: Ecommerce publico; evita exponer productos no publicados.
@@ -5018,12 +5050,18 @@ class EcommerceCatalogoPublico extends CRUD {
       $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
       $urls = $this->seoUrlsPublicasItems($baseUrl, max(1, min(5000, intval($this->valor($opciones, "limite", 3000)))));
       $items = array();
+      $vistos = array();
       foreach ($urls as $url) {
         if (empty($url["indexable"]) || strpos((string) $url["path"], "/ecommercePublico") === 0) {
           continue;
         }
+        $loc = trim((string) $this->valor($url, "canonical", ""));
+        if ($loc === "" || isset($vistos[$loc])) {
+          continue;
+        }
+        $vistos[$loc] = true;
         $items[] = array(
-          "loc" => $this->valor($url, "canonical", ""),
+          "loc" => $loc,
           "changefreq" => $this->seoChangefreqPorTipo($this->valor($url, "tipo", "")),
           "priority" => $this->seoPriorityPorTipo($this->valor($url, "tipo", ""))
         );
@@ -5032,7 +5070,28 @@ class EcommerceCatalogoPublico extends CRUD {
         require_once RUTA_APP . "/modelos/EcommerceBlogPublico.php";
         $blog = new EcommerceBlogPublico();
         foreach ($blog->sitemapItemsPublicos($baseUrl, max(1, min(1000, intval($this->valor($opciones, "limite_blog", 500))))) as $itemBlog) {
+          $locBlog = trim((string) $this->valor($itemBlog, "loc", ""));
+          if ($locBlog === "" || isset($vistos[$locBlog]) || strpos($locBlog, "/ecommercePublico") !== false) {
+            continue;
+          }
+          $vistos[$locBlog] = true;
           $items[] = $itemBlog;
+        }
+      }
+      if (file_exists(RUTA_APP . "/modelos/EcommerceVideosErp.php")) {
+        require_once RUTA_APP . "/modelos/EcommerceVideosErp.php";
+        $videos = new EcommerceVideosErp();
+        foreach ($videos->sitemapItemsPublicos($baseUrl, max(1, min(1000, intval($this->valor($opciones, "limite_videos", 500))))) as $itemVideo) {
+          $loc = trim((string) $this->valor($itemVideo, "canonical", $this->valor($itemVideo, "url", "")));
+          if ($loc === "" || isset($vistos[$loc]) || strpos($loc, "/ecommercePublico") !== false) {
+            continue;
+          }
+          $vistos[$loc] = true;
+          $items[] = array(
+            "loc" => $loc,
+            "changefreq" => "weekly",
+            "priority" => "0.6"
+          );
         }
       }
       return $this->respuesta(false, "success", "Sitemap SEO ecommerce consultado", array(
@@ -5638,12 +5697,22 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($confianzaFiltro === "pendiente") { $confianzaFiltro = "pendientes"; }
 
       $rutas = $this->seoAnalyticsRutasCandidatas($db, $inicio, $fin, max(500, min(4000, ($offset + $limite) * 6)));
+      $canonicasProductos = array();
+      foreach ($this->seoProductosPublicosItems(5000) as $productoCanonico) {
+        $slugCanonico = trim((string) $this->valor($productoCanonico, "slug", ""));
+        if ($slugCanonico !== "") {
+          $canonicasProductos["/producto/" . $slugCanonico] = true;
+        }
+      }
       $redirecciones = $this->seoRedireccionesPorOrigenMapa($db);
       $urlsViejas = $this->seoUrlsViejasMapa($db);
       $items = array();
       $vistos = array();
       foreach ($rutas as $fila) {
         $item = $this->seoIncidenciaAnalyticsDesdeRuta($fila, $redirecciones, $urlsViejas);
+        if (!$item) {
+          $item = $this->seoIncidenciaProductoNoCanonicoAnalytics($this->valor($fila, "ruta", ""), $canonicasProductos);
+        }
         if (!$item) { continue; }
         $path = $this->valor($item, "path_original", "");
         if ($path === "" || isset($vistos[$path])) { continue; }
@@ -5686,6 +5755,30 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "no_escribe_bd" => true));
     }
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-11-02.
+   * Proposito: detectar slugs de producto limpios que Analytics sigue recibiendo,
+   * pero que ya no existen entre las URLs canonicas actuales.
+   * Impacto: Ecommerce SEO; encuentra slugs antiguos aunque no tengan query ni formato invalido.
+   * Contrato: transformacion read-only; no crea redirecciones ni modifica Analytics.
+   */
+  private function seoIncidenciaProductoNoCanonicoAnalytics($ruta, $canonicasProductos) {
+    $ruta = trim((string) $ruta);
+    if ($ruta === "" || preg_match('/[?&#]/', $ruta)) { return null; }
+    $partes = parse_url($ruta);
+    $path = isset($partes["path"]) ? "/" . ltrim((string) $partes["path"], "/") : "";
+    $path = rtrim(preg_replace('/\/+/', '/', $path), "/");
+    if (!preg_match('#^/producto/([^/]+)$#i', $path, $coincidencia)) { return null; }
+    if (isset($canonicasProductos[$path])) { return null; }
+    return array(
+      "path_original" => substr($path, 0, 500),
+      "path_base" => substr($path, 0, 500),
+      "tipo_detectado" => "producto",
+      "motivos" => array("producto_slug_no_encontrado_en_canonicas"),
+      "tracking_params_detectados" => array()
+    );
   }
 
   /**
@@ -8006,6 +8099,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       $readiness = $this->readinessFrontendInterna(array("base_url" => $this->valor($filtros, "base_url", "http://panel.com.local")));
       $seo = $this->seoDashboardInterno(array("limite" => 40));
+      $cambiosSeo = $this->seoCambiosPendientesInterno(array("limite" => 3000));
       $resumen = $this->valor($auditoria, array("depurar", "resumen"), array());
       $items = $this->valor($auditoria, array("depurar", "candidatos"), array());
       $paginacion = $this->valor($auditoria, array("depurar", "paginacion"), array());
@@ -8021,6 +8115,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "sin_imagen" => $this->totalAuditoriaRapida(array("filtro_calidad" => "sin_imagen")),
         "con_alerta_seo" => $this->totalSlugsDuplicados() + intval($this->valor($seo, array("depurar", "resumen", "redirecciones_activas"), 0)),
         "redirecciones_pendientes" => $this->totalRedireccionesSeoPendientes(),
+        "cambios_seo_pendientes" => intval($this->valor($cambiosSeo, array("depurar", "resumen", "total_pendientes"), 0)),
         "productos_nuevos_detectados" => $this->totalAuditoriaRapida(array("estatus_publicacion" => "sin_publicacion", "filtro_calidad" => "informativo_apto")),
         "publicables_fase_1" => intval($this->valor($resumen, "skus_publicables_fase_1", 0))
       );
@@ -8037,6 +8132,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "alertas_persistentes" => $this->listarAlertasPersistentesCatalogoGobierno(30),
         "seo" => array(
           "resumen" => $this->valor($seo, array("depurar", "resumen"), array()),
+          "cambios_pendientes" => $this->valor($cambiosSeo, array("depurar", "resumen"), array()),
+          "cambios" => $this->valor($cambiosSeo, array("depurar", "cambios"), array()),
           "endpoints_internos" => $this->valor($seo, array("depurar", "endpoints_internos"), array()),
           "guardrails" => $this->valor($seo, array("depurar", "guardrails"), array())
         ),
@@ -14914,7 +15011,149 @@ class EcommerceCatalogoPublico extends CRUD {
       $agregar("producto", "/producto/" . $slug, $producto);
     }
 
+    if (file_exists(RUTA_APP . "/modelos/EcommerceVideosErp.php")) {
+      require_once RUTA_APP . "/modelos/EcommerceVideosErp.php";
+      $videos = new EcommerceVideosErp();
+      foreach ($videos->sitemapItemsPublicos($baseUrl, min(1000, $limite)) as $video) {
+        $agregar("video", $this->valor($video, "path", ""), $video);
+      }
+    }
+
     return $urls;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-11-02.
+   * Proposito: comparar URLs SEO actuales contra el snapshot persistido.
+   * Impacto: Gobierno Ecommerce; detecta cambios de productos, categorias, marcas,
+   * videos y paginas antes de sincronizar el sitemap.
+   * Contrato: solo lectura; no desactiva URLs, no crea redirecciones y no escribe BD.
+   */
+  public function seoCambiosPendientesInterno($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
+      $limite = max(1, min(5000, intval($this->valor($opciones, "limite", 3000))));
+      $actuales = $this->seoUrlsPublicasItems($baseUrl, $limite);
+      $existentes = array();
+      if ($db && $this->tablaExiste($db, "erp_ecommerce_seo_urls")) {
+        $stmt = $db->query("SELECT path, tipo, entidad_id, url, canonical, title, description, indexable, activo, fecha_actualizacion
+          FROM erp_ecommerce_seo_urls WHERE activo=1");
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $existentes[(string) $fila["path"]] = $fila;
+        }
+      }
+
+      $cambios = array();
+      $resumen = array("nuevas" => 0, "actualizadas" => 0, "retiradas" => 0, "analytics_pendientes" => 0, "sin_cambio" => 0, "total_pendientes" => 0, "por_tipo" => array());
+      $vistos = array();
+      foreach ($actuales as $item) {
+        $path = $this->normalizarSeoPathPublico($this->valor($item, "path", ""));
+        if ($path === "" || isset($vistos[$path])) { continue; }
+        $vistos[$path] = true;
+        $tipo = (string) $this->valor($item, "tipo", "url");
+        if (!isset($resumen["por_tipo"][$tipo])) {
+          $resumen["por_tipo"][$tipo] = array("nuevas" => 0, "actualizadas" => 0, "retiradas" => 0, "sin_cambio" => 0);
+        }
+        $actual = isset($existentes[$path]) ? $existentes[$path] : null;
+        $accion = "sin_cambio";
+        if (!$actual) {
+          $accion = "nueva";
+          $resumen["nuevas"]++;
+          $resumen["por_tipo"][$tipo]["nuevas"]++;
+        } elseif (
+          (string) $this->valor($actual, "canonical", "") !== (string) $this->valor($item, "canonical", "") ||
+          (string) $this->valor($actual, "title", "") !== (string) $this->valor($item, "title", "") ||
+          (string) $this->valor($actual, "description", "") !== (string) $this->valor($item, "description", "") ||
+          intval($this->valor($actual, "indexable", 1)) !== (!empty($item["indexable"]) ? 1 : 0) ||
+          intval($this->valor($actual, "activo", 1)) !== 1
+        ) {
+          $accion = "actualizada";
+          $resumen["actualizadas"]++;
+          $resumen["por_tipo"][$tipo]["actualizadas"]++;
+        } else {
+          $resumen["sin_cambio"]++;
+          $resumen["por_tipo"][$tipo]["sin_cambio"]++;
+        }
+        if ($accion !== "sin_cambio" && count($cambios) < 200) {
+          $cambios[] = array(
+            "accion" => $accion,
+            "tipo" => $tipo,
+            "path" => $path,
+            "canonical_actual" => (string) $this->valor($item, "canonical", ""),
+            "canonical_anterior" => $actual ? (string) $this->valor($actual, "canonical", "") : "",
+            "title_actual" => (string) $this->valor($item, "title", ""),
+            "fecha_snapshot" => $actual ? (string) $this->valor($actual, "fecha_actualizacion", "") : ""
+          );
+        }
+      }
+
+      foreach ($existentes as $path => $anterior) {
+        if (isset($vistos[$path])) { continue; }
+        $tipo = (string) $this->valor($anterior, "tipo", "url");
+        if (!isset($resumen["por_tipo"][$tipo])) {
+          $resumen["por_tipo"][$tipo] = array("nuevas" => 0, "actualizadas" => 0, "retiradas" => 0, "sin_cambio" => 0);
+        }
+        $resumen["retiradas"]++;
+        $resumen["por_tipo"][$tipo]["retiradas"]++;
+        if (count($cambios) < 200) {
+          $cambios[] = array(
+            "accion" => "retirada_revision",
+            "tipo" => $tipo,
+            "path" => $path,
+            "canonical_actual" => "",
+            "canonical_anterior" => (string) $this->valor($anterior, "canonical", ""),
+            "title_actual" => "",
+            "fecha_snapshot" => (string) $this->valor($anterior, "fecha_actualizacion", "")
+          );
+        }
+      }
+
+      $analytics = $this->seoIncidenciasAnalyticsRevisionInterna(array(
+        "limite" => 200,
+        "desde" => $this->valor($opciones, "desde", date("Y-m-d", strtotime("-30 days"))),
+        "hasta" => $this->valor($opciones, "hasta", date("Y-m-d"))
+      ));
+      $analyticsItems = $this->valor($analytics, array("depurar", "items"), array());
+      foreach ((array) $analyticsItems as $incidencia) {
+        $accionAnalytics = (string) $this->valor($incidencia, "accion_sugerida", "");
+        if ($accionAnalytics === "relacionada_301" || $this->valor($incidencia, "prioridad_revision", "") === "resuelta") {
+          continue;
+        }
+        $pathAnalytics = $this->normalizarSeoPathPublico($this->valor($incidencia, "path_original", ""));
+        if ($pathAnalytics === "") { continue; }
+        $resumen["analytics_pendientes"]++;
+        if (count($cambios) < 200) {
+          $cambios[] = array(
+            "accion" => "analytics_revision",
+            "tipo" => (string) $this->valor($incidencia, "tipo_detectado", "url"),
+            "path" => $pathAnalytics,
+            "canonical_actual" => (string) $this->valor($incidencia, "url_destino_sugerida", ""),
+            "canonical_anterior" => "",
+            "title_actual" => (string) $this->valor($incidencia, "motivo", "URL detectada por Analytics"),
+            "fecha_snapshot" => "",
+            "fuente" => "analytics",
+            "motivos" => $this->valor($incidencia, "motivos", array()),
+            "prioridad" => (string) $this->valor($incidencia, "prioridad_revision", "media")
+          );
+        }
+      }
+
+      $resumen["total_pendientes"] = $resumen["nuevas"] + $resumen["actualizadas"] + $resumen["retiradas"] + $resumen["analytics_pendientes"];
+      return $this->respuesta(false, "success", "Cambios SEO pendientes consultados", array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "snapshot_disponible" => !empty($existentes),
+        "base_url" => $baseUrl,
+        "analytics_disponible" => !empty($analytics["depurar"]["disponible"]),
+        "resumen" => $resumen,
+        "cambios" => $cambios,
+        "siguiente_accion" => $resumen["total_pendientes"] > 0 ? "/ecommercePublico/seo_urls_sincronizar_plan_erp" : "",
+        "guardrails" => array("no_crea_redirecciones" => true, "no_desactiva_urls" => true, "no_modifica_slugs" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "cambios" => array()));
+    }
   }
 
   /**

@@ -73,6 +73,7 @@ function erpHeaderCatalogoBusqueda()
         )),
         array('seccion' => 'ERP', 'titulo' => 'Compras', 'icono' => 'bi-cart-check', 'items' => array(
             array('titulo' => 'Ordenes de compra', 'ruta' => '/compra/mostrar_compra_ordenes', 'permiso' => 'compras.ver', 'detalle' => 'Compras ordenes proveedores'),
+            array('titulo' => 'Transición almacén único', 'ruta' => '/compra/auditoria_transicion_almacen', 'permiso' => 'compras.ver', 'detalle' => 'Auditar destinos de Compras y Recepción antes de consolidar'),
             array('titulo' => 'Nueva orden', 'ruta' => '/compra/crear_orden_compra', 'permiso' => 'compras.crear', 'detalle' => 'Crear orden compra'),
             array('titulo' => 'Solicitudes', 'ruta' => '/compra/mostrar_solicitudes', 'permiso' => 'compras.ver', 'detalle' => 'Solicitudes requisiciones compra'),
             array('titulo' => 'Nueva solicitud', 'ruta' => '/compra/solicitud_compra_nueva', 'permiso' => 'compras.crear', 'detalle' => 'Crear solicitud compra'),

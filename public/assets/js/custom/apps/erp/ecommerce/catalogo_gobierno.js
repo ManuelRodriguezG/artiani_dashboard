@@ -81,6 +81,7 @@
             renderItems(data.items || []);
             renderAlertas(data.alertas || [], data.alertas_persistentes || []);
             renderSeo(data.seo || {}, data.readiness || {});
+            renderCambiosSeo(data.seo && data.seo.cambios ? data.seo.cambios : []);
             renderPaginacion(paginacionActual);
             setEstado("Read-only", "badge-light-success");
         }).catch(function (error) {
@@ -101,6 +102,7 @@
             ["Alerta SEO", tablero.con_alerta_seo || 0, "Slugs duplicados o redirecciones activas."],
             ["Redirecciones pendientes", tablero.redirecciones_pendientes || 0, "URLs antiguas por mapear."],
             ["Nuevos detectados", tablero.productos_nuevos_detectados || 0, "Aptos para preparar publicacion."]
+            , ["Cambios SEO", tablero.cambios_seo_pendientes || 0, "URLs nuevas, actualizadas o retiradas para revision."]
         ];
         $("ecomgov_kpis").innerHTML = items.map(function (item) {
             return "<div class=\"col-6 col-md-4 col-xl-2\"><div class=\"ecomgov-kpi\">" +
@@ -225,18 +227,76 @@
         });
     }
 
+    function prepararSincronizacionSeo() {
+        var boton = $("ecomgov_plan_sync");
+        if (boton) { boton.disabled = true; }
+        setEstado("Preparando plan SEO...", "badge-light-info");
+        postForm("/ecommercePublico/seo_urls_sincronizar_plan_erp", {limite: "3000"}).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo preparar la sincronizacion"); }
+            var data = response.depurar || {};
+            var nodo = $("ecomgov_plan_sync_resultado");
+            if (nodo) {
+                nodo.innerHTML =
+                    "<div class=\"alert alert-light-primary mb-0\"><div class=\"fw-bold\">Plan SEO preparado sin escribir datos</div>" +
+                    "<div class=\"text-muted fs-8 mt-1\">Nuevas: " + Number(data.nuevas || 0) + " | Actualizar: " + Number(data.actualizar || 0) + " | Sin cambio: " + Number(data.sin_cambio || 0) + " | Bloqueadas: " + Number(data.bloqueadas || 0) + "</div>" +
+                    "<div class=\"text-muted fs-8 mt-1\">Para aplicar la sincronizacion se requiere autorizacion operativa en la mesa SEO.</div></div>";
+            }
+            setEstado("Plan SEO listo", "badge-light-success");
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            var nodo = $("ecomgov_plan_sync_resultado");
+            if (nodo) { nodo.innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message || String(error)) + "</div>"; }
+        }).finally(function () {
+            if (boton) { boton.disabled = false; }
+        });
+    }
+
     function renderSeo(seo, readiness) {
         var resumen = seo.resumen || {};
+        var pendientes = seo.cambios_pendientes || {};
         var bloqueos = readiness.bloqueos_datos_reales || [];
         $("ecomgov_seo").innerHTML =
             "<div class=\"ecomgov-badges mb-4\">" +
                 "<span class=\"badge badge-light-primary\">URLs muestra: " + Number(resumen.urls_total_muestra || 0) + "</span>" +
                 "<span class=\"badge badge-light-info\">301 activas: " + Number(resumen.redirecciones_activas || 0) + "</span>" +
                 "<span class=\"badge badge-light-warning\">410 activas: " + Number(resumen.urls_410_activas || 0) + "</span>" +
+                "<span class=\"badge " + (Number(pendientes.total_pendientes || 0) ? "badge-light-warning" : "badge-light-success") + "\">Cambios pendientes: " + Number(pendientes.total_pendientes || 0) + "</span>" +
                 "<span class=\"badge " + (resumen.robots_disponible ? "badge-light-success" : "badge-light-danger") + "\">Robots</span>" +
             "</div>" +
+            "<div class=\"text-muted fs-8 mb-2\">Nuevas: " + Number(pendientes.nuevas || 0) + " | Actualizadas: " + Number(pendientes.actualizadas || 0) + " | Retiradas para revision: " + Number(pendientes.retiradas || 0) + "</div>" +
             "<div class=\"text-muted fs-8 mb-2\">Senal frontend: <span class=\"fw-semibold text-gray-700\">" + escapeHtml(readiness.senal_frontend || "sin_dato") + "</span></div>" +
             (bloqueos.length ? "<div class=\"ecomgov-badges\">" + bloqueos.map(function (b) { return "<span class=\"badge badge-light-warning\">" + escapeHtml(b) + "</span>"; }).join("") + "</div>" : "<span class=\"badge badge-light-success\">Sin bloqueos de datos reales</span>");
+    }
+
+    function renderCambiosSeo(cambios) {
+        var contenedor = $("ecomgov_cambios_seo");
+        if (!contenedor) { return; }
+        if (!cambios.length) {
+            contenedor.innerHTML = "<div class=\"alert alert-light-success mb-0\">No hay cambios SEO pendientes en el snapshot actual.</div>";
+            return;
+        }
+        var etiquetas = {
+            nueva: ["badge-light-primary", "Nueva"],
+            actualizada: ["badge-light-warning", "Actualizada"],
+            retirada_revision: ["badge-light-danger", "Retirada para revision"],
+            analytics_revision: ["badge-light-info", "Detectada por Analytics"]
+        };
+        contenedor.innerHTML =
+            "<div class=\"d-flex justify-content-between align-items-center mb-3\"><div><h4 class=\"fw-bold mb-1\">Cambios SEO pendientes</h4><div class=\"text-muted fs-8\">Revisa estos cambios antes de sincronizar el snapshot o aprobar redirecciones.</div></div><a class=\"btn btn-sm btn-light-primary\" href=\"/ecommercePublico/seo_migracion\">Revisar SEO</a></div>" +
+            "<div class=\"table-responsive\"><table class=\"table table-sm align-middle\"><thead><tr><th>Accion</th><th>Tipo</th><th>Ruta actual</th><th>Ruta anterior / canonical</th><th></th></tr></thead><tbody>" +
+            cambios.slice(0, 30).map(function (cambio) {
+                var cfg = etiquetas[cambio.accion] || ["badge-light-info", cambio.accion || "Revision"];
+                var anterior = cambio.canonical_anterior || "Sin snapshot anterior";
+                return "<tr>" +
+                    "<td><span class=\"badge " + cfg[0] + "\">" + escapeHtml(cfg[1]) + "</span></td>" +
+                    "<td>" + escapeHtml(cambio.tipo || "url") + "</td>" +
+                    "<td><code class=\"text-break\">" + escapeHtml(cambio.path || "") + "</code></td>" +
+                    "<td><span class=\"text-muted fs-8 text-break\">" + escapeHtml(anterior) + "</span>" + (cambio.fuente === "analytics" ? "<div class=\"badge badge-light-info mt-1\">Analytics</div>" : "") + "</td>" +
+                    "<td class=\"text-end\"><a class=\"btn btn-sm btn-light\" href=\"/ecommercePublico/seo_migracion\">Abrir SEO</a></td>" +
+                "</tr>";
+            }).join("") +
+            "</tbody></table></div>" +
+            (cambios.length > 30 ? "<div class=\"text-muted fs-8 mt-2\">Mostrando 30 de " + cambios.length + " cambios detectados.</div>" : "");
     }
 
     function renderPaginacion(paginacion) {
@@ -265,6 +325,7 @@
         });
         $("ecomgov_recargar").addEventListener("click", cargar);
         $("ecomgov_sincronizar_alertas").addEventListener("click", sincronizarAlertas);
+        $("ecomgov_plan_sync").addEventListener("click", prepararSincronizacionSeo);
         $("ecomgov_anterior").addEventListener("click", function () {
             if (paginaActual > 1) { paginaActual--; cargar(); }
         });

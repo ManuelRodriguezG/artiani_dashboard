@@ -7026,6 +7026,14 @@ Verificaciones:
 - `C:\xampp\php\php.exe -l app/controladores/Ventas.php`: correcto.
 - `node --check public/assets/js/custom/apps/erp/ventas/correcciones_historicas.js`: correcto.
 
+## Avance 2026-11-02 - Operación temporal en un solo almacén
+
+- Se documentó el plan de consolidación temporal en `docs/erp_operacion_unica_consolidacion_plan.md`.
+- La auditoría read-only confirmó existencias actuales en Bodega (`id_almacen=3`) y Mascotas (`id_almacen=5`), mientras Acuario (`id_almacen=4`) conserva ventas históricas y pendientes, pero no existencias actuales en el resumen consultado.
+- Las cajas principales `1` y `2` continúan en `regularizacion_activa`; todavía no se cambió el modo productivo.
+- No se modificaron almacenes, cajas, ventas, existencias, pendientes, reservas ni turnos.
+- El siguiente trabajo seguro es comparar los saldos por SKU entre almacenes antes de seleccionar o crear `Operación general`.
+
 ## Handoff 2026-10-31 - Resolucion de incidencias de SKU historico
 
 Estado:

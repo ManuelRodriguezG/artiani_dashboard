@@ -30,7 +30,9 @@ class EcommerceBlogPublico extends CRUD {
         "buscador_blog_independiente" => true,
         "buscador_global_compone_fuentes" => true,
         "videos_carga_diferida" => true,
-        "no_generar_urls_en_frontend" => true
+        "no_generar_urls_en_frontend" => true,
+        // IA: Codex GPT-6 | 2026-11-02. Misma tarjeta publica; Blog no mantiene una copia comercial reducida.
+        "productos_relacionados" => array("fuente" => "/ecommercePublico/catalogo", "vista" => "card", "agrupacion" => "sku", "reutilizar_tarjeta_catalogo" => true, "requiere_consulta_por_producto" => false)
       ),
       "guardrails" => $this->guardrailsPublicos()
     ));
@@ -656,21 +658,27 @@ class EcommerceBlogPublico extends CRUD {
     return array();
   }
 
+  /**
+   * IA: Codex GPT-6 | Fecha: 2026-11-02
+   * Proposito: entregar productos completos para reutilizar la tarjeta normal en Blog.
+   * Impacto: detalle publico, editor y revision local; elimina imagen/precio ficticios vacios.
+   * Contrato: solo lectura; orden editorial y mismo contrato vista=card/agrupacion=sku del catalogo.
+   * Catalogo decide visibilidad, precios, disponibilidad y marca; Blog solo aporta IDs relacionados.
+   */
   private function productosRelacionados($id, $limite) {
     if (!$this->tablaExiste("erp_ecommerce_blog_productos") || !$this->tablaExiste("erp_ecommerce_publicaciones")) { return array(); }
     $db = $this->getConexion();
-    $sql = "SELECT ep.id_publicacion, ep.titulo_publico nombre, ep.slug, COALESCE(ep.url_publica, CONCAT('/producto/', ep.slug)) url, ep.presentacion_publica marca
+    $sql = "SELECT ep.id_publicacion
       FROM erp_ecommerce_blog_productos bp
       INNER JOIN erp_ecommerce_publicaciones ep ON ep.id_publicacion=bp.id_publicacion AND ep.estatus_publicacion='publicado'
       WHERE bp.id_blog_publicacion=:id AND bp.estatus='activo'
-      ORDER BY bp.orden ASC, bp.id_blog_producto ASC LIMIT " . intval($limite);
+      ORDER BY bp.orden ASC, bp.id_blog_producto ASC LIMIT " . max(1, min(50, intval($limite)));
     $stmt = $db->prepare($sql);
     $stmt->execute(array(":id" => $id));
-    $items = array();
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
-      $items[] = array("id_publicacion" => intval($fila["id_publicacion"]), "nombre" => $fila["nombre"], "slug" => $fila["slug"], "url" => $fila["url"], "imagen" => "", "precio" => "", "marca" => $fila["marca"]);
-    }
-    return $items;
+    $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    if (empty($ids)) { return array(); }
+    require_once __DIR__ . '/EcommerceCatalogoPublico.php';
+    return (new EcommerceCatalogoPublico())->tarjetasPublicasPorIds($ids);
   }
 
   private function categoriasRelacionadas($id) {

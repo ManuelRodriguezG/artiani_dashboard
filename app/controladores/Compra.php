@@ -22,6 +22,30 @@ class Compra extends Controlador {
         $this->vista("apps/erp/compras/listar");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-11-02
+     * Proposito: mostrar la auditoria read-only para la transición a una operación general.
+     * Impacto: Compras/Recepción; no modifica órdenes, recepciones ni inventario.
+     * Contrato: requiere compras.ver y solo consulta registros existentes.
+     */
+    public function auditoria_transicion_almacen() {
+        $this->requerirPermiso("compras.ver");
+        $this->vista("apps/erp/compras/auditoria_transicion_almacen");
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-11-02
+     * Proposito: entregar la auditoria de destinos de Compras y Recepción para la UI.
+     * Impacto: solo lectura; no aplica la consolidación ni cambia el almacén de ningún documento.
+     * Contrato: respuesta JSON estándar del módulo.
+     */
+    public function auditoria_transicion_almacen_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("OrdenesCompraErp")->auditoriaTransicionAlmacenReadOnly());
+    }
+
     public function solicitud_compra_nueva() {
         $this->requerirPermiso("compras.crear");
         $this->vista("apps/erp/compras/solicitudes/formulario", array(

@@ -914,3 +914,35 @@ Fecha: 2026-09-28
 - Pendiente operativo: confirmar proveedor inicial de video, probablemente YouTube, y crear los primeros thumbnails.
 - Riesgo: construir demasiado grande; mantener fase 1 limitada a videos publicados, producto principal, relacionados, categoria y analytics anonimo.
 - Siguiente paso recomendado: implementar contrato/fixtures y endpoints read-only antes de CMS completo.
+
+## Fase SEO - integracion con sitemap
+
+Fecha: 2026-11-02
+
+- Se agrego `EcommerceVideosErp::sitemapItemsPublicos()` como fuente read-only de URLs de videos.
+- Solo se consideran registros con `estado='publicado'`, slug valido y esquema completo.
+- El sitemap no usa fixtures temporales para evitar indexar contenido de prueba.
+- El sitemap central `GET /ecommercePublico/seo_sitemap` incorpora videos publicados con `changefreq=weekly` y `priority=0.6`.
+- Se agrego deduplicacion global para productos, categorias, marcas, blog y videos.
+- Canonicals relativos se convierten a URL absoluta; canonicals antiguos, internos o inconsistentes se sustituyen por `/videos/{slug}` actual.
+- No se agregan rutas `/ecommercePublico/*` ni slugs anteriores.
+
+Pendiente de esta fase:
+
+- Validar el endpoint contra la base productiva y confirmar el total real de videos publicados.
+- Reemplazar el alias temporal de video por historial persistente y respuesta HTTP 301 real.
+- Mostrar videos y cambios de sitemap dentro del panel SEO de Ecommerce.
+
+## Fase Gobierno - cambios pendientes de productos y categorias
+
+Fecha: 2026-11-02
+
+- El tablero `Ecommerce > Control Artiani` ya compara las URLs SEO actuales contra `erp_ecommerce_seo_urls`.
+- El nuevo endpoint interno `GET /ecommercePublico/seo_cambios_pendientes_erp` entrega altas, actualizaciones y URLs retiradas para revision.
+- La comparacion cubre productos, categorias, marcas, paginas, blog y videos publicados.
+- Los cambios se muestran en el tablero como `Cambios pendientes` y se separan en nuevas, actualizadas y retiradas para revision.
+- La deteccion no crea redirecciones, no cambia slugs y no desactiva URLs automaticamente.
+- El snapshot debe sincronizarse despues de revisar los cambios mediante el plan SEO existente.
+- El control tambien cruza incidencias de Analytics de los ultimos 30 dias mediante `seo_urls_viejas_revision_erp?fuente=analytics`.
+- Las rutas detectadas por Analytics se muestran como `analytics_revision` y no se cuentan si ya tienen una 301 aprobada.
+- Analytics puede detectar queries de tracking, segmentos extra o rutas de producto no canonicas; no decide automaticamente el producto destino.

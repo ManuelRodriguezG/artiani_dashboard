@@ -144,9 +144,14 @@
                                             <span class="text-muted fs-7">Resumen de URLs, sitemap y redirecciones.</span>
                                         </div>
                                     </div>
+                                    <div class="card-toolbar">
+                                        <button class="btn btn-sm btn-light-primary" type="button" id="ecomgov_plan_sync"><i class="bi bi-clipboard2-check"></i> Preparar sincronizacion</button>
+                                    </div>
                                 </div>
                                 <div class="card-body pt-0">
                                     <div id="ecomgov_seo"></div>
+                                    <div id="ecomgov_cambios_seo" class="mt-4"></div>
+                                    <div id="ecomgov_plan_sync_resultado" class="mt-4"></div>
                                     <div class="d-flex flex-wrap gap-2 mt-4">
                                         <a class="btn btn-sm btn-light-info" href="/ecommercePublico/seo_migracion">Abrir mesa SEO</a>
                                         <a class="btn btn-sm btn-light" href="/ecommercePublico/seo_verificacion">Verificar frontend</a>
@@ -162,6 +167,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/catalogo_gobierno.js?v=20260918-2"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/catalogo_gobierno.js?v=20261102-seo-cambios"></script>
 </body>
 </html>

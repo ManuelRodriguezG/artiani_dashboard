@@ -1,5 +1,5 @@
 /* IA: Codex GPT-6.1-sol | 2026-11-01. Revisar frontend local en navegador aislado.
- * No usa perfil/sesion de Chrome del usuario. Bloquea POST y sitios externos; solo captura QA local.
+ * No usa perfil/sesion de Chrome del usuario. Bloquea POST y externos salvo imagenes publicas Artiani; solo captura QA local.
  */
 'use strict';
 const {chromium} = require('C:/xampp/htdocs/frontend/node_modules/playwright');
@@ -17,7 +17,8 @@ const fs = require('node:fs');
       await ctx.route('**/*',route=>{
         const req=route.request(),url=new URL(req.url());
         if(!['GET','HEAD'].includes(req.method()))return route.fulfill({status:200,contentType:'application/json',body:'{"error":false,"qa_mock":true}'});
-        if(!['artiani.com.local','panel.com.local'].includes(url.hostname))return route.fulfill({status:204,body:''});
+        const imagenPublica = req.resourceType()==='image'&&['sys.artiani.com.mx','artiani.com.mx','www.artiani.com.mx'].includes(url.hostname);
+        if(!['artiani.com.local','panel.com.local'].includes(url.hostname)&&!imagenPublica)return route.fulfill({status:204,body:''});
         return route.continue();
       });
       const page=await ctx.newPage();
@@ -31,9 +32,28 @@ const fs = require('node:fs');
       assert.equal(images.length,7);assert(images.every(i=>i.complete&&i.width===1536&&i.height===1024));
       assert.equal(await page.locator('[data-blog-interactive]').count(),2);
       assert.equal(await page.locator('[data-blog-hotspot]').count(),6);
+      // IA: Codex GPT-6 | 2026-11-02. Blog debe alimentar la misma tarjeta comercial con identidad e imagen reales.
+      const cards = page.locator('[data-blog-products] .product-card');
+      assert.equal(await cards.count(),5);
+      const products = await cards.evaluateAll(items=>items.map(card=>{
+        const data=card.querySelector('[data-wishlist-toggle]')?.dataset||{};
+        return {id:data.idPublicacion,sku:data.idSku,image:card.querySelector('.tt-img img')?.getAttribute('src'),price:data.precio,showPrice:data.mostrarPrecio};
+      }));
+      assert(products.every(p=>Number(p.id)>0&&Number(p.sku)>0&&p.image&&!p.image.includes('acuario_horizontal')));
+      assert(products.every(p=>p.showPrice!=='true'||Number(p.price)>0));
+      const loadedProducts = await cards.locator('.tt-img img').evaluateAll(async imgs=>{
+        await Promise.all(imgs.map(async img=>{
+          img.loading='eager';
+          if(!img.complete)await Promise.race([new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});}),new Promise(resolve=>setTimeout(resolve,10000))]);
+          if(img.complete&&img.naturalWidth>0)await img.decode().catch(()=>{});
+        }));
+        return imgs.map(img=>({src:img.src,loaded:img.complete&&img.naturalWidth>0}));
+      });
+      assert(loadedProducts.every(img=>img.loaded),'Imagenes de producto pendientes: '+JSON.stringify(loadedProducts.filter(img=>!img.loaded)));
+      await page.locator('[data-blog-products]').screenshot({path:path.join(output,name+'-productos.png'),animations:'disabled'});
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
       await page.screenshot({path:path.join(output,name+'.png'),fullPage:false});
-      results.push({view:name,status:200,imagenes:images.length,imagenes_distintas:new Set(images.map(i=>i.src)).size,todas_cargadas:true,overflow});
+      results.push({view:name,status:200,imagenes:images.length,imagenes_distintas:new Set(images.map(i=>i.src)).size,todas_cargadas:true,productos_reales:products.length,imagenes_producto_cargadas:loadedProducts.length,tarjetas_con_imagen_e_identidad:true,overflow});
       await ctx.close();
     }
     console.log(JSON.stringify({ok:true,resultados:results,post_reales:0,output},null,2));

@@ -201,6 +201,7 @@ $gruposMenu = array(
         'permiso' => 'compras.ver',
         'items' => array(
             array('titulo' => 'Ordenes de compra', 'ruta' => '/compra/mostrar_compra_ordenes', 'permiso' => 'compras.ver'),
+            array('titulo' => 'Transición almacén único', 'ruta' => '/compra/auditoria_transicion_almacen', 'permiso' => 'compras.ver'),
             array('titulo' => 'Nueva orden', 'ruta' => '/compra/crear_orden_compra', 'permiso' => 'compras.crear'),
             array('titulo' => 'Solicitudes', 'ruta' => '/compra/mostrar_solicitudes', 'permiso' => 'compras.ver'),
             array('titulo' => 'Sugerido de compra', 'ruta' => '/compra/mostrar_sugeridos_compra', 'permiso' => 'compras.ver'),

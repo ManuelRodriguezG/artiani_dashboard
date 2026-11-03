@@ -146,6 +146,16 @@ Resultado 2026-09-28:
 
 ## Handoff
 
+### Productos relacionados con contrato normal de catalogo / 2026-11-02
+
+- IA: Codex GPT-6. El dueno requiere pintar productos relacionados con la misma tarjeta usada en catalogo. Se elimina la proyeccion reducida del Blog que enviaba imagen/precio vacios y confundia presentacion con marca.
+- `EcommerceBlogPublico::productosRelacionados` consulta IDs en orden editorial y delega a `EcommerceCatalogoPublico::tarjetasPublicasPorIds`. Este metodo compone `sqlPublicacionesBase`, `formatearPublicacion` y `publicacionCardPublica`, exactamente como catalogo `vista=card&agrupacion=sku`. Seleccion por lote hasta 50 IDs unicos; el detalle publico conserva limite8 y el editor50. Sin endpoint nuevo ni llamadas HTTP individuales.
+- Contrato: `depurar.productos_relacionados[]` del detalle publico y preview local contiene la tarjeta normal completa: IDs publicacion/producto/SKU, sku, nombre, slug/slug_publico, URL/url_publica/canonical, imagen/ALT/fuente, precio/moneda/mostrar_precio, disponibilidad, permisos de cotizacion/WhatsApp, marca/marca_obj, categoria/categoria_obj, mascotas/necesidades y grupo_producto. No es el detalle de ficha con galeria/descripcion: es el objeto normal de listado; frontend reutiliza `product_card` y `normalizeItem`, sin otra consulta por producto. El manifest documenta esta integracion.
+- La publicacion/SKU concretos elegidos por CMS se conservan, sin reagrupar ni sustituirlos por otro SKU del mismo producto. Catalogo aplica reglas de activos, publicados, lista vigente, precios ocultos, granel y stock no exacto; Blog no calcula ni guarda copias comerciales. Relaciones a productos que ya no sean visibles se omiten.
+- Prueba real read-only `storage/uat/uat_blog_tarjetas_catalogo_readonly.php`: cinco relacionados identicos campo por campo a catalogo normal, contrato completo, IDs invalidos vacios, orden/deduplicacion/inexistentes, sin costos/stock exacto, borrador permanece oculto publicamente. Los cinco tienen imagen; marca vacia en origen para IDs2747/2754/2174/2175, no se inventa ni se escribe BD para completarla.
+- QA de navegador aislado actualizado: escritorio1440/movil390 responden200, cinco tarjetas con IDs/SKU y precios publicos coherentes; las cinco imagenes de producto cargan con dimensiones naturales positivas. Portada/apoyos intactos, sin overflow. Se permiten solo GET de imagenes publicas Artiani; POST y otros externos bloqueados. Capturas de tarjetas `qa_local/desktop-productos.png` y `mobile-productos.png` inspeccionadas. Tambien pasan siete pruebas offline de adaptador y siete controles del preview privado.
+- No hay escrituras BD, publicacion ni despliegue. Siguiente: revisar tarjetas en `http://artiani.com.local/blog/piton-bola-preparar-habitat`; al aprobar despliegue incluir juntos ambos modelos y las cinco imagenes, excluyendo la configuracion privada de preview. Completar marcas solo cuando el dueno valide sus datos en Catalogo.
+
 ### Revision funcional en frontend local / 2026-11-01
 
 - IA: Codex GPT-6.1-sol. El dueno indica primero revisar local y subir hosting despues. Esta instruccion reemplaza la publicacion previa pendiente: **no cambiar estado productivo para una revision local**.

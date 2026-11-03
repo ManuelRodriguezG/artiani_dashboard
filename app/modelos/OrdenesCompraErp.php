@@ -8,6 +8,81 @@ class OrdenesCompraErp extends CRUD {
     private $ordenCierreSinRecepcionColumnasExisten = null;
     private $ordenCargosCostosTablaExiste = null;
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-11-02
+     * Proposito: auditar la transición de Compras/Recepción hacia un almacén operativo único.
+     * Impacto: solo lectura; clasifica registros sin destino, migrables y que deben conservarse.
+     * Contrato: no actualiza solicitudes, órdenes, recepciones ni inventario.
+     */
+    public function auditoriaTransicionAlmacenReadOnly() {
+        try {
+            $db = $this->getConexion();
+            $almacenes = $db->query("SELECT id_almacen, codigo_almacen, almacen, nombre_comercial, estatus,
+                    tipo_almacen, permite_recepcion, permite_venta
+                FROM erp_almacenes
+                ORDER BY orden ASC, id_almacen ASC")->fetchAll(PDO::FETCH_ASSOC);
+            $solicitudes = $db->query("SELECT s.id_solicitud, s.folio, s.estatus, s.fecha_solicitud,
+                    s.id_almacen_destino, a.almacen, a.nombre_comercial
+                FROM erp_compras_solicitudes s
+                LEFT JOIN erp_almacenes a ON a.id_almacen=s.id_almacen_destino
+                ORDER BY s.id_solicitud DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+            $ordenes = $db->query("SELECT o.id_orden_compra, o.folio, o.estatus, o.fecha_orden,
+                    o.fecha_entrega_estimada, o.id_almacen_destino, a.almacen, a.nombre_comercial,
+                    o.total
+                FROM erp_compras_ordenes o
+                LEFT JOIN erp_almacenes a ON a.id_almacen=o.id_almacen_destino
+                ORDER BY o.id_orden_compra DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+            $recepciones = $db->query("SELECT r.id_recepcion_almacen, r.folio, r.folio_orden_compra,
+                    r.estatus, r.fecha_registro, r.id_almacen, a.almacen, a.nombre_comercial
+                FROM erp_almacen_recepciones r
+                LEFT JOIN erp_almacenes a ON a.id_almacen=r.id_almacen
+                ORDER BY r.id_recepcion_almacen DESC LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+
+            $clasificar = function ($fila, $tipo) {
+                $idAlmacen = intval(isset($fila["id_almacen_destino"]) ? $fila["id_almacen_destino"] : (isset($fila["id_almacen"]) ? $fila["id_almacen"] : 0));
+                $estatus = trim((string) (isset($fila["estatus"]) ? $fila["estatus"] : ""));
+                if ($idAlmacen <= 0) {
+                    $fila["clasificacion_transicion"] = "sin_destino";
+                    $fila["motivo_transicion"] = "Requiere definir almacén antes de continuar";
+                } elseif ($tipo === "orden" && in_array($estatus, array("borrador"), true)) {
+                    $fila["clasificacion_transicion"] = "migrable_revision";
+                    $fila["motivo_transicion"] = "Borrador; puede revisarse antes de enviarse";
+                } elseif ($tipo === "solicitud" && in_array($estatus, array("borrador"), true)) {
+                    $fila["clasificacion_transicion"] = "migrable_revision";
+                    $fila["motivo_transicion"] = "Borrador; puede revisarse antes de generar orden";
+                } else {
+                    $fila["clasificacion_transicion"] = "conservar_origen";
+                    $fila["motivo_transicion"] = "Tiene flujo iniciado o recepción relacionada; no redirigir automáticamente";
+                }
+                return $fila;
+            };
+            foreach ($solicitudes as &$solicitud) { $solicitud = $clasificar($solicitud, "solicitud"); }
+            unset($solicitud);
+            foreach ($ordenes as &$orden) { $orden = $clasificar($orden, "orden"); }
+            unset($orden);
+            foreach ($recepciones as &$recepcion) {
+                $recepcion["clasificacion_transicion"] = "conservar_origen";
+                $recepcion["motivo_transicion"] = "Recepción existente; requiere terminarse o cancelarse formalmente en su almacén";
+            }
+            unset($recepcion);
+            return $this->respuesta(false, "success", "Auditoria de transición consultada", array(
+                "almacenes" => $almacenes,
+                "solicitudes" => $solicitudes,
+                "ordenes" => $ordenes,
+                "recepciones" => $recepciones,
+                "contrato" => array(
+                    "no_escribe_bd" => true,
+                    "no_afecta_inventario" => true,
+                    "no_cambia_almacen" => true,
+                    "siguiente_paso" => "Seleccionar o crear Operación general y autorizar configuración separada"
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
     public function generarDesdeSolicitud($idSolicitud, $idUsuario) {
         $db = $this->getConexion();
         try {

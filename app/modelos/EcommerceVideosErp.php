@@ -71,6 +71,14 @@ class EcommerceVideosErp extends CRUD {
    */
   public function videoDetallePublico($slug) {
     $slug = $this->slugSeguro($slug);
+    // Compatibilidad IA: el producto principal cambio de 10278 a 10284.
+    // Se conserva la lectura de enlaces antiguos, pero siempre se entrega el
+    // item con su slug canonico nuevo para que frontend actualice su ruta.
+    $slugSolicitado = $slug;
+    $aliases = array(
+      "jaula-mamiferos-iii100-x-55-x-41cm-video-tiktok-7699142386961616136" => "jaula-mamiferos-amper-120-x-60-x-50cm-video-tiktok-7699142386961616136"
+    );
+    if (isset($aliases[$slug])) { $slug = $aliases[$slug]; }
     if ($this->schemaCompletoVideos()) {
       $itemDb = $this->videoDbPorSlug($slug);
       if ($itemDb) {
@@ -79,6 +87,7 @@ class EcommerceVideosErp extends CRUD {
           "fuente" => "bd_videos",
           "configurado" => true,
           "item" => $itemDb,
+          "compatibilidad" => $slugSolicitado !== $slug ? array("slug_solicitado" => $slugSolicitado, "slug_canonico" => $slug, "redirigir_frontend" => true) : null,
           "frontend" => array(
             "ruta_publica" => "/videos/" . $slug,
             "cargar_player_hasta_click" => true,
@@ -97,6 +106,7 @@ class EcommerceVideosErp extends CRUD {
           "fuente" => "fixture_contrato",
           "configurado" => $this->tablaExiste("erp_ecommerce_videos"),
           "item" => $item,
+          "compatibilidad" => $slugSolicitado !== $slug ? array("slug_solicitado" => $slugSolicitado, "slug_canonico" => $slug, "redirigir_frontend" => true) : null,
           "frontend" => array(
             "ruta_publica" => "/videos/" . $slug,
             "cargar_player_hasta_click" => true,
@@ -250,6 +260,78 @@ class EcommerceVideosErp extends CRUD {
       ),
       "guardrails" => $this->guardrails()
     ));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-11-02.
+   * Proposito: aportar al sitemap central unicamente videos publicados y canonicos.
+   * Impacto: Ecommerce SEO; evita indexar borradores, rutas del API o slugs antiguos.
+   * Contrato: solo lectura; no usa fixtures ni modifica BD.
+   */
+  public function sitemapItemsPublicos($baseUrl, $limite = 1000) {
+    $baseUrl = rtrim(trim((string) $baseUrl), "/");
+    $limite = max(1, min(5000, intval($limite)));
+    $items = array();
+    $vistos = array();
+    $db = $this->getConexion();
+
+    if (!$db || !$this->schemaCompletoVideos() || $baseUrl === "") {
+      return $items;
+    }
+
+    $stmt = $db->query("SELECT id_video, slug, titulo, descripcion_corta, seo_title, seo_description, seo_canonical, fecha_publicacion
+      FROM erp_ecommerce_videos
+      WHERE estado='publicado' AND TRIM(slug)<>''
+      ORDER BY destacado DESC, orden ASC, fecha_publicacion DESC, id_video DESC
+      LIMIT " . $limite);
+
+    while ($fila = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $slug = trim((string) $fila["slug"], "/");
+      if ($slug === "" || !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)) {
+        continue;
+      }
+
+      $path = "/videos/" . $slug;
+      $canonicalGuardado = trim((string) ($fila["seo_canonical"] ?? ""));
+      $canonical = $this->canonicalVideoSitemap($baseUrl, $path, $canonicalGuardado);
+      if ($canonical === "" || isset($vistos[$canonical])) {
+        continue;
+      }
+
+      $vistos[$canonical] = true;
+      $items[] = array(
+        "tipo" => "video",
+        "path" => $path,
+        "url" => $canonical,
+        "canonical" => $canonical,
+        "indexable" => true,
+        "entidad_id" => intval($fila["id_video"]),
+        "slug" => $slug,
+        "title" => trim((string) ($fila["seo_title"] ?: $fila["titulo"])) . " | Artiani",
+        "description" => trim((string) ($fila["seo_description"] ?: $fila["descripcion_corta"])),
+        "fecha_publicacion" => (string) ($fila["fecha_publicacion"] ?? "")
+      );
+    }
+
+    return $items;
+  }
+
+  private function canonicalVideoSitemap($baseUrl, $path, $canonicalGuardado) {
+    $canonicalGuardado = trim($canonicalGuardado);
+    if ($canonicalGuardado !== "" && preg_match('/^https?:\/\//i', $canonicalGuardado)) {
+      $partes = parse_url($canonicalGuardado);
+      $ruta = isset($partes["path"]) ? trim((string) $partes["path"], "/") : "";
+      if ($ruta === trim($path, "/")) {
+        return rtrim($canonicalGuardado, "/");
+      }
+    }
+    if ($canonicalGuardado !== "" && strpos($canonicalGuardado, "/ecommercePublico") !== 0) {
+      $ruta = "/" . trim($canonicalGuardado, "/");
+      if ($ruta === $path) {
+        return $baseUrl . $path;
+      }
+    }
+    return $baseUrl . $path;
   }
 
   /**
@@ -613,10 +695,16 @@ class EcommerceVideosErp extends CRUD {
     $db = $this->getConexion();
     if (!$db) { return array(); }
     $joinPublicaciones = $this->tablaExiste("erp_ecommerce_publicaciones");
+    $joinSkus = $this->tablaExiste("erp_catalogo_skus");
+    $joinProductos = $this->tablaExiste("erp_catalogo_productos");
     $sql = "SELECT vp.id_publicacion, vp.id_sku, vp.slug_producto, vp.producto_principal, vp.orden" .
-      ($joinPublicaciones ? ", pub.slug slug_publicacion, pub.titulo_publico" : ", NULL slug_publicacion, NULL titulo_publico") .
+      ($joinPublicaciones ? ", pub.slug slug_publicacion, pub.titulo_publico, pub.estatus_publicacion" : ", NULL slug_publicacion, NULL titulo_publico, NULL estatus_publicacion") .
+      ($joinSkus ? ", sku.sku sku_codigo, sku.nombre sku_nombre" : ", NULL sku_codigo, NULL sku_nombre") .
+      ($joinProductos ? ", prod.nombre producto_nombre" : ", NULL producto_nombre") .
       " FROM erp_ecommerce_video_producto vp " .
       ($joinPublicaciones ? "LEFT JOIN erp_ecommerce_publicaciones pub ON pub.id_publicacion=vp.id_publicacion" : "") .
+      ($joinSkus ? " LEFT JOIN erp_catalogo_skus sku ON sku.id_sku=vp.id_sku" : "") .
+      ($joinProductos ? " LEFT JOIN erp_catalogo_productos prod ON prod.id_producto_erp=sku.id_producto_erp" : "") .
       " WHERE vp.id_video=:id" . ($soloPrincipal ? " AND vp.producto_principal=1" : "") .
       " ORDER BY vp.producto_principal DESC, vp.orden ASC, vp.id_video_producto ASC";
     $stmt = $db->prepare($sql);
@@ -624,12 +712,15 @@ class EcommerceVideosErp extends CRUD {
     $items = array();
     while ($fila = $stmt->fetch(PDO::FETCH_ASSOC)) {
       $slug = trim((string) ($fila["slug_publicacion"] ?: $fila["slug_producto"]));
+      $titulo = trim((string) ($fila["titulo_publico"] ?: $fila["producto_nombre"] ?: $fila["sku_nombre"] ?: $fila["sku_codigo"] ?: $slug));
       $items[] = array(
         "id_publicacion" => intval($fila["id_publicacion"]),
         "id_sku" => intval($fila["id_sku"]),
+        "sku" => trim((string) ($fila["sku_codigo"] ?? "")),
         "slug" => $slug,
-        "titulo" => trim((string) ($fila["titulo_publico"] ?: $slug)),
+        "titulo" => $titulo,
         "url" => $slug !== "" ? "/producto/" . $slug : "",
+        "publicado" => trim((string) ($fila["estatus_publicacion"] ?? "")) === "publicado",
         "producto_principal" => intval($fila["producto_principal"]) === 1
       );
     }
