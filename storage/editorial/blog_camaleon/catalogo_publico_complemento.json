@@ -1,0 +1,2189 @@
+{
+    "ia": "Codex GPT-6",
+    "fecha": "2026-11-04",
+    "modo": "GET_publico_sin_escrituras_BD",
+    "consultas": {
+        "termometro": {
+            "path": "/ecommercePublico/catalogo?q=termometro&limite=60&vista=card&agrupacion=sku",
+            "total": 4,
+            "items": [
+                {
+                    "id_publicacion": 2713,
+                    "id_producto_erp": 1591,
+                    "id_sku": 1844,
+                    "sku": "1803",
+                    "nombre": "Termometro chupon",
+                    "slug": "termometro-chupon",
+                    "slug_publico": "termometro-chupon",
+                    "url": "/producto/termometro-chupon",
+                    "url_publica": "/producto/termometro-chupon",
+                    "canonical_url": "https://artiani.com.mx/producto/termometro-chupon",
+                    "imagen": "uploads/erp/catalogo/productos/1591/producto-1591-20260828133149-1ff6a540.webp",
+                    "imagen_alt": "Termometro chupon",
+                    "imagen_fuente": "producto",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "AQUA KRIL",
+                    "marca_obj": {
+                        "id": 32,
+                        "nombre": "AQUA KRIL",
+                        "slug": "aqua-kril",
+                        "slug_publico": "aqua-kril",
+                        "url": "/marca/aqua-kril",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Repuestos, aditamentos y accesorios / Accesorios generales",
+                    "categoria_obj": {
+                        "id": 483,
+                        "nombre": "Accesorios generales",
+                        "nombre_completo": "Acuario y peces / Repuestos, aditamentos y accesorios / Accesorios generales",
+                        "slug": "acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "slug_corto": "accesorios-generales",
+                        "path_slug": "acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "url": "/categoria/acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 1591,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 2713,
+                            "id_sku": 1844,
+                            "sku": "1803",
+                            "slug": "termometro-chupon",
+                            "url": "/producto/termometro-chupon"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1591&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 322,
+                    "id_producto_erp": 158,
+                    "id_sku": 254,
+                    "sku": "1802",
+                    "nombre": "Termometro digital grande",
+                    "slug": "termometro-digital-grande",
+                    "slug_publico": "termometro-digital-grande",
+                    "url": "/producto/termometro-digital-grande",
+                    "url_publica": "/producto/termometro-digital-grande",
+                    "canonical_url": "https://artiani.com.mx/producto/termometro-digital-grande",
+                    "imagen": "media/apps/ecommerce/productos/150/1691152965.jpg",
+                    "imagen_alt": "Termometro digital aderible (calacamonia)",
+                    "imagen_fuente": "sku",
+                    "precio": 35,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "AQUA KRIL",
+                    "marca_obj": {
+                        "id": 32,
+                        "nombre": "AQUA KRIL",
+                        "slug": "aqua-kril",
+                        "slug_publico": "aqua-kril",
+                        "url": "/marca/aqua-kril",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Repuestos, aditamentos y accesorios / Accesorios generales",
+                    "categoria_obj": {
+                        "id": 483,
+                        "nombre": "Accesorios generales",
+                        "nombre_completo": "Acuario y peces / Repuestos, aditamentos y accesorios / Accesorios generales",
+                        "slug": "acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "slug_corto": "accesorios-generales",
+                        "path_slug": "acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "url": "/categoria/acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 158,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 322,
+                            "id_sku": 254,
+                            "sku": "1802",
+                            "slug": "termometro-digital-grande",
+                            "url": "/producto/termometro-digital-grande"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=158&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 296,
+                    "id_producto_erp": 1537,
+                    "id_sku": 1746,
+                    "sku": "1805",
+                    "nombre": "Termometro electronico con pila incluida",
+                    "slug": "termometro-electronico-con-pila-incluida",
+                    "slug_publico": "termometro-electronico-con-pila-incluida",
+                    "url": "/producto/termometro-electronico-con-pila-incluida",
+                    "url_publica": "/producto/termometro-electronico-con-pila-incluida",
+                    "canonical_url": "https://artiani.com.mx/producto/termometro-electronico-con-pila-incluida",
+                    "imagen": "media/apps/ecommerce/productos/1663/1767671361.webp",
+                    "imagen_alt": "Termómetro electrónico sumergible con pila incluída",
+                    "imagen_fuente": "producto",
+                    "precio": 199,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "ECO PET",
+                    "marca_obj": {
+                        "id": 21,
+                        "nombre": "ECO PET",
+                        "slug": "eco-pet",
+                        "slug_publico": "eco-pet",
+                        "url": "/marca/eco-pet",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "pez",
+                    "mascotas": [
+                        "pez"
+                    ],
+                    "necesidades": [
+                        "habitat"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 1537,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 296,
+                            "id_sku": 1746,
+                            "sku": "1805",
+                            "slug": "termometro-electronico-con-pila-incluida",
+                            "url": "/producto/termometro-electronico-con-pila-incluida"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1537&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 2712,
+                    "id_producto_erp": 1590,
+                    "id_sku": 1843,
+                    "sku": "1804",
+                    "nombre": "Termometro vidrio",
+                    "slug": "termometro-vidrio",
+                    "slug_publico": "termometro-vidrio",
+                    "url": "/producto/termometro-vidrio",
+                    "url_publica": "/producto/termometro-vidrio",
+                    "canonical_url": "https://artiani.com.mx/producto/termometro-vidrio",
+                    "imagen": "uploads/erp/catalogo/productos/1590/producto-1590-20260828132008-db9457d5.webp",
+                    "imagen_alt": "Termometro vidrio",
+                    "imagen_fuente": "producto",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "AQUA KRIL",
+                    "marca_obj": {
+                        "id": 32,
+                        "nombre": "AQUA KRIL",
+                        "slug": "aqua-kril",
+                        "slug_publico": "aqua-kril",
+                        "url": "/marca/aqua-kril",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Repuestos, aditamentos y accesorios / Accesorios generales",
+                    "categoria_obj": {
+                        "id": 483,
+                        "nombre": "Accesorios generales",
+                        "nombre_completo": "Acuario y peces / Repuestos, aditamentos y accesorios / Accesorios generales",
+                        "slug": "acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "slug_corto": "accesorios-generales",
+                        "path_slug": "acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "url": "/categoria/acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 1590,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 2712,
+                            "id_sku": 1843,
+                            "sku": "1804",
+                            "slug": "termometro-vidrio",
+                            "url": "/producto/termometro-vidrio"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1590&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                }
+            ]
+        },
+        "termostato": {
+            "path": "/ecommercePublico/catalogo?q=termostato&limite=60&vista=card&agrupacion=sku",
+            "total": 14,
+            "items": [
+                {
+                    "id_publicacion": 731,
+                    "id_producto_erp": 152,
+                    "id_sku": 248,
+                    "sku": "FL8601",
+                    "nombre": "Calentador sumergible con termostato ecothermal 25 w",
+                    "slug": "calentador-sumergible-con-termostato-ecothermal-25-w",
+                    "slug_publico": "calentador-sumergible-con-termostato-ecothermal-25-w",
+                    "url": "/producto/calentador-sumergible-con-termostato-ecothermal-25-w",
+                    "url_publica": "/producto/calentador-sumergible-con-termostato-ecothermal-25-w",
+                    "canonical_url": "https://artiani.com.mx/producto/calentador-sumergible-con-termostato-ecothermal-25-w",
+                    "imagen": "media/apps/ecommerce/productos/142/1691154389.jpg",
+                    "imagen_alt": "Calentador (termostato) eco 25w",
+                    "imagen_fuente": "sku",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "LOMAS",
+                    "marca_obj": {
+                        "id": 6,
+                        "nombre": "LOMAS",
+                        "slug": "lomas",
+                        "slug_publico": "lomas",
+                        "url": "/marca/lomas",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 152,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 731,
+                            "id_sku": 248,
+                            "sku": "FL8601",
+                            "slug": "calentador-sumergible-con-termostato-ecothermal-25-w",
+                            "url": "/producto/calentador-sumergible-con-termostato-ecothermal-25-w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=152&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 732,
+                    "id_producto_erp": 154,
+                    "id_sku": 250,
+                    "sku": "FL8602",
+                    "nombre": "Calentador sumergible con termostato ecothermal 50 w",
+                    "slug": "calentador-sumergible-con-termostato-ecothermal-50-w",
+                    "slug_publico": "calentador-sumergible-con-termostato-ecothermal-50-w",
+                    "url": "/producto/calentador-sumergible-con-termostato-ecothermal-50-w",
+                    "url_publica": "/producto/calentador-sumergible-con-termostato-ecothermal-50-w",
+                    "canonical_url": "https://artiani.com.mx/producto/calentador-sumergible-con-termostato-ecothermal-50-w",
+                    "imagen": "media/apps/ecommerce/productos/144/1691154951.jpg",
+                    "imagen_alt": "Calentador (termostato) eco 50w",
+                    "imagen_fuente": "sku",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "LOMAS",
+                    "marca_obj": {
+                        "id": 6,
+                        "nombre": "LOMAS",
+                        "slug": "lomas",
+                        "slug_publico": "lomas",
+                        "url": "/marca/lomas",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 154,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 732,
+                            "id_sku": 250,
+                            "sku": "FL8602",
+                            "slug": "calentador-sumergible-con-termostato-ecothermal-50-w",
+                            "url": "/producto/calentador-sumergible-con-termostato-ecothermal-50-w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=154&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 1683,
+                    "id_producto_erp": 518,
+                    "id_sku": 614,
+                    "sku": "FL8603",
+                    "nombre": "Calentador sumergible con termostato ecothermal 75 w",
+                    "slug": "calentador-sumergible-con-termostato-ecothermal-75-w",
+                    "slug_publico": "calentador-sumergible-con-termostato-ecothermal-75-w",
+                    "url": "/producto/calentador-sumergible-con-termostato-ecothermal-75-w",
+                    "url_publica": "/producto/calentador-sumergible-con-termostato-ecothermal-75-w",
+                    "canonical_url": "https://artiani.com.mx/producto/calentador-sumergible-con-termostato-ecothermal-75-w",
+                    "imagen": "media/apps/ecommerce/productos/732/1691154688.jpg",
+                    "imagen_alt": "Calentador (termostato) eco 75w",
+                    "imagen_fuente": "sku",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "LOMAS",
+                    "marca_obj": {
+                        "id": 6,
+                        "nombre": "LOMAS",
+                        "slug": "lomas",
+                        "slug_publico": "lomas",
+                        "url": "/marca/lomas",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "pez",
+                    "mascotas": [
+                        "pez"
+                    ],
+                    "necesidades": [
+                        "habitat"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 518,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 1683,
+                            "id_sku": 614,
+                            "sku": "FL8603",
+                            "slug": "calentador-sumergible-con-termostato-ecothermal-75-w",
+                            "url": "/producto/calentador-sumergible-con-termostato-ecothermal-75-w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=518&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 4327,
+                    "id_producto_erp": 1623,
+                    "id_sku": 1907,
+                    "sku": "SGH-75",
+                    "nombre": "TERMOSTATO AUTOMATICO SUMERGIBLE C/REGULADOR SUNNY ECONOMICO 75W",
+                    "slug": "termostato-automatico-sumergible-c-regulador-sunny-economico-75w",
+                    "slug_publico": "termostato-automatico-sumergible-c-regulador-sunny-economico-75w",
+                    "url": "/producto/termostato-automatico-sumergible-c-regulador-sunny-economico-75w",
+                    "url_publica": "/producto/termostato-automatico-sumergible-c-regulador-sunny-economico-75w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-automatico-sumergible-c-regulador-sunny-economico-75w",
+                    "imagen": "uploads/erp/catalogo/productos/1623/producto-1623-20260907071943-85a461ee.webp",
+                    "imagen_alt": "TERMOSTATO AUTOMATICO SUMERGIBLE C/REGULADOR SUNNY ECONOMICO 75W",
+                    "imagen_fuente": "producto",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "SUNNY",
+                    "marca_obj": {
+                        "id": 9,
+                        "nombre": "SUNNY",
+                        "slug": "sunny",
+                        "slug_publico": "sunny",
+                        "url": "/marca/sunny",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "pez",
+                    "mascotas": [
+                        "pez"
+                    ],
+                    "necesidades": [
+                        "habitat"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 1623,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 4327,
+                            "id_sku": 1907,
+                            "sku": "SGH-75",
+                            "slug": "termostato-automatico-sumergible-c-regulador-sunny-economico-75w",
+                            "url": "/producto/termostato-automatico-sumergible-c-regulador-sunny-economico-75w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1623&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 221,
+                    "id_producto_erp": 157,
+                    "id_sku": 253,
+                    "sku": "SGH-180",
+                    "nombre": "Termostato automatico sumergible con regulador 100 w",
+                    "slug": "termostato-automatico-sumergible-con-regulador-100-w",
+                    "slug_publico": "termostato-automatico-sumergible-con-regulador-100-w",
+                    "url": "/producto/termostato-automatico-sumergible-con-regulador-100-w",
+                    "url_publica": "/producto/termostato-automatico-sumergible-con-regulador-100-w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-automatico-sumergible-con-regulador-100-w",
+                    "imagen": "media/apps/ecommerce/productos/148/1670012844.jpg",
+                    "imagen_alt": "Calentador (termostato) 100 watts",
+                    "imagen_fuente": "sku",
+                    "precio": 225,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "consultar_disponibilidad",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "SUNNY",
+                    "marca_obj": {
+                        "id": 9,
+                        "nombre": "SUNNY",
+                        "slug": "sunny",
+                        "slug_publico": "sunny",
+                        "url": "/marca/sunny",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 157,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 221,
+                            "id_sku": 253,
+                            "sku": "SGH-180",
+                            "slug": "termostato-automatico-sumergible-con-regulador-100-w",
+                            "url": "/producto/termostato-automatico-sumergible-con-regulador-100-w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=157&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 217,
+                    "id_producto_erp": 151,
+                    "id_sku": 247,
+                    "sku": "SGH-280",
+                    "nombre": "Termostato automatico sumergible con regulador 200 w",
+                    "slug": "termostato-automatico-sumergible-con-regulador-200-w",
+                    "slug_publico": "termostato-automatico-sumergible-con-regulador-200-w",
+                    "url": "/producto/termostato-automatico-sumergible-con-regulador-200-w",
+                    "url_publica": "/producto/termostato-automatico-sumergible-con-regulador-200-w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-automatico-sumergible-con-regulador-200-w",
+                    "imagen": "media/apps/ecommerce/productos/140/1670012527.jpg",
+                    "imagen_alt": "Calentador (termostato) 200 watts",
+                    "imagen_fuente": "sku",
+                    "precio": 250,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "consultar_disponibilidad",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "SUNNY",
+                    "marca_obj": {
+                        "id": 9,
+                        "nombre": "SUNNY",
+                        "slug": "sunny",
+                        "slug_publico": "sunny",
+                        "url": "/marca/sunny",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 151,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 217,
+                            "id_sku": 247,
+                            "sku": "SGH-280",
+                            "slug": "termostato-automatico-sumergible-con-regulador-200-w",
+                            "url": "/producto/termostato-automatico-sumergible-con-regulador-200-w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=151&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 218,
+                    "id_producto_erp": 153,
+                    "id_sku": 249,
+                    "sku": "SGH-25",
+                    "nombre": "Termostato automatico sumergible con regulador 25 w",
+                    "slug": "termostato-automatico-sumergible-con-regulador-25-w",
+                    "slug_publico": "termostato-automatico-sumergible-con-regulador-25-w",
+                    "url": "/producto/termostato-automatico-sumergible-con-regulador-25-w",
+                    "url_publica": "/producto/termostato-automatico-sumergible-con-regulador-25-w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-automatico-sumergible-con-regulador-25-w",
+                    "imagen": "media/apps/ecommerce/productos/143/1670012049.jpg",
+                    "imagen_alt": "Calentador (termostato) 25 watts",
+                    "imagen_fuente": "sku",
+                    "precio": 200,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "consultar_disponibilidad",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "SUNNY",
+                    "marca_obj": {
+                        "id": 9,
+                        "nombre": "SUNNY",
+                        "slug": "sunny",
+                        "slug_publico": "sunny",
+                        "url": "/marca/sunny",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 153,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 218,
+                            "id_sku": 249,
+                            "sku": "SGH-25",
+                            "slug": "termostato-automatico-sumergible-con-regulador-25-w",
+                            "url": "/producto/termostato-automatico-sumergible-con-regulador-25-w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=153&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 219,
+                    "id_producto_erp": 155,
+                    "id_sku": 251,
+                    "sku": "SGH-380",
+                    "nombre": "Termostato automatico sumergible con regulador 300 w",
+                    "slug": "termostato-automatico-sumergible-con-regulador-300-w",
+                    "slug_publico": "termostato-automatico-sumergible-con-regulador-300-w",
+                    "url": "/producto/termostato-automatico-sumergible-con-regulador-300-w",
+                    "url_publica": "/producto/termostato-automatico-sumergible-con-regulador-300-w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-automatico-sumergible-con-regulador-300-w",
+                    "imagen": "media/apps/ecommerce/productos/145/1670012893.jpg",
+                    "imagen_alt": "Calentador (termostato) 300 watts",
+                    "imagen_fuente": "sku",
+                    "precio": 280,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "consultar_disponibilidad",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "SUNNY",
+                    "marca_obj": {
+                        "id": 9,
+                        "nombre": "SUNNY",
+                        "slug": "sunny",
+                        "slug_publico": "sunny",
+                        "url": "/marca/sunny",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 155,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 219,
+                            "id_sku": 251,
+                            "sku": "SGH-380",
+                            "slug": "termostato-automatico-sumergible-con-regulador-300-w",
+                            "url": "/producto/termostato-automatico-sumergible-con-regulador-300-w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=155&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 220,
+                    "id_producto_erp": 156,
+                    "id_sku": 252,
+                    "sku": "SGH-50",
+                    "nombre": "Termostato automatico sumergible con regulador 50 w",
+                    "slug": "termostato-automatico-sumergible-con-regulador-50-w",
+                    "slug_publico": "termostato-automatico-sumergible-con-regulador-50-w",
+                    "url": "/producto/termostato-automatico-sumergible-con-regulador-50-w",
+                    "url_publica": "/producto/termostato-automatico-sumergible-con-regulador-50-w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-automatico-sumergible-con-regulador-50-w",
+                    "imagen": "media/apps/ecommerce/productos/146/1670012723.jpg",
+                    "imagen_alt": "Calentador (termostato) 50 watts",
+                    "imagen_fuente": "sku",
+                    "precio": 200,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "consultar_disponibilidad",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "SUNNY",
+                    "marca_obj": {
+                        "id": 9,
+                        "nombre": "SUNNY",
+                        "slug": "sunny",
+                        "slug_publico": "sunny",
+                        "url": "/marca/sunny",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 156,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 220,
+                            "id_sku": 252,
+                            "sku": "SGH-50",
+                            "slug": "termostato-automatico-sumergible-con-regulador-50-w",
+                            "url": "/producto/termostato-automatico-sumergible-con-regulador-50-w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=156&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 4337,
+                    "id_producto_erp": 1637,
+                    "id_sku": 1921,
+                    "sku": "OCT-100",
+                    "nombre": "TERMOSTATO ECONOMICO 100W",
+                    "slug": "termostato-economico-100w",
+                    "slug_publico": "termostato-economico-100w",
+                    "url": "/producto/termostato-economico-100w",
+                    "url_publica": "/producto/termostato-economico-100w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-economico-100w",
+                    "imagen": "uploads/erp/catalogo/productos/1637/producto-1637-20260910134342-80bb5092.webp",
+                    "imagen_alt": "TERMOSTATO ECONOMICO 100W",
+                    "imagen_fuente": "producto",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "OCEAN AQUA",
+                    "marca_obj": {
+                        "id": 16,
+                        "nombre": "OCEAN AQUA",
+                        "slug": "ocean-aqua",
+                        "slug_publico": "ocean-aqua",
+                        "url": "/marca/ocean-aqua",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "pez",
+                    "mascotas": [
+                        "pez"
+                    ],
+                    "necesidades": [
+                        "habitat"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 1637,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 4337,
+                            "id_sku": 1921,
+                            "sku": "OCT-100",
+                            "slug": "termostato-economico-100w",
+                            "url": "/producto/termostato-economico-100w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1637&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 4338,
+                    "id_producto_erp": 1638,
+                    "id_sku": 1922,
+                    "sku": "OCT-200",
+                    "nombre": "TERMOSTATO ECONOMICO 200W",
+                    "slug": "termostato-economico-200w",
+                    "slug_publico": "termostato-economico-200w",
+                    "url": "/producto/termostato-economico-200w",
+                    "url_publica": "/producto/termostato-economico-200w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-economico-200w",
+                    "imagen": "uploads/erp/catalogo/productos/1638/producto-1638-20260910134225-bf22cbc4.webp",
+                    "imagen_alt": "TERMOSTATO ECONOMICO 200W",
+                    "imagen_fuente": "producto",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "OCEAN AQUA",
+                    "marca_obj": {
+                        "id": 16,
+                        "nombre": "OCEAN AQUA",
+                        "slug": "ocean-aqua",
+                        "slug_publico": "ocean-aqua",
+                        "url": "/marca/ocean-aqua",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "pez",
+                    "mascotas": [
+                        "pez"
+                    ],
+                    "necesidades": [
+                        "habitat"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 1638,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 4338,
+                            "id_sku": 1922,
+                            "sku": "OCT-200",
+                            "slug": "termostato-economico-200w",
+                            "url": "/producto/termostato-economico-200w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1638&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 4336,
+                    "id_producto_erp": 1636,
+                    "id_sku": 1920,
+                    "sku": "OCT-25",
+                    "nombre": "TERMOSTATO ECONOMICO 25W",
+                    "slug": "termostato-economico-25w",
+                    "slug_publico": "termostato-economico-25w",
+                    "url": "/producto/termostato-economico-25w",
+                    "url_publica": "/producto/termostato-economico-25w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-economico-25w",
+                    "imagen": "uploads/erp/catalogo/productos/1636/producto-1636-20260910134758-15fd1065.webp",
+                    "imagen_alt": "TERMOSTATO ECONOMICO 25W",
+                    "imagen_fuente": "producto",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "OCEAN AQUA",
+                    "marca_obj": {
+                        "id": 16,
+                        "nombre": "OCEAN AQUA",
+                        "slug": "ocean-aqua",
+                        "slug_publico": "ocean-aqua",
+                        "url": "/marca/ocean-aqua",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "pez",
+                    "mascotas": [
+                        "pez"
+                    ],
+                    "necesidades": [
+                        "habitat"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 1636,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 4336,
+                            "id_sku": 1920,
+                            "sku": "OCT-25",
+                            "slug": "termostato-economico-25w",
+                            "url": "/producto/termostato-economico-25w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1636&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 4339,
+                    "id_producto_erp": 1639,
+                    "id_sku": 1923,
+                    "sku": "OCT-300",
+                    "nombre": "TERMOSTATO ECONOMICO 300W",
+                    "slug": "termostato-economico-300w",
+                    "slug_publico": "termostato-economico-300w",
+                    "url": "/producto/termostato-economico-300w",
+                    "url_publica": "/producto/termostato-economico-300w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-economico-300w",
+                    "imagen": "uploads/erp/catalogo/productos/1639/producto-1639-20260910134146-ae206214.webp",
+                    "imagen_alt": "TERMOSTATO ECONOMICO 300W",
+                    "imagen_fuente": "sku",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "OCEAN AQUA",
+                    "marca_obj": {
+                        "id": 16,
+                        "nombre": "OCEAN AQUA",
+                        "slug": "ocean-aqua",
+                        "slug_publico": "ocean-aqua",
+                        "url": "/marca/ocean-aqua",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "pez",
+                    "mascotas": [
+                        "pez"
+                    ],
+                    "necesidades": [
+                        "habitat"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 1639,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 4339,
+                            "id_sku": 1923,
+                            "sku": "OCT-300",
+                            "slug": "termostato-economico-300w",
+                            "url": "/producto/termostato-economico-300w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1639&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 4335,
+                    "id_producto_erp": 1634,
+                    "id_sku": 1918,
+                    "sku": "OCT-75",
+                    "nombre": "TERMOSTATO ECONOMICO 75W",
+                    "slug": "termostato-economico-75w",
+                    "slug_publico": "termostato-economico-75w",
+                    "url": "/producto/termostato-economico-75w",
+                    "url_publica": "/producto/termostato-economico-75w",
+                    "canonical_url": "https://artiani.com.mx/producto/termostato-economico-75w",
+                    "imagen": "uploads/erp/catalogo/productos/1634/producto-1634-20260910134948-0282820e.webp",
+                    "imagen_alt": "TERMOSTATO ECONOMICO 75W",
+                    "imagen_fuente": "producto",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "OCEAN AQUA",
+                    "marca_obj": {
+                        "id": 16,
+                        "nombre": "OCEAN AQUA",
+                        "slug": "ocean-aqua",
+                        "slug_publico": "ocean-aqua",
+                        "url": "/marca/ocean-aqua",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                    "categoria_obj": {
+                        "id": 466,
+                        "nombre": "Calefaccion",
+                        "nombre_completo": "Acuario y peces / Equipamiento tecnico / Calefaccion",
+                        "slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "slug_corto": "calefaccion",
+                        "path_slug": "acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "url": "/categoria/acuario-y-peces/equipamiento-tecnico/calefaccion",
+                        "principal": true
+                    },
+                    "mascota_especie": "pez",
+                    "mascotas": [
+                        "pez"
+                    ],
+                    "necesidades": [
+                        "habitat"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 1634,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 4335,
+                            "id_sku": 1918,
+                            "sku": "OCT-75",
+                            "slug": "termostato-economico-75w",
+                            "url": "/producto/termostato-economico-75w"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1634&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                }
+            ]
+        },
+        "pulverizador": {
+            "path": "/ecommercePublico/catalogo?q=pulverizador&limite=60&vista=card&agrupacion=sku",
+            "total": 0,
+            "items": []
+        },
+        "rama": {
+            "path": "/ecommercePublico/catalogo?q=rama&limite=60&vista=card&agrupacion=sku",
+            "total": 5,
+            "items": [
+                {
+                    "id_publicacion": 1852,
+                    "id_producto_erp": 744,
+                    "id_sku": 840,
+                    "sku": "FL9325",
+                    "nombre": "Juguete rama bambu plus chico sabor carne",
+                    "slug": "juguete-rama-bambu-plus-chico-sabor-carne",
+                    "slug_publico": "juguete-rama-bambu-plus-chico-sabor-carne",
+                    "url": "/producto/juguete-rama-bambu-plus-chico-sabor-carne",
+                    "url_publica": "/producto/juguete-rama-bambu-plus-chico-sabor-carne",
+                    "canonical_url": "https://artiani.com.mx/producto/juguete-rama-bambu-plus-chico-sabor-carne",
+                    "imagen": "media/apps/ecommerce/productos/1112/1712005995.jpg",
+                    "imagen_alt": "Juguete rama de bambu chica",
+                    "imagen_fuente": "sku",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "FANCY PETS",
+                    "marca_obj": {
+                        "id": 13,
+                        "nombre": "FANCY PETS",
+                        "slug": "fancy-pets",
+                        "slug_publico": "fancy-pets",
+                        "url": "/marca/fancy-pets",
+                        "logo": null
+                    },
+                    "categoria": "Perros / Juego y enriquecimiento / Juguetes",
+                    "categoria_obj": {
+                        "id": 419,
+                        "nombre": "Juguetes",
+                        "nombre_completo": "Perros / Juego y enriquecimiento / Juguetes",
+                        "slug": "perros/juego-y-enriquecimiento/juguetes",
+                        "slug_corto": "juguetes",
+                        "path_slug": "perros/juego-y-enriquecimiento/juguetes",
+                        "url": "/categoria/perros/juego-y-enriquecimiento/juguetes",
+                        "principal": true
+                    },
+                    "mascota_especie": "perro",
+                    "mascotas": [
+                        "perro"
+                    ],
+                    "necesidades": [
+                        "juguete"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 744,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 1852,
+                            "id_sku": 840,
+                            "sku": "FL9325",
+                            "slug": "juguete-rama-bambu-plus-chico-sabor-carne",
+                            "url": "/producto/juguete-rama-bambu-plus-chico-sabor-carne"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=744&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 1567,
+                    "id_producto_erp": 378,
+                    "id_sku": 474,
+                    "sku": "FL9326",
+                    "nombre": "Juguete rama bambu plus grande sabor carne",
+                    "slug": "juguete-rama-bambu-plus-grande-sabor-carne",
+                    "slug_publico": "juguete-rama-bambu-plus-grande-sabor-carne",
+                    "url": "/producto/juguete-rama-bambu-plus-grande-sabor-carne",
+                    "url_publica": "/producto/juguete-rama-bambu-plus-grande-sabor-carne",
+                    "canonical_url": "https://artiani.com.mx/producto/juguete-rama-bambu-plus-grande-sabor-carne",
+                    "imagen": "media/apps/ecommerce/productos/530/1687438315.jpg",
+                    "imagen_alt": "Juguete rama bambu grande carne",
+                    "imagen_fuente": "sku",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": "FANCY PETS",
+                    "marca_obj": {
+                        "id": 13,
+                        "nombre": "FANCY PETS",
+                        "slug": "fancy-pets",
+                        "slug_publico": "fancy-pets",
+                        "url": "/marca/fancy-pets",
+                        "logo": null
+                    },
+                    "categoria": "Perros / Juego y enriquecimiento / Juguetes",
+                    "categoria_obj": {
+                        "id": 419,
+                        "nombre": "Juguetes",
+                        "nombre_completo": "Perros / Juego y enriquecimiento / Juguetes",
+                        "slug": "perros/juego-y-enriquecimiento/juguetes",
+                        "slug_corto": "juguetes",
+                        "path_slug": "perros/juego-y-enriquecimiento/juguetes",
+                        "url": "/categoria/perros/juego-y-enriquecimiento/juguetes",
+                        "principal": true
+                    },
+                    "mascota_especie": "perro",
+                    "mascotas": [
+                        "perro"
+                    ],
+                    "necesidades": [
+                        "juguete"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 378,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 1567,
+                            "id_sku": 474,
+                            "sku": "FL9326",
+                            "slug": "juguete-rama-bambu-plus-grande-sabor-carne",
+                            "url": "/producto/juguete-rama-bambu-plus-grande-sabor-carne"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=378&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 2327,
+                    "id_producto_erp": 1303,
+                    "id_sku": 1399,
+                    "sku": "ALA-0007",
+                    "nombre": "Panizo en Espiga Rama Natural Spray Millet - 1 kg",
+                    "slug": "panizo-en-espiga-rama-natural-spray-millet-1kg",
+                    "slug_publico": "panizo-en-espiga-rama-natural-spray-millet-1kg",
+                    "url": "/producto/panizo-en-espiga-rama-natural-spray-millet-1kg",
+                    "url_publica": "/producto/panizo-en-espiga-rama-natural-spray-millet-1kg",
+                    "canonical_url": "https://artiani.com.mx/producto/panizo-en-espiga-rama-natural-spray-millet-1kg",
+                    "imagen": "media/apps/ecommerce/productos/1775/1771338460.webp",
+                    "imagen_alt": "Panizo natural en espiga 1kg",
+                    "imagen_fuente": "sku",
+                    "precio": 900,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": null,
+                    "marca_obj": {
+                        "id": 0,
+                        "nombre": "",
+                        "slug": "",
+                        "slug_publico": "",
+                        "url": "",
+                        "logo": null
+                    },
+                    "categoria": "Aves / Alimentacion / Alimentos",
+                    "categoria_obj": {
+                        "id": 508,
+                        "nombre": "Alimentos",
+                        "nombre_completo": "Aves / Alimentacion / Alimentos",
+                        "slug": "aves/alimentacion/alimentos",
+                        "slug_corto": "alimentos",
+                        "path_slug": "aves/alimentacion/alimentos",
+                        "url": "/categoria/aves/alimentacion/alimentos",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 1303,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 2327,
+                            "id_sku": 1399,
+                            "sku": "ALA-0007",
+                            "slug": "panizo-en-espiga-rama-natural-spray-millet-1kg",
+                            "url": "/producto/panizo-en-espiga-rama-natural-spray-millet-1kg"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1303&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 360,
+                    "id_producto_erp": 249,
+                    "id_sku": 345,
+                    "sku": "BGRR-24",
+                    "nombre": "Póster piedramar 60cm por rollo",
+                    "slug": "poster-piedramar-60cm-por-rollo",
+                    "slug_publico": "poster-piedramar-60cm-por-rollo",
+                    "url": "/producto/poster-piedramar-60cm-por-rollo",
+                    "url_publica": "/producto/poster-piedramar-60cm-por-rollo",
+                    "canonical_url": "https://artiani.com.mx/producto/poster-piedramar-60cm-por-rollo",
+                    "imagen": "media/apps/ecommerce/productos/310/1708280742.jpg",
+                    "imagen_alt": "P├â┬│ster piedramar 60cm por rollo",
+                    "imagen_fuente": "sku",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": null,
+                    "marca_obj": {
+                        "id": 0,
+                        "nombre": "",
+                        "slug": "",
+                        "slug_publico": "",
+                        "url": "",
+                        "logo": null
+                    },
+                    "categoria": null,
+                    "categoria_obj": {
+                        "id": 0,
+                        "nombre": "",
+                        "nombre_completo": "",
+                        "slug": "",
+                        "slug_corto": "producto",
+                        "path_slug": "",
+                        "url": "/categoria/",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 249,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 360,
+                            "id_sku": 345,
+                            "sku": "BGRR-24",
+                            "slug": "poster-piedramar-60cm-por-rollo",
+                            "url": "/producto/poster-piedramar-60cm-por-rollo"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=249&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 335,
+                    "id_producto_erp": 182,
+                    "id_sku": 278,
+                    "sku": "POS-06",
+                    "nombre": "Póster ramar 50cm por rollo",
+                    "slug": "poster-ramar-50cm-por-rollo",
+                    "slug_publico": "poster-ramar-50cm-por-rollo",
+                    "url": "/producto/poster-ramar-50cm-por-rollo",
+                    "url_publica": "/producto/poster-ramar-50cm-por-rollo",
+                    "canonical_url": "https://artiani.com.mx/producto/poster-ramar-50cm-por-rollo",
+                    "imagen": "media/apps/ecommerce/productos/184/1708286187.jpg",
+                    "imagen_alt": "P├â┬│ster ramar 50cm por rollo",
+                    "imagen_fuente": "sku",
+                    "precio": null,
+                    "moneda": null,
+                    "mostrar_precio": false,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": false,
+                    "permite_whatsapp": true,
+                    "marca": null,
+                    "marca_obj": {
+                        "id": 0,
+                        "nombre": "",
+                        "slug": "",
+                        "slug_publico": "",
+                        "url": "",
+                        "logo": null
+                    },
+                    "categoria": null,
+                    "categoria_obj": {
+                        "id": 0,
+                        "nombre": "",
+                        "nombre_completo": "",
+                        "slug": "",
+                        "slug_corto": "producto",
+                        "path_slug": "",
+                        "url": "/categoria/",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 182,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 335,
+                            "id_sku": 278,
+                            "sku": "POS-06",
+                            "slug": "poster-ramar-50cm-por-rollo",
+                            "url": "/producto/poster-ramar-50cm-por-rollo"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=182&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                }
+            ]
+        },
+        "liana": {
+            "path": "/ecommercePublico/catalogo?q=liana&limite=60&vista=card&agrupacion=sku",
+            "total": 0,
+            "items": []
+        },
+        "uvb_lineal": {
+            "path": "/ecommercePublico/catalogo?q=T5&limite=60&vista=card&agrupacion=sku",
+            "total": 3,
+            "items": [
+                {
+                    "id_publicacion": 254,
+                    "id_producto_erp": 915,
+                    "id_sku": 1011,
+                    "sku": "WAT572",
+                    "nombre": "Alimento huron / ferret diet 1 kg",
+                    "slug": "alimento-huron-ferret-diet-1kg",
+                    "slug_publico": "alimento-huron-ferret-diet-1kg",
+                    "url": "/producto/alimento-huron-ferret-diet-1kg",
+                    "url_publica": "/producto/alimento-huron-ferret-diet-1kg",
+                    "canonical_url": "https://artiani.com.mx/producto/alimento-huron-ferret-diet-1kg",
+                    "imagen": "media/apps/ecommerce/productos/1327/1723183676.jpg",
+                    "imagen_alt": "Alimento para hur├â┬│n fortificada",
+                    "imagen_fuente": "sku",
+                    "precio": 180,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "REDKITE",
+                    "marca_obj": {
+                        "id": 17,
+                        "nombre": "REDKITE",
+                        "slug": "redkite",
+                        "slug_publico": "redkite",
+                        "url": "/marca/redkite",
+                        "logo": null
+                    },
+                    "categoria": "Pequenos mamiferos / Huron / Alimentacion / Alimentos",
+                    "categoria_obj": {
+                        "id": 587,
+                        "nombre": "Alimentos",
+                        "nombre_completo": "Pequenos mamiferos / Huron / Alimentacion / Alimentos",
+                        "slug": "pequenos-mamiferos/huron/alimentacion/alimentos",
+                        "slug_corto": "alimentos",
+                        "path_slug": "pequenos-mamiferos/huron/alimentacion/alimentos",
+                        "url": "/categoria/pequenos-mamiferos/huron/alimentacion/alimentos",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [
+                        "alimento"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 915,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 254,
+                            "id_sku": 1011,
+                            "sku": "WAT572",
+                            "slug": "alimento-huron-ferret-diet-1kg",
+                            "url": "/producto/alimento-huron-ferret-diet-1kg"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=915&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 1697,
+                    "id_producto_erp": 543,
+                    "id_sku": 639,
+                    "sku": "PPTT50",
+                    "nombre": "Tapa de malla para terrario 50 cm",
+                    "slug": "tapa-de-malla-para-terrario-50-cm",
+                    "slug_publico": "tapa-de-malla-para-terrario-50-cm",
+                    "url": "/producto/tapa-de-malla-para-terrario-50-cm",
+                    "url_publica": "/producto/tapa-de-malla-para-terrario-50-cm",
+                    "canonical_url": "https://artiani.com.mx/producto/tapa-de-malla-para-terrario-50-cm",
+                    "imagen": "media/apps/ecommerce/productos/764/1708647296.jpg",
+                    "imagen_alt": "Tapa para pecera 50 cm de malla",
+                    "imagen_fuente": "sku",
+                    "precio": 295,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": null,
+                    "marca_obj": {
+                        "id": 0,
+                        "nombre": "",
+                        "slug": "",
+                        "slug_publico": "",
+                        "url": "",
+                        "logo": null
+                    },
+                    "categoria": "Acuario y peces / Repuestos, aditamentos y accesorios / Accesorios generales",
+                    "categoria_obj": {
+                        "id": 483,
+                        "nombre": "Accesorios generales",
+                        "nombre_completo": "Acuario y peces / Repuestos, aditamentos y accesorios / Accesorios generales",
+                        "slug": "acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "slug_corto": "accesorios-generales",
+                        "path_slug": "acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "url": "/categoria/acuario-y-peces/repuestos-aditamentos-y-accesorios/accesorios-generales",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 543,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 1697,
+                            "id_sku": 639,
+                            "sku": "PPTT50",
+                            "slug": "tapa-de-malla-para-terrario-50-cm",
+                            "url": "/producto/tapa-de-malla-para-terrario-50-cm"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=543&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 2099,
+                    "id_producto_erp": 1063,
+                    "id_sku": 1159,
+                    "sku": "TEMA-T50120",
+                    "nombre": "Terrario magno 50 x 50 x 120 cm de madera con malla de tela",
+                    "slug": "terrario-magno-50-x-50-x-120-cm-de-madera-con-malla-de-tela",
+                    "slug_publico": "terrario-magno-50-x-50-x-120-cm-de-madera-con-malla-de-tela",
+                    "url": "/producto/terrario-magno-50-x-50-x-120-cm-de-madera-con-malla-de-tela",
+                    "url_publica": "/producto/terrario-magno-50-x-50-x-120-cm-de-madera-con-malla-de-tela",
+                    "canonical_url": "https://artiani.com.mx/producto/terrario-magno-50-x-50-x-120-cm-de-madera-con-malla-de-tela",
+                    "imagen": "media/apps/ecommerce/productos/1508/1771940634.webp",
+                    "imagen_alt": "Terrario magno 120cm de altura malla de tela",
+                    "imagen_fuente": "sku",
+                    "precio": 2250,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": null,
+                    "marca_obj": {
+                        "id": 0,
+                        "nombre": "",
+                        "slug": "",
+                        "slug_publico": "",
+                        "url": "",
+                        "logo": null
+                    },
+                    "categoria": "Reptiles, anfibios e invertebrados / Iguanas / Terrarios / Madera",
+                    "categoria_obj": {
+                        "id": 501,
+                        "nombre": "Madera",
+                        "nombre_completo": "Reptiles, anfibios e invertebrados / Iguanas / Terrarios / Madera",
+                        "slug": "reptiles-anfibios-e-invertebrados/iguanas/terrarios/madera",
+                        "slug_corto": "madera",
+                        "path_slug": "reptiles-anfibios-e-invertebrados/iguanas/terrarios/madera",
+                        "url": "/categoria/reptiles-anfibios-e-invertebrados/iguanas/terrarios/madera",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 1063,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 2099,
+                            "id_sku": 1159,
+                            "sku": "TEMA-T50120",
+                            "slug": "terrario-magno-50-x-50-x-120-cm-de-madera-con-malla-de-tela",
+                            "url": "/producto/terrario-magno-50-x-50-x-120-cm-de-madera-con-malla-de-tela"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=1063&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                }
+            ]
+        },
+        "calcio": {
+            "path": "/ecommercePublico/catalogo?q=calcio&limite=60&vista=card&agrupacion=sku",
+            "total": 6,
+            "items": [
+                {
+                    "id_publicacion": 1698,
+                    "id_producto_erp": 544,
+                    "id_sku": 640,
+                    "sku": "FL1115",
+                    "nombre": "Calcio para tortugas con vitamina a 2 pz",
+                    "slug": "calcio-para-tortugas-con-vitamina-a-2",
+                    "slug_publico": "calcio-para-tortugas-con-vitamina-a-2",
+                    "url": "/producto/calcio-para-tortugas-con-vitamina-a-2",
+                    "url_publica": "/producto/calcio-para-tortugas-con-vitamina-a-2",
+                    "canonical_url": "https://artiani.com.mx/producto/calcio-para-tortugas-con-vitamina-a-2",
+                    "imagen": "media/apps/ecommerce/productos/766/1689188897.jpg",
+                    "imagen_alt": "Calcio para tortuga doble",
+                    "imagen_fuente": "sku",
+                    "precio": 55,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "LOMAS",
+                    "marca_obj": {
+                        "id": 6,
+                        "nombre": "LOMAS",
+                        "slug": "lomas",
+                        "slug_publico": "lomas",
+                        "url": "/marca/lomas",
+                        "logo": null
+                    },
+                    "categoria": "Reptiles, anfibios e invertebrados / Tortugas / Aditamentos y accesorios",
+                    "categoria_obj": {
+                        "id": 497,
+                        "nombre": "Aditamentos y accesorios",
+                        "nombre_completo": "Reptiles, anfibios e invertebrados / Tortugas / Aditamentos y accesorios",
+                        "slug": "reptiles-anfibios-e-invertebrados/tortugas/aditamentos-y-accesorios",
+                        "slug_corto": "aditamentos-y-accesorios",
+                        "path_slug": "reptiles-anfibios-e-invertebrados/tortugas/aditamentos-y-accesorios",
+                        "url": "/categoria/reptiles-anfibios-e-invertebrados/tortugas/aditamentos-y-accesorios",
+                        "principal": true
+                    },
+                    "mascota_especie": "reptil",
+                    "mascotas": [
+                        "reptil"
+                    ],
+                    "necesidades": [
+                        "salud"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 544,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 1698,
+                            "id_sku": 640,
+                            "sku": "FL1115",
+                            "slug": "calcio-para-tortugas-con-vitamina-a-2",
+                            "url": "/producto/calcio-para-tortugas-con-vitamina-a-2"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=544&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 336,
+                    "id_producto_erp": 183,
+                    "id_sku": 279,
+                    "sku": "FL9180",
+                    "nombre": "Juguete chico con calcio para ave",
+                    "slug": "juguete-chico-con-calcio-para-ave",
+                    "slug_publico": "juguete-chico-con-calcio-para-ave",
+                    "url": "/producto/juguete-chico-con-calcio-para-ave",
+                    "url_publica": "/producto/juguete-chico-con-calcio-para-ave",
+                    "canonical_url": "https://artiani.com.mx/producto/juguete-chico-con-calcio-para-ave",
+                    "imagen": "media/apps/ecommerce/productos/188/1696280405.jpg",
+                    "imagen_alt": "Juguete para aves calcio sencillo",
+                    "imagen_fuente": "sku",
+                    "precio": 165,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "REDKITE",
+                    "marca_obj": {
+                        "id": 17,
+                        "nombre": "REDKITE",
+                        "slug": "redkite",
+                        "slug_publico": "redkite",
+                        "url": "/marca/redkite",
+                        "logo": null
+                    },
+                    "categoria": "Aves / Juego y enriquecimiento / Juguetes",
+                    "categoria_obj": {
+                        "id": 529,
+                        "nombre": "Juguetes",
+                        "nombre_completo": "Aves / Juego y enriquecimiento / Juguetes",
+                        "slug": "aves/juego-y-enriquecimiento/juguetes",
+                        "slug_corto": "juguetes",
+                        "path_slug": "aves/juego-y-enriquecimiento/juguetes",
+                        "url": "/categoria/aves/juego-y-enriquecimiento/juguetes",
+                        "principal": true
+                    },
+                    "mascota_especie": "ave",
+                    "mascotas": [
+                        "ave"
+                    ],
+                    "necesidades": [
+                        "juguete"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 183,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 336,
+                            "id_sku": 279,
+                            "sku": "FL9180",
+                            "slug": "juguete-chico-con-calcio-para-ave",
+                            "url": "/producto/juguete-chico-con-calcio-para-ave"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=183&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 337,
+                    "id_producto_erp": 186,
+                    "id_sku": 282,
+                    "sku": "FL9181",
+                    "nombre": "Juguete colgante mediano con calcio para ave",
+                    "slug": "juguete-colgante-mediano-con-calcio-para-ave",
+                    "slug_publico": "juguete-colgante-mediano-con-calcio-para-ave",
+                    "url": "/producto/juguete-colgante-mediano-con-calcio-para-ave",
+                    "url_publica": "/producto/juguete-colgante-mediano-con-calcio-para-ave",
+                    "canonical_url": "https://artiani.com.mx/producto/juguete-colgante-mediano-con-calcio-para-ave",
+                    "imagen": "media/apps/ecommerce/productos/193/1696281994.jpg",
+                    "imagen_alt": "Juguete para aves calcio mediano",
+                    "imagen_fuente": "sku",
+                    "precio": 185,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "REDKITE",
+                    "marca_obj": {
+                        "id": 17,
+                        "nombre": "REDKITE",
+                        "slug": "redkite",
+                        "slug_publico": "redkite",
+                        "url": "/marca/redkite",
+                        "logo": null
+                    },
+                    "categoria": "Aves / Juego y enriquecimiento / Juguetes",
+                    "categoria_obj": {
+                        "id": 529,
+                        "nombre": "Juguetes",
+                        "nombre_completo": "Aves / Juego y enriquecimiento / Juguetes",
+                        "slug": "aves/juego-y-enriquecimiento/juguetes",
+                        "slug_corto": "juguetes",
+                        "path_slug": "aves/juego-y-enriquecimiento/juguetes",
+                        "url": "/categoria/aves/juego-y-enriquecimiento/juguetes",
+                        "principal": true
+                    },
+                    "mascota_especie": "ave",
+                    "mascotas": [
+                        "ave"
+                    ],
+                    "necesidades": [
+                        "juguete"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 186,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 337,
+                            "id_sku": 282,
+                            "sku": "FL9181",
+                            "slug": "juguete-colgante-mediano-con-calcio-para-ave",
+                            "url": "/producto/juguete-colgante-mediano-con-calcio-para-ave"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=186&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 309,
+                    "id_producto_erp": 97,
+                    "id_sku": 193,
+                    "sku": "FL9182",
+                    "nombre": "Juguete colgante triple con calcio",
+                    "slug": "juguete-colgante-triple-con-calcio",
+                    "slug_publico": "juguete-colgante-triple-con-calcio",
+                    "url": "/producto/juguete-colgante-triple-con-calcio",
+                    "url_publica": "/producto/juguete-colgante-triple-con-calcio",
+                    "canonical_url": "https://artiani.com.mx/producto/juguete-colgante-triple-con-calcio",
+                    "imagen": "media/apps/ecommerce/productos/67/1696281244.jpg",
+                    "imagen_alt": "Juguete para aves calcio triple",
+                    "imagen_fuente": "sku",
+                    "precio": 199,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "REDKITE",
+                    "marca_obj": {
+                        "id": 17,
+                        "nombre": "REDKITE",
+                        "slug": "redkite",
+                        "slug_publico": "redkite",
+                        "url": "/marca/redkite",
+                        "logo": null
+                    },
+                    "categoria": "Aves / Juego y enriquecimiento / Juguetes",
+                    "categoria_obj": {
+                        "id": 529,
+                        "nombre": "Juguetes",
+                        "nombre_completo": "Aves / Juego y enriquecimiento / Juguetes",
+                        "slug": "aves/juego-y-enriquecimiento/juguetes",
+                        "slug_corto": "juguetes",
+                        "path_slug": "aves/juego-y-enriquecimiento/juguetes",
+                        "url": "/categoria/aves/juego-y-enriquecimiento/juguetes",
+                        "principal": true
+                    },
+                    "mascota_especie": "ave",
+                    "mascotas": [
+                        "ave"
+                    ],
+                    "necesidades": [
+                        "juguete"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 97,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 309,
+                            "id_sku": 193,
+                            "sku": "FL9182",
+                            "slug": "juguete-colgante-triple-con-calcio",
+                            "url": "/producto/juguete-colgante-triple-con-calcio"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=97&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 193,
+                    "id_producto_erp": 87,
+                    "id_sku": 183,
+                    "sku": "FL2152",
+                    "nombre": "Suplemento de calcio con minerales para reptiles 135 gr",
+                    "slug": "suplemento-de-calcio-con-minerales-para-reptiles-135g",
+                    "slug_publico": "suplemento-de-calcio-con-minerales-para-reptiles-135g",
+                    "url": "/producto/suplemento-de-calcio-con-minerales-para-reptiles-135g",
+                    "url_publica": "/producto/suplemento-de-calcio-con-minerales-para-reptiles-135g",
+                    "canonical_url": "https://artiani.com.mx/producto/suplemento-de-calcio-con-minerales-para-reptiles-135g",
+                    "imagen": "media/apps/ecommerce/productos/54/1687444147.jpg",
+                    "imagen_alt": "Calcio + minerales para reptil 135 grs",
+                    "imagen_fuente": "sku",
+                    "precio": 65,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "consultar_disponibilidad",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "Reptilia",
+                    "marca_obj": {
+                        "id": 14,
+                        "nombre": "Reptilia",
+                        "slug": "reptilia",
+                        "slug_publico": "reptilia",
+                        "url": "/marca/reptilia",
+                        "logo": null
+                    },
+                    "categoria": "Reptiles, anfibios e invertebrados / Accesorios generales",
+                    "categoria_obj": {
+                        "id": 505,
+                        "nombre": "Accesorios generales",
+                        "nombre_completo": "Reptiles, anfibios e invertebrados / Accesorios generales",
+                        "slug": "reptiles-anfibios-e-invertebrados/accesorios-generales",
+                        "slug_corto": "accesorios-generales",
+                        "path_slug": "reptiles-anfibios-e-invertebrados/accesorios-generales",
+                        "url": "/categoria/reptiles-anfibios-e-invertebrados/accesorios-generales",
+                        "principal": true
+                    },
+                    "mascota_especie": "reptil",
+                    "mascotas": [
+                        "reptil"
+                    ],
+                    "necesidades": [],
+                    "grupo_producto": {
+                        "id_producto_erp": 87,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 193,
+                            "id_sku": 183,
+                            "sku": "FL2152",
+                            "slug": "suplemento-de-calcio-con-minerales-para-reptiles-135g",
+                            "url": "/producto/suplemento-de-calcio-con-minerales-para-reptiles-135g"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=87&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                },
+                {
+                    "id_publicacion": 310,
+                    "id_producto_erp": 103,
+                    "id_sku": 199,
+                    "sku": "FL2151",
+                    "nombre": "Suplemento de calcio con vitamina d3 para reptiles 135 gr",
+                    "slug": "suplemento-de-calcio-con-vitamina-d3-para-reptiles-135g",
+                    "slug_publico": "suplemento-de-calcio-con-vitamina-d3-para-reptiles-135g",
+                    "url": "/producto/suplemento-de-calcio-con-vitamina-d3-para-reptiles-135g",
+                    "url_publica": "/producto/suplemento-de-calcio-con-vitamina-d3-para-reptiles-135g",
+                    "canonical_url": "https://artiani.com.mx/producto/suplemento-de-calcio-con-vitamina-d3-para-reptiles-135g",
+                    "imagen": "media/apps/ecommerce/productos/74/1690293732.jpg",
+                    "imagen_alt": "Suplemento calcio + vitaminas D3",
+                    "imagen_fuente": "sku",
+                    "precio": 65,
+                    "moneda": "MXN",
+                    "mostrar_precio": true,
+                    "disponibilidad": "agotado",
+                    "permite_cotizacion": true,
+                    "permite_whatsapp": true,
+                    "marca": "Reptilia",
+                    "marca_obj": {
+                        "id": 14,
+                        "nombre": "Reptilia",
+                        "slug": "reptilia",
+                        "slug_publico": "reptilia",
+                        "url": "/marca/reptilia",
+                        "logo": null
+                    },
+                    "categoria": "Reptiles, anfibios e invertebrados / Iguanas / Alimentos para iguana",
+                    "categoria_obj": {
+                        "id": 499,
+                        "nombre": "Alimentos para iguana",
+                        "nombre_completo": "Reptiles, anfibios e invertebrados / Iguanas / Alimentos para iguana",
+                        "slug": "reptiles-anfibios-e-invertebrados/iguanas/alimentos-para-iguana",
+                        "slug_corto": "alimentos-para-iguana",
+                        "path_slug": "reptiles-anfibios-e-invertebrados/iguanas/alimentos-para-iguana",
+                        "url": "/categoria/reptiles-anfibios-e-invertebrados/iguanas/alimentos-para-iguana",
+                        "principal": true
+                    },
+                    "mascota_especie": "",
+                    "mascotas": [],
+                    "necesidades": [
+                        "salud"
+                    ],
+                    "grupo_producto": {
+                        "id_producto_erp": 103,
+                        "agrupable": false,
+                        "tipo": "simple",
+                        "total_variantes_publicadas": 1,
+                        "seleccion_actual": {
+                            "id_publicacion": 310,
+                            "id_sku": 199,
+                            "sku": "FL2151",
+                            "slug": "suplemento-de-calcio-con-vitamina-d3-para-reptiles-135g",
+                            "url": "/producto/suplemento-de-calcio-con-vitamina-d3-para-reptiles-135g"
+                        },
+                        "variantes_url": "/ecommercePublico/catalogo?producto_id=103&agrupacion=sku&vista=card&limite=24",
+                        "frontend": {
+                            "mostrar_como_producto_agrupado": false,
+                            "selector_recomendado": "chips_presentacion_o_color",
+                            "deduplicar_catalogo_opcional": false,
+                            "agrupado_por_api": false,
+                            "campo_agrupador": "id_producto_erp"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

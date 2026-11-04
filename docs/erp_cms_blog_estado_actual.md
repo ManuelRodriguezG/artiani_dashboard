@@ -146,6 +146,32 @@ Resultado 2026-09-28:
 
 ## Handoff
 
+### Encargo visual enviado a contenido / 2026-11-04
+
+- IA: Codex GPT-6. Autorizacion expresa del dueño para enviar informacion/fotos y medidas al chat existente `Estrategia y Produccion de Contenido…` (local,01a16c4f-e796-7690-b667-2f1268a4d00d). `send_message_to_thread` confirmado; snapshot posterior muestra turno en progreso. Se conserva modelo/configuracion del chat, sin crear otro.
+- Paquete local `storage/editorial/blog_camaleon/encargo_contenido.md`, `manifest_referencias_contenido.json` y nueve originales900x900 en `referencias_catalogo/`: TERAL-12,CAM-01/02/03,HPT2186/2187/2110,FL2152/2151. Descarga soloGET desde catalogo, identidad/hash/dimensiones documentadas; sin transformaciones ni altas Media. Runner `preparar_referencias_contenido.php`.
+- Solicitud de cuatro WebP: portada1600x1200(4:3,coincide con cover vigente app.css del frontend); apoyos terrario/ventilacion, luz/calor e hidratacion/decoracion1536x1024(3:2). Cada archivo menor2097152bytes; objetivo250–600KB. Entrega en `imagenes_revision/`, preview y manifest para revision humana.
+- Se enviaron decisiones aluminio/vidrio TERAL-12 frente a madera Magno, foto real obligatoria, condicion de talla, limites de campanas/UVB/suplementos, sin kit/precios/stock inventados y sin pines antes de imagen final. Productos condicionales como referencias, no montaje aprobado. No generar/publicar desde CMS/BLOG en paralelo.
+- Siguiente: el dueño revisa las cuatro imagenes en el chat de contenido. Recuperar rutas/manifest compartido al completarse; revisar assets antes de preparar carga CMS. El envio no autoriza escritura BD, Media ni publicacion.
+
+### Revision TERAL-12 y campanas con fabricante / 2026-11-04
+
+- IA: Codex GPT-6. El dueño precisa fabricacion propia para camaleon, aluminio/malla metalica y ventilacion en dos costados y arriba; aporta enlace/SKU TERAL-12. La revision anterior usaba tarjetas de listado y era insuficiente para conocer construccion: revisar siempre descripcion detallada y fotografia antes de descartar productos por material o uso.
+- GET del frontend local responde200. Detalle API de publicacion269 confirma TERAL-12,50x40x80cm, marcos aluminio, cristal6mm, puertas deslizables y malla metalica en costados/techo. Foto original900x900 revisada. Evidencia local: `fichas_teral12_campanas.json`, `ficha_teral12_frontend.html`, `teral12-referencia-1.webp`; runner CLI `revisar_teral12.php` solo GET, sin JS/analytics ni BD.
+- Articulo local incorpora TERAL-12 con enlace real y ventajas de material/ventilacion. No equivale a validar tamaño definitivo de cualquier adulto: conserva referencia61x61x122cm exclusiva de velado y seleccion por especie/talla. No atribuir drenaje, cierre antiescape, ausencia de corrosion ni accesorios incluidos sin evidencia.
+- Campanas: CAM-01(publicacion2174) declara E26,max150W,110-120V; capacidad maxima del accesorio no es potencia recomendada al animal. CAM-02(2175) y CAM-03(2176) no declaran esos valores: no heredarlos. Articulo enlaza CAM-01 como accesorio, sin atribuir UVB/control termico ni montaje automatico. Las cuatro fichas consultadas indican agotado; no anunciar existencia inmediata.
+- Aclaracion final del dueño2026-11-04: TERAL-12 es un modelo distinto de aluminio y vidrio; Magno2096/2099 y los demas modelos comentados siguen fabricandose de madera como indica su catalogo. Materiales confirmados, pendiente cerrado; no volver a preguntar ni extender aluminio a toda la linea. `revision.json` actualizado; sin alta CMS/Media ni escrituras BD.
+- Siguiente: revisar texto comercial y usar foto real TERAL-12 como referencia para las imagenes si se solicitan. Conservar producto relacionado completo del catalogo al preparar futura carga.
+
+### Segunda propuesta editorial: camaleon / 2026-11-04
+
+- IA: Codex GPT-6. El dueno solicita informacion para otra publicacion y elige guia general al no conocer la especie mas atendida. Alcance: camaleones arboricolas comunes (velado/pantera), sin parametros universales ni mezcla de necesidades por especie.
+- Preparacion local en `storage/editorial/blog_camaleon/`: `articulo.html`, `revision.json`, dos snapshots de catalogo con objetos completos y `consultar_catalogo.php` (CLI, solo GET; `--complemento` amplía evidencia). Sin alta CMS ni escrituras BD/DDL/Media. Imagenes solo en briefs; no generadas.
+- Fuentes consultadas: MSD manejo reptiles, RVC velado (texto indexado; PDF directo403), Aurora Animal Hospital y Chameleon Academy. Redaccion original, referencias compactas, sin copiar imagenes/tablas. Las fuentes discrepan en rangos: no publicar promedio ni receta general. Referencia61x61x122cm exclusiva del velado; no tratarla como universal.
+- Catalogo: 45 terrarios,24 calefaccion,15 decoracion;4 UVB por consulta puntual. Magno2096/2099 miden50x50x120cm, menores en base que referencia de velado: candidatos a revision, no alojamiento adulto aprobado. Compactos191/2053 requieren validar cobertura/montaje; campana2174 y foco1733 no completan sistema. Suplementos193/310 requieren formula/plan veterinario. Ningun ID aprobado aun para relaciones CMS.
+- Sin producto publico validado para goteo/pulverizacion, higrómetro, controlador aereo, UVB lineal o ramas seguras. Busquedas tienen falsos positivos de acuario/perros/aves; no reutilizarlos. Ausencia publica no demuestra ausencia en ERP. No ofrecer sustrato de piton como obligatorio ni luz nocturna ni placa como solucion principal de asoleo.
+- Siguiente: revisar contenido y compatibilidad comercial; despues producir imagenes cuando se solicite, preparar payload, registrar borrador con autorizacion y conservar contrato normal de tarjetas. No publicar ni modificar el articulo de piton bola por esta tarea.
+
 ### Productos relacionados con contrato normal de catalogo / 2026-11-02
 
 - IA: Codex GPT-6. El dueno requiere pintar productos relacionados con la misma tarjeta usada en catalogo. Se elimina la proyeccion reducida del Blog que enviaba imagen/precio vacios y confundia presentacion con marca.

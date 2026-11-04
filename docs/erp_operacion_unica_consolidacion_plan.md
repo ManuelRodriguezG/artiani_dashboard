@@ -329,3 +329,37 @@ Se validó sin escritura la propuesta para el almacén `6`:
 - Bloqueos: ninguno.
 
 La terminal no se puede validar todavía porque el flujo exige que exista primero una caja real a la cual vincularla. Por eso la próxima aplicación debe crear la caja central, ejecutar postcheck y solo después crear la terminal.
+
+## Caja central aplicada 2026-11-03
+
+Con autorización explícita se creó la caja central en productivo:
+
+- ID: `4`.
+- Código: `CJ-OPERACION-GENERAL-01`.
+- Nombre: `Caja central Operacion General`.
+- Almacén: `6 - OPERACION-GENERAL`.
+- Estatus: `activa`.
+- Efectivo, tarjeta y transferencia: habilitados.
+- No se creó terminal.
+- No se abrió turno.
+- No se modificaron las cajas existentes ni sus turnos.
+
+Respaldo externo previo:
+
+- Archivo: `C:\xampp\panel_db_backups\productivo_panel_20261103_115231_antes_caja_central.sql`.
+- SHA-256: `2D0C3AEB7D1811D52C89361911A50E706FC14886E4EB68E11EF83FAD54982069`.
+
+Postcheck read-only confirmado: la caja `4` está activa y vinculada al almacén `6`; las cajas `1`, `2` y `3` conservaron sus vínculos anteriores. El siguiente paso requiere autorización para crear la terminal central.
+
+## Dry-run de terminal central 2026-11-03
+
+La propuesta quedó validada sin escritura:
+
+- Código: `TERM-OPERACION-GENERAL-01`.
+- Nombre: `Terminal central Operacion General`.
+- Identificador: `PANEL-CENTRAL-01`.
+- Caja: `4 - CJ-OPERACION-GENERAL-01`.
+- Almacén: `6 - OPERACION-GENERAL`.
+- Bloqueos: ninguno.
+
+La caja central está actualmente en modo `normal` y con generación de alertas de inventario activa. La creación de la terminal no abrirá turno ni cambiará ese modo.

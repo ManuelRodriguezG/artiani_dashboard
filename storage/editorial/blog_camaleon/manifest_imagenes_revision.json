@@ -1,0 +1,72 @@
+{
+  "estado": "revision_humana_local_sin_carga_media_sin_alta_CMS",
+  "fecha": "2026-11-04",
+  "generador": "imagegen_builtin",
+  "procesamiento_final": "WebP RGB exportado desde los originales PNG con recorte/redimensionado exacto y calidad 82",
+  "archivos_revision": [
+    {
+      "archivo": "imagenes_revision/camaleon-portada.webp",
+      "dimensiones": "1600x1200",
+      "bytes": 245722,
+      "formato": "webp",
+      "alt": "Terrario Ecuatorial de aluminio, vidrio y malla con ramas y follaje para un montaje de camaleon",
+      "caption": "Montaje ilustrativo; decoracion y equipos se seleccionan por separado segun especie y talla.",
+      "productos_identificables": [
+        {"sku": "TERAL-12", "id_publicacion": 269, "rol": "terrario principal"}
+      ],
+      "elementos_ilustrativos": ["ramas", "follaje", "sustrato", "camaleon velado pequeno ilustrativo"],
+      "limitaciones": ["No demuestra que 50x40x80 cm sea suficiente para cualquier camaleon adulto.", "El camaleon es una representacion visual y no confirma especie predominante ni compatibilidad de talla.", "No se debe interpretar que ramas, follaje o sustrato estan incluidos."]
+    },
+    {
+      "archivo": "imagenes_revision/camaleon-terrario-ventilacion.webp",
+      "dimensiones": "1536x1024",
+      "bytes": 215654,
+      "formato": "webp",
+      "alt": "Malla metalica en los costados y techo del Terrario Ecuatorial TERAL-12",
+      "caption": "Montaje ilustrativo; la ventilacion visible corresponde a la estructura del recinto mostrado.",
+      "productos_identificables": [
+        {"sku": "TERAL-12", "id_publicacion": 269, "rol": "terrario principal"}
+      ],
+      "elementos_ilustrativos": ["ramas", "follaje", "sustrato"],
+      "limitaciones": ["La escena no agrega drenaje, cierre antiescape, medidores ni equipo incluido.", "La imagen ayuda a explicar la malla en ambos costados y arriba; no constituye una ficha tecnica adicional."]
+    },
+    {
+      "archivo": "imagenes_revision/camaleon-iluminacion-calor.webp",
+      "dimensiones": "1536x1024",
+      "bytes": 142924,
+      "formato": "webp",
+      "alt": "Campana y focos para explicar las funciones de calor e iluminacion UVB",
+      "caption": "Referencias de productos y funciones; la seleccion final depende de especie, recinto, distancia y medicion.",
+      "productos_identificables": [
+        {"sku": "CAM-01", "id_publicacion": 2174, "rol": "campana mostrada como producto independiente"},
+        {"sku": "HPT2186", "id_publicacion": 191, "rol": "referencia UVB compacta"},
+        {"sku": "HPT2110", "id_publicacion": 1733, "rol": "referencia de foco de calor diurno"},
+        {"sku": "TERAL-12", "id_publicacion": 269, "rol": "contexto de recinto"}
+      ],
+      "elementos_ilustrativos": ["mesa de estudio", "composicion separada de productos"],
+      "limitaciones": ["No muestra un montaje electrico validado.", "No atribuye a CAM-01 foco incluido, UVB, termostato, guardia o potencia recomendada.", "No atribuye cobertura UVB, distancia segura ni temperatura universal a HPT2186 o HPT2110.", "Los productos se muestran como alternativas separadas, no como kit obligatorio ni instalacion simultanea."]
+    },
+    {
+      "archivo": "imagenes_revision/camaleon-hidratacion-decoracion.webp",
+      "dimensiones": "1536x1024",
+      "bytes": 267438,
+      "formato": "webp",
+      "alt": "Gotas de agua sobre hojas y ramas en un habitat ventilado para camaleon",
+      "caption": "Montaje ilustrativo; hidratacion, plantas, ramas y manejo del agua deben definirse segun especie y recinto.",
+      "productos_identificables": [
+        {"sku": "TERAL-12", "id_publicacion": 269, "rol": "estructura de recinto visible"}
+      ],
+      "elementos_ilustrativos": ["gotas sobre hojas", "ramas", "follaje", "sustrato inferior despejado"],
+      "limitaciones": ["No representa un sistema de goteo o pulverizacion comercial especifico.", "No confirma drenaje incorporado, deposito, medidor, planta segura ni accesorio incluido.", "Las gotas son una representacion de hidratacion momentanea y no de humedad permanente o encharcamiento."]
+    }
+  ],
+  "originales_generacion": "imagenes_generacion_originales/",
+  "referencias_catalogo": "referencias_catalogo/",
+  "reglas_pines": [
+    "No fijar coordenadas hasta aprobar cada recorte final.",
+    "Relacionar solo productos identificables con id_publicacion real y resolver disponibilidad mediante API.",
+    "No crear pin para ramas, follaje, sustrato, gotas, drenaje, medidores o equipos no confirmados.",
+    "No registrar relaciones ni publicar en CMS con este manifiesto sin aprobacion explicita."
+  ],
+  "siguiente": "Revision humana del dueño; despues CMS/BLOG puede preparar payload y, si existe autorizacion separada, registrar el borrador sin publicar automaticamente."
+}

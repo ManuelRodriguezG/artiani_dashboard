@@ -1,0 +1,190 @@
+{
+    "ia": "Codex GPT-6",
+    "fecha": "2026-11-04",
+    "uso": "Referencias originales para produccion visual; no son imagenes finales ni kit aprobado",
+    "productos": [
+        {
+            "id_publicacion": 269,
+            "sku": "TERAL-12",
+            "nombre": "Terrario ecuatorial 50 x 40 x 80cm puertas deslizables",
+            "url_producto": "/producto/terrario-ecuatorial-50-x-40-x-80cm-puertas-deslizables",
+            "archivo": "referencias_catalogo/TERAL-12.webp",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/1921/1778597259.webp",
+            "width": 900,
+            "height": 900,
+            "bytes": 168290,
+            "sha256": "f29eb56b386f85c9dfa6b31f16a83fb3e82c24aed0be83193fb2f9d9fd4e5474",
+            "condiciones_editoriales": {
+                "id_publicacion": 269,
+                "sku": "TERAL-12",
+                "nombre": "Terrario ecuatorial 50 × 40 × 80 cm puertas deslizables",
+                "estado_catalogo": "agotado",
+                "clasificacion": "destacado_por_diseno_talla_por_validar",
+                "materiales": "Marcos de aluminio; cristal de 6 mm; malla metalica",
+                "ventilacion": "Dos costados y parte superior",
+                "origen": "Fabricacion propia confirmada por dueño; materiales y ventilacion confirmados en descripcion publica; foto original900x900 revisada",
+                "motivo": "Incorporado al texto como opcion de diseño arboricola. Aluminio evita pudricion de madera; no afirmar ausencia de corrosion o resistencia del conjunto sin ensayo. Dimensiones publicadas50x40x80; no validado como recinto definitivo para cualquier adulto, ni para adulto velado respecto a referencia61x61x122. Puertas deslizables no acreditan cierre antiescape ni drenaje incorporado."
+            }
+        },
+        {
+            "id_publicacion": 2174,
+            "sku": "CAM-01",
+            "nombre": "Campana aluminio con gancho",
+            "url_producto": "/producto/campana-aluminio-con-gancho",
+            "archivo": "referencias_catalogo/CAM-01.webp",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/1603/1760968205.webp",
+            "width": 900,
+            "height": 900,
+            "bytes": 33674,
+            "sha256": "2054894e0a963a90d49eaf0d403ce6c5ccd934e36f5524ebe6ca6e558ed0716f",
+            "condiciones_editoriales": {
+                "id_publicacion": 2174,
+                "sku": "CAM-01",
+                "nombre": "Campana aluminio con gancho",
+                "estado_catalogo": "agotado",
+                "clasificacion": "accesorio_comercial_montaje_por_validar",
+                "motivo": "Ficha detallada confirma E26,150W,110-120V y material ceramica/NiCrAl; titulo aluminio. Limite150W no es recomendacion de potencia para camaleon. Gancho/interruptor no equivalen a termostato. Confirmar fijacion y proteccion; no atribuir UVB ni foco incluido. El dueño confirma fabricacion de su linea para camaleones."
+            }
+        },
+        {
+            "id_publicacion": 2175,
+            "sku": "CAM-02",
+            "nombre": "Campana de metal foco",
+            "url_producto": "/producto/campana-de-metal-foco",
+            "archivo": "referencias_catalogo/CAM-02.webp",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/1604/1761173344.webp",
+            "width": 900,
+            "height": 900,
+            "bytes": 31036,
+            "sha256": "3b27e55728b4f7b735569062ca2f9f45bc2106dde22aa5966ebb471e47a04da2",
+            "condiciones_editoriales": {
+                "id_publicacion": 2175,
+                "sku": "CAM-02",
+                "nombre": "Campana de metal foco",
+                "estado_catalogo": "agotado",
+                "clasificacion": "revision_tecnica_no_aprobado",
+                "motivo": "Ficha confirma soporte de foco con gancho/interruptor; no declara material metalico concreto, casquillo, voltaje o potencia maxima. No heredar limite150W de CAM-01 ni afirmar aluminio sin ficha."
+            }
+        },
+        {
+            "id_publicacion": 2176,
+            "sku": "CAM-03",
+            "nombre": "Campana de metal para doble foco",
+            "url_producto": "/producto/campana-de-metal-para-doble-foco",
+            "archivo": "referencias_catalogo/CAM-03.webp",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/1605/1761173464.webp",
+            "width": 900,
+            "height": 900,
+            "bytes": 24750,
+            "sha256": "ad3d8f79128d733909aca1e5c4a81ffe8be39e48f3a53604bf1ad628a3f7a1e1",
+            "condiciones_editoriales": {
+                "id_publicacion": 2176,
+                "sku": "CAM-03",
+                "nombre": "Campana de metal para doble foco",
+                "estado_catalogo": "agotado",
+                "clasificacion": "revision_tecnica_no_aprobado",
+                "motivo": "Ficha confirma nombre doble foco pero no detalla potencia por casquillo, carga total ni circuitos. No inferir instalacion segura o cobertura UVB por tener dos focos."
+            }
+        },
+        {
+            "id_publicacion": 191,
+            "sku": "HPT2186",
+            "nombre": "Foco repti glo 5.0 exo-terra 13 w",
+            "url_producto": "/producto/foco-repti-glo-5-0-exo-terra-13-w",
+            "archivo": "referencias_catalogo/HPT2186.jpg",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/44/1687440770.jpg",
+            "width": 900,
+            "height": 900,
+            "bytes": 39418,
+            "sha256": "9964aaaa0606aa05cf9763cbb1023cd28ebb9e13abffbb652b63059e9e3cc899",
+            "condiciones_editoriales": {
+                "id_publicacion": 191,
+                "sku": "HPT2186",
+                "nombre": "Foco Repti Glo 5.0 Exo Terra 13 W",
+                "estado_catalogo": "consultar_disponibilidad",
+                "clasificacion": "revision_tecnica_no_aprobado",
+                "motivo": "Es UVB compacto. No afirmar que cubra un terrario alto por watts/5.0. Validar modelo fisico, antiguedad, reflector, distancia, malla y medicion de exposicion. Referencia actual fabricante PT2186 no certifica automaticamente stock antiguo HPT2186."
+            }
+        },
+        {
+            "id_publicacion": 2053,
+            "sku": "HPT2187",
+            "nombre": "Foco repti glo 5.0 exo-terra 26 w",
+            "url_producto": "/producto/foco-repti-glo-5-0-exo-terra-26-w",
+            "archivo": "referencias_catalogo/HPT2187.webp",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/1425/1759443092.webp",
+            "width": 900,
+            "height": 900,
+            "bytes": 59624,
+            "sha256": "b695bf52fd25a67a5d982dd0c2fcf5690424af2e1e96822c94815b34373d04b2",
+            "condiciones_editoriales": {
+                "id_publicacion": 2053,
+                "sku": "HPT2187",
+                "nombre": "Foco Repti Glo 5.0 Exo Terra 26 W",
+                "estado_catalogo": "agotado",
+                "clasificacion": "revision_tecnica_no_aprobado",
+                "motivo": "Misma validacion de cobertura UVB; no usar 26 W como sustitucion automatica de 13 W ni de un sistema lineal."
+            }
+        },
+        {
+            "id_publicacion": 1733,
+            "sku": "HPT2110",
+            "nombre": "Foco sun glo exo-terra 60 w",
+            "url_producto": "/producto/foco-sun-glo-exo-terra-60-w",
+            "archivo": "referencias_catalogo/HPT2110.jpg",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/820/1697675323.jpg",
+            "width": 900,
+            "height": 900,
+            "bytes": 28214,
+            "sha256": "a0105a9bfed145603742e981304de7aba14c7398f639cf48bbb782aa5c68c975",
+            "condiciones_editoriales": {
+                "id_publicacion": 1733,
+                "sku": "HPT2110",
+                "nombre": "Foco Sun Glo Exo Terra 60 W",
+                "estado_catalogo": "agotado",
+                "clasificacion": "revision_tecnica_no_aprobado",
+                "motivo": "Posible calor diurno, no sustituto UVB. Confirmar especificacion fisica, termostato compatible, distancia y temperaturas medidas; sin potencia universal."
+            }
+        },
+        {
+            "id_publicacion": 193,
+            "sku": "FL2152",
+            "nombre": "Suplemento de calcio con minerales para reptiles 135 gr",
+            "url_producto": "/producto/suplemento-de-calcio-con-minerales-para-reptiles-135g",
+            "archivo": "referencias_catalogo/FL2152.jpg",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/54/1687444147.jpg",
+            "width": 900,
+            "height": 900,
+            "bytes": 31619,
+            "sha256": "81de5493907389ea9273dae097ee4d68539b888b9e7dd1b541b5c5022f4a1bdf",
+            "condiciones_editoriales": {
+                "id_publicacion": 193,
+                "sku": "FL2152",
+                "nombre": "Suplemento de calcio con minerales para reptiles 135 g",
+                "estado_catalogo": "consultar_disponibilidad",
+                "clasificacion": "revision_veterinaria_no_aprobado",
+                "motivo": "Revisar composicion, fosforo y vitaminas; nombre comercial no confirma formula sin D3 ni dosis adecuada."
+            }
+        },
+        {
+            "id_publicacion": 310,
+            "sku": "FL2151",
+            "nombre": "Suplemento de calcio con vitamina d3 para reptiles 135 gr",
+            "url_producto": "/producto/suplemento-de-calcio-con-vitamina-d3-para-reptiles-135g",
+            "archivo": "referencias_catalogo/FL2151.jpg",
+            "origen": "http://panel.com.local/media/apps/ecommerce/productos/74/1690293732.jpg",
+            "width": 900,
+            "height": 900,
+            "bytes": 38328,
+            "sha256": "a6734b7653cc93f0cd90cc7c370c0fb512dbd98ed8a04c5b0350787d94968027",
+            "condiciones_editoriales": {
+                "id_publicacion": 310,
+                "sku": "FL2151",
+                "nombre": "Suplemento de calcio con vitamina D3 para reptiles 135 g",
+                "estado_catalogo": "agotado",
+                "clasificacion": "revision_veterinaria_no_aprobado",
+                "motivo": "No intercambiable automaticamente con calcio sin D3. Frecuencia depende de UVB, especie, dieta y formula; no sugerir dosificacion universal."
+            }
+        }
+    ]
+}
