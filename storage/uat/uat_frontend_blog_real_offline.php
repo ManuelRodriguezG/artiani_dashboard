@@ -5,6 +5,7 @@
 if (PHP_SAPI !== 'cli') exit;
 $root = 'C:/xampp/htdocs/frontend/ecommerce-publico';
 require $root . '/app/Config/env.php'; require $root . '/app/helpers.php'; require $root . '/app/Api/ErpEcommerceApi.php';
+require $root . '/app/Components/BlogCard.php';
 putenv('APP_ENV=production'); putenv('ERP_API_BASE_URL=http://api.test'); putenv('API_BASE_URL='); putenv('API_ASSET_BASE_URL=http://media.test'); putenv('APP_USE_FIXTURES=false'); putenv('ERP_API_CACHE_SECONDS=0');
 $_SERVER['HTTP_HOST'] = 'artiani.com.mx'; $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 $api = new ErpEcommerceApi();
@@ -22,4 +23,17 @@ $checks = array(
   'apoyos_host_media' => $p['imagenes'][0]['url'] === 'http://media.test/assets/media/cms/ecommerce/apoyo.webp',
   'bloque_host_media' => $p['bloques_interactivos'][0]['imagen']['url'] === 'http://media.test/assets/media/cms/ecommerce/escena.webp'
 );
+// IA: Codex GPT-6 | 2026-11-04. La etiqueta de preview no debe activarse por flags/URL fuera del transporte local.
+$preview = array('depurar' => array('preview_local' => true), '_meta_frontend' => array('source' => 'erp_preview_local'));
+ob_start(); blog_local_preview_notice($preview, array('estado' => 'borrador')); $productionNotice = ob_get_clean();
+$checks['produccion_sin_aviso_aun_con_flags'] = $productionNotice === '' && !blog_is_local_preview($preview);
+putenv('APP_ENV=local'); $_SERVER['HTTP_HOST'] = 'artiani.com.local';
+ob_start(); blog_local_preview_notice($preview, array('estado' => 'borrador')); $localNotice = ob_get_clean();
+$checks['local_muestra_estado_real'] = strpos($localNotice, 'Vista previa local · Borrador') !== false && strpos($localNotice, 'todavía no está publicado') !== false;
+$_GET['preview_local'] = '1';
+$checks['parametro_url_no_activa_preview'] = !blog_is_local_preview(array('depurar' => array('preview_local' => true)));
+$_SERVER['REMOTE_ADDR'] = '203.0.113.10';
+$checks['ip_externa_sin_aviso'] = !blog_is_local_preview($preview);
+$_SERVER['REMOTE_ADDR'] = '127.0.0.1'; $_SERVER['HTTP_HOST'] = 'artiani.com.mx';
+$checks['host_productivo_sin_aviso'] = !blog_is_local_preview($preview);
 echo json_encode(array('ok' => !in_array(false,$checks,true), 'checks' => $checks, 'red' => false, 'bd' => false), JSON_PRETTY_PRINT); exit(in_array(false,$checks,true) ? 1 : 0);

@@ -146,6 +146,21 @@ Resultado 2026-09-28:
 
 ## Handoff
 
+### Aviso visible de borrador en frontend local / 2026-11-04
+
+- IA: Codex GPT-6. El dueño confirma necesidad de ver borradores localmente antes de publicarlos. Se aclara: endpoint privado local SI entrega el borrador habilitado; endpoint publico normal NO lo entrega. No confundir ambos contratos al comunicar avances.
+- Se agrega aviso «Vista previa local · Borrador» en listado/detalle del frontend (`BlogCard.php`, paginas blog/blog-detail y CSS). La etiqueta usa estado real y solo aparece con entorno/host/IP locales y respuesta del transporte privado. No cambia CMS ni acceso, ni expone clave, ni habilita preview por querystring.
+- Se conserva configuracion de revision privada ID1. No se publica en BD compartida por revisar frontend. Camaleon aun no esta registrado; habilitar su revision cuando corresponda. No afirmar que todos los borradores ya se muestran automaticamente.
+- Verificacion:12 checks offline de adaptador/aviso y7 controles GET del endpoint/estado, sin escrituras BD. QA local aislado escritorio/movil con POST bloqueados revisa aviso en listado/detalle y conserva tarjetas/imagenes.
+- Siguiente: dueño revisa articulo local con aviso. Sigue pendiente como tarea del editor CMS mostrar estado real y revisar guardado de publicados; no alterar ese flujo solo para resolver la vista previa. Despliegue/publicacion requieren el paso posterior indicado por el dueño.
+
+### Aclaracion de estado y revision local / 2026-11-04
+
+- IA: Codex GPT-6. El dueño pregunta por que ve piton en frontend aunque CMS indica borrador y el selector solo muestra borrador/pausado. Verificacion GET `uat_blog_preview_local_readonly.php`: ID1 conserva borrador, preview privado local permite revision y API publica normal no entrega ese borrador. No se publico por mostrarlo en artiani.com.local.
+- UI actual: `cms_blog_estado` es Estado de trabajo con borrador/pausado; Publicar es boton separado `cms_blog_publicar_btn` al final del formulario. El filtro/listado si conoce publicado. La interfaz no explica suficientemente esta distincion.
+- Pendiente UX confirmado por lectura: cargarItem mapea todo estado distinto de pausado a borrador y adminGuardar solo admite borrador/pausado. Un ajuste futuro debe mostrar estado real y revisar el flujo de edicion de publicados para evitar degradarlos accidentalmente al guardar. No resolver agregando solo una opcion publicado al select: el backend la normaliza a borrador y la accion de publicar tiene validaciones/permisos propios. Evaluar como tarea especifica, sin escrituras productivas para diagnosticar.
+- Siguiente: aclarar visualmente estado real, guardado y accion Publicar; indicar vista previa local en la revision. Despliegue/publicacion real siguen pendientes del flujo documentado y aprobacion del dueño.
+
 ### Encargo visual enviado a contenido / 2026-11-04
 
 - IA: Codex GPT-6. Autorizacion expresa del dueño para enviar informacion/fotos y medidas al chat existente `Estrategia y Produccion de Contenido…` (local,01a16c4f-e796-7690-b667-2f1268a4d00d). `send_message_to_thread` confirmado; snapshot posterior muestra turno en progreso. Se conserva modelo/configuracion del chat, sin crear otro.

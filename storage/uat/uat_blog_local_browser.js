@@ -25,6 +25,9 @@ const fs = require('node:fs');
       const r=await page.goto('http://artiani.com.local/blog/piton-bola-preparar-habitat',{waitUntil:'domcontentloaded',timeout:60000});
       assert.equal(r.status(),200);
       await page.locator('[data-blog-detail]').waitFor();
+      // IA: Codex GPT-6 | 2026-11-04. Distinguir revision local de publicacion real.
+      await page.locator('[data-blog-local-preview]').waitFor();
+      assert.match(await page.locator('[data-blog-local-preview]').innerText(),/Vista previa local · Borrador/);
       await page.locator('[data-blog-detail] img[src*="piton-bola"]').evaluateAll(async imgs=>{
         for(const img of imgs){img.loading='eager';if(!img.complete)await new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});}
       });
@@ -52,8 +55,12 @@ const fs = require('node:fs');
       assert(loadedProducts.every(img=>img.loaded),'Imagenes de producto pendientes: '+JSON.stringify(loadedProducts.filter(img=>!img.loaded)));
       await page.locator('[data-blog-products]').screenshot({path:path.join(output,name+'-productos.png'),animations:'disabled'});
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
+      await page.evaluate(()=>scrollTo(0,0));
       await page.screenshot({path:path.join(output,name+'.png'),fullPage:false});
-      results.push({view:name,status:200,imagenes:images.length,imagenes_distintas:new Set(images.map(i=>i.src)).size,todas_cargadas:true,productos_reales:products.length,imagenes_producto_cargadas:loadedProducts.length,tarjetas_con_imagen_e_identidad:true,overflow});
+      const listado=await page.goto('http://artiani.com.local/blog',{waitUntil:'domcontentloaded',timeout:60000});
+      assert.equal(listado.status(),200);
+      assert.match(await page.locator('[data-blog-local-preview]').innerText(),/Vista previa local · Borrador/);
+      results.push({view:name,status:200,aviso_borrador_listado_y_detalle:true,imagenes:images.length,imagenes_distintas:new Set(images.map(i=>i.src)).size,todas_cargadas:true,productos_reales:products.length,imagenes_producto_cargadas:loadedProducts.length,tarjetas_con_imagen_e_identidad:true,overflow});
       await ctx.close();
     }
     console.log(JSON.stringify({ok:true,resultados:results,post_reales:0,output},null,2));
