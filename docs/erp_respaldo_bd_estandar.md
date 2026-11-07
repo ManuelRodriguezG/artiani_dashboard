@@ -4,6 +4,16 @@ Documentacion IA: Codex GPT-5
 Fecha: 2026-07-17  
 Estado: criterio operativo transversal para cambios con escritura o DDL.
 
+## Camaleon Blog y cinco medios / 2026-11-05
+
+IA: Codex GPT-6. El dueño autoriza subir cinco imagenes y registrar camaleon exclusivamente como borrador para revisar frontend local.
+
+- Archivo: `C:/xampp/panel_db_backups/productivo_panel_20261105_004249_antes_camaleon_blog_media_fd4ea2.json`.
+- Tamaño826bytes; SHA256 `c04a8effc0c07db0a8282828dd22369055295a0b4d8935d818c5b1d70abb3d68`, verificado antes de altas.
+- Respaldo puntual, NO completo: consulta previa por slug y coincidencias de hashes Media (sin articulo/medios previos), fingerprint del payload y sentinel de estado/hash de piton. Sin credenciales ni clave privada.
+- Resultado: Blog2/borrador, Media46–50, cuatro apoyos, ocho productos, seis categorias; auditoria registrada, sin publicacion/DDL. Piton estaba publicado y conserva estado/hash.
+- La carga se ejecuto mediante runner temporal; runner y recibos locales retirados por instruccion del dueño el2026-11-06. Los registros operativos permanecen en CMS2,Media46–50 y auditoria; el respaldo externo indicado se conserva. Cualquier retiro/restauracion debe revisar exclusivamente estas altas y su uso actual, no revertir indiscriminadamente.
+
 ## Ruta estandar local
 
 Los respaldos externos al proyecto deben guardarse fuera de:
@@ -143,7 +153,7 @@ alcance=respaldo_completo_antes_de_8_CREATE_Blog
 resultado=8_tablas_disponibles_borrador_blog_id_1_no_publicado
 ```
 
-No ejecutar el respaldo para revertir indiscriminadamente la base: cualquier restauracion requiere revisar cambios posteriores y un plan autorizado. Alta ejecutada mediante `storage/uat/uat_cms_blog_piton_apply_authorized.php`; imagenes pendientes de carga manual en el editor.
+No ejecutar el respaldo para revertir indiscriminadamente la base: cualquier restauracion requiere revisar cambios posteriores y un plan autorizado. Alta ejecutada mediante un runner temporal de piton. Actualizacion 2026-11-06 (IA: Codex GPT-6): ese runner, los de referencias/imagenes y sus recibos de trabajo fueron retirados por instruccion del dueño; se conservan este respaldo externo, CMS1, Media39–43, auditoria y los cinco WebP finales. Las imagenes ya fueron registradas posteriormente; la mencion historica de carga pendiente queda superada. No recrear ni ejecutar el runner como parte de una restauracion sin un plan nuevo.
 
 Catálogos comerciales: asignación de 45 portadas definitivas autorizada por el dueño el 2026-10-17:
 

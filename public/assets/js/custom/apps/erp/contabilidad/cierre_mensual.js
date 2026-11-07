@@ -117,7 +117,21 @@
         config.headers = config.headers || {};
         config.headers.Accept = "application/json";
         return fetch(url, config).then(function (response) {
-            return response.json();
+            return response.text().then(function (texto) {
+                var cuerpo = (texto || "").trim();
+                if (!cuerpo) {
+                    throw new Error("El servidor respondio vacio (HTTP " + response.status + ").");
+                }
+                try {
+                    var datos = JSON.parse(cuerpo);
+                    if (!response.ok && !datos.mensaje) {
+                        datos.mensaje = "El servidor rechazo la solicitud (HTTP " + response.status + ").";
+                    }
+                    return datos;
+                } catch (e) {
+                    throw new Error("El servidor no devolvio JSON valido (HTTP " + response.status + ").");
+                }
+            });
         });
     }
     function cargarCierresRemotos() {
@@ -142,12 +156,18 @@
     function guardarCierreRemoto(cierre) {
         var form = new FormData();
         form.append("_csrf", window.ERP_CSRF_TOKEN || "");
-        form.append("payload_json", JSON.stringify(cierre));
+        var payloadJson = JSON.stringify(cierre);
+        form.append("payload_json", payloadJson);
         return apiContabilidad("/contabilidad/cierre_guardar_erp", {
             method: "POST",
             body: form,
             headers: {"X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}
         });
+    }
+    function mensajeRespuestaContabilidad(respuesta, fallback) {
+        var mensaje = respuesta && respuesta.mensaje ? respuesta.mensaje : fallback;
+        var detalle = respuesta && respuesta.depurar && respuesta.depurar.detalle ? respuesta.depurar.detalle : "";
+        return detalle ? mensaje + " Detalle: " + detalle : mensaje;
     }
     function cargarCierreRemoto(id) {
         return apiContabilidad("/contabilidad/cierre_consultar_erp?id_cierre=" + encodeURIComponent(id)).then(function (respuesta) {
@@ -198,7 +218,7 @@
         renderGuardados();
         guardarCierreRemoto(cierre).then(function (respuesta) {
             if (!respuesta || respuesta.error) {
-                throw new Error(respuesta && respuesta.mensaje ? respuesta.mensaje : "No pude guardar el cierre en la base de datos.");
+                throw new Error(mensajeRespuestaContabilidad(respuesta, "No pude guardar el cierre en la base de datos."));
             }
             return cargarCierresRemotos();
         }).then(function () {

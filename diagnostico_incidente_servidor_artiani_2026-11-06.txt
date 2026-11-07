@@ -1,0 +1,217 @@
+DIAGNOSTICO TECNICO DEL INCIDENTE DE PETICIONES
+Proyecto: artiani.com.mx / panel_de_control
+Fecha: 2026-11-06
+
+OBJETIVO
+--------
+Determinar si la arquitectura actual puede generar por si misma un exceso de peticiones y saturar el servidor, y separar las causas comprobadas de las hipotesis que requieren evidencia del servidor.
+
+CONCLUSION PRINCIPAL
+--------------------
+Si existe una ruta de auto-saturacion en el proyecto.
+
+El frontend realiza varias peticiones internas hacia sys.artiani.com.mx por cada pagina PHP. Ademas, en produccion el cache HTML esta desactivado. Esto provoca que cada visita vuelva a ejecutar la cadena de llamadas al ERP.
+
+La combinacion de estos factores puede producir una estampida de peticiones cuando:
+
+- llegan varias visitas simultaneas;
+- expiran varios caches al mismo tiempo;
+- el servidor no puede escribir o compartir correctamente el directorio de cache;
+- una consulta del ERP tarda demasiado;
+- un monitor consulta endpoints costosos con frecuencia.
+
+FLUJO ACTUAL OBSERVADO
+----------------------
+El proyecto esta dividido en dos aplicaciones:
+
+1. Frontend publico:
+   C:\xampp\htdocs\frontend\ecommerce-publico
+
+2. Backend/ERP:
+   C:\xampp\htdocs\panel_de_control
+
+El frontend genera las paginas y hace solicitudes HTTP servidor-a-servidor al ERP en:
+
+https://sys.artiani.com.mx/ecommercePublico
+
+No se encontro evidencia de un ciclo directo en el que el ERP llame al frontend y el frontend vuelva a llamar al ERP. La evidencia actual apunta principalmente a un flujo frontend -> ERP.
+
+PETICIONES INTERNAS POR PAGINA
+------------------------------
+En:
+
+C:\xampp\htdocs\frontend\ecommerce-publico\app\helpers.php
+
+La funcion render_page() inicializa datos globales solicitando:
+
+- navegacion;
+- categorias;
+- politicas;
+- configuracion;
+- configuracion inicial;
+- CMS global, cuando la configuracion no contiene todo el contenido publicado.
+
+Adicionalmente, en:
+
+C:\xampp\htdocs\frontend\ecommerce-publico\app\Domain\Seo.php
+
+Cada pagina HTML consulta redirecciones SEO antes de renderizarse.
+
+Despues, cada pagina puede agregar sus propias peticiones:
+
+- estado;
+- SEO;
+- CMS de la pagina;
+- categorias;
+- catalogo;
+- filtros;
+- marcas;
+- producto relacionado.
+
+Cuando el cache esta frio, una pagina completa puede generar aproximadamente entre 11 y 13 peticiones internas al ERP. La cantidad exacta depende de la pagina y de si el CMS necesita una segunda consulta de respaldo.
+
+ARCHIVOS CLAVE DEL FRONTEND
+---------------------------
+
+1. Cliente de API:
+   C:\xampp\htdocs\frontend\ecommerce-publico\app\Api\ErpEcommerceApi.php
+
+   El metodo request() hace las solicitudes HTTP al ERP. El cache de archivos evita algunas solicitudes cuando esta caliente, pero no existe una proteccion global de una sola actualizacion simultanea para todos los endpoints.
+
+2. Inicializacion global:
+   C:\xampp\htdocs\frontend\ecommerce-publico\app\helpers.php
+
+   render_page() solicita navegacion, categorias, politicas y configuracion en cada render que no se resuelve desde cache HTML.
+
+3. Cache de paginas:
+   C:\xampp\htdocs\frontend\ecommerce-publico\public\index.php
+
+   La funcion render_cached_page() soporta cache HTML, pero el valor de produccion actual es 0 segundos, por lo que esta desactivado por defecto.
+
+4. Configuracion de entorno:
+   C:\xampp\htdocs\frontend\ecommerce-publico\app\Config\env.php
+
+   Los valores revisados indican:
+
+   APP_ENV=production
+   ERP_API_CACHE_SECONDS=60
+   APP_PAGE_CACHE_SECONDS=0
+
+   El valor efectivo del servidor debe confirmarse con el archivo .env desplegado, sin compartir contrasenas.
+
+ENDPOINTS DEL BACKEND QUE PUEDEN SER COSTOSOS
+---------------------------------------------
+
+1. Estado:
+   C:\xampp\htdocs\panel_de_control\app\controladores\EcommercePublico.php
+   C:\xampp\htdocs\panel_de_control\app\modelos\EcommerceCatalogoPublico.php
+
+   El endpoint /estado no es completamente ligero: verifica tablas, cuenta publicaciones y calcula un resumen de publicabilidad.
+
+2. Catalogo:
+   C:\xampp\htdocs\panel_de_control\app\modelos\EcommerceCatalogoPublico.php
+
+   El endpoint /catalogo realiza una consulta de conteo, otra de elementos y posteriormente procesa los resultados.
+
+3. Health:
+   C:\xampp\htdocs\frontend\ecommerce-publico\public\index.php
+
+   /api/health utiliza apiSnapshot(), que consulta varios endpoints del ERP. No debe considerarse un endpoint de salud barato.
+
+   Si cPanel, Cloudflare, un monitor externo o una herramienta de disponibilidad consulta /api/health con mucha frecuencia, puede generar una carga importante.
+
+MEDICION LOCAL REALIZADA
+------------------------
+Se ejecuto una prueba de lectura contra el entorno local. No se hizo prueba de carga ni se enviaron peticiones al servidor productivo.
+
+Resultado con cache frio:
+
+- tiempo total aproximado: 1.2 segundos;
+- 8 peticiones internas efectivas y una repetida resuelta por memoria;
+- todas las respuestas fueron exitosas.
+
+Resultado con cache caliente:
+
+- tiempo total aproximado: 8 milisegundos;
+- las respuestas provinieron del cache local.
+
+Esta diferencia demuestra que el comportamiento depende mucho del cache. Si el cache no es escribible, expira simultaneamente o no se comparte correctamente entre procesos, el costo vuelve a recaer en el ERP.
+
+HIPOTESIS PRIORIZADAS
+---------------------
+
+HIPOTESIS 1 - Fan-out por pagina, probabilidad alta
+
+Cada visita al frontend puede producir muchas solicitudes internas al ERP. La distribucion observada de rutas, con miles de solicitudes a navegacion, categorias, configuracion, estado, SEO y contenido, es compatible con este comportamiento.
+
+La ausencia de cache HTML en produccion aumenta mucho el impacto.
+
+HIPOTESIS 2 - Estampida de cache, probabilidad alta
+
+La configuracion inicial tiene un mecanismo de bloqueo, pero el resto de endpoints no tiene una proteccion global equivalente. Cuando expiran varios archivos de cache, varias peticiones PHP pueden intentar regenerarlos al mismo tiempo.
+
+Tambien se debe confirmar que el directorio de cache tenga permisos de escritura y que todos los procesos PHP utilicen el mismo almacenamiento.
+
+HIPOTESIS 3 - Endpoint de salud o consultas costosas, probabilidad media-alta
+
+/api/health consulta varios endpoints. /estado y /catalogo realizan trabajo de base de datos. Si un monitor los consulta con frecuencia o si MySQL se encuentra lento, pueden consumir procesos PHP hasta provocar timeouts y respuestas 504.
+
+HIPOTESIS NO CONFIRMADA - Bucle de llamadas
+
+No se encontro evidencia de que el backend llame directamente al frontend para regresar al backend. Esta hipotesis no debe considerarse la causa principal sin revisar registros de acceso y trazas de peticiones.
+
+LO QUE TODAVIA DEBE REVISARSE EN CPANEL/SERVIDOR
+------------------------------------------------
+
+Para cerrar la causa exacta se necesita revisar:
+
+1. Registros de Apache o cPanel durante el incidente, especialmente de 06:00 a 08:00 del 2026-11-06.
+
+2. User-Agent, IP, Referer y ruta solicitada. Esto permite distinguir usuarios reales, bots, monitores y llamadas internas.
+
+3. Valores efectivos del archivo .env, ocultando contrasenas y llaves.
+
+4. Permisos, tamano y cantidad de archivos dentro de storage/cache.
+
+5. Limites de PHP-FPM, Apache, procesos simultaneos y memoria.
+
+6. Consultas lentas de MySQL y procesos activos durante el incidente.
+
+7. Frecuencia con la que cPanel, Cloudflare o un monitor consulta /api/health, /estado o cualquier ruta publica.
+
+8. Si existe algun proxy, regla de reintentos o balanceador que repita solicitudes 502/504.
+
+PRUEBAS REALIZADAS
+------------------
+
+- Prueba ligera del frontend: 24 verificaciones exitosas.
+- Prueba de resiliencia de API: 116 verificaciones aisladas exitosas.
+- Prueba de carga de configuracion publica: exitosa.
+- Validacion de sintaxis PHP en los archivos principales: exitosa.
+- Prueba de rendimiento local GET-only: exitosa.
+
+No se modificaron archivos del proyecto. No se realizaron migraciones, escrituras de base de datos ni pruebas de carga contra produccion.
+
+RECOMENDACION INICIAL
+---------------------
+Antes de subir cambios, conviene confirmar los registros del servidor y el comportamiento del cache. La primera proteccion que deberia revisarse es evitar que cada pagina regenere simultaneamente la misma informacion del ERP. Tambien debe revisarse que /api/health no este funcionando como una consulta pesada ejecutada con demasiada frecuencia.
+
+Este documento es un diagnostico inicial basado en el codigo local y en mediciones de bajo impacto. La confirmacion definitiva requiere los logs del servidor correspondientes al horario de la caida.
+
+ACTUALIZACION POSTERIOR - CORRECCIONES LOCALES
+----------------------------------------------
+
+Se implementaron dos correcciones acotadas en el frontend local:
+
+1. El cache API GET ahora coordina la regeneracion por URL con un bloqueo especifico y espera maxima configurable mediante ERP_API_CACHE_LOCK_WAIT_SECONDS. Tras adquirir el bloqueo vuelve a leer el cache. Si otro proceso esta regenerando, usa una respuesta anterior valida cuando existe o devuelve 503 controlado sin anunciar exito falso.
+
+2. /api/health ahora es una comprobacion basica que no consulta el ERP. El diagnostico profundo queda en /api/health?deep=1 y /api/health/deep. La pagina interna de estado usa el modo profundo.
+
+Validacion posterior:
+
+- Sintaxis PHP correcta en los archivos modificados.
+- 116 pruebas aisladas de resiliencia API exitosas.
+- 24 pruebas ligeras exitosas.
+- 134 pruebas SEO/cache exitosas.
+
+Estas correcciones son locales y no se publicaron. La concurrencia entre procesos independientes y la causa exacta del incidente historico todavia requieren staging y registros del servidor.

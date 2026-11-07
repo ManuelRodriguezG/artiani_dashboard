@@ -2,15 +2,34 @@
 
 class ContabilidadDatos extends CRUD {
 
-  private $tabla = "erp_contabilidad_cierres";
+  private $dbContabilidad = null;
 
   public function __construct() {
-    parent::__construct();
+    $this->dbContabilidad = $this->crearConexion();
     $this->asegurarTabla();
   }
 
   private function conexion() {
-    return $this->getConexion();
+    return $this->dbContabilidad;
+  }
+
+  private function crearConexion() {
+    try {
+      $db = new PDO(
+        "mysql:host=" . MYSQLHOST . ";port=" . MYSQLPORT . ";dbname=" . MYSQLBASE,
+        MYSQLUSER,
+        MYSQLPASS,
+        array(
+          PDO::ATTR_PERSISTENT => false,
+          PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+          PDO::ATTR_TIMEOUT => 10
+        )
+      );
+      $db->exec("SET NAMES utf8mb4");
+      return $db;
+    } catch (Throwable $e) {
+      return null;
+    }
   }
 
   private function asegurarTabla() {
@@ -37,7 +56,7 @@ class ContabilidadDatos extends CRUD {
     }
   }
 
-  public function listar($idUsuario) {
+  public function listarCierres($idUsuario) {
     $db = $this->conexion();
     if (!$db) {
       return $this->respuesta(true, "danger", "No hay conexion con la base de datos", array());
@@ -72,7 +91,7 @@ class ContabilidadDatos extends CRUD {
     }
   }
 
-  public function consultar($idUsuario, $idCierre) {
+  public function consultarCierre($idUsuario, $idCierre) {
     $db = $this->conexion();
     if (!$db) {
       return $this->respuesta(true, "danger", "No hay conexion con la base de datos", array());
@@ -97,7 +116,7 @@ class ContabilidadDatos extends CRUD {
     }
   }
 
-  public function guardar($idUsuario, $datos) {
+  public function guardarCierre($idUsuario, $datos) {
     $db = $this->conexion();
     if (!$db || !is_array($datos)) {
       return $this->respuesta(true, "danger", "No hay datos validos para guardar", array());
@@ -107,7 +126,7 @@ class ContabilidadDatos extends CRUD {
       return $this->respuesta(true, "warning", "El cierre necesita un periodo mensual valido", array());
     }
     $datos["periodo"] = $periodo;
-    $datosJson = json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $datosJson = json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     if ($datosJson === false) {
       return $this->respuesta(true, "danger", "No pude preparar la informacion del cierre", array());
     }
@@ -130,7 +149,7 @@ class ContabilidadDatos extends CRUD {
     }
   }
 
-  public function eliminar($idUsuario, $idCierre) {
+  public function eliminarCierre($idUsuario, $idCierre) {
     $db = $this->conexion();
     if (!$db) {
       return $this->respuesta(true, "danger", "No hay conexion con la base de datos", array());

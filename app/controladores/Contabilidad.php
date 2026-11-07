@@ -2,6 +2,11 @@
 
 class Contabilidad extends Controlador {
 
+  private function modeloContabilidadDatos() {
+    require_once RUTA_APP . "/modelos/contabilidad_datos.php";
+    return new ContabilidadDatos();
+  }
+
   public function __construct() {
     $this->requerirSesion();
   }
@@ -20,35 +25,55 @@ class Contabilidad extends Controlador {
 
   public function cierres_listar_erp() {
     $this->requerirPermiso("finanzas.ver");
-    echo json_encode($this->modelo("contabilidad_datos")->listar($this->usuarioActualId()));
+    try {
+      $respuesta = $this->modeloContabilidadDatos()->listarCierres($this->usuarioActualId());
+    } catch (Throwable $e) {
+      $respuesta = array("error" => true, "tipo" => "danger", "mensaje" => "No pude consultar los cierres contables.", "depurar" => array("detalle" => $e->getMessage()));
+    }
+    echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
   }
 
   public function cierre_consultar_erp() {
     $this->requerirPermiso("finanzas.ver");
     $id = isset($_GET["id_cierre"]) ? intval($_GET["id_cierre"]) : 0;
-    echo json_encode($this->modelo("contabilidad_datos")->consultar($this->usuarioActualId(), $id));
+    try {
+      $respuesta = $this->modeloContabilidadDatos()->consultarCierre($this->usuarioActualId(), $id);
+    } catch (Throwable $e) {
+      $respuesta = array("error" => true, "tipo" => "danger", "mensaje" => "No pude abrir el cierre contable.", "depurar" => array("detalle" => $e->getMessage()));
+    }
+    echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
   }
 
   public function cierre_guardar_erp() {
     $this->requerirPermiso("finanzas.operar");
     $payload = isset($_POST["payload_json"]) ? json_decode($_POST["payload_json"], true) : null;
-    $respuesta = $this->modelo("contabilidad_datos")->guardar($this->usuarioActualId(), $payload);
+    try {
+      $respuesta = $this->modeloContabilidadDatos()->guardarCierre($this->usuarioActualId(), $payload);
+    } catch (Throwable $e) {
+      http_response_code(500);
+      $respuesta = array("error" => true, "tipo" => "danger", "mensaje" => "No pude guardar el cierre en la base de datos.", "depurar" => array("detalle" => $e->getMessage()));
+    }
     Sesionseguridad::registrarAuditoria("contabilidad", "cierre_guardar_erp", array(
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "periodo" => is_array($payload) && isset($payload["periodo"]) ? $payload["periodo"] : ""
     ));
-    echo json_encode($respuesta);
+    echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
   }
 
   public function cierre_eliminar_erp() {
     $this->requerirPermiso("finanzas.operar");
     $id = isset($_POST["id_cierre"]) ? intval($_POST["id_cierre"]) : 0;
-    $respuesta = $this->modelo("contabilidad_datos")->eliminar($this->usuarioActualId(), $id);
+    try {
+      $respuesta = $this->modeloContabilidadDatos()->eliminarCierre($this->usuarioActualId(), $id);
+    } catch (Throwable $e) {
+      http_response_code(500);
+      $respuesta = array("error" => true, "tipo" => "danger", "mensaje" => "No pude eliminar el cierre de la base de datos.", "depurar" => array("detalle" => $e->getMessage()));
+    }
     Sesionseguridad::registrarAuditoria("contabilidad", "cierre_eliminar_erp", array(
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "id_cierre" => $id
     ));
-    echo json_encode($respuesta);
+    echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
   }
 
   /**

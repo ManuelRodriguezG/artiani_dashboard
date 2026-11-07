@@ -349,9 +349,9 @@ class EcommercePublico extends Controlador {
     return $this->responderApiPublica($blog->blogPublico($_GET));
   }
 
-  /** IA: Codex GPT-6.1-sol | Fecha: 2026-11-01.
-   * Proposito: revisar el articulo real solo en el frontend local sin publicarlo en la BD compartida.
-   * Contrato: GET, host local exacto, IP loopback y clave privada servidor-servidor. Solo ID habilitado;
+  /** IA: Codex GPT-6 | Fecha: 2026-11-05.
+   * Proposito: revisar los articulos habilitados solo en frontend local sin publicar en BD compartida.
+   * Contrato: GET, host local exacto, IP loopback y clave privada servidor-servidor. Lista explicita ID/slug;
    * no admite claves en URL, no comparte CORS, no cachea ni cambia estado/persistencia.
    */
   public function blog_preview_local($slug = "") {
@@ -370,23 +370,41 @@ class EcommercePublico extends Controlador {
       http_response_code(404);
       return json_encode(array('error' => true, 'depurar' => array()));
     }
-    $r = $this->modelo('EcommerceBlogPublico')->adminConsultar(intval($config['id_blog_publicacion'] ?? 0));
-    if (!empty($r['error']) || trim((string) ($r['depurar']['publicacion']['slug'] ?? '')) !== ($config['slug'] ?? '')
-        || ($slug !== '' && $slug !== $config['slug'])) {
+    // Compatibilidad con la configuracion inicial de piton; agregar camaleon no debe ocultar el otro borrador.
+    $entradas = is_array($config['publicaciones'] ?? null) ? $config['publicaciones'] : array();
+    $entradas[] = array('id_blog_publicacion' => $config['id_blog_publicacion'] ?? 0, 'slug' => $config['slug'] ?? '');
+    $permitidas = array();
+    foreach (array_slice($entradas, 0, 20) as $entrada) {
+      if (!is_array($entrada)) { continue; }
+      $id = intval($entrada['id_blog_publicacion'] ?? 0);
+      $habilitado = (string) ($entrada['slug'] ?? '');
+      if ($id > 0 && preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $habilitado)) { $permitidas[$habilitado] = $id; }
+    }
+    if (empty($permitidas) || ($slug !== '' && !isset($permitidas[$slug]))) {
       http_response_code(404);
       return json_encode(array('error' => true, 'depurar' => array()));
     }
-    $post = $r['depurar']['publicacion'];
-    $post['seo']['robots'] = 'noindex,nofollow';
-    $post['preview_local'] = true;
+    $blog = $this->modelo('EcommerceBlogPublico');
     if ($slug === '') {
-      // Nunca entregar el cuerpo del borrador en una tarjeta de listado.
-      unset($post['contenido_html']);
-      $q = trim((string) ($_GET['q'] ?? ''));
-      $match = $q === '' || mb_stripos($post['titulo'] . ' ' . $post['extracto'], $q) !== false;
-      $items = $match ? array($post) : array();
-      return json_encode(array('error' => false, 'depurar' => array('preview_local' => true, 'items' => $items, 'paginacion' => array('pagina' => 1, 'limite' => 12, 'total' => count($items), 'total_paginas' => 1))));
+      $q = is_scalar($_GET['q'] ?? '') ? trim((string) ($_GET['q'] ?? '')) : '';
+      $items = array();
+      foreach ($permitidas as $habilitado => $id) {
+        $r = $blog->adminConsultar($id);
+        $post = $r['depurar']['publicacion'] ?? array();
+        if (!empty($r['error']) || ($post['slug'] ?? '') !== $habilitado) { continue; }
+        if ($q !== '' && mb_stripos($post['titulo'] . ' ' . $post['extracto'], $q) === false) { continue; }
+        // Nunca entregar el cuerpo del borrador en una tarjeta de listado.
+        unset($post['contenido_html'], $post['contenido_texto']);
+        $post['seo']['robots'] = 'noindex,nofollow'; $post['preview_local'] = true;
+        $items[] = $post;
+      }
+      $total = count($items); $pagina = max(1, intval($_GET['pagina'] ?? 1)); $limite = max(1, min(36, intval($_GET['limite'] ?? 12)));
+      return json_encode(array('error' => false, 'depurar' => array('preview_local' => true, 'items' => array_slice($items, ($pagina - 1) * $limite, $limite), 'paginacion' => array('pagina' => $pagina, 'limite' => $limite, 'total' => $total, 'total_paginas' => max(1, intval(ceil($total / $limite)))))));
     }
+    $r = $blog->adminConsultar($permitidas[$slug]);
+    $post = $r['depurar']['publicacion'] ?? array();
+    if (!empty($r['error']) || ($post['slug'] ?? '') !== $slug) { http_response_code(404); return json_encode(array('error' => true, 'depurar' => array())); }
+    $post['seo']['robots'] = 'noindex,nofollow'; $post['preview_local'] = true;
     $rels = $r['depurar']['relaciones'];
     return json_encode(array('error' => false, 'depurar' => array('preview_local' => true, 'publicacion' => $post,
       'imagenes' => $rels['imagenes'], 'productos_relacionados' => $rels['productos'], 'categorias_relacionadas' => $rels['categorias'],

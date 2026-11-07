@@ -208,6 +208,16 @@ Conserva este contrato salvo que el modulo ya use otro formato.
 - Si falta una tabla/columna, primero busca si existe un `*Esquema.php` que ya la declare.
 - Para respaldos externos antes de DDL, scripts `apply_authorized`, escrituras masivas o cambios de datos sensibles, usar la ruta estandar `C:\xampp\panel_db_backups` y documentar el archivo en `docs/erp_respaldo_bd_estandar.md`.
 
+## Storage y archivos temporales de agentes
+
+- Regla del dueno, 2026-11-06: no usar `storage/` como archivo permanente de investigacion, capturas, respuestas de herramientas, dumps de catalogo, payloads, versiones descartadas o paquetes de entrega duplicados.
+- Para trabajo temporal usar una carpeta identificable en el directorio temporal del sistema, fuera del proyecto. Limpiarla al finalizar; no trasladar residuos a otra carpeta del repo ni ocultarlos con `.gitignore`.
+- En Blog conservar solamente las imagenes finales necesarias. El contenido y relaciones vigentes viven en CMS; el avance y las decisiones se resumen en el documento vivo existente. No guardar por defecto originales de generacion, copias de productos, JSON/HTML de preparacion, ZIP reproducibles ni capturas de QA.
+- Los scripts de carga/preparacion creados para una sola tarea deben retirarse al terminar y verificar el resultado. Conservar herramientas y pruebas reutilizables mantenidas; no confundirlas con sus salidas temporales. Antes de reutilizar un script antiguo, revisar su destino de salida para no volver a llenar `storage/`.
+- No borrar por nombre, extension o antiguedad: `storage/erp` contiene adjuntos/importaciones operativos; `storage/tmp` tambien puede alimentar pantallas; `storage/uat` contiene pruebas y herramientas referenciadas. Conservar configuracion privada de preview, resguardo Media y archivos activos del sitio.
+- Antes de una limpieza verificar dependencias en codigo, identidad de los archivos finales y uso operativo; si se plantea retirar archivos ligados a registros, comprobar primero su uso en BD mediante lectura. Resolver rutas absolutas y rechazar enlaces/junctions fuera del alcance. No ejecutar limpiezas automaticas globales ni escrituras BD por esta regla.
+- Respaldos necesarios fuera del repo, en `C:\xampp\panel_db_backups`, segun `docs/erp_respaldo_bd_estandar.md`. No eliminar respaldos historicos automaticamente.
+
 ## Comandos y verificaciones utiles
 
 - Sintaxis PHP puntual: `php -l ruta/al/archivo.php`.
