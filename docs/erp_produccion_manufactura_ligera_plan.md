@@ -1091,3 +1091,48 @@ Correccion de codigo para simulacion - 2026-10-30:
 - `PERA-6035` corresponde a la pecera nominal `60 x 40 x 35 cm`.
 - `PERA-6040` corresponde a la pecera nominal `60 x 30 x 40 cm`.
 - Los datos nominales de `PERA-3040` y `PERA-6040` fueron corregidos en la base operativa el 2026-10-30.
+
+## Complemento propuesto: planeacion de cortes de aluminio
+
+Documentacion IA: Codex GPT-6  
+Fecha: 2026-11-13  
+Estado: necesidad registrada; propuesta pendiente de validar con el dueno. Sin implementacion ni cambios en BD.
+
+### Necesidad operativa confirmada
+
+El negocio fabrica marcos para peceras y marcos de aluminio con malla metalica para tapas. Cuenta con plantillas de las tiras necesarias. Requiere combinar cortes entre trabajos para aprovechar el material y decidir cuando conservar una tira o sobrante para necesidades posteriores, sin calcular manualmente cada combinacion.
+
+### Propuesta para validar
+
+- Agregar un planeador de cortes lineales dentro de Fabricacion, complementario al calculo de vidrio.
+- Capturar plantillas con piezas, cantidades y longitudes reales de corte; distinguir marco de pecera y marco de tapa sin asumir que sus descuentos o ensambles sean iguales.
+- Combinar necesidades seleccionadas compatibles por perfil/material/acabado, usando barras enteras y sobrantes disponibles con su longitud individual.
+- Contemplar perdida por herramienta, saneado de extremos, angulos y referencia de medicion cuando correspondan. No deducir cortes desde medidas exteriores sin validar la regla de armado.
+- Priorizar trabajos requeridos y comparar alternativas por barras nuevas abiertas, desperdicio no reutilizable y sobrantes utiles. Un sobrante largo conservado no equivale a desperdicio.
+- Mostrar cortes opcionales para stock solo desde modelos/cantidades autorizados por el usuario; no fabricar extras automaticamente para llenar una barra.
+- Entregar hoja por barra: origen, secuencia de piezas, trabajo destino, perdidas y sobrante resultante. Separar propuesta de corte de ejecucion fisica.
+- Iniciar con simulacion sin movimientos de inventario. La integracion posterior debera registrar consumo, piezas resultantes y remanentes sin duplicar existencias.
+
+### Datos pendientes del dueno
+
+- Longitudes comerciales del aluminio y si hay varios perfiles/acabados compatibles o incompatibles.
+- Ejemplo real de plantilla de marco y de tapa, con cantidades y significado de las medidas.
+- Herramienta, ancho consumido por corte y tipo de union/angulo (por ejemplo recto o inglete).
+- Sobrantes existentes y criterio practico para conservarlos.
+- Necesidades inmediatas y modelos que se permite adelantar para stock.
+
+### Continuidad
+
+Siguiente paso: validar estos datos con un caso real y comparar un plan que cubra solo lo urgente con otro que incluya piezas opcionales autorizadas. No aplicar las reglas de descuento de vidrio al aluminio.
+
+### Aclaracion de alcance del dueno: aprovechamiento de tira
+
+Documentacion IA: Codex GPT-6  
+Fecha: 2026-11-13
+
+- El dueno ya tiene plantillas marcadas para cortar a 45 grados. La necesidad actual es combinar longitudes de piezas para aprovechar la tira, no calcular geometria ni desarrollar control de fabricacion/inventario.
+- Ejemplo ilustrativo, no receta confirmada: pecera 50 x 26 x 30 cm; un marco usa dos piezas de 50 cm y dos de 26 cm, total nominal 152 cm. La altura no interviene en ese ejemplo de marco.
+- El dueno indica tira comercial de 6.10, interpretada como 6.10 metros (610 cm), pendiente de corroborar unidad. No interpretar como 6.10 cm.
+- El calculo debe partir de longitudes reales de las plantillas y cantidades necesarias, permitiendo combinar piezas de distintos marcos. El total por marco sirve como resumen, pero el acomodo se resuelve por pieza.
+- Ejemplo nominal: cuatro marcos de 152 cm suman 608 cm; quedan 2 cm antes de descontar perdidas por corte/saneado. No afirmar que caben fisicamente sin validar esas perdidas y el uso real del inglete.
+- Prioridad inmediata: recibir lista de medidas/cantidades y proponer distribucion de cortes por tira. Las integraciones ERP ampliadas de la propuesta anterior quedan fuera del alcance inmediato.

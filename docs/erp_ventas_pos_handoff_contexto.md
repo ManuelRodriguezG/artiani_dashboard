@@ -7004,7 +7004,7 @@ Ajuste preparado sin escritura productiva:
 - El resultado distingue cambios propuestos, avisos y bloqueos, e informa expresamente que no aplica reversa POS ni modifica caja, inventario, kardex o notificaciones.
 - Se agregó acceso al sidebar y al buscador global bajo `Ventas y POS > Correcciones historicas`.
 
-No implementado todavía:
+Pendiente para producción:
 
 - No existe botón ni endpoint de aplicación real.
 - No se actualizó ninguna venta, detalle, almacén, caja, inventario o incidencia.
@@ -7068,3 +7068,120 @@ Siguiente paso operativo:
 - Para `VHIS-20261022-000014`, la propuesta confirmada por conversación sería 3 pzas de 100 g, $20 por porción, total $60; SKU `26A17-KG-GRANEL`; cantidad base 0.3 kg. La interfaz mostraba almacén ID 4 (Acuario), pero el dueño confirma que corresponde a Mascotas (ID 5 ya usado por el módulo); corregir almacén es una operación histórica separada con su propia bitácora.
 - La prevalidación anterior falló porque consideraba `VENTA-RAPIDA` como SKU ya asignado. Ese bloqueo se está corrigiendo en el código antes de volver a prevalidar.
 - No se han aplicado cambios a la venta. La corrección de almacén requiere respaldo productivo externo y dry-run; no ejecutar hasta verificar respaldo, esquema/auditoría disponible, permiso y confirmación final de los valores.
+
+## Handoff 2026-11-17 - Operación central y asistente conversacional POS
+
+Estado productivo verificado read-only:
+
+- Almacén central: `id_almacen=6`, `OPERACION-GENERAL`, activo, tipo `principal`, con recepción/venta/preparación/ajustes habilitados.
+- Caja central: `id_caja=4`, `CJ-OPERACION-GENERAL-01`, activa y vinculada al almacén `6`.
+- Terminal central: no creada; el POS puede operar desde cualquier navegador autorizado sin terminal fija.
+- Turnos abiertos en el almacén central: ninguno durante la última consulta.
+- Cajas históricas `1` y `2` permanecen vinculadas a almacenes `4` y `5`; no se modificaron.
+
+Decisión operativa:
+
+- Las ventas nuevas deben usar el almacén `6` y la caja `4`.
+- La captura conversacional se diseñará como adaptador seguro sobre endpoints POS existentes, no como acceso directo a MySQL.
+- El asistente podrá crear/actualizar atenciones y preparar prevalidaciones, pero el cobro requerirá resumen y confirmación explícita.
+- El backend seguirá siendo la única autoridad para precios, inventario, descuentos, pagos, permisos, turno y folio.
+- Cada cobro deberá conservar usuario operador, caja, turno, idempotency key y origen conversacional.
+
+Documento de diseño: `docs/erp_pos_asistente_registro_ventas.md`.
+
+No implementado todavía:
+
+- Adaptador API/chat autenticado.
+- Idempotencia específica para reintentos conversacionales.
+- Creación de atenciones desde el adaptador externo.
+- Cobro real desde conversación.
+
+Regla: no permitir que un chat ejecute SQL, DDL, respaldos, reversas o ajustes de inventario; esas acciones siguen flujos administrativos del ERP.
+
+### Primera entrega de simulación 2026-11-17
+
+- `app/modelos/pos_conversacional.php` contiene el servicio interno. Reutiliza búsquedas, simulación de partida y atención, detalle de cuenta y las dos prevalidaciones POS. Está fuera del router y requiere que la futura integración aplique sesión y `ventas.operar`. La prevalidación comprueba la asignación efectiva a `6/4` y el turno abierto. `confirmar_cobro` queda bloqueada.
+- El [contrato y la auditoría del asistente](erp_pos_asistente_registro_ventas.md) documentan `Ventas.php`, `VentasErp.php`, `VentasErpEsquema.php`, `pos.js` y `Core.php`. Hay alta de atención, sin ruta de edición. La carga para cobro pierde datos del snapshot de `VENTA-RAPIDA` y de unidades físicas. La conversión bloquea un segundo cobro de la misma atención, pero aún falta idempotencia durable con recuperación de folio y confirmación vinculada al resumen. Los POST dry-run existentes pueden generar auditoría genérica.
+- La alerta inicial de Catálogo ya nace en la transacción del cobro real. Se propone completar su payload con datos del detalle y mantener la resolución en la bandeja VRP. La referencia operativa para Catálogo y Notificaciones está en [el documento de alertas](erp_notificaciones_alertas_trabajo.md#venta-rápida-pos-y-catálogo).
+- Verificación de la primera entrega completada con sintaxis PHP, 18 casos con modelo simulado, dos casos de la validación de venta rápida de `VentasErp` con la conexión deshabilitada e inspección estática de rutas. Las pruebas de alta o edición de atenciones en productivo requieren autorización y respaldo externo. El cobro, la resolución de Catálogo y cualquier DDL tendrán autorizaciones propias.
+
+### Verificación operativa de caja central 2026-11-17
+
+- Los métodos de lectura del ERP confirmaron en productivo que la caja `4` sigue activa en el almacén `6`, con modo de inventario `normal`. El corte devolvió cero terminales registradas en esa caja, cero asignaciones centrales y cero turnos centrales abiertos. La bandeja central respondió con el esquema disponible y cero atenciones activas en la primera página.
+- Los tres operadores con asignaciones (`1`, `2` y `3`) tienen `ventas.operar` por rol. Para los tres, `asignacionActualTerminalPos` selecciona la caja `2`, almacén `5`, terminal `2`. Las prioridades efectivas actuales son `1`, `10` y `10`, respectivamente.
+- La simulación administrativa de una asignación central nueva, con prioridad `1` y terminal nula, pasó para los tres operadores sin bloqueos. El aviso de amarrar una terminal fija proviene de la configuración POS anterior y la validación lo trata como aviso. Se mantiene la decisión del dueño de operar sin terminal fija.
+- La prueba del adaptador con el modelo real encontró el SKU `FOHRS-PAFAKG`. La prevalidación se detuvo por la asignación efectiva fuera de la caja central, antes de validar turnos, importes o pagos. La verificación se ejecutó desde la consola con los modelos del ERP y sin escrituras. La prueba con sesión de navegador sigue pendiente.
+- Se propuso al dueño dar de alta asignaciones centrales con prioridad `1`. Esta prioridad también cambia la caja efectiva del POS habitual de esos operadores, porque el ERP elige el número menor y, ante empate, la fecha y el ID más recientes. La apertura del turno y la prueba de alta de atenciones tienen autorizaciones separadas.
+
+### Asignaciones centrales aplicadas y verificadas 2026-11-17
+
+Con autorización explícita y [respaldo externo previo](erp_respaldo_bd_estandar.md#respaldo-2026-11-17-para-asignaciones-pos-de-la-caja-central), se crearon tres asignaciones a la caja `4`, almacén `6`, con prioridad `1` y terminal nula.
+
+| Operador | Asignación efectiva | Auditoría ERP |
+| --- | --- | --- |
+| `1` | `6` | `19959` |
+| `2` | `7` | `19960` |
+| `3` | `8` | `19961` |
+
+La lectura independiente de `VentasErp::asignacionActualTerminalPos()` confirmó estatus `activo` y selección efectiva central para los tres. Las cinco asignaciones previas se conservan. El alta usó el modelo administrativo desde consola y dejó los eventos de auditoría con ese origen, sin identificarse como uno de los operadores. La caja sigue con cero terminales y cero turnos abiertos. Las ventas quedan fuera de esta operación. Abrir turno y probar escrituras de atenciones requerirán sus propias autorizaciones.
+
+### Dry-run de apertura de la caja central 2026-11-17
+
+- `VentasErp::aperturaTurnoDryRun()` pasó sin bloqueos para los operadores `1`, `2` y `3`, con asignaciones centrales activas `6`, `7` y `8` y permisos `ventas.ver` y `ventas.operar`. Se usó el importe de prueba de `$500.00 MXN` que trae el formulario. El folio sugerido fue `TUR-20261117-004-001`, sin reserva de folio.
+- La caja `4` del almacén `6` estaba activa y seguía con cero turnos abiertos al terminar. Se verificaron las columnas que usa el backend para guardar el turno y su movimiento inicial. La prueba se ejecutó por los métodos de lectura del ERP y no escribió turnos, movimientos ni ventas.
+- La apertura efectiva requiere elegir a un operador responsable y registrar el fondo realmente contado. Con autorización explícita y respaldo externo de turnos y movimientos de caja, se revalida desde `Ventas > Caja y turnos` en la sesión del responsable y se confirma con `ABRIR TURNO`.
+
+### Apertura de la caja central verificada 2026-11-17
+
+- Con autorización explícita y [respaldo externo previo](erp_respaldo_bd_estandar.md#respaldo-2026-11-17-para-apertura-de-turno-de-la-caja-central), se abrió el turno `33` (`TUR-20261117-004-001`) en la caja `4`, almacén `6`, con el operador `1` y fondo inicial de `$500.00 MXN`.
+- El modelo `VentasErp::abrirTurnoRealPos()` registró en una transacción el turno y el movimiento de entrada `89`. La apertura se ejecutó por consola administrativa con permiso `ventas.operar` verificado y queda trazada en la auditoría ERP `19962`.
+- La lectura independiente verificó un único turno abierto para esa caja, fondo inicial y esperado de `$500.00 MXN`, una entrada por fondo inicial, y cero ventas activas en el turno al corte. Se mantienen las asignaciones sin terminal fija. Cualquier prueba de venta requiere autorización propia.
+
+### Dry-run de `FOHRS-PAFAKG` en caja central 2026-11-17
+
+- El operador `1` tenía como asignación efectiva la caja `4` del almacén `6` y el turno `33` (`TUR-20261117-004-001`) seguía abierto. La simulación usó una unidad de venta de `Heno de alfalfa 1 kg` (`id_sku=1793`, unidad `kg`).
+- El POS resolvió `$50.00 MXN` por kg con `lista_general_erp`, para un total simulado de `$50.00 MXN`. Efectivo (`id_metodo_pago=1`) estaba habilitado en caja. El pago exacto simulado cubrió el total con saldo y cambio en cero.
+- El almacén `6` tenía `0 kg` disponibles y el plan de salida reportó un faltante de `1 kg`. La caja opera en modo `normal` y el adaptador devolvió `BLOQUEADA` porque el POS no halló una política activa de inventario pendiente aplicable a ese SKU y almacén.
+- Las comprobaciones se hicieron mediante consultas y simulaciones del ERP. El turno seguía abierto con cero ventas activas al cierre de la revisión.
+
+### Piloto de caja central sin afectación de inventario 2026-11-17
+
+- El dueño planteó vender mientras organiza las existencias y activar la afectación de inventario cuando termine esa preparación. El modo ERP `piloto_sin_inventario` se aplica por caja. Guarda venta, folio, pagos y corte de caja. Durante el piloto las ventas no descuentan existencias, generan kardex ni abren pendientes por faltantes de un SKU catalogado. Las partidas `VENTA-RAPIDA` conservan su aviso de clasificación a Catálogo cuando se guarda la venta.
+- La simulación del modo propuesto para la caja `4` validó el esquema y la configuración. La partida `FOHRS-PAFAKG`, 1 kg por `$50.00 MXN`, pasó la validación de partida y pago con `0 kg` registrados y plan `sin_afectacion_piloto`, sin salida prevista. Se usaron los validadores de lectura del dominio con el modo simulado. La caja real seguía en `normal` y el turno `TUR-20261117-004-001` seguía abierto con cero ventas activas.
+- `public/assets/js/custom/apps/erp/ventas/pos.js` ya consulta el modo oficial antes de mostrar la autorización de faltantes. En piloto mantiene el resumen y la confirmación habitual de cobro. La vista `app/vistas/paginas/apps/erp/ventas/pos.php` carga la versión actualizada del script. Pasaron siete comprobaciones aisladas de confirmación y la revisión de sintaxis JS y PHP.
+- Para volver a afectación normal, el dueño definirá el corte de conteo y saldos. Las ventas del piloto quedan como historial de caja y reportes para la conciliación.
+
+### Piloto de caja central activado y verificado 2026-11-17
+
+- Con autorización explícita y [respaldo externo previo](erp_respaldo_bd_estandar.md#respaldo-2026-11-17-para-activar-el-piloto-de-la-caja-central), se activó `piloto_sin_inventario` con `afectar_inventario=0` en la caja `4` del almacén `6`. El alta del modo usó el modelo administrativo del ERP en consola y quedó en la auditoría `19963`. La lectura posterior comprobó las demás filas de caja y los campos no relacionados con el cambio.
+- Se conservó `generar_alertas_inventario=1` como configuración de la caja. En piloto el backend condiciona el alta de pendientes por faltantes y la salida de inventario a `afectar_inventario=1`, por lo que ambos caminos se omiten mientras el piloto está activo. El flujo de clasificación de `VENTA-RAPIDA` conserva su aviso a Catálogo al guardar una venta real.
+- Se repitió el dry-run con la configuración efectiva. Una unidad de venta de `FOHRS-PAFAKG` (`1 kg`) a `$50.00 MXN`, con `0 kg` disponibles y pago exacto en efectivo, quedó `LISTA_PARA_CONFIRMAR`, sin bloqueos, cambio ni movimientos de inventario previstos. El turno `TUR-20261117-004-001` siguió abierto y tenía cero ventas activas al terminar. El dry-run no registró ventas ni cobros.
+
+### Venta piloto autorizada y verificada 2026-11-17
+
+- Tras el [respaldo externo](erp_respaldo_bd_estandar.md#respaldo-2026-11-17-para-una-venta-piloto-en-caja-central), se registró una venta por el modelo de cobro POS en consola administrativa, con operador `1`, caja `4`, almacén `6` y turno `33` (`TUR-20261117-004-001`). La referencia `POS-CENTRAL-T33-20261117-07640909` identificó exactamente una venta. La operación no habilitó el cobro en el adaptador conversacional.
+- Venta `70`, folio `POS-20261117-000001`, estatus `pagada`. Detalle de `1 kg` de `FOHRS-PAFAKG` por `$50.00 MXN`. Pago `81` en efectivo por el total, vinculado al ingreso de caja `90`. El turno seguía abierto, con una venta activa y un monto esperado de `$550.00 MXN`. Auditoría ERP `19964`.
+- Se verificó `afecta_inventario=0` en la venta, cero filas de trazabilidad de inventario, cero movimientos de kardex por el folio y cero pendientes de inventario de la venta. La comparación de existencias y unidades del SKU en el almacén `6` coincidió antes y después, con `0 kg` disponibles.
+
+### Conciliación del corte de ventas 2026-11-17
+
+- Con autorización del dueño y [respaldo externo previo](erp_respaldo_bd_estandar.md#respaldo-2026-11-17-para-conciliar-el-corte-de-ventas-pos), se aplicó `CAN-20261117-000001` al folio piloto `POS-20261117-000001`. El movimiento `91` compensa los `$50.00 MXN` asentados en efectivo en el piloto. Fue una corrección de registro sin devolución física de dinero ni reingreso de inventario.
+- Se registró el pedido completo por `$485.00 MXN` como transferencia en `POS-20261117-000002` con Kmita, heno y el cargo de envío. El pago lleva una nota descriptiva que identifica la captura y deja explícito que se carece del folio bancario.
+- En el turno `TUR-20261117-004-001` se verificaron 16 ventas pagadas por `$2,435.00 MXN`: `$1,645.00` en efectivo, `$305.00` en débito y `$485.00` en transferencia. Se usaron las horas del reporte como fecha operativa en el piloto, con referencias únicas `POS-CORTE-20261117-T33-01` a `-17`, excepto `-11`. Se comprobaron cero salidas y pendientes de inventario de esas ventas.
+- Se verificaron 14 avisos `pendiente_catalogo_pos` ligados a `VRP-20261117-000001` a `VRP-20261117-000014`. El juguete para aves y la pezuña individual están en `VRP-20261117-000007` y `-000008`. Nupec Adulto Razas Pequeñas quedó como una porción de `$50.00 MXN` en `VRP-20261117-000014`, con precio informado de `$145.00 MXN/kg` y peso equivalente aproximado de `345 g`, sin peso físico confirmado. El aviso `743` corresponde a precio formal del SKU de ratón `HAIZ-RAON`, vendido a `$35.00 MXN/pza` con el flujo de precio provisional.
+- Pendiente `POS-CORTE-20261117-T33-11`, cuenta de las 17:12 por `$510.00 MXN` en efectivo. El sifón Lomas previsto como venta rápida es de `$160.00 MXN` y el `SPF-600` de `$350.00 MXN`. El ERP tiene `$380.00 MXN` para el filtro y exige una excepción comercial de `$30.00 MXN`. La búsqueda de autorizaciones vigentes para el SKU e importe no devolvió coincidencias. Se mantuvo la cuenta completa pendiente para conservar un solo pago y folio. El chat nuevo para revisar incidencias se solicitó después de completar el corte.
+- El dueño confirmó registrar los `$30.00 MXN` como descuento por partida del `SPF-600`. La simulación calculó `$350.00 MXN` para el filtro. Se comprobó que no hay política comercial POS vigente aplicable al almacén `6`; las modalidades de descuento por partida o general, precio manual y precio conjunto devolvieron ausencia de política. El único usuario configurado como autorizador para ese alcance es el `1`, con autoautorización deshabilitada. Los operadores `2` y `3` tienen permiso de descuento por partida y asignación efectiva al mismo turno. Habilitar una política temporal a nivel de almacén y usar otro operador requieren decisión explícita, porque amplían el alcance de la corrección individual. La revisión fue de solo lectura.
+
+### Corte del 17 de noviembre completado e incidencias pendientes
+
+- Tras la autorización explícita y el [respaldo externo verificado](erp_respaldo_bd_estandar.md#respaldo-2026-11-17-para-descuento-puntual-de-spf-600), se activó la política temporal `5` de descuento por partida para POS del almacén `6`, con tope de `$30.00 MXN` y autorización obligatoria. El operador `2` aplicó la excepción `EXC-20261117-000001`, autorizada por el operador `1` con una credencial de un solo uso. La credencial se consumió y la política se desactivó al terminar. Auditorías `19988` a `19992`.
+- La referencia `POS-CORTE-20261117-T33-11` quedó registrada una sola vez a las 17:12 en `POS-20261117-000018` (venta `87`). El filtro `SPF-600` quedó en `$350.00 MXN` después de un descuento de `$30.00 MXN` y el sifón Lomas en `$160.00 MXN`. El pago `99` y el ingreso de caja `108` coinciden por `$510.00 MXN` en efectivo. Se verificó cero kardex por el folio, cero trazabilidad de salida y cero pendientes de inventario de la venta.
+- El turno `TUR-20261117-004-001` sigue abierto. El corte formal confirma 17 ventas pagadas por `$2,945.00 MXN`, con `$2,155.00` en efectivo, `$305.00` en débito y `$485.00` en transferencia. El folio de prueba permanece cancelado.
+- El sifón Lomas generó `VRP-20261117-000015` y notificación `754`. En total hay 15 avisos pendientes de Catálogo de este turno, desde `VRP-20261117-000001` hasta `-000015`, y el aviso `743` para Ventas / Listas de precios por el SKU de ratón `HAIZ-RAON`. Los avisos de Catálogo se consultan en `/ventas/venta_rapida_pendientes`, con la trazabilidad y los permisos descritos en [ERP · Notificaciones y alertas de trabajo](erp_notificaciones_alertas_trabajo.md).
+
+### Cargo y costo de envío en caja
+
+- El ticket `POS-20261117-000002` contiene `$450.00 MXN` de mercancía y `$35.00 MXN` cobrados por envío en una sola transferencia de `$485.00 MXN`. La partida de envío quedó como venta rápida sin control de inventario y generó `VRP-20261117-000001`. La búsqueda de cargos y servicios de envío en el catálogo operativo no devolvió coincidencias.
+- El importe cobrado al cliente pertenece al ticket. El importe que la tienda paga al repartidor o paquetería es un costo distinto. Si el pago sale en efectivo del cajón, POS dispone del flujo protegido de `Gasto de caja` con autorización, evidencia y disminución del efectivo esperado.
+- Corrección solicitada por el dueño el 2026-11-20. Con [respaldo externo previo](erp_respaldo_bd_estandar.md#respaldo-2026-11-20-para-reclasificar-cargo-de-envío-pos), se creó `CARGO-ENVIO` como servicio en unidad `SERV` y tipo de inventario `cargo` sin control de existencias. Se dejó en borrador, sin fijar tarifa para cobros nuevos. El modelo de resolución de venta rápida clasificó `VRP-20261117-000001` y cerró el aviso `739`. Se verificaron los `$35.00 MXN` del cargo, el folio original, el pago único por transferencia de `$485.00 MXN`, la caja y cero movimientos de inventario. Auditorías administrativas `20078` y `20079`.
+- Para los gastos, la pantalla de Movimientos de caja valida el efectivo entregado desde el cajón. El registro real está en el flujo protegido y requiere turno, autorización y comprobante. Para pagos desde banco o tarjeta, Contabilidad > Cierre mensual permite clasificar el movimiento bancario como `Gasto operativo` y adjuntar o relacionar su comprobante. Propuesta operativa para registrar gastos frecuentes: acción `Registrar gasto` con fecha, concepto, importe, cuenta de origen, beneficiario, comprobante y folio de venta opcional. El mismo gasto debe conciliarse con su pago para evitar duplicados.

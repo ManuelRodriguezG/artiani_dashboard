@@ -86,6 +86,8 @@ Reservas:
 - Sí crear incidencias de venta rápida para Catalogo y solicitudes de clasificación.
 - Conservar el almacén general como referencia de la venta.
 
+El dueño autorizó y se verificó el piloto en la caja central `4` del almacén `6` el 2026-11-17, con respaldo externo previo. El piloto es reversible para las ventas futuras una vez conciliados los saldos. [Activación y verificación POS](erp_ventas_pos_handoff_contexto.md#piloto-de-caja-central-activado-y-verificado-2026-11-17).
+
 ### Fase 4 - Consolidación de inventario
 
 - Levantar conteos físicos.
@@ -363,3 +365,9 @@ La propuesta quedó validada sin escritura:
 - Bloqueos: ninguno.
 
 La caja central está actualmente en modo `normal` y con generación de alertas de inventario activa. La creación de la terminal no abrirá turno ni cambiará ese modo.
+
+## Asignaciones centrales verificadas 2026-11-17
+
+La decisión vigente es operar desde navegadores autorizados con asignación personal y terminal nula. Con respaldo externo y autorización del dueño, los operadores `1`, `2` y `3` quedaron activos en la caja central `4` del almacén `6`. La prioridad `1` hace efectiva esa asignación para cada operador. Se conservaron las asignaciones previas. [Verificación y auditoría POS](erp_ventas_pos_handoff_contexto.md#asignaciones-centrales-aplicadas-y-verificadas-2026-11-17).
+
+El 2026-11-17 se abrió el turno `TUR-20261117-004-001` de la caja central con el operador `1` y fondo de `$500.00 MXN`, después del respaldo externo. Se verificó el estado abierto y el movimiento inicial. [Apertura y auditoría POS](erp_ventas_pos_handoff_contexto.md#apertura-de-la-caja-central-verificada-2026-11-17).

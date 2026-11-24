@@ -293,6 +293,13 @@ No usar `erp_notificaciones` como sustituto de la incidencia. La incidencia o pe
 
 ## Criterio de implementacion
 
+### Venta rápida POS y Catálogo
+
+- El cobro POS crea el pendiente VRP y el aviso `pendiente_catalogo_pos` dentro de la transacción por cada partida `VENTA-RAPIDA` confirmada. La atención abierta y las simulaciones carecen de folio de venta y quedan fuera del disparador.
+- El origen es `erp_pos_venta_rapida_pendientes`. `catalogo.ver` permite consultar el aviso y abrir `/ventas/venta_rapida_pendientes?folio=<folio_vrp>`. La acción sugerida es vincular un SKU vigente o pedir a Catálogo un borrador mediante la incidencia de calidad trazable al VRP. La resolución sigue los permisos y contratos del ERP.
+- Antes de habilitar el POS conversacional se propone completar `payload_json` con descripción, cantidad, unidad, precio unitario, operador, folios del pendiente y la venta, almacén central y acción sugerida. Debe provenir de la partida guardada y conservar la relación con el pendiente para evitar duplicados. El aviso actual guarda una parte de esos datos y puede faltar si el esquema transversal está incompleto.
+- Fecha: 2026-11-17. Diseño y auditoría sin escritura operativa. Detalles en [el contrato del asistente POS](erp_pos_asistente_registro_ventas.md#alerta-de-venta-rapida-y-trabajo-de-catálogo).
+
 ### Acciones de catalogacion de ventas historicas
 
 - Una notificacion `venta_historica_regularizacion` con `accion=clasificar_sku` debe abrir `/ventas/acciones_historicas`, usando el ID de notificacion o partida para cargar venta y detalle exactos. La bandeja de notificaciones debe resolver este destino tambien para avisos ya persistidos cuyo `url_accion` antiguo apuntaba a `/catalogoerp`.

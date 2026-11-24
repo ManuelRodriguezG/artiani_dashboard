@@ -185,7 +185,8 @@
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label class="form-label">Estado de cuenta</label>
-                                                    <input class="form-control form-control-solid" id="contabilidad_banco_archivo" type="file" accept=".csv,.txt,.xlsx,.json">
+                                                    <input class="form-control form-control-solid" id="contabilidad_banco_archivo" type="file" accept=".csv,.txt,.xlsx,.xml,.json">
+                                                    <div class="text-muted fs-9 mt-1">También puedes cargar XML de estados de cuenta de inversiones. Los CFDI XML se cargan en su sección independiente.</div>
                                                 </div>
                                                 <div class="col-md-1">
                                                     <button class="btn btn-light-primary w-100" id="contabilidad_demo" type="button" title="Demo"><i class="bi bi-stars"></i></button>
@@ -703,6 +704,21 @@
                 <button type="button" class="btn btn-light-primary" id="contabilidad_conciliacion_modal_simple"><i class="bi bi-table"></i> Descargar simple</button>
                 <button type="button" class="btn btn-primary" id="contabilidad_conciliacion_modal_exportar"><i class="bi bi-download"></i> Descargar CSV</button>
             </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="contabilidad_cfdi_detalle_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title fw-bold fs-4 mb-1" id="contabilidad_cfdi_detalle_titulo">Detalle del CFDI</h3>
+                    <div class="text-muted fs-8" id="contabilidad_cfdi_detalle_subtitulo"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body" id="contabilidad_cfdi_detalle_cuerpo"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button></div>
         </div>
     </div>
 </div>

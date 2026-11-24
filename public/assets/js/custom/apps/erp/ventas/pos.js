@@ -1850,7 +1850,17 @@
             : "Confirmar venta POS";
         boton.innerHTML = "<i class=\"bi bi-cash-coin\"></i> Cobrar <span class=\"pos-shortcut-hint\">Ctrl+Enter</span>";
     }
+    /**
+     * IA: Codex GPT-6 | Fecha: 2026-11-17
+     * Propósito: pedir autorización por faltantes solo en cajas que afectan inventario.
+     * Impacto: una caja piloto conserva la confirmación normal de cobro aunque el SKU no tenga existencia.
+     * Contrato: usa el modo oficial devuelto por el POS. El backend sigue validando el cobro.
+     */
     function carritoRequiereFaltantesAutorizados() {
+        var caja = cajaActualDatos();
+        if (caja.modo_operacion_inventario === "piloto_sin_inventario" || String(caja.afectar_inventario) === "0") {
+            return false;
+        }
         return carrito.some(function (item) {
             var plan = item.plan_salida_inventario || {};
             var faltantePlan = cantidad(plan.faltante || plan.cantidad_pendiente || 0);

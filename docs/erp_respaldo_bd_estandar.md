@@ -955,3 +955,59 @@ IA: Codex GPT-6. Asignacion autorizada de PNG a CC-00051–CC-00056; chinchillas
 - Alcance: datos de tablas comerciales catalogos/items/eventos; respaldo externo nuevo no vacio y terminacion SQL validada; sin DDL.
 - Resultado: seis portadas activas, 51 catalogos restantes y todas las selecciones sin cambios.
 - Evidencia: `docs/erp_catalogos_comerciales_portadas_jaulas_2026-11-01.md`.
+
+## Respaldo 2026-11-17 para asignaciones POS de la caja central
+
+- Archivo `C:/xampp/panel_db_backups/productivo_panel_20261117_131930_antes_asignaciones_pos_central_d17a63.sql`.
+- SHA-256 `6b3c65788e7c97afeecfd0d3c3b69344f04545870deb3b29c4d4ab3de39af4c2`.
+- Respaldo focalizado de estructura y cinco filas de `erp_pos_usuarios_cajas`, con 4 126 bytes. Se verificaron la terminación correcta de `mysqldump`, la marca de fin y la huella del archivo externo.
+- El dueño autorizó asignar a los operadores `1`, `2` y `3` a la caja `4` del almacén `6`, con terminal nula. El respaldo precede el alta.
+- Resultado verificado después del alta. Las asignaciones `6`, `7` y `8` quedaron activas y efectivas. Se conservan las cinco asignaciones anteriores. Auditoría ERP `19959`, `19960` y `19961`. La caja central sigue con cero turnos abiertos.
+
+## Respaldo 2026-11-17 para apertura de turno de la caja central
+
+- Archivo `C:/xampp/panel_db_backups/productivo_panel_20261117_161710_antes_apertura_turno_caja4_3f274d.sql`.
+- SHA-256 `1ef56fddbf15a571c32e5df6944e3a3af3f033e3a6351c542db7dba04304fc2a`.
+- Respaldo focalizado de estructura y datos de `erp_pos_turnos` (32 filas) y `erp_pos_movimientos_caja` (88 filas), con 84 464 bytes. Se verificaron el código de salida, la marca de fin y la huella.
+- El dueño autorizó la apertura de la caja `4`, almacén `6`, con operador `1` y fondo inicial de `$500.00 MXN`. El respaldo precede la apertura.
+- Resultado verificado con una lectura independiente. Turno `33`, folio `TUR-20261117-004-001`, estatus `abierto`, movimiento inicial `89` por `$500.00 MXN` y auditoría ERP `19962`.
+
+## Respaldo 2026-11-17 para activar el piloto de la caja central
+
+- Archivo `C:/xampp/panel_db_backups/productivo_panel_20261117_171834_antes_piloto_inventario_caja4_6b8ca2.sql`.
+- SHA-256 `00f5f8efec3c240c53cc63508df9db2fadba4aeec782421f890f078f947e2406`.
+- Respaldo focalizado de estructura y cuatro filas de `erp_pos_cajas`, con 5 393 bytes. Se verificaron el código de salida de `mysqldump`, la marca de fin y la huella.
+- La autorización se limita a activar `piloto_sin_inventario` en la caja `4` del almacén `6`. El respaldo precede el cambio.
+- Resultado verificado. La caja `4` quedó en `piloto_sin_inventario` con `afectar_inventario=0`. Auditoría ERP `19963`. Se preservó el resto de la configuración de cajas.
+
+## Respaldo 2026-11-17 para una venta piloto en caja central
+
+- Archivo `C:/xampp/panel_db_backups/productivo_panel_20261117_172559_antes_venta_piloto_caja4_07640909.sql`.
+- SHA-256 `b32bc2d63bc9d06bdc3e6c162bbf1a5fb4ec0e04e1a4f33a7cd47bcb63160af0`, 423 013 bytes.
+- Respaldo focalizado de estructura y datos de `erp_ventas` (66 filas), `erp_ventas_detalle` (111), `erp_ventas_pagos` (80), `erp_ventas_detalle_garantias` (32), `erp_pos_movimientos_caja` (89) y `erp_pos_turnos` (33). Se verificaron el código de salida de `mysqldump`, las seis tablas y la marca de fin.
+- El dueño autorizó una venta de `FOHRS-PAFAKG`, `1 kg` por `$50.00 MXN` en efectivo, con el operador `1` en el turno `TUR-20261117-004-001`. El respaldo precede la operación `POS-CENTRAL-T33-20261117-07640909`.
+- Resultado verificado. Venta `70` / `POS-20261117-000001`, pago `81`, movimiento de caja `90` y auditoría ERP `19964`. Sin salida ni pendiente de inventario por el folio.
+
+## Respaldo 2026-11-17 para conciliar el corte de ventas POS
+
+- Archivo `C:/xampp/panel_db_backups/productivo_panel_20261117_225344_antes_corte_pos_20261117_75273c3c.sql`.
+- SHA-256 `e9c83712ef8554b8074bdc71cc0d6f335da4a8921e78800de7ce60f5ad15d267`, 1 478 803 bytes. Se verificaron el código de salida, las estructuras y la marca de fin.
+- Alcance de doce tablas de ventas, partidas, pagos, garantías, caja, turnos, devoluciones, finanzas de devoluciones, pendientes y eventos de venta rápida y notificaciones.
+- La autorización incluye cancelar el folio piloto `POS-20261117-000001` y capturar el corte del 17 de noviembre en caja `4`, almacén `6`, con trazabilidad por cuenta. El respaldo precede la cancelación y el registro.
+- Resultado verificado en esta etapa. Cancelación `CAN-20261117-000001`, reemplazo por transferencia `POS-20261117-000002` y 16 ventas activas del corte por `$2,435.00 MXN`. Se verificaron 14 avisos a Catálogo, un aviso a Listas de precios y cero salidas o reingresos de inventario. La cuenta de `$510.00 MXN` se completó con el respaldo registrado en la sección siguiente.
+
+## Respaldo 2026-11-17 para descuento puntual de SPF-600
+
+- Archivo `C:/xampp/panel_db_backups/productivo_panel_20261117_232845_antes_descuento_spf600_23dcbc49.sql`.
+- SHA-256 `e23ff2b5a6f73c7c41962a1fe6c2f428543ba642b0a74e8f9e58d934c159d3cf`, 1 602 179 bytes. Se verificaron las doce estructuras y las marcas de fin de la exportación.
+- Incluye datos de políticas comerciales, ventas, partidas, pagos, garantías, movimientos de caja, turnos, ventas rápidas, sus eventos y notificaciones. De excepciones y códigos de autorización se incluyó la estructura para evitar duplicar credenciales. La operación solo requiere filas nuevas en esas dos tablas.
+- El dueño autorizó habilitar temporalmente hasta `$30.00 MXN` de descuento en almacén `6` y registrar la cuenta de `$510.00 MXN` en caja `4`, con operador `2` y autorizador `1`. El respaldo se verificó antes de habilitar la política.
+- Resultado verificado. Política temporal `5`, desactivada después del cobro. Excepción aplicada `EXC-20261117-000001`, venta pagada `POS-20261117-000018`, pago en efectivo `99`, ingreso de caja `108` y aviso a Catálogo `754`. Eventos de auditoría ERP `19988` a `19992`. La venta dejó cero movimientos de inventario.
+
+## Respaldo 2026-11-20 para reclasificar cargo de envío POS
+
+- Archivo `C:/xampp/panel_db_backups/productivo_panel_20261120_163804_antes_cargo_envio_vrp_7a4c70f5.json`.
+- SHA-256 `8f76d732cf8b20958a0f8cc61b897e2a12588924ef77349e50c325b494927e76`, 18 370 bytes. Se verificaron la lectura del archivo, el contenido JSON y la huella antes del cambio.
+- Respaldo focalizado del folio `POS-20261117-000002`, sus partidas, pago, movimiento de caja, trazabilidad, incidencia `VRP-20261117-000001`, evento original y aviso `739`. Incluye la comprobación de ausencia del código `CARGO-ENVIO` antes del alta.
+- El dueño solicitó corregir el cargo de envío de `$35.00 MXN` ya cobrado, conservando la venta por `$485.00 MXN` y su transferencia.
+- Resultado verificado en lectura independiente. Alta de servicio `1820` y SKU `2144` en borrador, sin inventario. Partida `118` vinculada a `CARGO-ENVIO`, incidencia clasificada, evento `37` y aviso `739` resuelto. El folio, el pago `83` por transferencia, el movimiento de caja y la trazabilidad de inventario coinciden con el respaldo. Auditorías `20078` y `20079`.
